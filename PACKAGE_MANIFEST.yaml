@@ -1,0 +1,26 @@
+package:
+  project: KAE-Memory
+  generated: "2026-07-26"
+  generated_from_stage: "Requirements Stage 3"
+  model_version: 4
+  purpose: >
+    Documentation-first repository bootstrap containing the durable project
+    model and development-plan contexts.
+  files:
+    - README.md
+    - project-model.yaml
+    - docs/CONTEXT_INDEX.md
+    - docs/00_project/PROJECT_BRIEF.md
+    - docs/01_discovery/PROBLEM_DEFINITION.md
+    - docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md
+    - docs/05_product/MVP_SCOPE.md
+    - docs/06_architecture/ARCHITECTURE_WORKPLAN.md
+    - docs/09_development/DEVELOPMENT_PLAN.md
+    - docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
+  deliberately_absent:
+    - application source scaffold
+    - framework selection
+    - CockroachDB schema
+    - API contracts
+    - module implementation
+    - CI workflow
