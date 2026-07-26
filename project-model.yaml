@@ -1,0 +1,412 @@
+model:
+  version: 4
+  last_commit: 4
+  generated: "2026-07-26"
+
+project:
+  name: KAE-Memory
+  working_title: Persistent Memory and Knowledge Evolution for Autonomous AI Agents
+  description: >
+    Persistent-memory foundation for an AI-native software engineering platform
+    in which specialised AI agents collaborate across the software development
+    lifecycle using durable shared project knowledge.
+  status: requirements
+  project_type: platform
+  intended_users:
+    - independent software developers
+    - AI-assisted developers
+    - engineering teams
+    - solution architects
+    - technical consultants
+    - technical founders
+  stakeholders:
+    - human product and architecture owner
+    - human developers
+    - AI coding agents
+    - internal platform agents
+  target_platforms: []
+  downstream_consumers:
+    - human team
+    - coding agents
+    - internal platform agents
+  existing_assets:
+    - project vision and objectives
+    - development-context methodology
+    - requirements-engineering framework
+    - agent role definitions
+    - prompt packages
+    - development workflow documentation
+    - knowledge-acquisition methodology
+    - public greenfield GitHub repository
+  known_constraints:
+    - CON-001
+    - CON-002
+    - CON-003
+    - CON-004
+  open_questions:
+    - OQ-006
+    - OQ-007
+    - OQ-008
+    - OQ-009
+  depth: full
+  current_stage: 3
+
+requirements:
+  - id: BG-001
+    title: Persistent multi-agent software engineering
+    statement: >
+      Build a production-grade AI-native software engineering platform with
+      persistent shared engineering memory.
+    type: business
+    source: user-interview
+    priority: must
+    status: captured
+    confidence: high
+  - id: UN-001
+    title: Long-term AI engineering collaboration
+    statement: >
+      Developers need AI collaborators that retain project knowledge and maintain
+      consistency across long-running software projects.
+    type: user
+    source: user-interview
+    priority: must
+    status: captured
+    confidence: high
+  - id: CON-001
+    title: Specification boundary
+    statement: >
+      The context-architecture engagement produces requirements, design, tasks,
+      and development context rather than the full production codebase.
+    type: constraint
+    source: operating-principles
+    priority: must
+    status: validated
+    confidence: high
+  - id: CON-002
+    title: Human-in-the-loop governance
+    statement: >
+      Human owners retain product vision, requirements validation, architecture
+      approval, final technical decisions, and quality assurance.
+    type: constraint
+    source: user-interview
+    priority: must
+    status: captured
+    confidence: high
+  - id: CON-003
+    title: Incremental implementation
+    statement: >
+      Implementation proceeds incrementally from the existing planning and
+      architecture foundation.
+    type: constraint
+    source: user-interview
+    priority: must
+    status: captured
+    confidence: high
+  - id: CON-004
+    title: Implementation repository
+    statement: >
+      The public crismag/KAE-Memory repository is the implementation target for
+      the persistent-memory foundation.
+    type: constraint
+    source: user-decision
+    priority: must
+    status: captured
+    confidence: high
+
+decisions: []
+modules: []
+interfaces: []
+entities: []
+actors:
+  - human product and architecture owner
+  - human developer
+  - AI coding agent
+  - internal platform agent
+
+sources:
+  - id: SRC-001
+    type: github_repository
+    location: https://github.com/crismag/KAE-Memory
+    owner: crismag
+    purpose: implementation repository
+    authority: primary
+    trust_level: high
+    freshness: "2026-07-26"
+    scope: >
+      Greenfield implementation repository for the persistent-memory foundation.
+    important_paths:
+      - .gitignore
+    excluded_paths: []
+    extracted_findings:
+      - EV-001
+    access_status: accessed
+
+evidence:
+  - id: EV-001
+    source: SRC-001
+    statement: >
+      The public repository currently exposes one commit and a root .gitignore,
+      with no visible application source, tests, schema, CI, or architecture
+      package.
+    location: repository root
+    type: current_behavior
+    confidence: high
+    supports:
+      - CON-004
+
+knowledge_gaps:
+  - id: KG-001
+    topic: Uncommitted project assets
+    why_needed: >
+      Previously described repository structure and supporting documentation
+      were not visible in the public repository.
+    category: source
+    current_understanding: >
+      They may be local, private, or not yet committed.
+    risk_if_wrong: medium
+    blocks:
+      - repository-state validation
+    status: open
+
+research_findings: []
+
+risks:
+  - id: RISK-001
+    description: >
+      Beginning implementation before defining the project may cause invented
+      scope and untraceable development tasks.
+    category: delivery
+    likelihood: high
+    impact: high
+    affects:
+      - BG-001
+    mitigation: >
+      Approve requirements, architecture, and bounded tasks before implementation.
+    owner: human product and architecture owner
+    status: open
+  - id: RISK-002
+    description: >
+      Multi-agent collaboration through persistent shared memory may create
+      conflicting knowledge or degraded engineering quality.
+    category: technical
+    likelihood: medium
+    impact: critical
+    affects:
+      - BG-001
+      - UN-001
+    mitigation: >
+      Make the first release test persistent collaboration, provenance,
+      conflict handling, and reuse across sessions.
+    owner: human product and architecture owner
+    status: open
+  - id: RISK-003
+    description: >
+      Premature repository bootstrapping could embed accidental architecture.
+    category: delivery
+    likelihood: high
+    impact: high
+    affects:
+      - CON-003
+      - CON-004
+    mitigation: >
+      Bootstrap context and planning files first; defer implementation-specific
+      structure until the MVP and architecture are approved.
+    owner: human product and architecture owner
+    status: open
+
+open_questions:
+  - id: OQ-006
+    question: >
+      What is the approved MVP-1 feature boundary and its Must-have requirements?
+    why_it_matters: >
+      Architecture and implementation tasks must trace to an approved release
+      boundary.
+    blocks:
+      - requirements baseline
+      - architecture
+      - development tasks
+    owner: human product and architecture owner
+    risk_if_unanswered: critical
+    default_if_unanswered: >
+      Only capabilities directly required to prove persistent multi-agent
+      engineering memory are considered candidate MVP scope.
+    status: open
+  - id: OQ-007
+    question: >
+      What are the approved bounded contexts, module boundaries, and service
+      contracts?
+    why_it_matters: >
+      Repository layout and task scope depend on stable ownership boundaries.
+    blocks:
+      - executable architecture
+      - implementation tasks
+    owner: human product and architecture owner
+    risk_if_unanswered: high
+    default_if_unanswered: >
+      No service decomposition or framework-specific repository structure is
+      approved.
+    status: open
+  - id: OQ-008
+    question: >
+      What is the persistent engineering-memory domain model and its ownership?
+    why_it_matters: >
+      Memory is the central product capability and shapes data, retrieval,
+      provenance, versioning, and conflict behaviour.
+    blocks:
+      - data architecture
+      - CockroachDB schema
+      - memory contracts
+    owner: human product and architecture owner
+    risk_if_unanswered: critical
+    default_if_unanswered: >
+      No physical database schema may be treated as approved.
+    status: open
+  - id: OQ-009
+    question: >
+      Are the previously described repository structure and supporting documents
+      stored elsewhere or not yet committed?
+    why_it_matters: >
+      Existing assets may constrain or replace parts of this bootstrap package.
+    blocks:
+      - complete source inventory
+    owner: human product and architecture owner
+    risk_if_unanswered: medium
+    default_if_unanswered: >
+      Treat the public repository as greenfield.
+    status: open
+
+assumptions:
+  - classification: assumption
+    statement: >
+      CockroachDB remains the preferred durable-memory foundation, but no
+      physical schema or integration architecture is approved.
+    status: active
+
+tasks: []
+acceptance_tests: []
+traces:
+  - business_goal: BG-001
+    user_need: UN-001
+    requirements:
+      - CON-002
+      - CON-003
+      - CON-004
+    decisions: []
+    modules: []
+    tasks: []
+    tests: []
+
+artifacts:
+  - path: README.md
+    generated_from_model_version: 4
+  - path: docs/CONTEXT_INDEX.md
+    generated_from_model_version: 4
+  - path: docs/00_project/PROJECT_BRIEF.md
+    generated_from_model_version: 4
+  - path: docs/01_discovery/PROBLEM_DEFINITION.md
+    generated_from_model_version: 4
+  - path: docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md
+    generated_from_model_version: 4
+  - path: docs/05_product/MVP_SCOPE.md
+    generated_from_model_version: 4
+  - path: docs/06_architecture/ARCHITECTURE_WORKPLAN.md
+    generated_from_model_version: 4
+  - path: docs/09_development/DEVELOPMENT_PLAN.md
+    generated_from_model_version: 4
+  - path: docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
+    generated_from_model_version: 4
+
+id_register:
+  - {id: BG-001, type: business_goal, status: active, superseded_by: null}
+  - {id: UN-001, type: user_need, status: active, superseded_by: null}
+  - {id: CON-001, type: constraint, status: active, superseded_by: null}
+  - {id: CON-002, type: constraint, status: active, superseded_by: null}
+  - {id: CON-003, type: constraint, status: active, superseded_by: null}
+  - {id: CON-004, type: constraint, status: active, superseded_by: null}
+  - {id: SRC-001, type: source, status: active, superseded_by: null}
+  - {id: EV-001, type: evidence, status: active, superseded_by: null}
+  - {id: KG-001, type: knowledge_gap, status: active, superseded_by: null}
+  - {id: RISK-001, type: risk, status: active, superseded_by: null}
+  - {id: RISK-002, type: risk, status: active, superseded_by: null}
+  - {id: RISK-003, type: risk, status: active, superseded_by: null}
+  - {id: OQ-006, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-007, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-008, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-009, type: open_question, status: active, superseded_by: null}
+
+undefined:
+  - area: requirements
+    missing: >
+      Approved functional and non-functional requirements with measurable
+      acceptance criteria.
+    blocks:
+      - Stage 5 architecture
+      - Stage 8 task planning
+  - area: architecture
+    missing: >
+      Approved module boundaries, interfaces, data ownership, failure behaviour,
+      deployment constraints, and significant decisions.
+    blocks:
+      - repository implementation structure
+      - executable development tasks
+  - area: data
+    missing: >
+      Engineering-memory domain model, provenance rules, versioning semantics,
+      conflict handling, retrieval behaviour, and physical persistence design.
+    blocks:
+      - CockroachDB schema
+      - memory service contracts
+
+history:
+  - commit: 1
+    added:
+      - BG-001
+      - OQ-001
+      - OQ-002
+      - OQ-003
+      - OQ-004
+      - OQ-005
+      - RISK-001
+      - CON-001
+    changed: []
+    deferred: []
+    conflicts: []
+    stage: Discovery Stage 0
+  - commit: 2
+    added:
+      - UN-001
+      - CON-002
+      - CON-003
+      - RISK-002
+    changed:
+      - OQ-001
+      - OQ-002
+      - OQ-003
+      - OQ-004
+      - OQ-005
+    deferred: []
+    conflicts: []
+    stage: Discovery Stage 1
+  - commit: 3
+    added:
+      - ADR-001
+      - OQ-006
+      - OQ-007
+      - OQ-008
+    changed: []
+    deferred: []
+    conflicts: []
+    stage: Transition to Requirements and Design
+  - commit: 4
+    added:
+      - SRC-001
+      - EV-001
+      - KG-001
+      - CON-004
+      - OQ-009
+      - RISK-003
+    changed: []
+    deferred: []
+    conflicts:
+      - EV-001 vs OQ-003
+    stage: Requirements Stage 3
