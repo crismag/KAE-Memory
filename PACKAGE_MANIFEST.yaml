@@ -70,6 +70,7 @@ package:
       - src/kae_memory/domain/
       - src/kae_memory/persistence/
       - src/kae_memory/application/
+      - src/kae_memory/agents/
       - migrations/env.py
       - migrations/script.py.mako
       - migrations/versions/0001_create_knowledge_tables.py
@@ -77,13 +78,12 @@ package:
       - tests/
   present_but_incomplete:
     - description: >
-        Agent roles are recorded on every run, but agent behaviour is not
-        implemented. Extraction, confirmation prompting, and review are M6.
-      milestone: M6
+        The Requirements and Architecture agents are implemented; the Review
+        agent is M9. Worker leases and recovery are M7.
+      milestone: M7
   not_yet_implemented:
     - user interface and frontend framework (M9)
     - HTTP endpoints (M9)
-    - agent execution and model-provider adapters (M6)
     - lease expiry and automatic reclaim (M7)
     - retrieval embeddings and vector indexes (M8)
     - reporting and quality findings (M9)

@@ -1,6 +1,6 @@
 # TASK-007 — M6 Agent Collaboration
 
-**Status:** ready after ADR-0006 approval
+**Status:** complete, 2026-07-27
 **Milestone:** M6 · **Prompt:** AGENT-01
 
 ## Objective
@@ -126,3 +126,43 @@ a required constraint; or the Bedrock client's behaviour differs from ADR-0006.
 
 `make check` is green, AT-006 passes, no test touches the network, and the pull
 request states the `kind` decision and its reasoning.
+
+## Completion notes
+
+Delivered as specified, with one decision surfaced and one design gap found by a
+test.
+
+**Knowledge-kind vocabulary — decision.** `KnowledgeKind` is now a domain
+`StrEnum` and `KnowledgeItem.kind` is validated against it. ADR-0006's list is
+the vocabulary: `actor`, `goal`, `rule`, `constraint`, `requirement`, `decision`,
+`unknown`, `assumption`.
+
+Reasoning: `kind` was a free string, so nothing prevented two spellings of the
+same concept from coexisting — exactly the drift the terminology table forbids.
+Only `requirement` and `rule` were in use, both already in the ADR list, so
+enforcing the enum broke nothing. The column stays a plain string, so adding a
+value later needs no migration. This is the opposite call from the M5
+relationship vocabulary, and for the opposite reason: there the domain enum was
+already published and tested, here there was no vocabulary at all.
+
+**Gap found by the idempotency test.** Replaying a completed run re-entered
+extraction and then tried to transition an already-succeeded run to succeeded,
+raising `InvalidRunTransitionError`. Correct behaviour is to return the original
+result: agents now short-circuit when `start_run` returns a terminal run, and
+`MemoryService.knowledge_produced_by` resolves that run's output through its
+provenance links. One key, one run, one result set.
+
+**Beyond the strict scope, and why:**
+
+- `MemoryService.knowledge_produced_by` — required by the replay short-circuit
+  above.
+- `pyproject.toml` gains an optional `bedrock` extra and a mypy override for the
+  lazily imported SDK, so the suite and a fixture-only demonstration run without
+  the provider installed.
+
+**Deviations:** none. No live model call is made anywhere in the suite, and
+`tests/agents/test_offline_guarantee.py` asserts the provider SDK is never even
+imported.
+
+**Evidence:** `make check` green — 89 tests, 95% coverage. AT-006 passes in
+`tests/agents/test_collaboration.py`.

@@ -88,6 +88,23 @@ class KnowledgeVersion:
             raise DomainInvariantError("knowledge version timestamp must be timezone-aware")
 
 
+class KnowledgeKind(StrEnum):
+    """The authoritative vocabulary for what a knowledge item is.
+
+    One vocabulary, used by extraction, persistence, and the interface alike.
+    Because the column is a plain string, adding a value here needs no migration.
+    """
+
+    ACTOR = "actor"
+    GOAL = "goal"
+    RULE = "rule"
+    CONSTRAINT = "constraint"
+    REQUIREMENT = "requirement"
+    DECISION = "decision"
+    UNKNOWN = "unknown"
+    ASSUMPTION = "assumption"
+
+
 @dataclass(frozen=True, slots=True)
 class KnowledgeItem:
     """Durable knowledge item with immutable append-oriented versions."""
@@ -101,6 +118,11 @@ class KnowledgeItem:
     def __post_init__(self) -> None:
         if not self.kind.strip():
             raise DomainInvariantError("knowledge kind must not be empty")
+        if self.kind not in set(KnowledgeKind):
+            raise DomainInvariantError(
+                f"unknown knowledge kind: {self.kind!r}. "
+                f"Valid kinds: {', '.join(sorted(KnowledgeKind))}"
+            )
         if not self.versions:
             raise DomainInvariantError("knowledge item requires at least one version")
         expected = tuple(range(1, len(self.versions) + 1))

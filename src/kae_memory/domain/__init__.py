@@ -23,6 +23,7 @@ from .lifecycle import LifecycleState
 from .models import (
     Agent,
     KnowledgeItem,
+    KnowledgeKind,
     KnowledgeVersion,
     Project,
     Provenance,
@@ -56,6 +57,7 @@ __all__ = [
     "InvalidRunTransitionError",
     "KnowledgeItem",
     "KnowledgeItemId",
+    "KnowledgeKind",
     "KnowledgeVersion",
     "LifecycleState",
     "Message",

@@ -24,15 +24,14 @@ through persistent memory.
 
 ## Current milestone
 
-**M6 — Agent Collaboration** (next)
+**M7 — Resilience and Recovery** (next)
 
-M5 is complete: the persistent-memory proof passes. One agent writes knowledge,
-its process ends, and a different agent retrieves it in a separate run and
-session with no shared in-process state.
+M6 is complete: the Architecture Agent consumes requirements confirmed in an
+earlier session, with the handoff carried entirely by the database.
 
-M6 makes two agents collaborate through that memory — a Requirements Agent that
-turns input into candidates, and an Architecture Agent that consumes only
-*confirmed* requirements.
+M7 makes compute disposable — the lease protocol from ADR-0007, durable
+checkpoints, and a worker that resumes what a killed worker left behind. This is
+the milestone the demonstration rests on.
 
 ## Milestones
 
@@ -44,8 +43,8 @@ turns input into candidates, and an Architecture Agent that consumes only
 | M3 | Product Experience — identity, journey, screens, demo narrative | ✔ complete |
 | M4 | Repository Realignment — documentation matches reality | ✔ complete |
 | M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | ✔ complete |
-| M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ► current |
-| M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | open |
+| M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ✔ complete |
+| M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | ► current |
 | M8 | Semantic Retrieval — embeddings, recall, return session | open |
 | M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | open |
 | M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | open |
@@ -57,14 +56,14 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`, after M5.
+Assessed 2026-07-27 against `make check`, after M6.
 
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
 | `ruff format --check` | ✔ 52 files formatted |
 | `mypy --strict` | ✔ clean across 14 source files |
-| `pytest` | ✔ 62 passed, 95% coverage |
+| `pytest` | ✔ 89 passed, 95% coverage |
 
 RA-01 cleared all four known defects:
 
@@ -91,7 +90,7 @@ rejected rather than merged with a follow-up promise.
 | Project / session / message persistence | Implemented — revision `0002`, repositories, application contracts |
 | AgentRun and workflow state | Implemented — status model, idempotency, interrupt and resume |
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
-| Agent execution (Requirements, Architecture, Review) | **Not implemented** — contract decided (ADR-0006); Requirements and Architecture are M6, Review is M9 |
+| Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
 | Semantic retrieval and embeddings | **Not implemented** — required by M8 |
 | Deployment and health endpoint | **Not implemented** — required by M10 |

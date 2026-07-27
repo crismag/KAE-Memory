@@ -16,6 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+bedrock = [
+  "anthropic[bedrock]>=0.100",
+]
 dev = [
   "mypy>=1.11",
   "pytest>=8.3",
@@ -42,3 +45,9 @@ select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
 python_version = "3.12"
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# The provider SDK is an optional extra, imported lazily so the suite and a
+# fixture-only demonstration run without it.
+module = "anthropic.*"
+ignore_missing_imports = true
