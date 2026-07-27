@@ -1,6 +1,7 @@
 # MVP Scope
 
-**Status:** approved boundary, 2026-07-27.
+**Status:** approved boundary, amended 2026-07-27 to cover bounded agent
+execution, workflow durability, semantic retrieval, and demonstration deployment.
 
 ## Product hypothesis
 
@@ -25,6 +26,12 @@ output the user keeps.
 | Knowledge correction | FR-006 | Corrections supersede prior versions without erasing them. |
 | Cross-session continuity | FR-002, FR-007 | A later session resumes from durable state and explains what changed. |
 | Blueprint preview | FR-008 | Confirmed knowledge renders as a reviewable, source-linked Markdown blueprint. |
+| Bounded agent execution | FR-009, FR-010 | Three predefined agents — Requirements, Architecture, Review — run behind the workspace, each execution durably recorded. |
+| Durable workflow | FR-011, FR-012 | An interrupted run resumes on another worker; submission is idempotent and retry is bounded. |
+| Semantic retrieval | FR-013 | Concept search returns related knowledge and evidence with an explanation of why. |
+| MCP inspection | FR-014 | CockroachDB MCP for schema, plans, health, and audit. Writes stay in KAE contracts. |
+| Review and reporting | FR-015 | Quality findings and operational reports generated from the same data the workspace shows. |
+| Demonstration deployment | FR-016, FR-017, FR-018 | Application, worker, and CockroachDB Cloud on AWS with health checks and managed secrets. |
 
 ## Out of scope
 
@@ -38,13 +45,18 @@ requirement and an architecture decision:
 - **Marketplace** — no plugins, extensions, or third-party integrations.
 - **General AI chat** — the interface asks purposeful discovery questions; it is
   not an open-ended assistant.
-- **Full coding agent runtime** — no orchestration, code generation, execution,
-  or autonomous delivery.
+- **General coding-agent hosting** — no code generation, execution, or
+  autonomous delivery. The three authorised agents write knowledge, not code.
+- **Arbitrary agent swarms** — no roles beyond the three in FR-009, no dynamic
+  role creation, no unrestricted autonomous orchestration.
+- **Production-scale RAG** — no hybrid ranking, reranking cascades, or
+  cross-project retrieval beyond the single model and index in FR-013.
 - **Administration** — no admin console, configuration surface, or user
   management.
 - **Advanced analytics** — no usage dashboards, team metrics, or reporting.
-- **Production deployment** — no multi-region, scaling, SLA, or operational
-  hardening beyond what the demonstration requires.
+- **Production-grade deployment** — no multi-region, autoscaling, SLA, failover
+  engineering, or operational hardening beyond the demonstration baseline. AWS
+  demonstration deployment is in scope; production operation is not.
 
 Also excluded: automatic merging or deployment of generated code, a universal
 cross-domain knowledge graph, and performance optimisation against unverified
@@ -52,14 +64,23 @@ scale targets.
 
 ## Relationship to deferred requirements
 
-The MVP requirements baseline additionally defers multi-agent runtime, MCP write
-operations, advanced retrieval, and document ingestion. Those are product
-direction that will be revisited after the core journey works; the exclusions
-listed above are outside the product's first release entirely.
+The MVP requirements baseline additionally defers MCP write operations and
+document ingestion. Those are product direction that will be revisited after the
+core journey works; the exclusions listed above are outside the product's first
+release entirely.
+
+The distinction that matters: agent execution, workflow durability, semantic
+retrieval, and deployment are **in scope but bounded**. The boundary is the
+approval — three fixed roles, one embedding model, one region, one worker.
+Exceeding a boundary requires a new requirement, not an implementer's judgement.
 
 ## MVP success evidence
 
-A reviewer can inspect a project started in one session, observe a later session
-retrieve and apply the knowledge confirmed in the first, watch a correction
-supersede an outdated fact while both versions remain visible, and follow the
-provenance links that explain why the generated blueprint says what it says.
+A reviewer can inspect a project started in one session, watch one agent's
+confirmed output become another agent's input, see a terminated worker's run
+resumed and completed by a different worker, observe a correction supersede an
+outdated fact while both versions remain visible, and follow the provenance links
+that explain why the generated blueprint says what it says.
+
+The full sequence is
+[`UNIFIED_DEMO_NARRATIVE.md`](UNIFIED_DEMO_NARRATIVE.md).

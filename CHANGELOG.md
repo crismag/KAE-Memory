@@ -18,14 +18,21 @@
 - Milestone-driven development plan and Codex/Claude execution roadmap.
 - `docs/00_project/CURRENT_PROJECT_STATE.md` as the authoritative project
   dashboard and first-loaded context.
+- Apache-2.0 `LICENSE`.
+- Canonical demo narrative, agent execution model with AgentRun and recovery
+  contracts, MCP inspection-only policy (ADR-0004), AWS demonstration baseline,
+  and public release checklist.
 
 ### Not added
 
-Application services, HTTP or MCP interfaces, user interface, retrieval and
-embeddings, agent orchestration, authentication, and cloud deployment remain
-deferred until their dependent requirements and architecture decisions are
-approved. Persistence covers knowledge items and versions only; project, session,
-message, and relationship tables are not yet implemented.
+Application services, HTTP interfaces, user interface, retrieval and embeddings,
+agent execution, and cloud deployment are approved but not yet built. Persistence
+covers knowledge items and versions only; project, session, message,
+relationship, and AgentRun tables are not yet implemented.
+
+Authentication, teams, billing, administration, agent roles beyond the three
+authorised, general coding-agent hosting, production-scale retrieval, and
+production-grade deployment remain out of scope.
 
 ### Known defects
 

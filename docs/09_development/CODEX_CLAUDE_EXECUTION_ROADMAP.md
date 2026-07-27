@@ -163,24 +163,28 @@ Before launching billable or externally accessible services, document:
 
 ## 6. Implementation sequence
 
-The sequence below was resequenced on 2026-07-27. Domain contracts and knowledge
-persistence already exist, so persistence is no longer a greenfield slice — it is
-an integration target.
+The sequence was resequenced on 2026-07-27 and re-ordered again the same day when
+the demonstration was confirmed as an agent-collaboration proof. Domain contracts
+and knowledge persistence already exist, so persistence is an integration target,
+not a greenfield slice. The interface comes **after** the chain it displays.
 
 ```text
-M4 Repository Realignment
-  -> PX-01 UI Planning
-  -> PX-02 Clickable Prototype
-  -> Walking Skeleton
-  -> Application Layer
-  -> Persistence Integration
-  -> Knowledge Lifecycle
-  -> Retrieval
-  -> AWS
-  -> Demo Hardening
+M4  Repository Realignment
+  -> RA-01 Restore Repository Readiness Gates
+  -> M5  Persistent Memory Proof
+  -> M6  Agent Collaboration
+  -> M7  Resilience and Recovery
+  -> M8  Semantic Retrieval
+  -> M9  Workspace, Review Agent, and Reporting
+  -> M10 AWS Demonstration
+  -> M11 Demo Ready and Release
 ```
 
-Slice numbers map to milestones M4–M10.
+Memory before agents, agents before resilience, resilience before interface.
+There is no point building a workspace to display a chain that has not been
+proven.
+
+Slice numbers below map to milestones M4–M11.
 
 ### Slice 0 — Repository realignment (M4)
 
@@ -203,98 +207,99 @@ Deliver:
 **Assistant task boundary:** documentation plus the listed defect fixes. No new
 features, tables, endpoints, or services.
 
-### Slice 1 — Clickable product prototype (M5)
+### Slice 1 — Persistent memory proof (M5)
 
-**Goal:** validate the user journey before backend implementation.
+**Goal:** prove the memory claim end to end before any interface exists.
+
+**Blocked by:** RA-01 green build; OQ-010 physical schema including AgentRun.
+
+Deliver:
+
+- migrations for project, session, message, and AgentRun records, additive to
+  revision 0001;
+- memory write and structured retrieval through application contracts;
+- provenance that resolves to a real AgentRun;
+- knowledge expressed with the **existing** domain contracts in
+  `src/kae_memory/domain/` — do not define a parallel knowledge model;
+- one end-to-end test in which one agent writes and another retrieves in a
+  separate run.
+
+**Success condition:** Agent A writes something and Agent B retrieves it in
+another run.
+
+**Assistant task boundary:** persistence and contracts only. No UI, no cloud, no
+model provider.
+
+### Slice 2 — Agent collaboration (M6)
+
+**Goal:** two agents collaborate through memory rather than conversation.
+
+**Blocked by:** OQ-012 extraction contract.
+
+Deliver:
+
+- Requirements Agent and Architecture Agent per
+  [`../../specifications/AGENT_EXECUTION_MODEL.md`](../../specifications/AGENT_EXECUTION_MODEL.md);
+- deterministic extraction adapter behind a port, with fixtures;
+- human confirmation, rejection, and revision;
+- context assembly that gives the Architecture Agent **confirmed** requirements
+  only;
+- workflow state recorded on every run.
+
+**Success condition:** the Architecture Agent uses validated requirements created
+in an earlier session.
+
+### Slice 3 — Resilience and recovery (M7)
+
+**Goal:** compute becomes disposable. This is the slice the demo is built on.
+
+**Blocked by:** OQ-015 worker runtime and lease mechanism.
+
+Deliver:
+
+- idempotency keys on run submission and knowledge writes;
+- bounded retry with backoff, and `abandoned` on budget exhaustion;
+- durable run status with lease expiry and reclaim;
+- failure simulation in tests — kill the worker mid-run;
+- continuation from the last committed checkpoint.
+
+**Success condition:** a new worker resumes after the previous execution stops,
+with no duplicated knowledge.
+
+### Slice 4 — Real model extraction (M6)
+
+**Goal:** replace the deterministic adapter with a real provider without changing
+the workflow around it.
+
+Deliver:
+
+- provider adapter behind the existing extraction port;
+- versioned structured prompt;
+- schema validation before any write;
+- failure and bounded-retry path per the agent execution model;
+- deterministic fixtures retained for tests and demo fallback.
+
+Confirmation, supersession, and AgentRun records are delivered in Slices 2 and 3
+and are not repeated here.
+
+### Slice 5 — Workspace, Review Agent, and reporting (M9)
+
+**Goal:** make the proven chain visible as the product.
 
 **Blocked by:** OQ-011 frontend decision and its ADR.
 
 Deliver:
 
-- start screen;
-- discovery workspace;
-- memory cards;
-- readiness explanation;
-- quality finding;
-- blueprint viewer;
-- seeded demo state;
-- no production database or model dependency.
+- the discovery workspace over real API state — start, discovery, memory
+  explorer, quality, and blueprint views;
+- Review Agent and its quality findings;
+- revision history and superseded versions visible in the UI;
+- project memory summary, agent execution history, traceability, unresolved
+  conflicts, validation coverage, and the recovery demonstration report;
+- screenshots and demo script captured as screens land, not retrospectively.
 
-This may be a static or locally stateful prototype. It must demonstrate the
-three-minute story and reveal missing product rules.
-
-**Assistant task boundary:** UI prototype only. No cloud infrastructure, database
-schema, or production agent framework.
-
-### Slice 2 — Walking skeleton (M6)
-
-**Goal:** prove the application workflow end to end with replaceable adapters.
-
-**Blocked by:** OQ-010 physical schema, OQ-012 extraction contract.
-
-Deliver:
-
-- project and session creation;
-- message submission;
-- raw-input persistence;
-- deterministic fake extraction adapter behind a port;
-- candidate knowledge expressed with the **existing** domain contracts in
-  `src/kae_memory/domain/` — do not define a parallel knowledge model;
-- discovery workspace reading real API state;
-- tests for input durability and idempotency.
-
-Use the existing `KnowledgeRepository` protocol as the persistence port. A
-temporary store, if used, must satisfy that protocol and must not define a new
-schema shape.
-
-### Slice 3 — Application layer and persistence integration (M6–M7)
-
-**Goal:** connect the application workflow to the persistence layer that already
-exists, and extend it to the entities it still lacks.
-
-The knowledge item and version tables, the SQLAlchemy mapping, the repository,
-and the CockroachDB serialization-retry policy are already implemented. This
-slice integrates against them rather than rebuilding them.
-
-Deliver:
-
-- migrations for project, session, message, and relationship records, additive to
-  revision 0001;
-- application services wired to `SqlAlchemyKnowledgeRepository` and
-  `run_transaction`;
-- relationship persistence for traceability;
-- source traceability from blueprint statement to message;
-- integration tests against CockroachDB, not only SQLite;
-- removal of any temporary store introduced in Slice 2.
-
-**Constraint:** revision 0001 must remain valid. Rewriting it requires an
-explicit decision, not an agent's judgement.
-
-### Slice 4 — Bedrock extraction workflow (M6)
-
-**Goal:** convert user input into validated candidate knowledge.
-
-Deliver:
-
-- Bedrock adapter;
-- versioned structured prompt;
-- schema validation;
-- agent-run records;
-- proposed knowledge UI;
-- failure and retry path;
-- deterministic test fixtures.
-
-### Slice 5 — Confirmation and supersession (M7)
-
-**Goal:** prove trustworthy knowledge evolution.
-
-Deliver:
-
-- confirm, reject, revise, and supersede operations;
-- revision history UI;
-- transactionally safe active-state changes;
-- dependent-output review flags;
-- audit records.
+The workspace is the product. It is not an agent-control dashboard — the user
+sees knowledge, not job queues.
 
 ### Slice 6 — Semantic memory and return session (M8)
 
@@ -322,18 +327,23 @@ Deliver:
 - readiness updates;
 - workflow tests.
 
-### Slice 8 — Managed MCP Memory Auditor (deferred)
+### Slice 8 — CockroachDB MCP inspection (M9, optional)
 
-**Goal:** demonstrate a meaningful second CockroachDB AI tool.
+**Goal:** let a judge verify that what the product claims is what the database
+holds.
 
 Deliver:
 
-- read-only MCP service account;
-- approved query boundary;
-- audit-agent workflow;
-- structured findings;
-- Quality view integration;
-- audit logs and failure handling.
+- read-only inspection of schema, plans, and cluster health;
+- a scripted inspection sequence for the demonstration;
+- least-privilege service account if one is introduced, documented before use.
+
+**Hard boundary:** inspection and management only. No MCP path writes to project
+memory, and no agent runtime reads product data through MCP. See ADR-0004 and
+[`../06_architecture/MCP_ACCESS_POLICY.md`](../06_architecture/MCP_ACCESS_POLICY.md).
+
+The audit-agent workflow itself is the Review Agent in Slice 5, which reads
+through KAE retrieval contracts.
 
 ### Slice 9 — Blueprint and traceability (M9)
 
@@ -348,7 +358,7 @@ Deliver:
 - Markdown export;
 - prepared demo blueprint.
 
-### Slice 10 — AWS deployment and asynchronous processing (M9)
+### Slice 10 — AWS demonstration deployment (M10)
 
 **Goal:** deploy the coherent product slice.
 
@@ -365,7 +375,7 @@ Deliver only the services justified by approved decisions, expected to include:
 
 Do not provision every proposed AWS service before the application requires it.
 
-### Slice 11 — Demo hardening (M10)
+### Slice 11 — Demo ready and release (M11)
 
 Deliver:
 
@@ -400,61 +410,70 @@ Expected evidence:
 - `make check` output showing all four gates passing;
 - `alembic upgrade head` and `alembic downgrade base` output.
 
-### Prompt PX-01 — Product prototype planning
+### Prompt MEM-01 — Persistent memory proof
 
-Issue after RA-01 merges and OQ-011 is decided.
-
-Objective:
-
-> Inspect the approved product-experience documents and produce a bounded UI
-> prototype plan. Do not implement code. Define routes, components, UI states,
-> seeded demo data, accessibility requirements, and a file-level implementation
-> proposal. Identify product ambiguities rather than inventing rules.
-
-Expected output:
-
-- `docs/09_development/plans/PX_01_UI_PROTOTYPE_PLAN.md`
-
-### Prompt PX-02 — Clickable prototype
-
-Issue only after PX-01 review and technology approval.
+Issue after RA-01 merges and OQ-010 is decided.
 
 Objective:
 
-> Implement the approved clickable KAE-Memory prototype using only seeded local
-> data. Cover the start, discovery, memory, quality, and blueprint views. Do not
-> add cloud services, database migrations, authentication, or model calls.
+> Implement project, session, message, and AgentRun persistence additive to
+> revision 0001, plus memory write and structured retrieval through application
+> contracts. Reuse the existing domain contracts and `KnowledgeRepository`
+> protocol in `src/kae_memory/`; do not introduce a second knowledge model.
+> Deliver a test in which one agent writes knowledge and another retrieves it in a
+> separate run.
 
-Expected evidence:
+Prohibited: UI, cloud services, real model calls.
 
-- screenshots or recorded interaction;
-- component tests;
-- accessibility checks;
-- demo script walkthrough.
+### Prompt AGENT-01 — Agent collaboration
+
+Issue after MEM-01 review and OQ-012 approval.
+
+Objective:
+
+> Implement the Requirements and Architecture agents per
+> `specifications/AGENT_EXECUTION_MODEL.md`, a deterministic extraction adapter
+> behind a port, human confirmation, and context assembly that gives the
+> Architecture Agent confirmed requirements only. Prove that the Architecture
+> Agent consumes requirements confirmed in an earlier session.
+
+Prohibited: additional agent roles, real provider calls, UI.
+
+### Prompt RES-01 — Resilience and recovery
+
+Issue after AGENT-01 review and OQ-015 approval.
+
+Objective:
+
+> Implement idempotency keys, bounded retry with backoff, durable run status with
+> lease expiry and reclaim, and continuation from the last committed checkpoint.
+> Include a test that terminates a worker mid-run and proves a different worker
+> completes it with no duplicated knowledge.
+
+This is the milestone the demonstration rests on. Do not let it slip.
 
 ### Prompt AR-01 — Architecture decision set
 
 Objective:
 
-> Convert the accepted requirements and three-system proposal into the minimum ADR
-> set required for the first walking skeleton — the frontend choice (OQ-011), the
-> physical schema for projects, sessions, messages, and relationships (OQ-010),
-> and the extraction contract (OQ-012). Compare alternatives, record consequences,
-> and leave unresolved choices explicit. Build on ADR-0001 to ADR-0003 rather than
-> revisiting them. Do not scaffold code.
+> Convert the accepted requirements into the ADRs the next milestones need — the
+> physical schema including AgentRun (OQ-010), the extraction contract (OQ-012),
+> the embedding model and index (OQ-014), the worker runtime and lease mechanism
+> (OQ-015), the frontend choice (OQ-011), and the AWS runtime (OQ-016). Compare
+> alternatives, record consequences, and leave unresolved choices explicit. Build
+> on ADR-0001 to ADR-0004 rather than revisiting them. Do not scaffold code.
 
-### Prompt DEV-01 — Walking skeleton
+### Prompt UI-01 — Workspace and reporting
 
-Issue only after relevant ADR approval.
+Issue only after the memory, collaboration, and resilience chain is proven and
+OQ-011 is decided.
 
 Objective:
 
-> Implement one vertical path from project creation to saved user message and
-> deterministic candidate knowledge shown in the discovery workspace. Use ports
-> for persistence and AI extraction so CockroachDB and Bedrock adapters can be
-> introduced later without rewriting the application workflow. Reuse the existing
-> domain contracts and `KnowledgeRepository` protocol in `src/kae_memory/`; do not
-> introduce a second knowledge model.
+> Implement the discovery workspace over real API state, the Review Agent and its
+> findings, and reporting generated from operational data. The user sees knowledge
+> appearing, questions being asked, and findings being raised — not an agent
+> control dashboard.
 
 ## 8. Pull-request expectations
 

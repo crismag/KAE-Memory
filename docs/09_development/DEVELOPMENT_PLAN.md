@@ -21,12 +21,13 @@ green, and the project model is updated.
 | M2 | Persistence | ✔ |
 | M3 | Product Experience | ✔ |
 | M4 | Repository Realignment | ► current |
-| M5 | Clickable Prototype | open |
-| M6 | Walking Skeleton | open |
-| M7 | Knowledge Lifecycle | open |
+| M5 | Persistent Memory Proof | open |
+| M6 | Agent Collaboration | open |
+| M7 | Resilience and Recovery | open |
 | M8 | Semantic Retrieval | open |
-| M9 | AWS Integration | open |
-| M10 | Demo Ready | open |
+| M9 | Workspace and Reporting | open |
+| M10 | AWS Demonstration | open |
+| M11 | Demo Ready and Release | open |
 
 ## Completed groundwork
 
@@ -57,99 +58,121 @@ state the project's position in under a minute from `CURRENT_PROJECT_STATE.md`.
 
 **Permitted changes:** documentation, plus the defect fixes listed above.
 
-## M5 — Clickable prototype
+## M5 — Persistent memory proof
 
-**Outcome:** a clickable prototype of the discovery journey using seeded local
-data only.
+**Outcome:** the memory claim is proven end to end before any interface exists.
 
-**Work:** start screen, discovery workspace, memory cards with status, readiness
-explanation, quality finding, blueprint viewer, seeded demo state, accessibility
-baseline.
+**Work:** project, session, message, and AgentRun persistence; migrations additive
+to revision 0001; memory write and structured retrieval through application
+contracts; provenance resolving to a real run; one end-to-end test.
 
-**Blocked by:** OQ-011, frontend technology decision, which must be recorded as
-an ADR first.
+**Blocked by:** OQ-010 physical schema.
 
-**Exit condition:** the three-minute demo story can be walked end to end with no
-backend, and the missing product rules it exposes are written down.
+**Success condition:** Agent A writes something and Agent B retrieves it in
+another run.
 
-## M6 — Walking skeleton
+**Exit condition:** AT-001 and AT-003 pass.
 
-**Outcome:** one vertical path from project creation to persisted message to
-candidate knowledge, over a real API, behind replaceable adapters.
+## M6 — Agent collaboration
 
-**Work:** project and session creation, message submission, durable source
-capture, deterministic fake extraction adapter, discovery workspace reading real
-state, tests for input durability and idempotency.
+**Outcome:** two agents collaborate through memory, not through conversation.
 
-**Blocked by:** OQ-010 physical schema, OQ-012 extraction contract.
+**Work:** Requirements Agent, Architecture Agent, deterministic extraction adapter
+behind a port, human confirmation flow, context assembly, workflow state.
 
-**Exit condition:** AT-001 passes against a running application.
+**Blocked by:** OQ-012 extraction contract.
 
-## M7 — Knowledge lifecycle
+**Success condition:** the Architecture Agent uses validated requirements created
+in an earlier session.
 
-**Outcome:** trustworthy knowledge evolution.
+**Exit condition:** AT-002 and AT-006 pass.
 
-**Work:** confirm, reject, revise, and supersede over the existing lifecycle
-contracts; revision-history UI; transactionally safe active-state changes;
-dependent-output review flags; audit records; relationship persistence.
+## M7 — Resilience and recovery
 
-**Also delivered here:** CockroachDB becomes authoritative for the whole slice —
-integration tests against CockroachDB rather than SQLite, retry behaviour
-verified under contention, cross-session recall demonstrated, and any temporary
-store removed.
+**Outcome:** compute is disposable.
 
-**Exit condition:** AT-002 and AT-003 pass, no correction path deletes history,
-and the local development store is gone.
+**Work:** idempotency keys, bounded retry with backoff, durable run status, lease
+expiry and reclaim, failure simulation, continuation from the last committed
+checkpoint.
+
+**Blocked by:** OQ-015 worker runtime and lease mechanism.
+
+**Success condition:** a new worker resumes after the previous execution stops.
+
+**Exit condition:** AT-005 and AT-007 pass. This is the milestone the demo is
+built on — do not let it slip.
 
 ## M8 — Semantic retrieval
 
-**Outcome:** recall that finds related knowledge the user did not name exactly.
+**Outcome:** recall that finds knowledge the user did not name exactly.
 
-**Work:** approved embedding model, vector columns and indexes, structured and
-semantic retrieval, project and status filters, source-aware results.
+**Work:** one approved embedding model, vector columns and index, semantic search
+combined with structured filters, single-project scope, result explanations.
 
-**Blocked by:** an embedding decision recorded as an ADR.
+**Blocked by:** OQ-014 embedding model and index strategy.
 
 **Exit condition:** a concept search returns related evidence, requirements, and
-decisions with their sources.
+decisions with their sources and the reason each was included.
 
-## M9 — AWS integration
+## M9 — Workspace and reporting
 
-**Outcome:** the coherent product slice is deployed.
+**Outcome:** the backend chain becomes visible as the product.
 
-**Work:** only the services justified by approved decisions — runtime, model
-access, object storage, secrets, logging, and asynchronous processing if
-long-running work exists — with infrastructure-as-code and a teardown procedure.
+**Work:** the discovery workspace over real API state — start, discovery, memory
+explorer, quality, and blueprint views; Review Agent and its findings; project
+memory summary, agent execution history, traceability, unresolved conflicts,
+validation coverage, and the recovery demonstration report; screenshots and demo
+script captured as screens land.
 
-**Rule:** launch a service only when a user-visible slice requires it, its
-decision is approved, cost controls are understood, and a local or fake adapter
-exists for tests.
+**Blocked by:** OQ-011 frontend decision and its ADR.
 
-**Exit condition:** the demo runs against deployed infrastructure and can be torn
-down cleanly.
+**Exit condition:** AT-004 passes and the ten-beat narrative can be walked
+locally.
 
-## M10 — Demo ready
+## M10 — AWS demonstration
 
-**Outcome:** a demonstration that survives a live audience.
+**Outcome:** the chain is deployed and compute is provably disposable.
 
-**Work:** resettable demo environment, stable sample project, seed and cleanup
-commands, fallback outputs for model or network failure, monitoring checks,
-rehearsal script, public README and architecture diagram, submission evidence.
+**Work:** one container service, one worker, Secrets Manager or Parameter Store,
+CloudWatch logs carrying run identifiers, `GET /health`, reproducible deployment,
+documented teardown.
 
-**Exit condition:** the three-minute story runs twice in a row from a clean
-reset, and AT-004 passes.
+**Blocked by:** OQ-016 AWS runtime choice.
+
+**Exit condition:** AT-008 and AT-009 pass — terminating the worker task results
+in the interrupted run resuming with no duplicated knowledge and no manual
+intervention.
+
+## M11 — Demo ready and release
+
+**Outcome:** a demonstration that survives a live audience and a package a
+stranger can run.
+
+**Work:** resettable demo environment, seed and cleanup commands, fallback outputs,
+rehearsal, architecture diagram, deployment and local-development guides, security
+notes, known limitations, presentation deck, demo video showing recovery, Devpost
+narrative, release tag.
+
+**Exit condition:** the ten-beat narrative runs twice from a clean reset, and a
+reviewer who has never seen the project reproduces it from the documentation
+alone.
 
 ## Critical path
 
 ```text
 Realign repository and restore green build
-  -> validate the journey in a clickable prototype
-  -> prove the workflow with a walking skeleton
-  -> prove knowledge evolution on authoritative CockroachDB
+  -> prove durable memory end to end
+  -> prove two agents collaborating through it
+  -> prove recovery after the worker dies
   -> add semantic recall
-  -> deploy what the slice requires
-  -> harden the demonstration
+  -> make the chain visible as the product
+  -> deploy the chain
+  -> package and rehearse the demonstration
 ```
+
+Memory before agents, agents before resilience, resilience before interface. The
+interface is built last because it shows the chain, and there is no point showing
+a chain that has not been proven.
 
 ## Controlled implementation loop
 
@@ -168,8 +191,9 @@ For each task:
 | Work | Missing input |
 | --- | --- |
 | UI implementation | OQ-011 frontend decision and ADR |
-| Project, session, message, relationship tables | OQ-010 physical schema |
+| Project, session, message, relationship, AgentRun tables | OQ-010 physical schema |
 | Real extraction | OQ-012 provider, prompt contract, and output schema |
 | Readiness scoring | OQ-013 readiness model |
-| Semantic retrieval | Approved embedding model and index strategy |
-| Production deployment | Approved security, availability, and operating constraints |
+| Semantic retrieval | OQ-014 embedding model and index strategy |
+| Worker and recovery | OQ-015 runtime and lease mechanism |
+| AWS deployment | OQ-016 runtime choice |

@@ -1,6 +1,6 @@
 model:
-  version: 5
-  last_commit: 5
+  version: 6
+  last_commit: 6
   generated: "2026-07-27"
 
 project:
@@ -57,6 +57,9 @@ project:
     - OQ-011
     - OQ-012
     - OQ-013
+    - OQ-014
+    - OQ-015
+    - OQ-016
   depth: full
   current_stage: implementation_kickoff
   current_milestone: M4
@@ -86,31 +89,41 @@ milestones:
     outcome: project documents describe the repository that actually exists
     status: current
   - id: M5
-    title: Clickable Prototype
-    outcome: seeded UI proving the discovery journey without backend dependencies
+    title: Persistent Memory Proof
+    outcome: >
+      Project, session, message, and AgentRun persistence with memory write and
+      structured retrieval through application contracts. Agent A writes, Agent B
+      retrieves in a separate run.
     status: open
   - id: M6
-    title: Walking Skeleton
+    title: Agent Collaboration
     outcome: >
-      Application layer over the existing persistence foundation: project
-      creation, persisted message, candidate knowledge, and the schema the
-      remaining entities still require.
+      Requirements and Architecture agents, human confirmation, and context
+      assembly that gives the Architecture Agent confirmed requirements only.
     status: open
   - id: M7
-    title: Knowledge Lifecycle
-    outcome: confirm, reject, revise, and supersede with audit history
+    title: Resilience and Recovery
+    outcome: >
+      Idempotency, bounded retry, durable run status, lease reclaim, and
+      continuation after worker termination.
     status: open
   - id: M8
     title: Semantic Retrieval
-    outcome: embeddings, structured and semantic recall, return-session proof
+    outcome: one embedding model, one index, semantic recall with explanations
     status: open
   - id: M9
-    title: AWS Integration
-    outcome: deployment of only the services the coherent product slice requires
+    title: Workspace and Reporting
+    outcome: >
+      Discovery workspace over real state, Review Agent findings, and reporting
+      generated from operational data.
     status: open
   - id: M10
-    title: Demo Ready
-    outcome: resettable environment, seed data, fallbacks, submission evidence
+    title: AWS Demonstration
+    outcome: deployed chain, disposable compute, health endpoint, managed secrets
+    status: open
+  - id: M11
+    title: Demo Ready and Release
+    outcome: rehearsal, packaging, judging assets, release tag
     status: open
 
 requirements:
@@ -255,6 +268,112 @@ requirements:
     priority: must
     status: approved
     confidence: medium
+  - id: FR-009
+    title: Bounded multi-agent execution
+    statement: >
+      Exactly three predefined agent roles are authorised: Requirements,
+      Architecture, and Review, each with declared read scope, write scope, and
+      prohibitions. No agent confirms knowledge.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-010
+    title: Persistent AgentRun records
+    statement: >
+      Every agent execution is durably recorded before work begins; knowledge
+      writes and the accompanying run status change commit in one transaction.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-011
+    title: Durable workflow continuation
+    statement: >
+      An interrupted run is resumable by a different worker from its last
+      committed checkpoint, using only durable state.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-012
+    title: Idempotency, retry, and failure
+    statement: >
+      Run submission is idempotent by key; retry is bounded with backoff;
+      exhaustion moves a run to abandoned and raises a visible finding.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-013
+    title: Semantic retrieval
+    statement: >
+      Structured filters plus semantic similarity over project knowledge and
+      evidence, single-project scope, one approved embedding model and index,
+      with an explanation of why each result was included.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: medium
+  - id: FR-014
+    title: CockroachDB MCP inspection
+    statement: >
+      MCP is available for schema inspection, query plans, cluster health,
+      documentation, and read-only audit. All domain writes go through KAE
+      application contracts.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-015
+    title: Review and quality reporting
+    statement: >
+      The Review Agent produces quality findings, and reporting is generated from
+      the same operational data the workspace shows.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: medium
+  - id: FR-016
+    title: Demonstration deployment
+    statement: >
+      Application, one worker, and CockroachDB Cloud deployed to AWS such that
+      the application is reachable, compute is disposable, and an interrupted run
+      resumes after a worker restart.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: medium
+  - id: FR-017
+    title: Health and observability
+    statement: >
+      An unauthenticated GET /health reports status, database connectivity,
+      migration revision, and version; logs are structured and carry run
+      identifiers.
+    type: functional
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-018
+    title: Secrets management
+    statement: >
+      Credentials come from environment locally and from AWS secret storage when
+      deployed. No credential appears in the repository, an image, a log, a
+      document, or an agent transcript.
+    type: constraint
+    source: hackathon-plan
+    priority: must
+    status: approved
+    confidence: high
 
 decisions:
   - id: ADR-0001
@@ -288,6 +407,18 @@ decisions:
     record: specifications/ADR/ADR-0003-sqlalchemy-alembic-psycopg.md
     affects:
       - MOD-persistence
+  - id: ADR-0004
+    title: CockroachDB MCP is inspection-only
+    statement: >
+      MCP is used for inspection and management only. All domain writes go
+      through KAE application contracts; agents never hold raw database
+      credentials.
+    status: accepted
+    record: specifications/ADR/ADR-0004-mcp-inspection-only.md
+    affects:
+      - MOD-workflow
+      - MOD-persistence
+      - MOD-audit
 
 modules:
   - id: MOD-projects
@@ -400,6 +531,19 @@ entities:
     name: Relationship
     owner: MOD-knowledge
     implemented: domain-only
+  - id: ENT-agent-run
+    name: AgentRun
+    owner: MOD-workflow
+    responsibility: >
+      Durable record of one agent execution: role, session, status, input
+      context, output summary, attempt, idempotency key, timing.
+    specification: specifications/AGENT_EXECUTION_MODEL.md
+    implemented: false
+  - id: ENT-quality-finding
+    name: QualityFinding
+    owner: MOD-audit
+    responsibility: Review Agent output proposed for human attention
+    implemented: false
 
 actors:
   - human product and architecture owner
@@ -498,7 +642,7 @@ knowledge_gaps:
       confirmation effort the product requires.
     category: behaviour
     current_understanding: >
-      A deterministic fake adapter is planned for the walking skeleton; real model
+      A deterministic fake adapter is planned for M6; real model
       behaviour is unmeasured.
     risk_if_wrong: medium
     blocks:
@@ -634,25 +778,23 @@ open_questions:
       What is the physical schema for projects, sessions, messages, and
       relationships, and how does it relate to the existing knowledge tables?
     why_it_matters: >
-      The walking skeleton depends on tables that do not yet exist, and the
+      The persistent-memory proof depends on tables that do not yet exist, including AgentRun, and the
       existing knowledge migration must remain valid.
     blocks:
-      - M6
-      - M7
+      - M5
     owner: human product and architecture owner
-    risk_if_unanswered: high
+    risk_if_unanswered: critical
     default_if_unanswered: >
       No schema beyond the knowledge tables is treated as approved.
     status: open
   - id: OQ-011
     question: >
-      Which frontend technology delivers the clickable prototype and the MVP
-      workspace?
+      Which frontend technology delivers the discovery workspace?
     why_it_matters: >
-      M5 cannot begin implementation without an approved frontend decision and a
+      M9 cannot begin implementation without an approved frontend decision and a
       recorded ADR.
     blocks:
-      - M5
+      - M9
     owner: human product and architecture owner
     risk_if_unanswered: high
     default_if_unanswered: >
@@ -667,7 +809,6 @@ open_questions:
       deterministic test fixtures required for reproducible slices.
     blocks:
       - M6
-      - M7
     owner: human product and architecture owner
     risk_if_unanswered: critical
     default_if_unanswered: >
@@ -680,12 +821,54 @@ open_questions:
       Readiness is a visible product signal and a gate on the primary output; an
       invented formula would misrepresent project state to the user.
     blocks:
-      - M10
+      - M9
     owner: human product and architecture owner
     risk_if_unanswered: medium
     default_if_unanswered: >
       Readiness is presented as coverage of required discovery areas only, with no
       numeric score treated as approved.
+    status: open
+  - id: OQ-014
+    question: >
+      Which embedding model, vector column type, and index strategy support
+      semantic retrieval?
+    why_it_matters: >
+      FR-013 is bounded to one model and one index; choosing badly is expensive to
+      reverse once knowledge is embedded.
+    blocks:
+      - M8
+    owner: human product and architecture owner
+    risk_if_unanswered: high
+    default_if_unanswered: >
+      No embedding or vector index is treated as approved.
+    status: open
+  - id: OQ-015
+    question: >
+      What worker runtime and lease mechanism support durable continuation, and
+      what is the lease duration?
+    why_it_matters: >
+      Recovery after worker death is the central demonstration proof and depends
+      on how a run is claimed and reclaimed.
+    blocks:
+      - M7
+    owner: human product and architecture owner
+    risk_if_unanswered: critical
+    default_if_unanswered: >
+      No worker runtime is approved and recovery cannot be demonstrated.
+    status: open
+  - id: OQ-016
+    question: >
+      Which AWS runtime hosts the application and worker, ECS Fargate or App
+      Runner?
+    why_it_matters: >
+      The deployment must prove disposable compute with the least operational
+      surface; the choice affects restart semantics and cost controls.
+    blocks:
+      - M10
+    owner: human product and architecture owner
+    risk_if_unanswered: high
+    default_if_unanswered: >
+      No AWS service is provisioned.
     status: open
 
 assumptions:
@@ -760,35 +943,99 @@ tasks:
       - uv.lock
       - tests/persistence/
   - id: TASK-006
-    title: UI prototype plan
+    title: Persistent memory proof
     milestone: M5
     status: blocked
     blocked_by:
-      - OQ-011
+      - TASK-003
+      - OQ-010
     objective: >
-      Produce docs/09_development/plans/PX_01_UI_PROTOTYPE_PLAN.md defining
-      routes, components, states, seeded demo data, and accessibility
-      requirements. No implementation.
+      Implement project, session, message, and AgentRun persistence additive to
+      revision 0001, with memory write and structured retrieval through
+      application contracts, and a test in which one agent writes and another
+      retrieves in a separate run.
   - id: TASK-007
-    title: Walking skeleton
+    title: Agent collaboration
     milestone: M6
     status: blocked
     blocked_by:
-      - OQ-010
+      - TASK-006
       - OQ-012
     objective: >
-      Implement project creation, message submission, durable source capture, and
-      deterministic candidate extraction behind ports, surfaced in the discovery
-      workspace.
+      Implement the Requirements and Architecture agents, a deterministic
+      extraction adapter behind a port, human confirmation, and context assembly
+      that gives the Architecture Agent confirmed requirements only.
   - id: TASK-008
-    title: Confirmation and supersession flow
+    title: Resilience and recovery
     milestone: M7
     status: blocked
     blocked_by:
       - TASK-007
+      - OQ-015
     objective: >
-      Implement confirm, reject, revise, and supersede operations over the
-      existing lifecycle contracts with audit history and dependent-output flags.
+      Implement idempotency keys, bounded retry with backoff, durable run status
+      with lease expiry and reclaim, failure simulation, and continuation from
+      the last committed checkpoint.
+  - id: TASK-009
+    title: Semantic retrieval
+    milestone: M8
+    status: blocked
+    blocked_by:
+      - TASK-008
+      - OQ-014
+    objective: >
+      Implement embeddings, vector columns and index, and semantic search
+      combined with structured filters, scoped to one project, with result
+      explanations.
+  - id: TASK-010
+    title: Workspace, Review Agent, and reporting
+    milestone: M9
+    status: blocked
+    blocked_by:
+      - TASK-008
+      - OQ-011
+      - OQ-013
+    objective: >
+      Implement the discovery workspace over real API state, the Review Agent and
+      its quality findings, and reporting generated from operational data.
+  - id: TASK-011
+    title: AWS demonstration deployment
+    milestone: M10
+    status: blocked
+    blocked_by:
+      - TASK-010
+      - OQ-016
+    objective: >
+      Deploy application, worker, and CockroachDB Cloud with health endpoint,
+      managed secrets, structured logs, reproducible deployment, and documented
+      teardown.
+  - id: TASK-012
+    title: Demo readiness and release package
+    milestone: M11
+    status: blocked
+    blocked_by:
+      - TASK-011
+    objective: >
+      Deliver resettable demo environment, seed and cleanup commands, fallbacks,
+      architecture diagram, deployment and local-development guides, security
+      notes, known limitations, deck, video, Devpost narrative, and release tag.
+  - id: TASK-013
+    title: Planning amendment
+    milestone: M4
+    status: in_progress
+    objective: >
+      Remove the contradiction between the approved MVP baseline and the
+      hackathon demonstration plan, and establish the authoritative
+      implementation plan.
+    scope:
+      - docs/
+      - specifications/
+      - project-model.yaml
+      - README.md
+      - LICENSE
+    prohibited:
+      - application code
+      - RA-01 remediation work
 
 acceptance_tests:
   - id: AT-001
@@ -822,6 +1069,45 @@ acceptance_tests:
       A generated blueprint section links each statement to the confirmed
       knowledge item and source evidence that produced it.
     status: defined
+  - id: AT-005
+    covers:
+      - FR-011
+      - FR-012
+    scenario: >
+      A run terminated mid-execution is resumed by a different worker and
+      completes, with no duplicated knowledge.
+    status: defined
+  - id: AT-006
+    covers:
+      - FR-009
+      - FR-010
+    scenario: >
+      The Architecture Agent consumes requirements confirmed in an earlier
+      session and cites them in its output.
+    status: defined
+  - id: AT-007
+    covers:
+      - FR-012
+    scenario: >
+      Replaying a submission with the same idempotency key produces one run and
+      one set of knowledge.
+    status: defined
+  - id: AT-008
+    covers:
+      - FR-017
+    scenario: >
+      The deployed health endpoint reports healthy with the expected migration
+      revision.
+    status: defined
+  - id: AT-009
+    covers:
+      - FR-016
+      - FR-011
+    scenario: >
+      Terminating the worker task and letting the platform restart it results in
+      the interrupted run resuming and completing, with no duplicated knowledge
+      and no manual intervention.
+    status: defined
 
 traces:
   - business_goal: BG-001
@@ -838,10 +1124,21 @@ traces:
       - FR-006
       - FR-007
       - FR-008
+      - FR-009
+      - FR-010
+      - FR-011
+      - FR-012
+      - FR-013
+      - FR-014
+      - FR-015
+      - FR-016
+      - FR-017
+      - FR-018
     decisions:
       - ADR-0001
       - ADR-0002
       - ADR-0003
+      - ADR-0004
     modules:
       - MOD-projects
       - MOD-sessions
@@ -860,27 +1157,49 @@ traces:
       - TASK-006
       - TASK-007
       - TASK-008
+      - TASK-009
+      - TASK-010
+      - TASK-011
+      - TASK-012
+      - TASK-013
     tests:
       - AT-001
       - AT-002
       - AT-003
       - AT-004
+      - AT-005
+      - AT-006
+      - AT-007
+      - AT-008
+      - AT-009
 
 artifacts:
   - path: README.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/CONTEXT_INDEX.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/00_project/CURRENT_PROJECT_STATE.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/00_project/PROJECT_BRIEF.md
     generated_from_model_version: 5
   - path: docs/01_discovery/PROBLEM_DEFINITION.md
     generated_from_model_version: 4
   - path: docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/05_product/MVP_SCOPE.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
+  - path: docs/05_product/UNIFIED_DEMO_NARRATIVE.md
+    generated_from_model_version: 6
+  - path: docs/06_architecture/MCP_ACCESS_POLICY.md
+    generated_from_model_version: 6
+  - path: docs/09_development/AWS_DEMONSTRATION_BASELINE.md
+    generated_from_model_version: 6
+  - path: docs/09_development/PUBLIC_RELEASE_CHECKLIST.md
+    generated_from_model_version: 6
+  - path: specifications/AGENT_EXECUTION_MODEL.md
+    generated_from_model_version: 6
+  - path: LICENSE
+    generated_from_model_version: 6
   - path: docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md
     generated_from_model_version: 4
   - path: docs/05_product/DEMO_STORY_AND_SCRIPT.md
@@ -892,9 +1211,9 @@ artifacts:
   - path: docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md
     generated_from_model_version: 4
   - path: docs/09_development/DEVELOPMENT_PLAN.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
-    generated_from_model_version: 5
+    generated_from_model_version: 6
   - path: docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
     generated_from_model_version: 4
   - path: specifications/
@@ -915,9 +1234,20 @@ id_register:
   - {id: FR-006, type: requirement, status: active, superseded_by: null}
   - {id: FR-007, type: requirement, status: active, superseded_by: null}
   - {id: FR-008, type: requirement, status: active, superseded_by: null}
+  - {id: FR-009, type: requirement, status: active, superseded_by: null}
+  - {id: FR-010, type: requirement, status: active, superseded_by: null}
+  - {id: FR-011, type: requirement, status: active, superseded_by: null}
+  - {id: FR-012, type: requirement, status: active, superseded_by: null}
+  - {id: FR-013, type: requirement, status: active, superseded_by: null}
+  - {id: FR-014, type: requirement, status: active, superseded_by: null}
+  - {id: FR-015, type: requirement, status: active, superseded_by: null}
+  - {id: FR-016, type: requirement, status: active, superseded_by: null}
+  - {id: FR-017, type: requirement, status: active, superseded_by: null}
+  - {id: FR-018, type: requirement, status: active, superseded_by: null}
   - {id: ADR-0001, type: decision, status: active, superseded_by: null}
   - {id: ADR-0002, type: decision, status: active, superseded_by: null}
   - {id: ADR-0003, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0004, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -939,6 +1269,9 @@ id_register:
   - {id: OQ-011, type: open_question, status: active, superseded_by: null}
   - {id: OQ-012, type: open_question, status: active, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-014, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-015, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-016, type: open_question, status: active, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
   - {id: TASK-002, type: task, status: active, superseded_by: null}
   - {id: TASK-003, type: task, status: active, superseded_by: null}
@@ -947,24 +1280,39 @@ id_register:
   - {id: TASK-006, type: task, status: active, superseded_by: null}
   - {id: TASK-007, type: task, status: active, superseded_by: null}
   - {id: TASK-008, type: task, status: active, superseded_by: null}
+  - {id: TASK-009, type: task, status: active, superseded_by: null}
+  - {id: TASK-010, type: task, status: active, superseded_by: null}
+  - {id: TASK-011, type: task, status: active, superseded_by: null}
+  - {id: TASK-012, type: task, status: active, superseded_by: null}
+  - {id: TASK-013, type: task, status: active, superseded_by: null}
   - {id: AT-001, type: acceptance_test, status: active, superseded_by: null}
   - {id: AT-002, type: acceptance_test, status: active, superseded_by: null}
   - {id: AT-003, type: acceptance_test, status: active, superseded_by: null}
   - {id: AT-004, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-005, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-006, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-007, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-008, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-009, type: acceptance_test, status: active, superseded_by: null}
 
 undefined:
   - area: data
     missing: >
-      Physical design for projects, sessions, messages, and relationships, and
-      their relationship to the existing knowledge tables.
+      Physical design for projects, sessions, messages, relationships, and
+      AgentRun, and their relationship to the existing knowledge tables.
     blocks:
-      - M6
+      - M5
+  - area: execution
+    missing: >
+      Worker runtime, lease mechanism and duration, and checkpoint granularity
+      for continuation.
+    blocks:
       - M7
   - area: interface
     missing: >
       Approved frontend technology, route contracts, and component boundaries.
     blocks:
-      - M5
+      - M9
   - area: extraction
     missing: >
       Model provider decision, prompt contract, output schema, and validation and
@@ -985,10 +1333,9 @@ undefined:
       - M8
   - area: deployment
     missing: >
-      Approved AWS baseline, secrets handling, cost controls, and teardown
-      procedure.
+      AWS runtime choice. Deployment shape, secrets handling, health checks, and
+      teardown are approved in AWS_DEMONSTRATION_BASELINE.md.
     blocks:
-      - M9
       - M10
 
 history:
@@ -1107,3 +1454,74 @@ history:
     stage: >
       Product Experience milestone, Three-System Architecture context, Codex and
       Claude Execution Roadmap, and Repository Realignment
+  - commit: 6
+    added:
+      - FR-009
+      - FR-010
+      - FR-011
+      - FR-012
+      - FR-013
+      - FR-014
+      - FR-015
+      - FR-016
+      - FR-017
+      - FR-018
+      - ADR-0004
+      - ENT-agent-run
+      - ENT-quality-finding
+      - OQ-014
+      - OQ-015
+      - OQ-016
+      - TASK-009
+      - TASK-010
+      - TASK-011
+      - TASK-012
+      - TASK-013
+      - AT-005
+      - AT-006
+      - AT-007
+      - AT-008
+      - AT-009
+      - M11 milestone
+      - docs/05_product/UNIFIED_DEMO_NARRATIVE.md
+      - docs/06_architecture/MCP_ACCESS_POLICY.md
+      - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
+      - docs/09_development/PUBLIC_RELEASE_CHECKLIST.md
+      - specifications/AGENT_EXECUTION_MODEL.md
+      - LICENSE
+    changed:
+      - milestones M5 to M11
+      - TASK-006
+      - TASK-007
+      - TASK-008
+      - OQ-010
+      - OQ-011
+      - OQ-012
+      - OQ-013
+      - specifications/AGENT_COLLABORATION.md
+      - specifications/RETRIEVAL_ARCHITECTURE.md
+    deferred:
+      - arbitrary agent swarms
+      - general coding-agent hosting
+      - unrestricted autonomous orchestration
+      - production-scale RAG
+      - production-grade deployment
+      - MCP write operations
+      - enterprise administration
+      - document ingestion
+    conflicts:
+      - >
+        The approved MVP baseline deferred multi-agent execution, semantic
+        retrieval, workflow durability, MCP, and deployment, all of which the
+        demonstration requires. Resolved by bounded authorisation: three fixed
+        agent roles, one embedding model, one region, one worker.
+      - >
+        Two demo narratives existed — a solo discovery journey and an
+        agent-collaboration proof. Resolved by UNIFIED_DEMO_NARRATIVE.md: the
+        workspace is the product, three agents work behind it, recovery is the
+        proof.
+      - >
+        M5 was a clickable prototype, which would have validated an interface
+        before the chain it displays was proven. Resolved by making M5 the
+        persistent-memory proof and moving workspace integration to M9.
+    stage: Planning Amendment for hackathon execution

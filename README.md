@@ -10,7 +10,9 @@ and learned experience across sessions.
 
 It is demonstrated through an AI product-discovery workspace: a user arrives with
 an incomplete idea and leaves with confirmed, source-traceable engineering
-knowledge and a development blueprint.
+knowledge and a development blueprint. Three predefined agents — Requirements,
+Architecture, and Review — do that work behind the workspace, collaborating only
+through persistent engineering memory.
 
 ## Current phase
 
@@ -35,7 +37,8 @@ proves persistent engineering memory.
 Completed: foundation, domain contracts, knowledge persistence, product
 experience, demo planning, architecture context, and the development roadmap.
 
-Current: **M4 Repository realignment.** Next: **M5 clickable product prototype.**
+Current: **M4 Repository realignment.** Next: **M5 persistent-memory proof** —
+one agent writes durable knowledge, another retrieves it in a separate run.
 
 ## Implementation milestones
 
@@ -46,12 +49,13 @@ Current: **M4 Repository realignment.** Next: **M5 clickable product prototype.*
 | M2 | Persistence | ✔ |
 | M3 | Product Experience | ✔ |
 | M4 | Repository Realignment | ► current |
-| M5 | Clickable Prototype | open |
-| M6 | Walking Skeleton | open |
-| M7 | Knowledge Lifecycle | open |
+| M5 | Persistent Memory Proof | open |
+| M6 | Agent Collaboration | open |
+| M7 | Resilience and Recovery | open |
 | M8 | Semantic Retrieval | open |
-| M9 | AWS Integration | open |
-| M10 | Demo Ready | open |
+| M9 | Workspace and Reporting | open |
+| M10 | AWS Demonstration | open |
+| M11 | Demo Ready and Release | open |
 
 Repository health, implementation readiness, open risks, and the immediate next
 task are in
@@ -65,11 +69,13 @@ Implement the first product slice:
 User creates project
   -> Submits idea
   -> Persistent source capture
-  -> Candidate knowledge extraction
+  -> Requirements Agent writes candidate knowledge
   -> Human confirmation
-  -> Knowledge persistence
-  -> Cross-session retrieval
+  -> Architecture Agent retrieves confirmed requirements in a later run
 ```
+
+The proof is that the second agent's input is the first agent's confirmed output,
+recovered from CockroachDB rather than carried in process memory.
 
 ## Development principle
 
@@ -91,6 +97,8 @@ given the entire package as a universal implementation prompt.
 ```text
 AI Product Discovery Workspace          user-visible product (not yet built)
         |
+Agent execution + Memory services       Requirements, Architecture, Review agents
+        |                               behind KAE contracts (not yet built)
 Application services                    project, knowledge, retrieval, blueprint
         |                               (specified, not yet built)
 Domain contracts                        projects, agents, knowledge items,
@@ -107,9 +115,14 @@ protocol so CockroachDB and model-provider adapters can change without rewriting
 workflows (ADR-0003). Durable knowledge is built before orchestration, retrieval,
 or generation (ADR-0001).
 
-The proposed KAE–AWS–CockroachDB end-to-end topology is recorded in
+Agents reach the database only through KAE application contracts. CockroachDB MCP
+is for inspection and management, never domain writes (ADR-0004).
+
+The demonstration deployment shape is
+[`docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](docs/09_development/AWS_DEMONSTRATION_BASELINE.md);
+the wider proposed topology is
 [`docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md)
-and is not yet an approved deployment baseline.
+and is not an approved deployment baseline.
 
 ## What exists in code
 
@@ -121,9 +134,10 @@ and is not yet an approved deployment baseline.
 - `migrations/` — the first knowledge-table revision.
 - `tests/` — domain invariant tests and a persistence round-trip test.
 
-Project, session, message, and relationship persistence, application services,
-interfaces, retrieval, and the user interface are **not** implemented. Check
-`src/kae_memory/` before assuming any capability exists.
+Project, session, message, relationship, and AgentRun persistence, application
+services, agent execution, interfaces, retrieval, and the user interface are
+**not** implemented. Check `src/kae_memory/` before assuming any capability
+exists.
 
 ## Getting started
 
@@ -150,15 +164,27 @@ are recorded in
   — approved MVP requirements and deferred scope.
 - [`docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md`](docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md)
   — product identity, journey, and proof moments.
+- [`docs/05_product/UNIFIED_DEMO_NARRATIVE.md`](docs/05_product/UNIFIED_DEMO_NARRATIVE.md)
+  — the canonical demo story.
 - [`docs/05_product/MVP_SCOPE.md`](docs/05_product/MVP_SCOPE.md) — first-release
   inclusion and exclusion boundary.
+- [`docs/06_architecture/MCP_ACCESS_POLICY.md`](docs/06_architecture/MCP_ACCESS_POLICY.md)
+  — MCP is inspection-only; writes go through KAE contracts.
+- [`docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](docs/09_development/AWS_DEMONSTRATION_BASELINE.md)
+  — deployment shape, health checks, and secrets.
+- [`docs/09_development/PUBLIC_RELEASE_CHECKLIST.md`](docs/09_development/PUBLIC_RELEASE_CHECKLIST.md)
+  — release and judging assets with due milestones.
 - [`docs/06_architecture/ARCHITECTURE_WORKPLAN.md`](docs/06_architecture/ARCHITECTURE_WORKPLAN.md)
   — architecture questions and required outputs.
 - [`docs/09_development/DEVELOPMENT_PLAN.md`](docs/09_development/DEVELOPMENT_PLAN.md)
   — phased implementation plan.
 - [`docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md`](docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md)
   — slice sequence and coding-agent control plan.
-- [`specifications/`](specifications/) — domain, memory, retrieval, API, and
-  database specifications with architecture decisions.
+- [`specifications/`](specifications/) — domain, memory, retrieval, agent
+  execution, API, and database specifications with architecture decisions.
+
+## Licence
+
+Apache-2.0. See [`LICENSE`](LICENSE).
 - [`docs/10_prompts/TASK_CONTEXT_TEMPLATE.md`](docs/10_prompts/TASK_CONTEXT_TEMPLATE.md)
   — mandatory per-task handoff format.
