@@ -109,7 +109,7 @@ built on — do not let it slip.
 **Work:** one approved embedding model, vector columns and index, semantic search
 combined with structured filters, single-project scope, result explanations.
 
-**Blocked by:** OQ-014 embedding model and index strategy.
+**Decided:** ADR-0008 — Titan Text Embeddings V2 at 1024 dimensions, `VECTOR(1024)`, cosine, one index. Needs a CockroachDB v25.4+ cluster for the vector tests.
 
 **Exit condition:** a concept search returns related evidence, requirements, and
 decisions with their sources and the reason each was included.
@@ -124,7 +124,7 @@ memory summary, agent execution history, traceability, unresolved conflicts,
 validation coverage, and the recovery demonstration report; screenshots and demo
 script captured as screens land.
 
-**Blocked by:** OQ-011 frontend decision and its ADR.
+**Decided:** ADR-0009 — React, TypeScript, Vite, React Router, TanStack Query. Sequence within M9: **API contract → generated client → UI.** Still blocked on OQ-013 readiness. CI gains a Node job when frontend code lands.
 
 **Exit condition:** AT-004 passes and the ten-beat narrative can be walked
 locally.

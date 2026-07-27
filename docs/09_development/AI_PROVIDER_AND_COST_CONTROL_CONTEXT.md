@@ -6,7 +6,7 @@ This file gives future human and coding agents the minimum context needed to
 extend KAE-Memory's model-provider support without turning the current demo into
 an unbounded SaaS cost centre.
 
-Load ADR-0008 before implementing anything described here.
+Load ADR-0010 before implementing anything described here.
 
 ## Current approved state
 

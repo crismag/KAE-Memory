@@ -4,6 +4,9 @@
 - **Date:** 2026-07-27
 - **Closes:** OQ-012
 - **Scope:** the M6 extraction path only. Not embeddings (M8), not generation (M9).
+- **Amended by:** [`ADR-0010`](ADR-0010-provider-neutral-extraction-and-byok-direction.md),
+  which lifts the deferral of cross-provider abstraction below. Bedrock remains
+  the only approved live adapter; the port must not become Bedrock-specific.
 
 ## Context
 
@@ -205,7 +208,9 @@ account for it.
 - **Embeddings.** M8, separate decision (OQ-014). Bedrock hosts embedding models,
   but neither the model nor the index is chosen here.
 - **Generation.** Blueprint prose is M9.
-- **Provider fallbacks and cross-provider abstraction.** One provider, one port.
+- **Provider fallbacks and cross-provider abstraction.** One provider, one port
+  for this milestone. Amended by ADR-0010: provider neutrality is approved as
+  direction, and no second live adapter is authorised before M11.
 - **Batch extraction.** The Batches API is unavailable on Bedrock, and the demo is
   interactive.
 

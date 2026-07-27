@@ -87,7 +87,7 @@ frontend framework or authorise implementation by themselves.
 
 - `specifications/` holds the domain, memory, retrieval, agent-execution, API,
   and database specifications and the accepted architecture decisions ADR-0001 to
-  ADR-0006.
+  ADR-0010.
 - `specifications/AGENT_EXECUTION_MODEL.md` defines AgentRun, the run status
   model, idempotency, retry, continuation, and the three agent roles.
 - `docs/06_architecture/MCP_ACCESS_POLICY.md` records the inspection-only MCP
@@ -111,6 +111,9 @@ frontend framework or authorise implementation by themselves.
   deployment that proves the claim, plus health checks and secrets handling.
 - `docs/09_development/PUBLIC_RELEASE_CHECKLIST.md` defines the release and
   judging assets and the milestone by which each must exist.
+- `docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md` gives the context
+  needed to extend provider support without turning the demonstration into an
+  unbounded cost centre. Load ADR-0010 before implementing anything it describes.
 
 The roadmap is a control plan. Each implementation still requires one approved,
 task-specific context with an exact file scope and acceptance criteria.

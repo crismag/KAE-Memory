@@ -1,4 +1,4 @@
-# ADR-0008 — Provider-neutral extraction and BYOK product direction
+# ADR-0010 — Provider-neutral extraction and BYOK product direction
 
 - **Status:** accepted
 - **Date:** 2026-07-27
@@ -7,6 +7,8 @@
   authorised by this decision.
 - **Amends:** ADR-0006 section 9 and its explicit deferral of cross-provider
   abstraction.
+- **Numbering:** recorded as ADR-0010. ADR-0008 and ADR-0009 were taken by the
+  embedding and frontend decisions while this was in review.
 
 ## Context
 

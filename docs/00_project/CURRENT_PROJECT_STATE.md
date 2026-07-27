@@ -33,7 +33,7 @@ M7 makes compute disposable — the lease protocol from ADR-0007, durable
 checkpoints, and a worker that resumes what a killed worker left behind. This is
 the milestone the demonstration rests on.
 
-ADR-0008 records a future provider-neutral and BYOK product direction without
+ADR-0010 records a future provider-neutral and BYOK product direction without
 adding work to M7. Bedrock remains the only approved live demo adapter.
 
 ## Milestones
@@ -95,13 +95,13 @@ rejected rather than merged with a follow-up promise.
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
 | Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
-| Semantic retrieval and embeddings | **Not implemented** — required by M8 |
+| Semantic retrieval and embeddings | **Not implemented** — decided (ADR-0008); needs a CockroachDB v25.4+ cluster |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Implemented — `MemoryService` |
-| HTTP interface | Not implemented |
-| User interface | Not implemented — moved to M9 |
+| HTTP interface | **Not implemented** — the contract itself is M9's first step |
+| User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
 | Cloud services | None provisioned |
-| BYOK and usage governance | **Not implemented** — approved as a post-demo direction by ADR-0008 |
+| BYOK and usage governance | **Not implemented** — approved as a post-demo direction by ADR-0010 |
 
 The domain layer is ahead of the persistence layer, and the persistence layer is
 ahead of everything above it. No coding agent should assume a service, endpoint,
@@ -153,7 +153,7 @@ Timing, sample data, and delivery craft:
   CockroachDB and model providers can be introduced without rewriting workflows.
 - Bedrock remains the only approved live demonstration adapter. Provider-neutral
   extraction and BYOK are approved future directions, not current capabilities
-  (ADR-0008).
+  (ADR-0010).
 - Three predefined agents behind the workspace, writing only through KAE
   application contracts. CockroachDB MCP is inspection-only (ADR-0004).
 - Disposable compute: every run is durably recorded before work starts, so a
@@ -175,9 +175,9 @@ Timing, sample data, and delivery craft:
 | ADR-0005 M5 physical schema (revision 0002) | accepted — closes OQ-010 |
 | ADR-0006 extraction provider, prompt, and schema | accepted — closes OQ-012 |
 | ADR-0007 worker runtime and renewable leases | accepted — closes OQ-015 |
-| ADR-0008 provider-neutral extraction and BYOK direction | accepted — documentation only; no current implementation |
-| Embedding model and index strategy | **open** — OQ-014, blocks M8 |
-| Frontend technology | **open** — OQ-011, blocks M9 |
+| ADR-0008 embedding model and vector index | accepted — closes OQ-014 |
+| ADR-0009 discovery workspace frontend | accepted — closes OQ-011 |
+| ADR-0010 provider-neutral extraction and BYOK direction | accepted — direction only; no current implementation |
 | Readiness model | **open** — OQ-013, blocks M9 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
 
@@ -231,5 +231,5 @@ Task context: [`../../development/tasks/TASK-008-m7-resilience-recovery.md`](../
 Success condition: a new worker resumes after the previous execution stops,
 without duplicated durable knowledge.
 
-ADR-0008 does not alter this task. Do not implement provider selection, BYOK,
+ADR-0010 does not alter this task. Do not implement provider selection, BYOK,
 credential storage, quotas, billing, or extra live adapters during M7.

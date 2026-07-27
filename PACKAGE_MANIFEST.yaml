@@ -51,15 +51,20 @@ package:
       - specifications/ADR/ADR-0005-m5-physical-schema.md
       - specifications/ADR/ADR-0006-extraction-contract.md
       - specifications/ADR/ADR-0007-worker-runtime-and-leases.md
+      - specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
+      - specifications/ADR/ADR-0009-discovery-workspace-frontend.md
+      - specifications/ADR/ADR-0010-provider-neutral-extraction-and-byok-direction.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
+      - docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md
       - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
       - docs/09_development/PUBLIC_RELEASE_CHECKLIST.md
       - docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
       - development/tasks/TASK-001-domain-contracts.md
       - development/tasks/TASK-006-m5-persistence.md
       - development/tasks/TASK-007-m6-agent-collaboration.md
+      - development/tasks/TASK-008-m7-resilience-recovery.md
     implementation:
       - pyproject.toml
       - uv.lock
@@ -82,7 +87,7 @@ package:
         agent is M9. Worker leases and recovery are M7.
       milestone: M7
   not_yet_implemented:
-    - user interface and frontend framework (M9)
+    - user interface (M9; framework decided in ADR-0009)
     - HTTP endpoints (M9)
     - lease expiry and automatic reclaim (M7)
     - retrieval embeddings and vector indexes (M8)
