@@ -87,10 +87,10 @@ rejected rather than merged with a follow-up promise.
 | --- | --- |
 | Domain contracts | Implemented — project, agent, knowledge item, version, provenance, relationship, lifecycle |
 | Knowledge persistence | Implemented — `knowledge_items`, `knowledge_versions`, repository, retry policy |
-| Project / session / message persistence | **Not implemented** — required by M5 |
-| AgentRun and workflow state | **Not implemented** — required by M5 and M7 |
+| Project / session / message persistence | **Not implemented** — schema decided (ADR-0005), M5 |
+| AgentRun and workflow state | **Not implemented** — schema decided (ADR-0005), M5 |
 | Agent execution (Requirements, Architecture, Review) | **Not implemented** — required by M6 and M9 |
-| Relationship persistence | **Not implemented** — required by M9 traceability |
+| Relationship persistence | **Not implemented** — schema decided (ADR-0005), M5 |
 | Semantic retrieval and embeddings | **Not implemented** — required by M8 |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Not implemented |
@@ -164,7 +164,7 @@ Timing, sample data, and delivery craft:
 | ADR-0002 Python library-first bootstrap | accepted |
 | ADR-0003 SQLAlchemy, Alembic, psycopg | accepted |
 | ADR-0004 MCP inspection-only | accepted |
-| Physical schema incl. AgentRun | **open** — OQ-010, blocks M5 |
+| ADR-0005 M5 physical schema (revision 0002) | accepted — closes OQ-010 |
 | Extraction provider, prompt contract, output schema | **open** — OQ-012, blocks M6 |
 | Worker runtime and lease mechanism | **open** — OQ-015, blocks M7 |
 | Embedding model and index strategy | **open** — OQ-014, blocks M8 |
@@ -216,15 +216,16 @@ satisfy the release.
 M4 and RA-01 are complete. The quality gate is green and the documentation
 describes the system that exists.
 
-**Next: AR-01 — architecture decisions for M5.** OQ-010 must be answered before
-implementation begins: the physical schema for projects, sessions, messages,
-relationships, and AgentRun, and how it relates to the existing knowledge tables.
-Revision 0001 stays valid; new revisions are additive.
+**AR-01 is complete.** ADR-0005 closes OQ-010 with an additive revision `0002`:
+`projects`, `sessions`, `agent_runs`, `messages`, `knowledge_relationships`, and
+`knowledge_provenance_links`. Revision `0001` is unchanged.
 
-**Then M5 — persistent memory proof:** project, session, message, and AgentRun
-persistence, memory write and structured retrieval through application contracts,
-and a test in which one agent writes knowledge and another retrieves it in a
-separate run.
+**Next: M5 — persistent memory proof.** Implement revision `0002`, the domain
+contracts and repositories for the new entities, and the application contracts
+for creating a project, opening a session, recording a message, running an agent,
+writing knowledge, and retrieving it.
+
+Task context: [`../../development/tasks/TASK-006-m5-persistence.md`](../../development/tasks/TASK-006-m5-persistence.md).
 
 Success condition for M5: Agent A writes something and Agent B retrieves it in
 another run.

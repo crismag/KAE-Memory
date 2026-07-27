@@ -46,16 +46,61 @@ Two MCP servers are used in development:
 
 Neither is a data-plane SQL server, which matches this policy by construction.
 
-## Credential handling
+## Two credentials, two rotation problems
+
+These are routinely conflated. They are not the same, and they do not carry the
+same urgency.
+
+| | Cloud API / MCP bearer key | SQL application credential |
+| --- | --- | --- |
+| Grants | CockroachDB Cloud API — cluster management and inspection | SQL access to project data |
+| Used by | developer tooling, MCP clients | the application and Alembic |
+| Rotation | **immediate on exposure**, no deferral | safe storage required now; automated rotation deferred |
+
+### Cloud API / MCP bearer key
+
+An exposed key is revoked and replaced immediately. There is no acceptable
+deferral, because the key grants cluster management.
+
+A service account may hold multiple API keys, which supports overlap during
+rotation:
+
+1. Create a new key under the same least-privileged service account.
+2. Put it in the local secret store.
+3. Point the MCP client at an environment variable or injected secret rather than
+   an inline token, where the client supports it.
+4. Restart and test the MCP integration.
+5. **Delete the exposed key.**
+6. Record the key identifier and rotation date only — never the secret.
+
+Use a dedicated, least-privileged service account per application rather than a
+shared one.
+
+### SQL application credential
+
+Safe storage is required for M5. Automated periodic rotation is not.
+
+- A dedicated application SQL user, granted only the privileges it needs on the
+  database, schema, and tables it uses.
+- **Never `root`.**
+- The MCP service-account key is never reused as the application credential.
+- The connection URI comes from `KAE_DATABASE_URL` at startup, never hardcoded,
+  so the credential can change without a code change.
+- Manual rotation is documented.
+- Deployed, the URI lives in AWS Secrets Manager. The application must be
+  restartable after the secret changes; zero-downtime refresh is not required.
+
+Automated SQL credential rotation and zero-downtime secret refresh are deferred to
+deployment hardening unless the AWS demonstration requires them. This keeps
+security credible without turning it into a secrets-platform workstream.
+
+### General
 
 - MCP credentials are **developer-local configuration**, not repository content.
-  They must never be committed, pasted into documents, issues, pull requests, or
-  agent transcripts.
-- Cluster identifiers and bearer tokens are secrets. Treat any token that appears
-  in a shared transcript as compromised and rotate it.
-- The application's own database credentials are separate from MCP credentials
-  and are managed as described in
-  [`../09_development/AWS_DEMONSTRATION_BASELINE.md`](../09_development/AWS_DEMONSTRATION_BASELINE.md).
+  They must never be committed, or pasted into documents, issues, pull requests,
+  or agent transcripts.
+- Cluster identifiers and bearer tokens are secrets. A token that appears in a
+  shared transcript is compromised — revoke it, do not merely note it.
 - If a read-only MCP service account is introduced for the audit path, it is
   provisioned with its own least-privilege role and documented before use.
 
