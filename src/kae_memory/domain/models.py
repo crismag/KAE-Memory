@@ -101,7 +101,9 @@ class KnowledgeItem:
 
         return self.versions[-1]
 
-    def append_version(self, content: str, provenance: Provenance, created_at: datetime) -> "KnowledgeItem":
+    def append_version(
+        self, content: str, provenance: Provenance, created_at: datetime
+    ) -> "KnowledgeItem":
         """Return a new item with one additional version."""
 
         version = KnowledgeVersion(len(self.versions) + 1, content, provenance, created_at)

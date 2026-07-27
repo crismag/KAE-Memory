@@ -3,12 +3,9 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from time import sleep
-from typing import TypeVar
 
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
-
-ResultT = TypeVar("ResultT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,10 +22,13 @@ class RetryPolicy:
             raise ValueError("initial_delay_seconds must not be negative")
 
 
-def run_transaction(
+DEFAULT_RETRY_POLICY = RetryPolicy()
+
+
+def run_transaction[ResultT](
     session_factory: sessionmaker[Session],
     operation: Callable[[Session], ResultT],
-    policy: RetryPolicy = RetryPolicy(),
+    policy: RetryPolicy = DEFAULT_RETRY_POLICY,
 ) -> ResultT:
     """Run a complete unit of work and retry only serialization failures."""
 

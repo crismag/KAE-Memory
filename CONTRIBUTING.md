@@ -16,6 +16,36 @@ uv sync --extra dev
 make check
 ```
 
+`uv.lock` is committed. Use `uv sync` rather than `uv pip install` so the locked
+versions are honoured, and commit the lockfile whenever dependencies change.
+
+## Database and migrations
+
+Configuration comes from the environment. Copy `.env.example` to `.env` and set
+`KAE_DATABASE_URL`. `.env` is gitignored and must never be committed — no
+credential belongs in the repository, an image, a log, a document, or an agent
+transcript.
+
+```bash
+export KAE_DATABASE_URL='postgresql+psycopg://user:password@host:26257/kae?sslmode=verify-full'
+
+make migrate         # alembic upgrade head
+make migrate-down    # alembic downgrade base
+uv run alembic current
+uv run alembic revision -m "describe the change"
+```
+
+Migrations are additive. Revision `0001` is applied; editing it rather than
+adding a new revision requires an explicit decision, not an implementer's
+judgement.
+
+CockroachDB is the authoritative store. SQLite is used in tests and is acceptable
+for checking that a migration runs, but it is not a substitute for verifying
+behaviour against CockroachDB.
+
+CockroachDB MCP is for inspection and management only. All domain writes go
+through KAE application contracts — see ADR-0004.
+
 ## Pull request expectations
 
 A pull request should include:

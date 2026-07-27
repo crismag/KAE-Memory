@@ -56,28 +56,30 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`.
+Assessed 2026-07-27 against `make check`, after RA-01.
 
 | Gate | Result |
 | --- | --- |
-| `ruff check` | ✖ 6 findings (`I001`, 3× `E501`, `UP047`, `B008`) |
-| `ruff format --check` | ✖ 2 files would be reformatted |
-| `mypy --strict` | ✔ clean across 13 source files |
-| `pytest` | ✖ 1 failed, 9 passed |
+| `ruff check` | ✔ all checks passed |
+| `ruff format --check` | ✔ 52 files formatted |
+| `mypy --strict` | ✔ clean across 14 source files |
+| `pytest` | ✔ 18 passed, 94% coverage |
 
-Known defects to clear during M4 or at the start of M5:
+RA-01 cleared all four known defects:
 
-1. **Repository round-trip test fails.** SQLite returns naive datetimes for
-   `DateTime(timezone=True)`, so rehydration violates the domain's
-   timezone-aware provenance invariant. The mapping does not normalise on load.
-2. **Alembic cannot run.** `migrations/versions/0001_create_knowledge_tables.py`
-   exists, but there is no `alembic.ini` and no `migrations/env.py`.
-3. **No lockfile.** `uv sync` is used by the Makefile and CI, but `uv.lock` is
-   not committed, so builds are not reproducible.
-4. **Transaction retry is untested.** `run_transaction` and its SQLSTATE 40001
-   detection have no direct tests.
+1. **Timezone normalisation on rehydration** — `_as_aware` interprets a naive
+   stored timestamp as the UTC instant it was written as, so rehydration no
+   longer violates the timezone-aware provenance invariant.
+2. **Alembic is executable** — `alembic.ini` and `migrations/env.py` exist, and
+   revision 0001 applies and rolls back. The database URL comes from
+   `KAE_DATABASE_URL`; no credential is stored in the repository.
+3. **`uv.lock` is committed** — builds are reproducible.
+4. **Retry is tested** — `run_transaction` coverage went from 45% to 97%,
+   covering SQLSTATE 40001 detection via both `sqlstate` and `pgcode`, bounded
+   exhaustion, non-retryable errors, and backoff doubling.
 
-These are tracked as TASK-002 through TASK-005.
+`main` must stay green. A pull request that leaves `make check` failing should be
+rejected rather than merged with a follow-up promise.
 
 ## Implementation readiness
 
@@ -176,7 +178,7 @@ Timing, sample data, and delivery craft:
 | --- | --- | --- |
 | RISK-002 | Shared memory may accumulate conflicting knowledge or degrade engineering quality | open — mitigated by lifecycle states, supersession without deletion, and provenance on every version |
 | RISK-004 | Documentation drifts from implemented code, so agents act on inaccurate state | mitigating — this page is first-loaded context and is updated at every milestone close |
-| RISK-005 | `main` does not pass its own quality gate, so CI signal is unreliable | open — TASK-003 to TASK-005 |
+| RISK-005 | `main` does not pass its own quality gate, so CI signal is unreliable | closed — RA-01 restored all four gates |
 | RISK-006 | The demonstration depends on unprovisioned services and unmeasured model behaviour | open — deterministic adapters, seeded state, and documented fallbacks required before M10 |
 | KG-002 | Extraction quality is unmeasured, so confirmation effort is unknown | open |
 
@@ -211,24 +213,21 @@ satisfy the release.
 
 **Complete M4 and restore a green `make check`.**
 
-1. Merge the repository-realignment change (this milestone). M4 closes on merge.
-2. Execute **RA-01 — Restore Repository Readiness Gates** as its own bounded
-   engineering pull request, limited to the four recorded defects:
-   - timezone normalisation when rehydrating knowledge from the database;
-   - the ruff and formatting findings;
-   - `alembic.ini` and `migrations/env.py` so revision 0001 is executable;
-   - `uv.lock`, plus tests for `run_transaction` retry and exhaustion.
+M4 and RA-01 are complete. The quality gate is green and the documentation
+describes the system that exists.
 
-**RA-01 acceptance condition:** a clean checkout can install, lint, type-check,
-and test successfully using the documented commands.
+**Next: AR-01 — architecture decisions for M5.** OQ-010 must be answered before
+implementation begins: the physical schema for projects, sessions, messages,
+relationships, and AgentRun, and how it relates to the existing knowledge tables.
+Revision 0001 stays valid; new revisions are additive.
 
-RA-01 must not add UI scaffolding, application services, API routes, schema
-expansion, or architectural redesign.
+**Then M5 — persistent memory proof:** project, session, message, and AgentRun
+persistence, memory write and structured retrieval through application contracts,
+and a test in which one agent writes knowledge and another retrieves it in a
+separate run.
 
-Only after RA-01 restores a clean baseline, begin **M5 — persistent memory
-proof**: project, session, message, and AgentRun persistence, with a test in which
-one agent writes knowledge and another retrieves it in a separate run. Do not
-begin M5 while the repository is known to be red.
+Success condition for M5: Agent A writes something and Agent B retrieves it in
+another run.
 
-The clickable prototype is no longer the next milestone. Product workspace
-integration moves to M9, after the memory and collaboration chain is proven.
+Product workspace integration remains at M9, after the memory and collaboration
+chain is proven.
