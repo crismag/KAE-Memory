@@ -1,18 +1,22 @@
 # Agent Collaboration
 
-**Status:** proposed protocol.
+**Status:** approved for the three MVP roles, 2026-07-27. Durable execution
+contracts are in [`AGENT_EXECUTION_MODEL.md`](AGENT_EXECUTION_MODEL.md).
 
 ## Principle
 
 Agents collaborate through explicit tasks, durable memory, typed artefacts, and reviewable state transitions. They do not coordinate by relying on hidden conversational context.
 
-## Initial roles
+## Approved roles
 
-- **Requirements agent:** converts validated discovery into testable requirements and gaps.
-- **Architecture agent:** derives coherent design from approved requirements.
-- **Human reviewer:** validates scope, requirements, decisions, conflicts, and quality.
+Exactly three agent roles are authorised for the MVP (FR-009). Adding a fourth requires a new approved requirement.
 
-Future roles may include research, planning, implementation, testing, review, and documentation agents.
+- **Requirements agent:** converts discovery input into candidate requirements and explicit gaps.
+- **Architecture agent:** derives coherent design from *confirmed* requirements, citing each one it uses.
+- **Review agent:** retrieves requirements and decisions across sessions and reports unresolved gaps, contradictions, unsupported statements, and validation coverage. It proposes findings; it does not correct what it finds.
+- **Human reviewer:** validates scope, requirements, decisions, conflicts, and quality. Confirmation is a human act — no agent confirms knowledge, including its own.
+
+Deferred roles: research, planning, implementation, testing, and documentation agents.
 
 ## Agent contract
 
@@ -44,6 +48,14 @@ Least privilege applies. Roles may have different read, propose, validate, super
 
 The platform should retain task identity, input bundle, tool actions where available, outputs, status transitions, errors, review result, and trace links.
 
+## Write boundary
+
+Agents write exclusively through KAE application contracts. No agent holds raw database credentials or issues SQL against domain tables. See ADR-0004 and [`../docs/06_architecture/MCP_ACCESS_POLICY.md`](../docs/06_architecture/MCP_ACCESS_POLICY.md).
+
+## Resolved by the agent execution model
+
+Retry rules, cancellation semantics, run status, and continuation are specified in [`AGENT_EXECUTION_MODEL.md`](AGENT_EXECUTION_MODEL.md).
+
 ## Open decisions
 
-Delegation depth, concurrency controls, reviewer quorum, agent trust levels, retry rules, cancellation semantics, and provider-specific isolation.
+Delegation depth, concurrency controls, reviewer quorum, agent trust levels, and provider-specific isolation.

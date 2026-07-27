@@ -4,7 +4,7 @@
 read this page before any other repository context. It is the single answer to
 "where does KAE-Memory stand today, and what happens next?"
 
-**Last realigned:** 2026-07-27 · **Model version:** 5
+**Last realigned:** 2026-07-27 · **Model version:** 6
 
 ## Vision
 
@@ -18,7 +18,9 @@ Engineering Memory Operating System
 KAE-Memory is the durable, provenance-aware knowledge layer that lets humans and
 specialised AI agents work on the same project across sessions. Its first product
 is a discovery workspace that turns an incomplete idea into confirmed engineering
-knowledge and a traceable blueprint.
+knowledge and a traceable blueprint. Three predefined agents — Requirements,
+Architecture, and Review — do that work behind the workspace, collaborating only
+through persistent memory.
 
 ## Current milestone
 
@@ -40,12 +42,13 @@ M4 is documentation-only. It adds no application code, schema, or services.
 | M2 | Persistence — SQLAlchemy mapping, retry semantics, first migration | ✔ complete (partial coverage, see health) |
 | M3 | Product Experience — identity, journey, screens, demo narrative | ✔ complete |
 | M4 | Repository Realignment — documentation matches reality | ► current |
-| M5 | Clickable Prototype — seeded UI proving the journey | open |
-| M6 | Walking Skeleton — application layer over the existing persistence foundation | open |
-| M7 | Knowledge Lifecycle — confirm, reject, revise, supersede | open |
+| M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | open |
+| M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | open |
+| M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | open |
 | M8 | Semantic Retrieval — embeddings, recall, return session | open |
-| M9 | AWS Integration — deploy what the slice requires | open |
-| M10 | Demo Ready — hardening, seed data, fallbacks, submission evidence | open |
+| M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | open |
+| M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | open |
+| M11 | Demo Ready and Release — rehearsal, packaging, submission evidence | open |
 
 M0–M3 are complete in the sense that their deliverables exist and are reviewable,
 not in the sense that they are final. M2 in particular is a foundation, not full
@@ -82,12 +85,15 @@ These are tracked as TASK-002 through TASK-005.
 | --- | --- |
 | Domain contracts | Implemented — project, agent, knowledge item, version, provenance, relationship, lifecycle |
 | Knowledge persistence | Implemented — `knowledge_items`, `knowledge_versions`, repository, retry policy |
-| Project / session / message persistence | **Not implemented** — required by M6 |
-| Relationship persistence | **Not implemented** — required by M7 traceability |
+| Project / session / message persistence | **Not implemented** — required by M5 |
+| AgentRun and workflow state | **Not implemented** — required by M5 and M7 |
+| Agent execution (Requirements, Architecture, Review) | **Not implemented** — required by M6 and M9 |
+| Relationship persistence | **Not implemented** — required by M9 traceability |
+| Semantic retrieval and embeddings | **Not implemented** — required by M8 |
+| Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Not implemented |
-| HTTP or MCP interface | Not implemented |
-| User interface | Not implemented |
-| Retrieval and embeddings | Not implemented |
+| HTTP interface | Not implemented |
+| User interface | Not implemented — moved to M9 |
 | Cloud services | None provisioned |
 
 The domain layer is ahead of the persistence layer, and the persistence layer is
@@ -100,20 +106,31 @@ An AI product-discovery workspace that converts an incomplete software idea into
 confirmed, source-traceable engineering knowledge that survives across sessions
 and produces a development blueprint.
 
-Authorised MVP capabilities are listed in
-[`docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md`](../02_requirements/MVP_REQUIREMENTS_BASELINE.md).
+Three predefined agents — Requirements, Architecture, Review — do the work behind
+the workspace, collaborating only through persistent memory.
+
+Authorised MVP capabilities are FR-001 to FR-018 in
+[`docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md`](../02_requirements/MVP_REQUIREMENTS_BASELINE.md),
+each **bounded**: three fixed agent roles, one embedding model, one region, one
+worker. Exceeding a boundary requires a new requirement, not an implementer's
+judgement.
 The inclusion and exclusion boundary is in
 [`docs/05_product/MVP_SCOPE.md`](../05_product/MVP_SCOPE.md).
 
 ## Current demo
 
-A three-minute narrative in which a user submits a paragraph, sees structured
-knowledge and unknowns appear, answers one purposeful question, returns in a
-later session to find the project state intact, corrects a rule so the prior
-version becomes superseded rather than deleted, and generates a blueprint whose
-statements link back to their sources.
+A three-minute narrative in which a user submits a paragraph, the Requirements
+Agent turns it into structured knowledge, the user confirms it, the Architecture
+Agent derives decisions from those confirmed requirements, the worker is killed
+mid-run and resumed by another, the Review Agent reports gaps in a new session,
+and a blueprint is generated whose statements link back to their sources.
 
-Defined in
+**Recovery is the proof.** A demonstration that omits the interruption and
+resumption beats does not satisfy the release.
+
+Canonical sequence:
+[`docs/05_product/UNIFIED_DEMO_NARRATIVE.md`](../05_product/UNIFIED_DEMO_NARRATIVE.md).
+Timing, sample data, and delivery craft:
 [`docs/05_product/DEMO_STORY_AND_SCRIPT.md`](../05_product/DEMO_STORY_AND_SCRIPT.md).
 
 ## Current architectural direction
@@ -127,8 +144,15 @@ Defined in
   or generation (ADR-0001).
 - Ports and adapters at the persistence and model-provider boundaries so
   CockroachDB and Bedrock can be introduced without rewriting workflows.
-- AWS deployment baseline remains proposed, not approved. See
-  [`docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](../06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md).
+- Three predefined agents behind the workspace, writing only through KAE
+  application contracts. CockroachDB MCP is inspection-only (ADR-0004).
+- Disposable compute: every run is durably recorded before work starts, so a
+  killed worker loses nothing.
+- AWS demonstration baseline approved in shape
+  ([`docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](../09_development/AWS_DEMONSTRATION_BASELINE.md));
+  the wider topology in
+  [`docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](../06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md)
+  is not approved.
 
 ### Architecture status
 
@@ -137,12 +161,14 @@ Defined in
 | ADR-0001 memory-first ordering | accepted |
 | ADR-0002 Python library-first bootstrap | accepted |
 | ADR-0003 SQLAlchemy, Alembic, psycopg | accepted |
-| Frontend technology | **open** — OQ-011, blocks M5 |
-| Physical schema for projects, sessions, messages, relationships | **open** — OQ-010, blocks M6 |
+| ADR-0004 MCP inspection-only | accepted |
+| Physical schema incl. AgentRun | **open** — OQ-010, blocks M5 |
 | Extraction provider, prompt contract, output schema | **open** — OQ-012, blocks M6 |
-| Readiness model | **open** — OQ-013, blocks M10 |
-| AWS deployment baseline | **open** — blocks M9 |
-| Embedding model and index strategy | **open** — blocks M8 |
+| Worker runtime and lease mechanism | **open** — OQ-015, blocks M7 |
+| Embedding model and index strategy | **open** — OQ-014, blocks M8 |
+| Frontend technology | **open** — OQ-011, blocks M9 |
+| Readiness model | **open** — OQ-013, blocks M9 |
+| AWS runtime choice | **open** — OQ-016, blocks M10 |
 
 ## Open risks
 
@@ -159,11 +185,16 @@ the recorded decisions and bounded task contexts.
 
 ## Target release
 
-The first release is the hackathon demonstration at M10: a resettable environment
-in which the three-minute story runs twice from a clean reset, with AT-001 to
-AT-004 passing. It is a demonstration release, not a production one —
-authentication, teams, billing, and multi-region deployment are outside the MVP
-boundary.
+The first release is the hackathon demonstration at M11: a resettable environment
+in which the ten-beat narrative in
+[`../05_product/UNIFIED_DEMO_NARRATIVE.md`](../05_product/UNIFIED_DEMO_NARRATIVE.md)
+runs twice from a clean reset, with AT-001 to AT-009 passing, plus the package in
+[`../09_development/PUBLIC_RELEASE_CHECKLIST.md`](../09_development/PUBLIC_RELEASE_CHECKLIST.md).
+
+It is a demonstration release, not a production one — authentication, teams,
+billing, administration, and multi-region deployment are outside the MVP
+boundary. Recovery after worker death is the proof; a demo without it does not
+satisfy the release.
 
 ## Current branch strategy
 
@@ -194,6 +225,10 @@ and test successfully using the documented commands.
 RA-01 must not add UI scaffolding, application services, API routes, schema
 expansion, or architectural redesign.
 
-Only after RA-01 restores a clean baseline, issue Prompt PX-01 to plan the M5
-clickable prototype. Do not begin PX-01 while the repository is known to be red,
-and do not begin M5 implementation before that plan is reviewed.
+Only after RA-01 restores a clean baseline, begin **M5 — persistent memory
+proof**: project, session, message, and AgentRun persistence, with a test in which
+one agent writes knowledge and another retrieves it in a separate run. Do not
+begin M5 while the repository is known to be red.
+
+The clickable prototype is no longer the next milestone. Product workspace
+integration moves to M9, after the memory and collaboration chain is proven.

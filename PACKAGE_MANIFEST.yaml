@@ -1,8 +1,8 @@
 package:
   project: KAE-Memory
   generated: "2026-07-27"
-  generated_from_stage: "Implementation Kickoff — M4 Repository Realignment"
-  model_version: 5
+  generated_from_stage: "Implementation Kickoff — M4 Repository Realignment and Planning Amendment"
+  model_version: 6
   purpose: >
     Implementation repository containing the durable project model, engineering
     specifications, product experience definition, domain contracts, knowledge
@@ -15,6 +15,7 @@ package:
       - README.md
       - project-model.yaml
       - PACKAGE_MANIFEST.yaml
+      - LICENSE
       - CHANGELOG.md
       - CONTRIBUTING.md
       - docs/CONTEXT_INDEX.md
@@ -28,24 +29,30 @@ package:
       - docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md
       - docs/05_product/MVP_UI_WORKSPACE.md
       - docs/05_product/DEMO_STORY_AND_SCRIPT.md
+      - docs/05_product/UNIFIED_DEMO_NARRATIVE.md
     architecture:
       - docs/06_architecture/ARCHITECTURE_WORKPLAN.md
       - docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md
+      - docs/06_architecture/MCP_ACCESS_POLICY.md
       - specifications/README.md
       - specifications/PRODUCT_REQUIREMENTS_SPECIFICATION.md
       - specifications/DOMAIN_MODEL.md
       - specifications/MEMORY_ARCHITECTURE.md
       - specifications/RETRIEVAL_ARCHITECTURE.md
       - specifications/AGENT_COLLABORATION.md
+      - specifications/AGENT_EXECUTION_MODEL.md
       - specifications/API_CONTRACTS.md
       - specifications/DATABASE_ARCHITECTURE.md
       - specifications/IMPLEMENTATION_ROADMAP.md
       - specifications/ADR/ADR-0001-memory-first.md
       - specifications/ADR/ADR-0002-python-library-first-bootstrap.md
       - specifications/ADR/ADR-0003-sqlalchemy-alembic-psycopg.md
+      - specifications/ADR/ADR-0004-mcp-inspection-only.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
+      - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
+      - docs/09_development/PUBLIC_RELEASE_CHECKLIST.md
       - docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
       - development/tasks/TASK-001-domain-contracts.md
     implementation:
@@ -59,8 +66,8 @@ package:
   present_but_incomplete:
     - description: >
         Persistence covers knowledge items and versions only. Project, session,
-        message, and relationship tables are not implemented.
-      milestone: M6
+        message, relationship, and AgentRun tables are not implemented.
+      milestone: M5
     - description: >
         Alembic revision 0001 exists but cannot run; alembic.ini and
         migrations/env.py are missing.
@@ -69,11 +76,19 @@ package:
         make check does not pass. See docs/00_project/CURRENT_PROJECT_STATE.md
         for the current gate results.
       task: TASK-003
-  deliberately_absent:
-    - user interface and frontend framework
-    - application services and HTTP or MCP endpoints
-    - retrieval, embeddings, and vector indexes
-    - agent orchestration and model-provider adapters
-    - authentication, teams, billing, and administration
-    - cloud infrastructure and deployment configuration
+  not_yet_implemented:
+    - user interface and frontend framework (M9)
+    - application services and HTTP endpoints (M5)
+    - agent execution and model-provider adapters (M6)
+    - AgentRun, workflow state, and recovery (M5, M7)
+    - retrieval embeddings and vector indexes (M8)
+    - reporting and quality findings (M9)
+    - cloud infrastructure, health endpoint, and deployment configuration (M10)
     - uv.lock, pending TASK-005
+  deliberately_absent:
+    - authentication, teams, billing, marketplace, and administration
+    - arbitrary agent roles beyond Requirements, Architecture, and Review
+    - general coding-agent hosting and autonomous orchestration
+    - production-scale retrieval tuning
+    - multi-region or production-grade deployment
+    - MCP write paths to domain tables

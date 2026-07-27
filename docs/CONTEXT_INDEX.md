@@ -10,7 +10,7 @@ for the current activity.
 Every human contributor and every coding agent reads this page before any other
 repository context. It records:
 
-- the current milestone and the M0–M10 milestone register;
+- the current milestone and the M0–M11 milestone register;
 - repository health, including which quality gates currently fail;
 - implementation readiness per area — what exists in code and what does not;
 - the current MVP, demo, and architectural direction;
@@ -41,6 +41,10 @@ covers the concept.
 | Supersession | Replacing knowledge while preserving the prior version. Never deletion. |
 | Traceability | The navigable path from an output statement back to the knowledge and evidence that produced it. |
 | Blueprint | The user-facing output package generated from confirmed knowledge, with statements labelled grounded, derived, or assumption. |
+| AgentRun | The durable record of one agent execution: role, session, status, input context, output, attempt, timing. Not a log line. |
+| Agent role | One of exactly three: Requirements, Architecture, Review. No others are authorised. |
+| Continuation | Resuming an interrupted run on another worker from its last committed checkpoint. Not a restart. |
+| Quality finding | A Review Agent output — a gap, contradiction, or unsupported statement proposed for human attention. |
 
 Lifecycle state names in code — `proposed`, `validated`, `rejected`,
 `superseded` — are the authoritative set. User-facing labels may differ, as
@@ -71,6 +75,8 @@ Lifecycle state names in code — `proposed`, `validated`, `rejected`,
 - `docs/05_product/MVP_UI_WORKSPACE.md` defines the proposed start screen,
   discovery workspace, memory explorer, quality view, blueprint viewer, interface
   states, accessibility baseline, and visual direction.
+- `docs/05_product/UNIFIED_DEMO_NARRATIVE.md` is the **canonical demo story**.
+  Where it and any other narrative disagree, it governs.
 - `docs/05_product/MVP_SCOPE.md` defines the approved inclusion and exclusion
   boundary for the first release.
 
@@ -79,8 +85,13 @@ frontend framework or authorise implementation by themselves.
 
 ## Architecture context
 
-- `specifications/` holds the domain, memory, retrieval, API, and database
-  specifications and the accepted architecture decisions ADR-0001 to ADR-0003.
+- `specifications/` holds the domain, memory, retrieval, agent-execution, API,
+  and database specifications and the accepted architecture decisions ADR-0001 to
+  ADR-0004.
+- `specifications/AGENT_EXECUTION_MODEL.md` defines AgentRun, the run status
+  model, idempotency, retry, continuation, and the three agent roles.
+- `docs/06_architecture/MCP_ACCESS_POLICY.md` records the inspection-only MCP
+  boundary: **all domain writes go through KAE application contracts**.
 - `docs/06_architecture/ARCHITECTURE_WORKPLAN.md` defines the remaining
   architecture questions, required outputs, and provisional restrictions.
 - `docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md` records the
@@ -96,6 +107,10 @@ frontend framework or authorise implementation by themselves.
 - `docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md` defines planning gates,
   vertical product slices, bounded Codex or Claude responsibilities, initial task
   prompts, pull-request evidence, review strategy, and service-provisioning rules.
+- `docs/09_development/AWS_DEMONSTRATION_BASELINE.md` defines the smallest
+  deployment that proves the claim, plus health checks and secrets handling.
+- `docs/09_development/PUBLIC_RELEASE_CHECKLIST.md` defines the release and
+  judging assets and the milestone by which each must exist.
 
 The roadmap is a control plan. Each implementation still requires one approved,
 task-specific context with an exact file scope and acceptance criteria.
