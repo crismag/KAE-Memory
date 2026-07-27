@@ -1,7 +1,6 @@
 from typing import Any
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -20,24 +19,20 @@ def _dbapi_error(sqlstate: str) -> DBAPIError:
     return DBAPIError("SELECT 1", {}, _Orig(sqlstate))
 
 
-def _factory() -> sessionmaker[Session]:
-    return sessionmaker(create_engine("sqlite+pysqlite:///:memory:"))
-
-
-def test_returns_result_without_retrying_on_success() -> None:
+def test_returns_result_without_retrying_on_success(factory: sessionmaker[Session]) -> None:
     attempts: list[int] = []
 
     def operation(_: Session) -> str:
         attempts.append(1)
         return "done"
 
-    result = run_transaction(_factory(), operation)
+    result = run_transaction(factory, operation)
 
     assert result == "done"
     assert len(attempts) == 1
 
 
-def test_retries_serialization_failure_then_succeeds() -> None:
+def test_retries_serialization_failure_then_succeeds(factory: sessionmaker[Session]) -> None:
     attempts: list[int] = []
 
     def operation(_: Session) -> str:
@@ -47,13 +42,13 @@ def test_retries_serialization_failure_then_succeeds() -> None:
         return "committed"
 
     policy = RetryPolicy(max_attempts=3, initial_delay_seconds=0.0)
-    result = run_transaction(_factory(), operation, policy)
+    result = run_transaction(factory, operation, policy)
 
     assert result == "committed"
     assert len(attempts) == 3
 
 
-def test_raises_after_exhausting_retry_budget() -> None:
+def test_raises_after_exhausting_retry_budget(factory: sessionmaker[Session]) -> None:
     attempts: list[int] = []
 
     def operation(_: Session) -> str:
@@ -63,12 +58,12 @@ def test_raises_after_exhausting_retry_budget() -> None:
     policy = RetryPolicy(max_attempts=2, initial_delay_seconds=0.0)
 
     with pytest.raises(DBAPIError):
-        run_transaction(_factory(), operation, policy)
+        run_transaction(factory, operation, policy)
 
     assert len(attempts) == 2
 
 
-def test_does_not_retry_other_database_errors() -> None:
+def test_does_not_retry_other_database_errors(factory: sessionmaker[Session]) -> None:
     attempts: list[int] = []
 
     def operation(_: Session) -> str:
@@ -76,12 +71,12 @@ def test_does_not_retry_other_database_errors() -> None:
         raise _dbapi_error("23505")
 
     with pytest.raises(DBAPIError):
-        run_transaction(_factory(), operation, RetryPolicy(initial_delay_seconds=0.0))
+        run_transaction(factory, operation, RetryPolicy(initial_delay_seconds=0.0))
 
     assert len(attempts) == 1
 
 
-def test_detects_serialization_failure_from_pgcode() -> None:
+def test_detects_serialization_failure_from_pgcode(factory: sessionmaker[Session]) -> None:
     class _PgcodeOrig(Exception):
         pgcode = "40001"
 
@@ -93,13 +88,15 @@ def test_detects_serialization_failure_from_pgcode() -> None:
             raise DBAPIError("SELECT 1", {}, _PgcodeOrig())
         return "committed"
 
-    result = run_transaction(_factory(), operation, RetryPolicy(initial_delay_seconds=0.0))
+    result = run_transaction(factory, operation, RetryPolicy(initial_delay_seconds=0.0))
 
     assert result == "committed"
     assert len(attempts) == 2
 
 
-def test_backoff_doubles_between_attempts(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_backoff_doubles_between_attempts(
+    factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
     delays: list[float] = []
     monkeypatch.setattr(
         "kae_memory.persistence.transactions.sleep",
@@ -113,7 +110,7 @@ def test_backoff_doubles_between_attempts(monkeypatch: pytest.MonkeyPatch) -> No
             raise _dbapi_error("40001")
         return "committed"
 
-    run_transaction(_factory(), operation, RetryPolicy(max_attempts=3, initial_delay_seconds=0.1))
+    run_transaction(factory, operation, RetryPolicy(max_attempts=3, initial_delay_seconds=0.1))
 
     assert delays == [0.1, 0.2]
 

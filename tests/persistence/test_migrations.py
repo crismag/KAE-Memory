@@ -1,13 +1,15 @@
 """Migrations apply and roll back cleanly.
 
-The mapped metadata is the source of truth for the tests; these checks make sure
-the committed revisions actually produce it, so a mapping change without a
-migration is caught here rather than in production.
+Run against CockroachDB, because that is where they run in production. The
+version that motivated this: revision 0003 first used a non-constant
+``ADD COLUMN`` default, which SQLite rejects and CockroachDB accepts — the
+opposite failure to the one SQLite usually hides, and equally misleading.
+
+The mapped metadata is the source of truth; these checks make sure the committed
+revisions actually produce it, so a mapping change without a migration is caught
+here rather than in production.
 """
 
-from pathlib import Path
-
-import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
@@ -24,18 +26,6 @@ EXPECTED_TABLES = {
     "projects",
     "sessions",
 }
-
-
-@pytest.fixture
-def alembic_config(tmp_path: Path) -> tuple[Config, str]:
-    """Return an Alembic config pointed at a throwaway database."""
-
-    root = Path(__file__).resolve().parents[2]
-    url = f"sqlite+pysqlite:///{tmp_path / 'migrations.db'}"
-    config = Config(str(root / "alembic.ini"))
-    config.set_main_option("script_location", str(root / "migrations"))
-    config.set_main_option("sqlalchemy.url", url)
-    return config, url
 
 
 def test_upgrade_creates_every_mapped_table(alembic_config: tuple[Config, str]) -> None:
@@ -130,17 +120,18 @@ def test_revision_0003_backfills_existing_runs(alembic_config: tuple[Config, str
             connection.execute(
                 text(
                     "INSERT INTO projects (project_id, project_key, name, status, "
-                    "created_at, updated_at) VALUES ('p1', 'k1', 'Legacy', 'active', "
-                    "'2026-07-27 00:00:00', '2026-07-27 00:00:00')"
+                    "created_at, updated_at) VALUES (gen_random_uuid(), 'k1', 'Legacy', 'active', "
+                    "'2026-07-27 00:00:00+00', '2026-07-27 00:00:00+00')"
                 )
             )
             connection.execute(
                 text(
                     "INSERT INTO agent_runs (agent_run_id, project_id, agent_role, status, "
                     "idempotency_key, attempt_number, input_context, output_summary, "
-                    "continuation_state, created_at, updated_at) VALUES ('r1', 'p1', "
+                    "continuation_state, created_at, updated_at) SELECT "
+                    "'11111111-1111-1111-1111-111111111111', project_id, "
                     "'requirements', 'pending', 'legacy-1', 1, '{}', '{}', '{}', "
-                    "'2026-07-27 00:00:00', '2026-07-27 00:00:00')"
+                    "'2026-07-27 00:00:00+00', '2026-07-27 00:00:00+00' FROM projects"
                 )
             )
 
@@ -148,7 +139,10 @@ def test_revision_0003_backfills_existing_runs(alembic_config: tuple[Config, str
 
         with engine.connect() as connection:
             row = connection.execute(
-                text("SELECT lease_token, next_attempt_at FROM agent_runs WHERE agent_run_id='r1'")
+                text(
+                    "SELECT lease_token, next_attempt_at FROM agent_runs "
+                    "WHERE idempotency_key = 'legacy-1'"
+                )
             ).one()
     finally:
         engine.dispose()

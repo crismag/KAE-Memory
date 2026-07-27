@@ -6,10 +6,13 @@ from datetime import UTC, datetime
 def as_aware(value: datetime) -> datetime:
     """Return a timezone-aware timestamp.
 
-    Timestamps are always stored in UTC. CockroachDB returns them aware through
-    ``TIMESTAMPTZ``, but some drivers used in tests drop the offset on read, so a
-    naive value is interpreted as the UTC instant it was written as. Without this,
-    rehydration would violate the domain's timezone-aware invariants.
+    Timestamps are stored as ``TIMESTAMPTZ`` and CockroachDB returns them aware,
+    so this is now a boundary guard rather than a translation: a naive value is
+    interpreted as the UTC instant it was written as.
+
+    It is kept because the invariant it protects — every domain timestamp carries
+    a zone — is worth enforcing at the edge rather than trusting a driver. The
+    defect that introduced it (RA-01) was a driver silently dropping the offset.
     """
 
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)

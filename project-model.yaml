@@ -506,6 +506,20 @@ decisions:
     amends: ADR-0006
     affects:
       - MOD-workflow
+  - id: ADR-0011
+    title: Tests run against CockroachDB, not SQLite
+    statement: >
+      The suite runs against a single-node CockroachDB at the production major
+      version, locally and in CI. SQLite is removed entirely after producing two
+      false passes and being unable to express VECTOR at all. Adds the
+      sqlalchemy-cockroachdb dialect and the cockroachdb+psycopg URL scheme.
+      Amends ADR-0003 and withdraws ADR-0008's portable-versus-gated test split.
+    status: accepted
+    record: specifications/ADR/ADR-0011-test-against-cockroachdb.md
+    amends: ADR-0003, ADR-0008
+    affects:
+      - MOD-persistence
+      - MOD-retrieval
 
 modules:
   - id: MOD-projects
@@ -1221,6 +1235,7 @@ traces:
       - ADR-0008
       - ADR-0009
       - ADR-0010
+      - ADR-0011
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1338,6 +1353,7 @@ id_register:
   - {id: ADR-0008, type: decision, status: active, superseded_by: null}
   - {id: ADR-0009, type: decision, status: active, superseded_by: null}
   - {id: ADR-0010, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0011, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1400,12 +1416,6 @@ undefined:
     blocks:
       - M9
       - M10
-  - area: retrieval
-    missing: >
-      A CockroachDB v25.4+ cluster for vector tests. Model, dimensions, distance
-      metric, and index strategy are approved in ADR-0008.
-    blocks:
-      - M8
   - area: deployment
     missing: >
       AWS runtime choice. Deployment shape, secrets handling, health checks, and
@@ -1845,3 +1855,28 @@ history:
         SQLite rejects a non-constant default on ADD COLUMN. Replaced with
         add-nullable, explicit backfill to created_at, then tighten.
     stage: M7 Resilience and Recovery
+  - commit: 17
+    added:
+      - ADR-0011
+      - specifications/ADR/ADR-0011-test-against-cockroachdb.md
+      - sqlalchemy-cockroachdb dependency
+      - make test-db-up, test-db-down, test-db-logs
+      - CockroachDB start step in CI
+    changed:
+      - ADR-0003, amended with the dialect
+      - ADR-0008, portable-versus-gated test split withdrawn
+      - tests/conftest.py
+      - tests/persistence/
+    deferred:
+      - multi-node cluster testing for contention and cross-region behaviour
+    conflicts:
+      - >
+        ADR-0008 accepted that vector behaviour could not be verified on the
+        portable test path. Resolved by removing the portable test path: the
+        suite runs on CockroachDB, so no capability goes unverified and no test
+        is skipped.
+      - >
+        ADR-0003 approved SQLAlchemy, Alembic, and psycopg without a dialect.
+        SQLAlchemy's PostgreSQL dialect cannot parse CockroachDB's version
+        string, so sqlalchemy-cockroachdb is added.
+    stage: Retire SQLite from the test suite
