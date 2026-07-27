@@ -57,7 +57,7 @@ project:
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
-  current_milestone: M7
+  current_milestone: M8
 
 milestones:
   - id: M0
@@ -101,11 +101,11 @@ milestones:
     outcome: >
       Idempotency, bounded retry, durable run status, lease reclaim, and
       continuation after worker termination.
-    status: current
+    status: complete
   - id: M8
     title: Semantic Retrieval
     outcome: one embedding model, one index, semantic recall with explanations
-    status: open
+    status: current
   - id: M9
     title: Workspace and Reporting
     outcome: >
@@ -540,7 +540,7 @@ modules:
     responsibility: extraction, question selection, confirmation, and supersession flows
     status: partial
     implemented: partial
-    location: src/kae_memory/agents/, src/kae_memory/application/
+    location: src/kae_memory/agents/, src/kae_memory/application/, src/kae_memory/worker/
     note: >
       Extraction, the Requirements and Architecture agents, and confirmation
       exist. Question selection is M8; supersession is M7; the Review agent is
@@ -1037,7 +1037,7 @@ tasks:
   - id: TASK-008
     title: Resilience and recovery
     milestone: M7
-    status: ready
+    status: complete
     record: development/tasks/TASK-008-m7-resilience-recovery.md
     note: >
       Decided by ADR-0007 and unblocked by M6. Requires additive revision 0003
@@ -1049,9 +1049,7 @@ tasks:
   - id: TASK-009
     title: Semantic retrieval
     milestone: M8
-    status: blocked
-    blocked_by:
-      - TASK-008
+    status: ready
     note: >
       Decided by ADR-0008. Needs a CockroachDB v25.4+ cluster: vector tests are
       skipped, never silently passed, when one is absent.
@@ -1146,7 +1144,7 @@ acceptance_tests:
       knowledge item and source evidence that produced it.
     status: defined
   - id: AT-005
-    status_note: passing as of M5
+    status_note: passing as of M7
     covers:
       - FR-011
       - FR-012
@@ -1163,7 +1161,7 @@ acceptance_tests:
       session and cites them in its output.
     status: defined
   - id: AT-007
-    status_note: passing as of M5
+    status_note: passing as of M7
     covers:
       - FR-012
     scenario: >
@@ -1820,3 +1818,30 @@ history:
         deferral: the port must not become Bedrock-specific, while Bedrock stays
         the only live adapter for the demonstration.
     stage: Provider-neutral extraction and BYOK direction
+  - commit: 16
+    added:
+      - migrations/versions/0003_add_agent_run_lease_ownership_columns.py
+      - Lease domain value object with fencing token
+      - src/kae_memory/worker/
+      - AgentRunRepository claim_next, heartbeat, save_fenced, release
+      - MemoryService.enqueue_run
+    changed:
+      - M7
+      - M8
+      - TASK-008
+      - TASK-009
+      - MOD-workflow
+    deferred:
+      - multiple concurrent workers
+      - OQ-016 AWS runtime, informed by this milestone
+    conflicts:
+      - >
+        ADR-0007 illustrated the claim with SELECT FOR UPDATE. Implemented as a
+        compare-and-swap on lease_token instead, which satisfies the stated
+        semantics, is portable across SQLite and CockroachDB, and holds no
+        transaction open across external work.
+      - >
+        The migration first used a now() server default on a NOT NULL column.
+        SQLite rejects a non-constant default on ADD COLUMN. Replaced with
+        add-nullable, explicit backfill to created_at, then tighten.
+    stage: M7 Resilience and Recovery

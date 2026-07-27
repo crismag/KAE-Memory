@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 
 from kae_memory.persistence.tables import Base
 
@@ -84,3 +84,74 @@ def test_revision_0002_is_additive_over_0001(alembic_config: tuple[Config, str])
 
     assert {"knowledge_items", "knowledge_versions"} <= after_first
     assert after_first < after_second
+
+
+def test_revision_0003_is_additive_over_0002(alembic_config: tuple[Config, str]) -> None:
+    """The lease columns arrive without disturbing what 0002 built."""
+
+    config, url = alembic_config
+
+    command.upgrade(config, "0002")
+    engine = create_engine(url)
+    try:
+        inspector = inspect(engine)
+        before = {column["name"] for column in inspector.get_columns("agent_runs")}
+        command.upgrade(config, "0003")
+        inspector = inspect(engine)
+        after = {column["name"] for column in inspector.get_columns("agent_runs")}
+    finally:
+        engine.dispose()
+
+    assert before < after
+    assert after - before == {
+        "lease_owner",
+        "lease_token",
+        "lease_acquired_at",
+        "lease_expires_at",
+        "heartbeat_at",
+        "next_attempt_at",
+    }
+
+
+def test_revision_0003_backfills_existing_runs(alembic_config: tuple[Config, str]) -> None:
+    """A populated table survives the migration.
+
+    The NOT NULL columns are added with a server default so existing rows
+    backfill, then the default is dropped — the application stays the sole author
+    of both values.
+    """
+
+    config, url = alembic_config
+    command.upgrade(config, "0002")
+
+    engine = create_engine(url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO projects (project_id, project_key, name, status, "
+                    "created_at, updated_at) VALUES ('p1', 'k1', 'Legacy', 'active', "
+                    "'2026-07-27 00:00:00', '2026-07-27 00:00:00')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO agent_runs (agent_run_id, project_id, agent_role, status, "
+                    "idempotency_key, attempt_number, input_context, output_summary, "
+                    "continuation_state, created_at, updated_at) VALUES ('r1', 'p1', "
+                    "'requirements', 'pending', 'legacy-1', 1, '{}', '{}', '{}', "
+                    "'2026-07-27 00:00:00', '2026-07-27 00:00:00')"
+                )
+            )
+
+        command.upgrade(config, "0003")
+
+        with engine.connect() as connection:
+            row = connection.execute(
+                text("SELECT lease_token, next_attempt_at FROM agent_runs WHERE agent_run_id='r1'")
+            ).one()
+    finally:
+        engine.dispose()
+
+    assert row[0] == 0, "pre-existing runs start with no lease"
+    assert row[1] is not None, "pre-existing runs are immediately claimable"

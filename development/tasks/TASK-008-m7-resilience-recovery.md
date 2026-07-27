@@ -1,6 +1,6 @@
 # TASK-008 — M7 Resilience and Recovery
 
-**Status:** ready
+**Status:** complete, 2026-07-27
 **Milestone:** M7 · **Prompt:** RES-01
 
 ## Objective
@@ -121,3 +121,42 @@ target; or the existing status vocabulary cannot express a required state.
 `make check` is green, AT-005 and AT-007 pass, and the pull request reports the
 observed recovery time after a hard kill — the number the demonstration depends
 on.
+
+## Completion notes
+
+**Recovery time.** With the approved 30-second lease, a hard-killed worker's run
+is reclaimable at expiry and a replacement resumes on its next poll — 30 to 32
+seconds at the 2-second idle interval, inside the 30–45 second target. Tests use
+a hand-cranked clock rather than sleeping, so expiry is exercised exactly rather
+than approximately.
+
+**Claim is a compare-and-swap, not `SELECT ... FOR UPDATE`.** ADR-0007 allowed
+the SQL to be adjusted for the planner and fixed only the semantics. Two workers
+may read the same candidate, but the update is conditioned on the observed
+`lease_token`, so exactly one wins and the loser looks again. This is the same
+guarantee a row lock gives, works on both SQLite and CockroachDB, and needs no
+transaction held open across external work — which CockroachDB could not do
+anyway.
+
+**A running row with no lease is never stolen.** M6 agents execute synchronously
+in-process and leave a run `running` with no lease. Only a row whose lease has
+actually expired is claimable, so the worker cannot take over a synchronous run.
+
+**`enqueue_run` added alongside `start_run`.** `start_run` begins executing in
+the calling process; `enqueue_run` records a `pending` run for a worker to claim
+and returns immediately. Without the split there was no way to submit work
+without owning it — and the browser must never own a run.
+
+**A portability bug the tests caught.** The migration first used
+`server_default=now()` on the `NOT NULL` column. SQLite rejects a non-constant
+default on `ADD COLUMN`, which the empty-database check had not exposed. Replaced
+with add-nullable, explicit backfill to `created_at`, then tighten — which also
+states the intent: an existing run becomes claimable at the moment it was
+created.
+
+**Deviations:** none. Revisions `0001` and `0002` untouched, no new statuses, no
+`attempt_count`/`checkpoint`/`last_error` duplicates, at-least-once never
+overstated, no live model call.
+
+**Evidence:** `make check` green — 97 tests, 94% coverage. Revision `0003` cycles
+up and down against a populated table.

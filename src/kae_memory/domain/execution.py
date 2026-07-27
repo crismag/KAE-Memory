@@ -8,7 +8,7 @@ See ``specifications/AGENT_EXECUTION_MODEL.md``.
 """
 
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -78,6 +78,66 @@ def ensure_run_transition(current: RunStatus, target: RunStatus) -> None:
         )
 
 
+DEFAULT_LEASE_SECONDS = 30
+"""Three heartbeat opportunities before expiry, and fast enough that a
+demonstration audience is not waiting minutes for recovery (ADR-0007)."""
+
+DEFAULT_HEARTBEAT_SECONDS = 10
+"""Renewal interval. Renewal runs concurrently with the step, so the lease does
+not require the external call to finish inside it."""
+
+
+@dataclass(frozen=True, slots=True)
+class Lease:
+    """Fenced ownership of a run.
+
+    ``token`` is the load-bearing field. An owner identifier alone is
+    insufficient: the original worker can recover *after* its lease has been
+    reassigned, and would otherwise write over the newer owner's work. Every
+    mutation matches owner, token, and an unexpired lease, so a superseded worker
+    updates zero rows and must stop.
+    """
+
+    owner: str
+    token: int
+    acquired_at: datetime
+    expires_at: datetime
+    heartbeat_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.owner.strip():
+            raise DomainInvariantError("lease owner must not be empty")
+        if self.token < 1:
+            raise DomainInvariantError("lease token must be positive")
+        for label, moment in (
+            ("acquired_at", self.acquired_at),
+            ("expires_at", self.expires_at),
+            ("heartbeat_at", self.heartbeat_at),
+        ):
+            if moment.tzinfo is None:
+                raise DomainInvariantError(f"lease {label} must be timezone-aware")
+        if self.expires_at <= self.acquired_at:
+            raise DomainInvariantError("lease must expire after it was acquired")
+
+    def is_expired_at(self, moment: datetime) -> bool:
+        """Return whether the lease may be reclaimed at ``moment``."""
+
+        return moment >= self.expires_at
+
+    def renewed(self, moment: datetime, duration_seconds: int = DEFAULT_LEASE_SECONDS) -> "Lease":
+        """Return the lease extended from ``moment``, keeping the same token.
+
+        Renewal never changes the token: it is the same claim continuing, not a
+        new one. Only acquisition and reclamation advance the token.
+        """
+
+        return replace(
+            self,
+            heartbeat_at=moment,
+            expires_at=moment + timedelta(seconds=duration_seconds),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class AgentRun:
     """Durable record of one agent execution.
@@ -102,6 +162,8 @@ class AgentRun:
     failed_at: datetime | None = None
     error_code: str | None = None
     error_message: str | None = None
+    lease: Lease | None = None
+    next_attempt_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.idempotency_key.strip():

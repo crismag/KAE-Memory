@@ -24,14 +24,15 @@ through persistent memory.
 
 ## Current milestone
 
-**M7 — Resilience and Recovery** (current)
+**M8 — Semantic Retrieval** (next)
 
-M6 is complete: the Architecture Agent consumes requirements confirmed in an
-earlier session, with the handoff carried entirely by the database.
+M7 is complete: compute is disposable. A killed worker's run is reclaimed at
+lease expiry and finished by a replacement, from durable state alone. Measured
+recovery is 30–32 seconds, inside the 30–45 second target.
 
-M7 makes compute disposable — the lease protocol from ADR-0007, durable
-checkpoints, and a worker that resumes what a killed worker left behind. This is
-the milestone the demonstration rests on.
+M8 adds semantic recall — Titan embeddings, `VECTOR(1024)`, cosine distance, and
+the evaluation fixture that proves retrieval actually works rather than merely
+running.
 
 ADR-0010 records a future provider-neutral and BYOK product direction without
 adding work to M7. Bedrock remains the only approved live demo adapter.
@@ -47,8 +48,8 @@ adding work to M7. Bedrock remains the only approved live demo adapter.
 | M4 | Repository Realignment — documentation matches reality | ✔ complete |
 | M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | ✔ complete |
 | M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ✔ complete |
-| M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | ► current |
-| M8 | Semantic Retrieval — embeddings, recall, return session | open |
+| M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | ✔ complete |
+| M8 | Semantic Retrieval — embeddings, recall, return session | ► current |
 | M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | open |
 | M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | open |
 | M11 | Demo Ready and Release — rehearsal, packaging, submission evidence | open |
@@ -59,14 +60,14 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`, after M6.
+Assessed 2026-07-27 against `make check`, after M7.
 
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
 | `ruff format --check` | ✔ 52 files formatted |
 | `mypy --strict` | ✔ clean across 14 source files |
-| `pytest` | ✔ 89 passed, 95% coverage |
+| `pytest` | ✔ 97 passed, 94% coverage |
 
 RA-01 cleared all four known defects:
 
@@ -220,16 +221,21 @@ death is the proof; a demo without it does not satisfy the release.
 
 ## Immediate next task
 
-**Implement M7 — resilience and recovery.**
+**Implement M8 — semantic retrieval.**
 
-Use ADR-0007 as the execution contract: a dedicated worker, short atomic claims,
-fencing-token leases, 30-second expiry, 10-second heartbeat, durable checkpoints,
-and at-least-once execution with idempotent effects.
+Use ADR-0008 as the contract: Titan Text Embeddings V2 at 1,024 normalised
+dimensions, `VECTOR(1024)`, cosine distance, one index on a shared
+`knowledge_chunks` table, embedding generated asynchronously through the worker
+that M7 just built.
 
-Task context: [`../../development/tasks/TASK-008-m7-resilience-recovery.md`](../../development/tasks/TASK-008-m7-resilience-recovery.md).
+Two constraints carry real weight. Vector behaviour **cannot run on SQLite**, so
+M8 splits portable tests from CockroachDB-gated ones, and the gated set is
+reported as skipped rather than silently green. And the **evaluation fixture is
+the acceptance criterion** — creating embeddings and an index is not evidence
+that retrieval works.
 
-Success condition: a new worker resumes after the previous execution stops,
-without duplicated durable knowledge.
+Requires a CockroachDB **v25.4+** cluster; vector indexes reached general
+availability there.
 
-ADR-0010 does not alter this task. Do not implement provider selection, BYOK,
-credential storage, quotas, billing, or extra live adapters during M7.
+ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
+billing, or extra live adapters.
