@@ -109,7 +109,7 @@ built on — do not let it slip.
 **Work:** one approved embedding model, vector columns and index, semantic search
 combined with structured filters, single-project scope, result explanations.
 
-**Blocked by:** OQ-014 embedding model and index strategy.
+**Decided:** ADR-0008 — Titan Text Embeddings V2 at 1024 dimensions, `VECTOR(1024)`, cosine, one index. Needs a CockroachDB v25.4+ cluster for the vector tests.
 
 **Exit condition:** a concept search returns related evidence, requirements, and
 decisions with their sources and the reason each was included.

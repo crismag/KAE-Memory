@@ -55,7 +55,6 @@ project:
   open_questions:
     - OQ-011
     - OQ-013
-    - OQ-014
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
@@ -460,6 +459,22 @@ decisions:
     affects:
       - MOD-workflow
       - MOD-persistence
+  - id: ADR-0008
+    title: Semantic embedding model and CockroachDB vector index
+    statement: >
+      Amazon Titan Text Embeddings V2 through Bedrock at 1024 normalised float
+      dimensions, stored as CockroachDB VECTOR(1024) with cosine distance and a
+      single vector index on a shared knowledge-chunk table. Embedding runs
+      asynchronously through the durable worker and never blocks authoritative
+      persistence. Vector behaviour is CockroachDB-only and cannot be verified on
+      the portable SQLite test path.
+    status: accepted
+    record: specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
+    closes: OQ-014
+    affects:
+      - MOD-retrieval
+      - MOD-persistence
+      - MOD-workflow
 
 modules:
   - id: MOD-projects
@@ -886,28 +901,16 @@ open_questions:
     question: >
       Which embedding model, vector column type, and index strategy support
       semantic retrieval?
-    why_it_matters: >
-      FR-013 is bounded to one model and one index; choosing badly is expensive to
-      reverse once knowledge is embedded.
-    blocks:
-      - M8
-    owner: human product and architecture owner
-    risk_if_unanswered: high
-    default_if_unanswered: >
-      No embedding or vector index is treated as approved.
-    status: open
-  - id: OQ-015
-    question: >
-      What worker runtime and lease mechanism support durable continuation, and
-      what is the lease duration?
     status: closed
     resolution: >
-      Closed by ADR-0007. A dedicated Python worker process separate from the
-      API, claiming runs through short atomic transactions with a fencing token,
-      a 30-second lease renewed every 10 seconds, and a durable checkpoint after
-      every step. Lease fields arrive in additive revision 0003. The existing
-      RunStatus enum stands; queued maps to pending and retry_wait is expressed
-      as failed with a future next_attempt_at.
+      Closed by ADR-0008. amazon.titan-embed-text-v2:0 at 1024 normalised float
+      dimensions, CockroachDB VECTOR(1024), cosine distance, one vector index on
+      a shared knowledge_chunks table. Four corrections against the repository:
+      knowledge_id is STRING(64) not UUID; identifiers and timestamps are
+      application-generated; vector behaviour cannot run on SQLite so M8 tests
+      split into portable and CockroachDB-gated; and Titan needs a separate
+      EmbeddingPort with boto3, since the Anthropic Bedrock client cannot invoke
+      an Amazon model.
   - id: OQ-016
     question: >
       Which AWS runtime hosts the application and worker, ECS Fargate or App
@@ -1030,7 +1033,9 @@ tasks:
     status: blocked
     blocked_by:
       - TASK-008
-      - OQ-014
+    note: >
+      Decided by ADR-0008. Needs a CockroachDB v25.4+ cluster: vector tests are
+      skipped, never silently passed, when one is absent.
     objective: >
       Implement embeddings, vector columns and index, and semantic search
       combined with structured filters, scoped to one project, with result
@@ -1194,6 +1199,7 @@ traces:
       - ADR-0005
       - ADR-0006
       - ADR-0007
+      - ADR-0008
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1306,6 +1312,7 @@ id_register:
   - {id: ADR-0005, type: decision, status: active, superseded_by: null}
   - {id: ADR-0006, type: decision, status: active, superseded_by: null}
   - {id: ADR-0007, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0008, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1327,7 +1334,7 @@ id_register:
   - {id: OQ-011, type: open_question, status: active, superseded_by: null}
   - {id: OQ-012, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-014, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-014, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-016, type: open_question, status: active, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
@@ -1368,7 +1375,8 @@ undefined:
       - M10
   - area: retrieval
     missing: >
-      Approved embedding model, vector index strategy, and relevance behaviour.
+      A CockroachDB v25.4+ cluster for vector tests. Model, dimensions, distance
+      metric, and index strategy are approved in ADR-0008.
     blocks:
       - M8
   - area: deployment
@@ -1707,3 +1715,28 @@ history:
         short-circuiting on a terminal run and returning its original output
         through the provenance links.
     stage: M6 Agent Collaboration
+  - commit: 13
+    added:
+      - ADR-0008
+      - specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
+    changed:
+      - OQ-014
+      - TASK-009
+    deferred:
+      - a second embedding model, multiple indexes, external vector databases
+      - cross-encoder reranking, multimodal embeddings, model fallback
+    conflicts:
+      - >
+        The proposal typed knowledge_chunks.knowledge_id as UUID and used
+        gen_random_uuid and now defaults. Resolved to STRING(64) referencing
+        knowledge_items(id), with application-generated identifiers and
+        timestamps, matching ADR-0005.
+      - >
+        VECTOR has no SQLite equivalent while the whole suite runs on SQLite.
+        Resolved by keeping vector columns out of the portable metadata and
+        splitting M8 tests into portable and CockroachDB-gated, with the gated
+        set reported as skipped rather than green.
+      - >
+        Titan is an Amazon model and cannot be invoked by the Anthropic Bedrock
+        client. Resolved with a separate EmbeddingPort and its own dependency.
+    stage: AR-04 embedding model and vector index decision for M8
