@@ -51,6 +51,7 @@ package:
       - specifications/ADR/ADR-0005-m5-physical-schema.md
       - specifications/ADR/ADR-0006-extraction-contract.md
       - specifications/ADR/ADR-0007-worker-runtime-and-leases.md
+      - specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md

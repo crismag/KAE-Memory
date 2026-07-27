@@ -92,7 +92,7 @@ rejected rather than merged with a follow-up promise.
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
 | Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
-| Semantic retrieval and embeddings | **Not implemented** — required by M8 |
+| Semantic retrieval and embeddings | **Not implemented** — decided (ADR-0008); needs a CockroachDB v25.4+ cluster |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Implemented — `MemoryService` |
 | HTTP interface | Not implemented |
@@ -168,7 +168,7 @@ Timing, sample data, and delivery craft:
 | ADR-0005 M5 physical schema (revision 0002) | accepted — closes OQ-010 |
 | ADR-0006 extraction provider, prompt, and schema | accepted — closes OQ-012 |
 | ADR-0007 worker runtime and renewable leases | accepted — closes OQ-015 |
-| Embedding model and index strategy | **open** — OQ-014, blocks M8 |
+| ADR-0008 embedding model and vector index | accepted — closes OQ-014 |
 | Frontend technology | **open** — OQ-011, blocks M9 |
 | Readiness model | **open** — OQ-013, blocks M9 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
