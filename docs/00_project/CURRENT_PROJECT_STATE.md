@@ -24,7 +24,7 @@ through persistent memory.
 
 ## Current milestone
 
-**M7 — Resilience and Recovery** (next)
+**M7 — Resilience and Recovery** (current)
 
 M6 is complete: the Architecture Agent consumes requirements confirmed in an
 earlier session, with the handoff carried entirely by the database.
@@ -32,6 +32,9 @@ earlier session, with the handoff carried entirely by the database.
 M7 makes compute disposable — the lease protocol from ADR-0007, durable
 checkpoints, and a worker that resumes what a killed worker left behind. This is
 the milestone the demonstration rests on.
+
+ADR-0010 records a future provider-neutral and BYOK product direction without
+adding work to M7. Bedrock remains the only approved live demo adapter.
 
 ## Milestones
 
@@ -98,6 +101,7 @@ rejected rather than merged with a follow-up promise.
 | HTTP interface | **Not implemented** — the contract itself is M9's first step |
 | User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
 | Cloud services | None provisioned |
+| BYOK and usage governance | **Not implemented** — approved as a post-demo direction by ADR-0010 |
 
 The domain layer is ahead of the persistence layer, and the persistence layer is
 ahead of everything above it. No coding agent should assume a service, endpoint,
@@ -146,7 +150,10 @@ Timing, sample data, and delivery craft:
 - Memory-first ordering: durable knowledge before orchestration, retrieval,
   or generation (ADR-0001).
 - Ports and adapters at the persistence and model-provider boundaries so
-  CockroachDB and Bedrock can be introduced without rewriting workflows.
+  CockroachDB and model providers can be introduced without rewriting workflows.
+- Bedrock remains the only approved live demonstration adapter. Provider-neutral
+  extraction and BYOK are approved future directions, not current capabilities
+  (ADR-0010).
 - Three predefined agents behind the workspace, writing only through KAE
   application contracts. CockroachDB MCP is inspection-only (ADR-0004).
 - Disposable compute: every run is durably recorded before work starts, so a
@@ -170,6 +177,7 @@ Timing, sample data, and delivery craft:
 | ADR-0007 worker runtime and renewable leases | accepted — closes OQ-015 |
 | ADR-0008 embedding model and vector index | accepted — closes OQ-014 |
 | ADR-0009 discovery workspace frontend | accepted — closes OQ-011 |
+| ADR-0010 provider-neutral extraction and BYOK direction | accepted — direction only; no current implementation |
 | Readiness model | **open** — OQ-013, blocks M9 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
 
@@ -195,9 +203,9 @@ runs twice from a clean reset, with AT-001 to AT-009 passing, plus the package i
 [`../09_development/PUBLIC_RELEASE_CHECKLIST.md`](../09_development/PUBLIC_RELEASE_CHECKLIST.md).
 
 It is a demonstration release, not a production one — authentication, teams,
-billing, administration, and multi-region deployment are outside the MVP
-boundary. Recovery after worker death is the proof; a demo without it does not
-satisfy the release.
+billing, administration, BYOK, provider selection, usage governance, and
+multi-region deployment are outside the MVP boundary. Recovery after worker
+death is the proof; a demo without it does not satisfy the release.
 
 ## Current branch strategy
 
@@ -212,31 +220,16 @@ satisfy the release.
 
 ## Immediate next task
 
-**Complete M4 and restore a green `make check`.**
+**Implement M7 — resilience and recovery.**
 
-M4 and RA-01 are complete. The quality gate is green and the documentation
-describes the system that exists.
+Use ADR-0007 as the execution contract: a dedicated worker, short atomic claims,
+fencing-token leases, 30-second expiry, 10-second heartbeat, durable checkpoints,
+and at-least-once execution with idempotent effects.
 
-**M5 is complete.** Revision `0002` is applied, the application contracts exist,
-and the proof passes: Agent A writes, its process ends, Agent B retrieves in
-another run.
+Task context: [`../../development/tasks/TASK-008-m7-resilience-recovery.md`](../../development/tasks/TASK-008-m7-resilience-recovery.md).
 
-**M6 is unblocked.** ADR-0006 closes OQ-012: Claude on Amazon Bedrock behind an
-`ExtractionPort`, structured JSON outputs, versioned per-role prompts, and
-source-quote verification before any write.
+Success condition: a new worker resumes after the previous execution stops,
+without duplicated durable knowledge.
 
-**Next: implement M6 — agent collaboration.** The Requirements and Architecture
-agents over these contracts, a deterministic fixture adapter, and context assembly
-that gives the Architecture Agent confirmed requirements only.
-
-Task context: [`../../development/tasks/TASK-007-m6-agent-collaboration.md`](../../development/tasks/TASK-007-m6-agent-collaboration.md).
-
-Success condition for M6: the Architecture Agent uses validated requirements
-created in an earlier session.
-
-**Note for implementers:** `temperature`, `top_p`, and `top_k` are rejected by the
-current models. Determinism comes from the fixture adapter, and no test may make
-a live model call.
-
-Product workspace integration remains at M9, after the memory and collaboration
-chain is proven.
+ADR-0010 does not alter this task. Do not implement provider selection, BYOK,
+credential storage, quotas, billing, or extra live adapters during M7.

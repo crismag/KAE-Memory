@@ -492,6 +492,20 @@ decisions:
       - IF-project
       - IF-knowledge
       - IF-retrieval
+  - id: ADR-0010
+    title: Provider-neutral extraction and BYOK product direction
+    statement: >
+      ExtractionPort stays the application boundary and Bedrock remains the only
+      approved live adapter for the demonstration. Provider-neutral extraction
+      and bring-your-own-key are approved as post-demo product direction, with
+      usage governance required before any operator-funded public inference.
+      Credentials are references, never durable project memory. Amends ADR-0006
+      section 9 and its deferral of cross-provider abstraction.
+    status: accepted
+    record: specifications/ADR/ADR-0010-provider-neutral-extraction-and-byok-direction.md
+    amends: ADR-0006
+    affects:
+      - MOD-workflow
 
 modules:
   - id: MOD-projects
@@ -1024,6 +1038,7 @@ tasks:
     title: Resilience and recovery
     milestone: M7
     status: ready
+    record: development/tasks/TASK-008-m7-resilience-recovery.md
     note: >
       Decided by ADR-0007 and unblocked by M6. Requires additive revision 0003
       for the lease columns.
@@ -1207,6 +1222,7 @@ traces:
       - ADR-0007
       - ADR-0008
       - ADR-0009
+      - ADR-0010
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1280,6 +1296,8 @@ artifacts:
     generated_from_model_version: 4
   - path: docs/09_development/DEVELOPMENT_PLAN.md
     generated_from_model_version: 6
+  - path: docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md
+    generated_from_model_version: 6
   - path: docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
     generated_from_model_version: 6
   - path: docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
@@ -1321,6 +1339,7 @@ id_register:
   - {id: ADR-0007, type: decision, status: active, superseded_by: null}
   - {id: ADR-0008, type: decision, status: active, superseded_by: null}
   - {id: ADR-0009, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0010, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1777,3 +1796,27 @@ history:
         contract that has not been designed. Resolved by sequencing M9 as API
         contract, generated client, then UI.
     stage: AR-05 discovery workspace frontend decision for M9
+  - commit: 15
+    added:
+      - ADR-0010
+      - specifications/ADR/ADR-0010-provider-neutral-extraction-and-byok-direction.md
+      - development/tasks/TASK-008-m7-resilience-recovery.md
+      - docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md
+    changed:
+      - ADR-0006 section 9, amended
+    deferred:
+      - additional live provider adapters
+      - BYOK user interface, credential collection, and secret storage
+      - per-user quotas, reservation, usage ledger, and cost dashboards
+      - billing, metering, and commercial packaging
+      - customer-managed CockroachDB configuration
+    conflicts:
+      - >
+        The decision was authored as ADR-0008, which the embedding decision had
+        already taken, and ADR-0009 was taken by the frontend decision while it
+        was in review. Renumbered to ADR-0010.
+      - >
+        ADR-0006 deferred cross-provider abstraction. ADR-0010 amends that
+        deferral: the port must not become Bedrock-specific, while Bedrock stays
+        the only live adapter for the demonstration.
+    stage: Provider-neutral extraction and BYOK direction
