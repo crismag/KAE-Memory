@@ -47,8 +47,8 @@ session, reading only from the database.
 | M3 | Product Experience | ✔ |
 | M4 | Repository Realignment | ✔ |
 | M5 | Persistent Memory Proof | ✔ |
-| M6 | Agent Collaboration | ► current |
-| M7 | Resilience and Recovery | open |
+| M6 | Agent Collaboration | ✔ |
+| M7 | Resilience and Recovery | ► current |
 | M8 | Semantic Retrieval | open |
 | M9 | Workspace and Reporting | open |
 | M10 | AWS Demonstration | open |
@@ -66,9 +66,9 @@ Implement the first product slice:
 User creates project
   -> Submits idea
   -> Persistent source capture          [done, M5]
-  -> Requirements Agent writes knowledge [contracts done, behaviour M6]
+  -> Requirements Agent writes knowledge [done, M6]
   -> Human confirmation                  [done, M5]
-  -> Architecture Agent retrieves it     [contracts done, behaviour M6]
+  -> Architecture Agent retrieves it     [done, M6]
 ```
 
 The proof is that the second agent's input is the first agent's confirmed output,
@@ -132,12 +132,16 @@ and is not an approved deployment baseline.
 - `src/kae_memory/application/` — `MemoryService`: create project, open session,
   record message, start/interrupt/resume/complete run, write knowledge, confirm,
   retrieve. Every domain write passes through here.
+- `src/kae_memory/agents/` — `ExtractionPort` with a deterministic fixture
+  adapter and a Bedrock adapter, versioned per-role prompts, source-quote
+  verification, and the Requirements and Architecture agents.
 - `migrations/` — revisions `0001` (knowledge) and `0002` (workspace and
   execution).
-- `tests/` — 62 tests including the cross-run persistence proof.
+- `tests/` — 89 tests including the cross-run persistence proof and the
+  cross-session agent-collaboration proof.
 
-Agent behaviour, semantic retrieval, HTTP interfaces, and the user interface are
-**not** implemented. Roles are recorded on runs; nothing executes them yet. Check
+Worker leases and recovery, semantic retrieval, the Review agent, HTTP
+interfaces, and the user interface are **not** implemented. Check
 `src/kae_memory/` before assuming any capability exists.
 
 ## Getting started
@@ -147,8 +151,8 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 62 tests at 95%
-coverage.
+`make check` passes: ruff, ruff format, mypy strict, and 89 tests at 95%
+coverage. No test contacts a model provider.
 
 To run migrations, copy `.env.example` to `.env` and set `KAE_DATABASE_URL`, then
 `make migrate`. See [`CONTRIBUTING.md`](CONTRIBUTING.md).

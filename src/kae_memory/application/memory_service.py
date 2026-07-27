@@ -444,6 +444,21 @@ class MemoryService:
 
         return self._run(lambda session: AgentRunRepository(session).list_resumable(project_id))
 
+    def knowledge_produced_by(self, run_id: AgentRunId) -> tuple[KnowledgeItem, ...]:
+        """Return the knowledge a run produced.
+
+        Replaying a completed run returns its original output rather than
+        producing a second set: the guarantee is one run, one result.
+        """
+
+        def operation(db_session: DbSession) -> tuple[KnowledgeItem, ...]:
+            item_ids = ProvenanceLinkRepository(db_session).items_produced_by(run_id)
+            knowledge = SqlAlchemyKnowledgeRepository(db_session)
+            found = [knowledge.get(item_id) for item_id in item_ids]
+            return tuple(item for item in found if item is not None)
+
+        return self._run(operation)
+
     def provenance_for_item(self, item_id: KnowledgeItemId) -> tuple[ProvenanceLink, ...]:
         """Return every provenance link recorded for a knowledge item."""
 

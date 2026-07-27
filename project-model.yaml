@@ -59,7 +59,7 @@ project:
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
-  current_milestone: M6
+  current_milestone: M7
 
 milestones:
   - id: M0
@@ -97,13 +97,13 @@ milestones:
     outcome: >
       Requirements and Architecture agents, human confirmation, and context
       assembly that gives the Architecture Agent confirmed requirements only.
-    status: current
+    status: complete
   - id: M7
     title: Resilience and Recovery
     outcome: >
       Idempotency, bounded retry, durable run status, lease reclaim, and
       continuation after worker termination.
-    status: open
+    status: current
   - id: M8
     title: Semantic Retrieval
     outcome: one embedding model, one index, semantic recall with explanations
@@ -494,8 +494,11 @@ modules:
     responsibility: extraction, question selection, confirmation, and supersession flows
     status: partial
     implemented: partial
-    location: src/kae_memory/domain/execution.py, src/kae_memory/application/
-    note: run durability and confirmation exist; extraction behaviour is M6
+    location: src/kae_memory/agents/, src/kae_memory/application/
+    note: >
+      Extraction, the Requirements and Architecture agents, and confirmation
+      exist. Question selection is M8; supersession is M7; the Review agent is
+      M9.
   - id: MOD-retrieval
     name: Retrieval
     responsibility: structured and semantic recall with status and source filters
@@ -1004,7 +1007,7 @@ tasks:
   - id: TASK-007
     title: Agent collaboration
     milestone: M6
-    status: ready
+    status: complete
     record: development/tasks/TASK-007-m6-agent-collaboration.md
     objective: >
       Implement the Requirements and Architecture agents, a deterministic
@@ -1013,11 +1016,9 @@ tasks:
   - id: TASK-008
     title: Resilience and recovery
     milestone: M7
-    status: blocked
-    blocked_by:
-      - TASK-007
+    status: ready
     note: >
-      Unblocked by ADR-0007; waits only on M6. Requires additive revision 0003
+      Decided by ADR-0007 and unblocked by M6. Requires additive revision 0003
       for the lease columns.
     objective: >
       Implement idempotency keys, bounded retry with backoff, durable run status
@@ -1678,3 +1679,31 @@ history:
         error_code and error_message; queued maps to pending, and retry_wait is
         failed with a future next_attempt_at.
     stage: AR-03 durable worker runtime and lease decision for M7
+  - commit: 12
+    added:
+      - KnowledgeKind domain enum
+      - src/kae_memory/agents/
+      - ExtractionPort with deterministic and Bedrock adapters
+      - versioned role prompts
+      - MemoryService.knowledge_produced_by
+    changed:
+      - M6
+      - M7
+      - TASK-007
+      - TASK-008
+      - MOD-workflow
+    deferred:
+      - the Review agent to M9
+      - question selection to M8
+    conflicts:
+      - >
+        ADR-0006 named a kind vocabulary while KnowledgeItem.kind was a free
+        string. Resolved by making KnowledgeKind a domain enum validated on
+        construction; only requirement and rule were in use and both were already
+        in the ADR list.
+      - >
+        Replaying a completed run re-entered extraction and attempted to
+        transition a terminal run, raising InvalidRunTransitionError. Resolved by
+        short-circuiting on a terminal run and returning its original output
+        through the provenance links.
+    stage: M6 Agent Collaboration

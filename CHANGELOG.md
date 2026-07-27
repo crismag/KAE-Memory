@@ -47,6 +47,20 @@ production-grade deployment remain out of scope.
 - The cross-run persistence proof: one agent writes, its process ends, another
   retrieves in a separate run and session.
 
+### Added in M6
+
+- `KnowledgeKind` domain enum — one authoritative vocabulary for what a knowledge
+  item is, validated on construction.
+- `ExtractionPort` with a deterministic fixture adapter and a Bedrock adapter,
+  so no test contacts a provider and the demonstration has a documented fallback.
+- Versioned per-role prompts, recorded on every run alongside the schema version.
+- Source-quote verification: an item citing a quote absent from the source fails
+  the run rather than producing knowledge that misstates its provenance.
+- Requirements and Architecture agents. The Architecture Agent consumes confirmed
+  knowledge only.
+- Replaying a completed run returns its original output rather than extracting
+  again.
+
 ### Fixed
 
 - Timezone normalisation when rehydrating knowledge, which broke the persistence
