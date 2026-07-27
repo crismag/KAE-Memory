@@ -61,7 +61,7 @@ project:
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
-  current_milestone: M4
+  current_milestone: M6
 
 milestones:
   - id: M0
@@ -86,20 +86,20 @@ milestones:
   - id: M4
     title: Repository Realignment
     outcome: project documents describe the repository that actually exists
-    status: current
+    status: complete
   - id: M5
     title: Persistent Memory Proof
     outcome: >
       Project, session, message, and AgentRun persistence with memory write and
       structured retrieval through application contracts. Agent A writes, Agent B
       retrieves in a separate run.
-    status: open
+    status: complete
   - id: M6
     title: Agent Collaboration
     outcome: >
       Requirements and Architecture agents, human confirmation, and context
       assembly that gives the Architecture Agent confirmed requirements only.
-    status: open
+    status: current
   - id: M7
     title: Resilience and Recovery
     outcome: >
@@ -439,13 +439,15 @@ modules:
   - id: MOD-projects
     name: Projects
     responsibility: durable project identity, ownership, and lifecycle
-    status: specified
-    implemented: false
+    status: implemented
+    implemented: true
+    location: src/kae_memory/domain/models.py
   - id: MOD-sessions
     name: Sessions
     responsibility: session boundaries, message capture, and continuity state
-    status: specified
-    implemented: false
+    status: implemented
+    implemented: true
+    location: src/kae_memory/domain/workspace.py
   - id: MOD-knowledge
     name: Knowledge
     responsibility: typed knowledge items, immutable versions, provenance, relationships
@@ -455,15 +457,19 @@ modules:
   - id: MOD-persistence
     name: Persistence
     responsibility: relational mapping, repositories, transactions, migrations
-    status: partial
-    implemented: partial
+    status: implemented
+    implemented: true
     location: src/kae_memory/persistence/
-    note: knowledge items and versions only
+    note: >
+      Revisions 0001 and 0002. Knowledge, projects, sessions, messages, agent
+      runs, relationships, and provenance links.
   - id: MOD-workflow
     name: Workflow
     responsibility: extraction, question selection, confirmation, and supersession flows
-    status: specified
-    implemented: false
+    status: partial
+    implemented: partial
+    location: src/kae_memory/domain/execution.py, src/kae_memory/application/
+    note: run durability and confirmation exist; extraction behaviour is M6
   - id: MOD-retrieval
     name: Retrieval
     responsibility: structured and semantic recall with status and source filters
@@ -517,7 +523,7 @@ entities:
   - id: ENT-project
     name: Project
     owner: MOD-projects
-    implemented: domain-only
+    implemented: true
   - id: ENT-agent
     name: Agent
     owner: MOD-projects
@@ -525,11 +531,11 @@ entities:
   - id: ENT-session
     name: Session
     owner: MOD-sessions
-    implemented: false
+    implemented: true
   - id: ENT-message
     name: Message
     owner: MOD-sessions
-    implemented: false
+    implemented: true
   - id: ENT-knowledge-item
     name: KnowledgeItem
     owner: MOD-knowledge
@@ -553,7 +559,7 @@ entities:
       Durable record of one agent execution: role, session, status, input
       context, output summary, attempt, idempotency key, timing.
     specification: specifications/AGENT_EXECUTION_MODEL.md
-    implemented: false
+    implemented: true
   - id: ENT-quality-finding
     name: QualityFinding
     owner: MOD-audit
@@ -958,7 +964,7 @@ tasks:
   - id: TASK-006
     title: Persistent memory proof
     milestone: M5
-    status: ready
+    status: complete
     record: development/tasks/TASK-006-m5-persistence.md
     objective: >
       Implement project, session, message, and AgentRun persistence additive to
@@ -970,7 +976,6 @@ tasks:
     milestone: M6
     status: blocked
     blocked_by:
-      - TASK-006
       - OQ-012
     objective: >
       Implement the Requirements and Architecture agents, a deterministic
@@ -1050,6 +1055,7 @@ tasks:
 
 acceptance_tests:
   - id: AT-001
+    status_note: passing as of M5
     covers:
       - FR-003
       - FR-004
@@ -1066,6 +1072,7 @@ acceptance_tests:
       leaves the prior version retrievable as superseded.
     status: defined
   - id: AT-003
+    status_note: passing as of M5
     covers:
       - FR-002
       - FR-007
@@ -1081,6 +1088,7 @@ acceptance_tests:
       knowledge item and source evidence that produced it.
     status: defined
   - id: AT-005
+    status_note: passing as of M5
     covers:
       - FR-011
       - FR-012
@@ -1097,6 +1105,7 @@ acceptance_tests:
       session and cites them in its output.
     status: defined
   - id: AT-007
+    status_note: passing as of M5
     covers:
       - FR-012
     scenario: >
@@ -1576,3 +1585,34 @@ history:
         RelationshipType enum. Recorded as a decision TASK-006 must surface
         rather than resolve silently.
     stage: AR-01 bounded data-architecture decision for M5
+  - commit: 9
+    added:
+      - ENT-session persistence
+      - ENT-message persistence
+      - ENT-agent-run persistence
+      - migrations/versions/0002_create_workspace_and_execution_tables.py
+      - src/kae_memory/application/
+      - src/kae_memory/domain/execution.py
+      - src/kae_memory/domain/workspace.py
+      - src/kae_memory/persistence/workspace_repositories.py
+    changed:
+      - M4
+      - M5
+      - M6
+      - TASK-006
+      - TASK-007
+      - MOD-projects
+      - MOD-sessions
+      - MOD-persistence
+      - MOD-workflow
+    deferred:
+      - relationship domain wiring to M9
+      - agent behaviour to M6
+    conflicts:
+      - >
+        ADR-0005 and the domain RelationshipType enum defined different
+        relationship vocabularies. Resolved in favour of the existing domain
+        enum, which is implemented, exported, tested, and cited by the domain and
+        retrieval specifications. The column is a plain string, so values can be
+        added later without a migration.
+    stage: M5 Persistent Memory Proof

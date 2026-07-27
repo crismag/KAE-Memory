@@ -24,14 +24,15 @@ through persistent memory.
 
 ## Current milestone
 
-**M4 — Repository Realignment** (in progress)
+**M6 — Agent Collaboration** (next)
 
-The repository's engineering foundations are built, but its project documents
-still described a pre-implementation bootstrap. M4 makes the documentation
-describe the repository that actually exists, so that implementation work can
-trace cleanly to an accurate baseline.
+M5 is complete: the persistent-memory proof passes. One agent writes knowledge,
+its process ends, and a different agent retrieves it in a separate run and
+session with no shared in-process state.
 
-M4 is documentation-only. It adds no application code, schema, or services.
+M6 makes two agents collaborate through that memory — a Requirements Agent that
+turns input into candidates, and an Architecture Agent that consumes only
+*confirmed* requirements.
 
 ## Milestones
 
@@ -41,9 +42,9 @@ M4 is documentation-only. It adds no application code, schema, or services.
 | M1 | Domain — contracts, identifiers, lifecycle, invariants | ✔ complete |
 | M2 | Persistence — SQLAlchemy mapping, retry semantics, first migration | ✔ complete (partial coverage, see health) |
 | M3 | Product Experience — identity, journey, screens, demo narrative | ✔ complete |
-| M4 | Repository Realignment — documentation matches reality | ► current |
-| M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | open |
-| M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | open |
+| M4 | Repository Realignment — documentation matches reality | ✔ complete |
+| M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | ✔ complete |
+| M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ► current |
 | M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | open |
 | M8 | Semantic Retrieval — embeddings, recall, return session | open |
 | M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | open |
@@ -56,14 +57,14 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`, after RA-01.
+Assessed 2026-07-27 against `make check`, after M5.
 
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
 | `ruff format --check` | ✔ 52 files formatted |
 | `mypy --strict` | ✔ clean across 14 source files |
-| `pytest` | ✔ 18 passed, 94% coverage |
+| `pytest` | ✔ 62 passed, 95% coverage |
 
 RA-01 cleared all four known defects:
 
@@ -87,13 +88,14 @@ rejected rather than merged with a follow-up promise.
 | --- | --- |
 | Domain contracts | Implemented — project, agent, knowledge item, version, provenance, relationship, lifecycle |
 | Knowledge persistence | Implemented — `knowledge_items`, `knowledge_versions`, repository, retry policy |
-| Project / session / message persistence | **Not implemented** — schema decided (ADR-0005), M5 |
-| AgentRun and workflow state | **Not implemented** — schema decided (ADR-0005), M5 |
-| Agent execution (Requirements, Architecture, Review) | **Not implemented** — required by M6 and M9 |
-| Relationship persistence | **Not implemented** — schema decided (ADR-0005), M5 |
+| Project / session / message persistence | Implemented — revision `0002`, repositories, application contracts |
+| AgentRun and workflow state | Implemented — status model, idempotency, interrupt and resume |
+| Provenance links | Implemented — produced-by, used-by, derived-from-message |
+| Agent execution (Requirements, Architecture, Review) | **Not implemented** — roles are recorded, behaviour is M6 |
+| Relationship persistence | Table exists; domain wiring is M9 |
 | Semantic retrieval and embeddings | **Not implemented** — required by M8 |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
-| Application services | Not implemented |
+| Application services | Implemented — `MemoryService` |
 | HTTP interface | Not implemented |
 | User interface | Not implemented — moved to M9 |
 | Cloud services | None provisioned |
@@ -216,19 +218,17 @@ satisfy the release.
 M4 and RA-01 are complete. The quality gate is green and the documentation
 describes the system that exists.
 
-**AR-01 is complete.** ADR-0005 closes OQ-010 with an additive revision `0002`:
-`projects`, `sessions`, `agent_runs`, `messages`, `knowledge_relationships`, and
-`knowledge_provenance_links`. Revision `0001` is unchanged.
-
-**Next: M5 — persistent memory proof.** Implement revision `0002`, the domain
-contracts and repositories for the new entities, and the application contracts
-for creating a project, opening a session, recording a message, running an agent,
-writing knowledge, and retrieving it.
-
-Task context: [`../../development/tasks/TASK-006-m5-persistence.md`](../../development/tasks/TASK-006-m5-persistence.md).
-
-Success condition for M5: Agent A writes something and Agent B retrieves it in
+**M5 is complete.** Revision `0002` is applied, the application contracts exist,
+and the proof passes: Agent A writes, its process ends, Agent B retrieves in
 another run.
+
+**Next: M6 — agent collaboration.** Implement the Requirements and Architecture
+agents over these contracts, a deterministic extraction adapter behind a port,
+and context assembly that gives the Architecture Agent confirmed requirements
+only. Blocked on **OQ-012**, the extraction contract, which AR-01 did not cover.
+
+Success condition for M6: the Architecture Agent uses validated requirements
+created in an earlier session.
 
 Product workspace integration remains at M9, after the memory and collaboration
 chain is proven.

@@ -44,3 +44,27 @@ class KnowledgeItemId(Identifier):
 @dataclass(frozen=True, slots=True)
 class RelationshipId(Identifier):
     """Stable relationship identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProvenanceLinkId(Identifier):
+    """Stable provenance-link identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class SessionId(Identifier):
+    """Stable session identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class MessageId(Identifier):
+    """Stable message identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRunId(Identifier):
+    """Stable agent-run identifier.
+
+    An ``AgentRunId`` is the value recorded as ``Provenance.execution_id``, so a
+    knowledge version always resolves to the execution that produced it.
+    """

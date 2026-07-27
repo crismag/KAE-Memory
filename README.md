@@ -37,8 +37,8 @@ proves persistent engineering memory.
 Completed: foundation, domain contracts, knowledge persistence, product
 experience, demo planning, architecture context, and the development roadmap.
 
-Current: **M4 Repository realignment.** Next: **M5 persistent-memory proof** —
-one agent writes durable knowledge, another retrieves it in a separate run.
+Current: **M6 agent collaboration.** M5 is proven: one agent writes durable
+knowledge, its process ends, and another agent retrieves it in a separate run.
 
 ## Implementation milestones
 
@@ -48,9 +48,9 @@ one agent writes durable knowledge, another retrieves it in a separate run.
 | M1 | Domain | ✔ |
 | M2 | Persistence | ✔ |
 | M3 | Product Experience | ✔ |
-| M4 | Repository Realignment | ► current |
-| M5 | Persistent Memory Proof | open |
-| M6 | Agent Collaboration | open |
+| M4 | Repository Realignment | ✔ |
+| M5 | Persistent Memory Proof | ✔ |
+| M6 | Agent Collaboration | ► current |
 | M7 | Resilience and Recovery | open |
 | M8 | Semantic Retrieval | open |
 | M9 | Workspace and Reporting | open |
@@ -68,14 +68,15 @@ Implement the first product slice:
 ```text
 User creates project
   -> Submits idea
-  -> Persistent source capture
-  -> Requirements Agent writes candidate knowledge
-  -> Human confirmation
-  -> Architecture Agent retrieves confirmed requirements in a later run
+  -> Persistent source capture          [done, M5]
+  -> Requirements Agent writes knowledge [contracts done, behaviour M6]
+  -> Human confirmation                  [done, M5]
+  -> Architecture Agent retrieves it     [contracts done, behaviour M6]
 ```
 
 The proof is that the second agent's input is the first agent's confirmed output,
-recovered from CockroachDB rather than carried in process memory.
+recovered from CockroachDB rather than carried in process memory. That path is
+tested in `tests/application/test_cross_run_proof.py`.
 
 ## Development principle
 
@@ -127,17 +128,20 @@ and is not an approved deployment baseline.
 ## What exists in code
 
 - `src/kae_memory/domain/` — identifiers, provenance, knowledge items and
-  versions, lifecycle states and transitions, typed domain errors.
-- `src/kae_memory/persistence/` — SQLAlchemy mappings for knowledge items and
-  versions, a repository over them, and bounded retry for CockroachDB
-  serialization failures.
-- `migrations/` — the first knowledge-table revision.
-- `tests/` — domain invariant tests and a persistence round-trip test.
+  versions, lifecycle, projects, sessions, messages, agent runs and their status
+  model, provenance links, typed domain errors.
+- `src/kae_memory/persistence/` — SQLAlchemy mappings and repositories for all of
+  the above, plus bounded retry for CockroachDB serialization failures.
+- `src/kae_memory/application/` — `MemoryService`: create project, open session,
+  record message, start/interrupt/resume/complete run, write knowledge, confirm,
+  retrieve. Every domain write passes through here.
+- `migrations/` — revisions `0001` (knowledge) and `0002` (workspace and
+  execution).
+- `tests/` — 62 tests including the cross-run persistence proof.
 
-Project, session, message, relationship, and AgentRun persistence, application
-services, agent execution, interfaces, retrieval, and the user interface are
-**not** implemented. Check `src/kae_memory/` before assuming any capability
-exists.
+Agent behaviour, semantic retrieval, HTTP interfaces, and the user interface are
+**not** implemented. Roles are recorded on runs; nothing executes them yet. Check
+`src/kae_memory/` before assuming any capability exists.
 
 ## Getting started
 
@@ -146,9 +150,11 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` does not currently pass. Known defects and their remediation order
-are recorded in
-[`docs/00_project/CURRENT_PROJECT_STATE.md`](docs/00_project/CURRENT_PROJECT_STATE.md).
+`make check` passes: ruff, ruff format, mypy strict, and 62 tests at 95%
+coverage.
+
+To run migrations, copy `.env.example` to `.env` and set `KAE_DATABASE_URL`, then
+`make migrate`. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Repository context
 

@@ -7,12 +7,16 @@ from enum import StrEnum
 from .errors import DomainInvariantError
 from .identifiers import (
     AgentId,
+    AgentRunId,
     ExecutionId,
     KnowledgeItemId,
+    MessageId,
     ProjectId,
+    ProvenanceLinkId,
     RelationshipId,
 )
 from .lifecycle import LifecycleState, ensure_transition
+from .workspace import ProjectStatus
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,14 +37,23 @@ class Provenance:
 
 @dataclass(frozen=True, slots=True)
 class Project:
-    """Durable boundary for a software initiative."""
+    """Durable boundary for a software initiative.
+
+    A project owns every session, run, and knowledge item derived within it. There
+    are no cross-project reads.
+    """
 
     id: ProjectId
     name: str
+    key: str | None = None
+    description: str | None = None
+    status: ProjectStatus = ProjectStatus.ACTIVE
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise DomainInvariantError("project name must not be empty")
+        if self.key is not None and not self.key.strip():
+            raise DomainInvariantError("project key must not be blank when provided")
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,7 +130,12 @@ class KnowledgeItem:
 
 
 class RelationshipType(StrEnum):
-    """Auditable relationship types between stable domain entities."""
+    """Auditable relationship types between stable domain entities.
+
+    This enum is the single authoritative relationship vocabulary. ADR-0005 listed
+    an alternative set while specifying the physical schema; the column is a plain
+    string, so values can be added here later without a migration.
+    """
 
     SUPPORTS = "supports"
     CONTRADICTS = "contradicts"
@@ -141,3 +159,45 @@ class Relationship:
     def __post_init__(self) -> None:
         if self.source_id == self.target_id:
             raise DomainInvariantError("relationship endpoints must be distinct")
+
+
+class ProvenanceLinkType(StrEnum):
+    """How a knowledge item relates to a run or a message."""
+
+    PRODUCED_BY = "produced_by"
+    USED_BY = "used_by"
+    DERIVED_FROM_MESSAGE = "derived_from_message"
+
+
+@dataclass(frozen=True, slots=True)
+class ProvenanceLink:
+    """Relational link from knowledge to the run or message it came from.
+
+    ``Provenance`` on a version records who wrote it. These links additionally make
+    "which run *used* this knowledge" and "which message produced it" answerable
+    without parsing opaque values.
+    """
+
+    id: ProvenanceLinkId
+    project_id: ProjectId
+    knowledge_item_id: KnowledgeItemId
+    link_type: ProvenanceLinkType
+    created_at: datetime
+    knowledge_version_number: int | None = None
+    agent_run_id: AgentRunId | None = None
+    message_id: MessageId | None = None
+    source_type: str | None = None
+    source_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.created_at.tzinfo is None:
+            raise DomainInvariantError("provenance link created_at must be timezone-aware")
+        if self.knowledge_version_number is not None and self.knowledge_version_number < 1:
+            raise DomainInvariantError("provenance link version number must be positive")
+        if self.link_type is ProvenanceLinkType.DERIVED_FROM_MESSAGE and self.message_id is None:
+            raise DomainInvariantError("a message-derived link must reference a message")
+        if (
+            self.link_type in {ProvenanceLinkType.PRODUCED_BY, ProvenanceLinkType.USED_BY}
+            and self.agent_run_id is None
+        ):
+            raise DomainInvariantError(f"a {self.link_type.value} link must reference an agent run")
