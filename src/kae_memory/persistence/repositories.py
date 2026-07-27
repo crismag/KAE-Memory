@@ -1,6 +1,7 @@
 """Repository contracts and SQLAlchemy implementation."""
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Protocol
 
 from sqlalchemy import select
@@ -64,6 +65,18 @@ class SqlAlchemyKnowledgeRepository:
         return _to_domain(row, versions)
 
 
+def _as_aware(value: datetime) -> datetime:
+    """Return a timezone-aware timestamp.
+
+    Timestamps are always stored in UTC. CockroachDB returns them aware through
+    ``TIMESTAMPTZ``, but some drivers used in tests drop the offset on read, so a
+    naive value is interpreted as the UTC instant it was written as. Without this,
+    rehydration would violate the domain's timezone-aware provenance invariant.
+    """
+
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
 def _to_domain(row: KnowledgeItemRow, versions: Sequence[KnowledgeVersionRow]) -> KnowledgeItem:
     return KnowledgeItem(
         id=KnowledgeItemId(row.id),
@@ -78,9 +91,9 @@ def _to_domain(row: KnowledgeItemRow, versions: Sequence[KnowledgeVersionRow]) -
                     source=version.source,
                     actor_id=AgentId(version.actor_id),
                     execution_id=ExecutionId(version.execution_id),
-                    recorded_at=version.recorded_at,
+                    recorded_at=_as_aware(version.recorded_at),
                 ),
-                created_at=version.created_at,
+                created_at=_as_aware(version.created_at),
             )
             for version in versions
         ),

@@ -1,4 +1,4 @@
-.PHONY: install lint format-check typecheck test check
+.PHONY: install lint format-check typecheck test check migrate migrate-down
 
 install:
 	uv sync --extra dev
@@ -16,3 +16,9 @@ test:
 	uv run pytest
 
 check: lint format-check typecheck test
+
+migrate:
+	uv run alembic upgrade head
+
+migrate-down:
+	uv run alembic downgrade base

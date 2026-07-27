@@ -720,10 +720,10 @@ risks:
     affects:
       - CON-003
     mitigation: >
-      TASK-002 through TASK-005 restore a green make check before slice work
-      begins.
+      RA-01 restored all four gates on 2026-07-27. main must stay green; a pull
+      request that leaves make check failing is rejected rather than merged.
     owner: human product and architecture owner
-    status: open
+    status: closed
   - id: RISK-006
     description: >
       Hackathon demonstration depends on cloud services that are not yet
@@ -895,7 +895,7 @@ tasks:
   - id: TASK-002
     title: Repository realignment
     milestone: M4
-    status: in_progress
+    status: complete
     objective: >
       Update the project model, README, requirements baseline, scope, brief,
       development plan, execution roadmap, and context index so that repository
@@ -912,7 +912,7 @@ tasks:
   - id: TASK-003
     title: Restore green quality gate
     milestone: M4
-    status: ready
+    status: complete
     objective: >
       Fix timezone normalisation on knowledge rehydration, clear the six ruff
       findings and two formatting differences, and make make check pass.
@@ -924,7 +924,7 @@ tasks:
   - id: TASK-004
     title: Executable migration environment
     milestone: M4
-    status: ready
+    status: complete
     objective: >
       Add alembic.ini and migrations/env.py so revision 0001 can be applied and
       rolled back, and document the local database workflow.
@@ -935,7 +935,7 @@ tasks:
   - id: TASK-005
     title: Reproducible dependency resolution and retry tests
     milestone: M4
-    status: ready
+    status: complete
     objective: >
       Commit uv.lock and add tests covering run_transaction retry, backoff, and
       exhaustion behaviour including SQLSTATE 40001 detection.
@@ -945,9 +945,8 @@ tasks:
   - id: TASK-006
     title: Persistent memory proof
     milestone: M5
-    status: blocked
+    status: ready_when_unblocked
     blocked_by:
-      - TASK-003
       - OQ-010
     objective: >
       Implement project, session, message, and AgentRun persistence additive to
@@ -1022,7 +1021,7 @@ tasks:
   - id: TASK-013
     title: Planning amendment
     milestone: M4
-    status: in_progress
+    status: complete
     objective: >
       Remove the contradiction between the approved MVP baseline and the
       hackathon demonstration plan, and establish the authoritative
@@ -1259,7 +1258,7 @@ id_register:
   - {id: RISK-002, type: risk, status: active, superseded_by: null}
   - {id: RISK-003, type: risk, status: mitigated, superseded_by: null}
   - {id: RISK-004, type: risk, status: active, superseded_by: null}
-  - {id: RISK-005, type: risk, status: active, superseded_by: null}
+  - {id: RISK-005, type: risk, status: closed, superseded_by: null}
   - {id: RISK-006, type: risk, status: active, superseded_by: null}
   - {id: OQ-006, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-007, type: open_question, status: closed, superseded_by: null}
@@ -1525,3 +1524,22 @@ history:
         before the chain it displays was proven. Resolved by making M5 the
         persistent-memory proof and moving workspace integration to M9.
     stage: Planning Amendment for hackathon execution
+  - commit: 7
+    added:
+      - alembic.ini
+      - migrations/env.py
+      - tests/persistence/test_transactions.py
+      - uv.lock
+      - .env.example
+    changed:
+      - TASK-002
+      - TASK-003
+      - TASK-004
+      - TASK-005
+      - TASK-006
+      - TASK-013
+      - RISK-005
+      - repository health
+    deferred: []
+    conflicts: []
+    stage: RA-01 Restore Repository Readiness Gates

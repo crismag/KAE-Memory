@@ -57,10 +57,14 @@ package:
       - development/tasks/TASK-001-domain-contracts.md
     implementation:
       - pyproject.toml
+      - uv.lock
+      - alembic.ini
+      - .env.example
       - Makefile
       - .github/workflows/ci.yml
       - src/kae_memory/domain/
       - src/kae_memory/persistence/
+      - migrations/env.py
       - migrations/versions/0001_create_knowledge_tables.py
       - tests/
   present_but_incomplete:
@@ -68,14 +72,6 @@ package:
         Persistence covers knowledge items and versions only. Project, session,
         message, relationship, and AgentRun tables are not implemented.
       milestone: M5
-    - description: >
-        Alembic revision 0001 exists but cannot run; alembic.ini and
-        migrations/env.py are missing.
-      task: TASK-004
-    - description: >
-        make check does not pass. See docs/00_project/CURRENT_PROJECT_STATE.md
-        for the current gate results.
-      task: TASK-003
   not_yet_implemented:
     - user interface and frontend framework (M9)
     - application services and HTTP endpoints (M5)
@@ -84,7 +80,6 @@ package:
     - retrieval embeddings and vector indexes (M8)
     - reporting and quality findings (M9)
     - cloud infrastructure, health endpoint, and deployment configuration (M10)
-    - uv.lock, pending TASK-005
   deliberately_absent:
     - authentication, teams, billing, marketplace, and administration
     - arbitrary agent roles beyond Requirements, Architecture, and Review

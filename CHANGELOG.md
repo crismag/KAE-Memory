@@ -34,8 +34,17 @@ Authentication, teams, billing, administration, agent roles beyond the three
 authorised, general coding-agent hosting, production-scale retrieval, and
 production-grade deployment remain out of scope.
 
-### Known defects
+### Fixed
 
-`make check` does not currently pass. See
-`docs/00_project/CURRENT_PROJECT_STATE.md` for the current gate results and the
-RA-01 remediation task.
+- Timezone normalisation when rehydrating knowledge, which broke the persistence
+  round trip.
+- Executable Alembic environment: `alembic.ini` and `migrations/env.py`, with the
+  database URL read from `KAE_DATABASE_URL`.
+- Committed `uv.lock` for reproducible builds.
+- Ruff and formatting findings cleared; `make check` passes all four gates.
+
+### Added in RA-01
+
+- Tests for `run_transaction` retry, backoff, exhaustion, and SQLSTATE 40001
+  detection.
+- `.env.example`, `make migrate`, and `make migrate-down`.
