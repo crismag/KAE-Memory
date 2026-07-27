@@ -19,6 +19,21 @@ jobs:
           enable-cache: true
       - name: Install project
         run: uv sync --extra dev
+      - name: Start CockroachDB
+        # Tests run against the engine used in production, never SQLite
+        # (ADR-0011). A service container cannot pass the start-single-node
+        # arguments the image needs, so it is started explicitly.
+        run: |
+          docker run -d --name kae-crdb-test -p 26258:26257 \
+            cockroachdb/cockroach:v26.2.1 \
+            start-single-node --insecure --store=type=mem,size=1GiB
+          for i in $(seq 1 60); do
+            if docker exec kae-crdb-test ./cockroach sql --insecure -e "SELECT 1" >/dev/null 2>&1; then
+              echo "CockroachDB ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "CockroachDB did not become ready"; docker logs kae-crdb-test; exit 1
       - name: Lint
         run: uv run ruff check .
       - name: Format check

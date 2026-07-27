@@ -5,6 +5,9 @@
 - **Closes:** OQ-014
 - **Blocks:** M8 — Semantic Retrieval
 - **Scope:** decision only. Implementation is M8 and does not begin here.
+- **Amended by:** [`ADR-0011`](ADR-0011-test-against-cockroachdb.md). Correction 3
+  below is **withdrawn**: the suite now runs on CockroachDB, so vector behaviour
+  is verified like everything else and no test is skipped.
 
 ## Decision
 
@@ -57,7 +60,7 @@ follows that convention rather than introducing a second one — a mixed model
 makes it unclear which layer owns a value, and the clock in particular is
 injected so tests can control it.
 
-### 3. `VECTOR` cannot be exercised on SQLite — the test strategy changes
+### 3. `VECTOR` cannot be exercised on SQLite — the test strategy changes ~~(withdrawn)~~
 
 Every test today runs on SQLite, and `tests/conftest.py` builds the schema with
 `Base.metadata.create_all`. SQLite has no `VECTOR` type, no cosine operator, and
@@ -77,8 +80,12 @@ Therefore:
   to pass while never executing a vector query is worse than one that admits the
   gap.
 
-This is the first capability the project cannot fully verify on the portable
-test path, and it is recorded as such.
+~~This is the first capability the project cannot fully verify on the portable
+test path, and it is recorded as such.~~
+
+**Withdrawn by ADR-0011.** Rather than accept an unverifiable capability, the
+suite moved to CockroachDB. Vector columns, the cosine operator, and the index
+are exercised in the ordinary run, and the evaluation fixture is a normal test.
 
 ### 4. Titan is not an Anthropic model — a second client is required
 
@@ -219,8 +226,7 @@ persistence. Retrieval quality becomes testable rather than assumed.
 
 **Negative.** Model replacement requires versioning and full re-embedding. A
 second provider client and dependency arrive. The chunk table carries two
-identifier conventions. Vector behaviour cannot be verified on the portable test
-path, so part of the suite depends on a live cluster.
+identifier conventions. The suite depends on a running CockroachDB (ADR-0011).
 
 **Accepted risk.** Titan V2's retrieval quality on this specific domain is
 unmeasured, which is exactly what the evaluation fixture exists to expose — early,

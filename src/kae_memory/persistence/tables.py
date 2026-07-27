@@ -16,10 +16,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import JSON, Uuid
+from sqlalchemy.types import Uuid
 
-JSONB = JSON().with_variant(postgresql.JSONB(), "postgresql")
-"""JSONB on CockroachDB and PostgreSQL; portable JSON elsewhere for tests."""
+JSONB = postgresql.JSONB()
+"""Native JSONB.
+
+No portable variant: CockroachDB is the only engine, in production and in tests
+alike (ADR-0011)."""
 
 UUID_STR = Uuid(as_uuid=False)
 """Native UUID column mapped to ``str`` in Python.

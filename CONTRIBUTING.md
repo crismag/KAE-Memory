@@ -13,8 +13,16 @@ KAE-Memory uses specification-led, task-bounded development.
 
 ```bash
 uv sync --extra dev
-make check
+make check          # starts the test database if it is not already running
 ```
+
+**Tests run against CockroachDB, not SQLite** (ADR-0011). `make test` starts a
+single-node CockroachDB in Docker on port 26258; `make test-db-down` stops it.
+Docker is therefore a prerequisite. To use a cluster you already have, set
+`KAE_TEST_DATABASE_URL` instead.
+
+The suite fails loudly when no database is reachable. It never skips silently — a
+green run that tested nothing is worse than a red one.
 
 `uv.lock` is committed. Use `uv sync` rather than `uv pip install` so the locked
 versions are honoured, and commit the lockfile whenever dependencies change.

@@ -54,6 +54,7 @@ package:
       - specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
       - specifications/ADR/ADR-0009-discovery-workspace-frontend.md
       - specifications/ADR/ADR-0010-provider-neutral-extraction-and-byok-direction.md
+      - specifications/ADR/ADR-0011-test-against-cockroachdb.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md

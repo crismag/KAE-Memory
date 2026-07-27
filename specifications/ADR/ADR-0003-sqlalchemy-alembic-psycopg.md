@@ -2,6 +2,10 @@
 
 **Status:** accepted, 2026-07-27
 
+**Amended by:** [`ADR-0011`](ADR-0011-test-against-cockroachdb.md), which adds the
+`sqlalchemy-cockroachdb` dialect. SQLAlchemy's PostgreSQL dialect cannot parse
+CockroachDB's server version string, so the URL scheme is `cockroachdb+psycopg://`.
+
 ## Context
 
 KAE-Memory requires CockroachDB-backed persistence while preserving the transport- and persistence-independent domain contracts introduced by TASK-001. The persistence layer must support explicit mappings, migrations, transactions, and CockroachDB retry behaviour without making ORM classes the domain model.

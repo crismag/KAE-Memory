@@ -179,6 +179,7 @@ Timing, sample data, and delivery craft:
 | ADR-0008 embedding model and vector index | accepted — closes OQ-014 |
 | ADR-0009 discovery workspace frontend | accepted — closes OQ-011 |
 | ADR-0010 provider-neutral extraction and BYOK direction | accepted — direction only; no current implementation |
+| ADR-0011 tests run against CockroachDB | accepted — SQLite retired; amends ADR-0003 and ADR-0008 |
 | Readiness model | **open** — OQ-013, blocks M9 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
 
