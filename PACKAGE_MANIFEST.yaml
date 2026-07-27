@@ -52,6 +52,7 @@ package:
       - specifications/ADR/ADR-0006-extraction-contract.md
       - specifications/ADR/ADR-0007-worker-runtime-and-leases.md
       - specifications/ADR/ADR-0008-embedding-model-and-vector-index.md
+      - specifications/ADR/ADR-0009-discovery-workspace-frontend.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
@@ -83,7 +84,7 @@ package:
         agent is M9. Worker leases and recovery are M7.
       milestone: M7
   not_yet_implemented:
-    - user interface and frontend framework (M9)
+    - user interface (M9; framework decided in ADR-0009)
     - HTTP endpoints (M9)
     - lease expiry and automatic reclaim (M7)
     - retrieval embeddings and vector indexes (M8)
