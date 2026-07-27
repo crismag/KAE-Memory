@@ -50,6 +50,7 @@ package:
       - specifications/ADR/ADR-0004-mcp-inspection-only.md
       - specifications/ADR/ADR-0005-m5-physical-schema.md
       - specifications/ADR/ADR-0006-extraction-contract.md
+      - specifications/ADR/ADR-0007-worker-runtime-and-leases.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md

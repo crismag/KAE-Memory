@@ -138,8 +138,9 @@ Still required, in this order:
 4. frontend technology choice (blocks Slice 1, OQ-011);
 5. physical schema for projects, sessions, messages, and relationships
    (blocks Slice 2, OQ-010);
-6. model provider, prompt contract, and output schema (blocks Slice 2, OQ-012);
-   see also OQ-013 readiness model, which blocks Slice 9;
+6. ✔ ADR-0006 — model provider, prompt contract, and output schema;
+7. ✔ ADR-0007 — worker runtime and renewable leases;
+8. readiness model (OQ-013, blocks Slice 9);
 7. AWS deployment baseline;
 8. embedding model and index strategy;
 9. workflow orchestration and asynchronous jobs;
@@ -237,7 +238,7 @@ model provider.
 persistence and run contracts already exist; this slice gives the roles
 behaviour.
 
-**Blocked by:** OQ-012 extraction contract.
+**Decided:** ADR-0006.
 
 Deliver:
 
@@ -256,7 +257,7 @@ in an earlier session.
 
 **Goal:** compute becomes disposable. This is the slice the demo is built on.
 
-**Blocked by:** OQ-015 worker runtime and lease mechanism.
+**Decided:** ADR-0007. Implementation waits on M6, not on a decision.
 
 Deliver:
 

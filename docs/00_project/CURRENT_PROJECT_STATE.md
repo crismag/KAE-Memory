@@ -168,7 +168,7 @@ Timing, sample data, and delivery craft:
 | ADR-0004 MCP inspection-only | accepted |
 | ADR-0005 M5 physical schema (revision 0002) | accepted — closes OQ-010 |
 | ADR-0006 extraction provider, prompt, and schema | accepted — closes OQ-012 |
-| Worker runtime and lease mechanism | **open** — OQ-015, blocks M7 |
+| ADR-0007 worker runtime and renewable leases | accepted — closes OQ-015 |
 | Embedding model and index strategy | **open** — OQ-014, blocks M8 |
 | Frontend technology | **open** — OQ-011, blocks M9 |
 | Readiness model | **open** — OQ-013, blocks M9 |
