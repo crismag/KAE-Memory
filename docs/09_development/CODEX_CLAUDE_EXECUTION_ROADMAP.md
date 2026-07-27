@@ -186,7 +186,7 @@ proven.
 
 Slice numbers below map to milestones M4–M11.
 
-### Slice 0 — Repository realignment (M4)
+### Slice 0 — Repository realignment (M4) ✔ complete
 
 **Goal:** make the repository describe itself accurately and pass its own quality
 gate before new feature work starts.
@@ -207,11 +207,12 @@ Deliver:
 **Assistant task boundary:** documentation plus the listed defect fixes. No new
 features, tables, endpoints, or services.
 
-### Slice 1 — Persistent memory proof (M5)
+### Slice 1 — Persistent memory proof (M5) ✔ complete
 
 **Goal:** prove the memory claim end to end before any interface exists.
 
-**Blocked by:** RA-01 green build; OQ-010 physical schema including AgentRun.
+Delivered in revision `0002` and `src/kae_memory/application/`. The cross-run
+proof is `tests/application/test_cross_run_proof.py`.
 
 Deliver:
 
@@ -230,9 +231,11 @@ another run.
 **Assistant task boundary:** persistence and contracts only. No UI, no cloud, no
 model provider.
 
-### Slice 2 — Agent collaboration (M6)
+### Slice 2 — Agent collaboration (M6) ► current
 
-**Goal:** two agents collaborate through memory rather than conversation.
+**Goal:** two agents collaborate through memory rather than conversation. The
+persistence and run contracts already exist; this slice gives the roles
+behaviour.
 
 **Blocked by:** OQ-012 extraction contract.
 
@@ -393,7 +396,7 @@ Deliver:
 Do not issue all prompts at once. Issue the next prompt only after the previous
 pull request is reviewed and the repository state is updated.
 
-### Prompt RA-01 — Repository realignment ► current
+### Prompt RA-01 — Repository realignment ✔ complete
 
 Objective:
 
@@ -410,9 +413,7 @@ Expected evidence:
 - `make check` output showing all four gates passing;
 - `alembic upgrade head` and `alembic downgrade base` output.
 
-### Prompt MEM-01 — Persistent memory proof
-
-Issue after RA-01 merges and OQ-010 is decided.
+### Prompt MEM-01 — Persistent memory proof ✔ complete
 
 Objective:
 
@@ -425,9 +426,9 @@ Objective:
 
 Prohibited: UI, cloud services, real model calls.
 
-### Prompt AGENT-01 — Agent collaboration
+### Prompt AGENT-01 — Agent collaboration ► next
 
-Issue after MEM-01 review and OQ-012 approval.
+Blocked on OQ-012, the extraction contract.
 
 Objective:
 

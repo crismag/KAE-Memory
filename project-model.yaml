@@ -77,8 +77,8 @@ milestones:
     outcome: SQLAlchemy knowledge mapping, retry semantics, first migration
     status: complete
     note: >
-      Knowledge items and versions only. Project, session, message, and
-      relationship tables are not implemented.
+      Knowledge items and versions. Extended by M5 with projects, sessions,
+      messages, agent runs, relationships, and provenance links.
   - id: M3
     title: Product Experience
     outcome: product identity, journey, screens, demo narrative, architecture context
@@ -473,8 +473,10 @@ modules:
   - id: MOD-retrieval
     name: Retrieval
     responsibility: structured and semantic recall with status and source filters
-    status: specified
-    implemented: false
+    status: partial
+    implemented: partial
+    location: src/kae_memory/application/memory_service.py
+    note: structured retrieval by project and lifecycle exists; semantic recall is M8
   - id: MOD-blueprint
     name: Blueprint Generation
     responsibility: grounded section generation, labelling, and export
@@ -493,24 +495,30 @@ interfaces:
       - user interface
       - coding agents
     responsibility: create, list, and open projects; expose readiness state
-    status: proposed
-    implemented: false
+    status: partial
+    implemented: partial
+    location: src/kae_memory/application/memory_service.py
+    note: create, get, and session lifecycle exist; readiness state is M9
   - id: IF-knowledge
     name: Knowledge Service
     consumers:
       - user interface
       - internal platform agents
     responsibility: submit sources, propose candidates, confirm, revise, supersede
-    status: proposed
-    implemented: false
+    status: partial
+    implemented: partial
+    location: src/kae_memory/application/memory_service.py
+    note: submit, write, and confirm exist; revise and supersede are M7
   - id: IF-retrieval
     name: Retrieval Service
     consumers:
       - user interface
       - coding agents
     responsibility: return task-relevant knowledge with status, version, and provenance
-    status: proposed
-    implemented: false
+    status: partial
+    implemented: partial
+    location: src/kae_memory/application/memory_service.py
+    note: structured retrieval with provenance exists; semantic recall is M8
   - id: IF-blueprint
     name: Blueprint Service
     consumers:

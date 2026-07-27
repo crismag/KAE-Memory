@@ -16,29 +16,26 @@ through persistent engineering memory.
 
 ## Current phase
 
-**Product Experience Alignment and Implementation Kickoff.**
+**Implementation.** The persistent-memory claim is proven end to end.
 
-The engineering foundations of KAE-Memory have been established. The repository
-now contains:
+The repository contains engineering specifications, domain contracts, CockroachDB
+persistence for knowledge and for projects, sessions, messages and agent runs,
+application contracts, the product experience definition, the demonstration
+narrative, five accepted architecture decisions, and the execution roadmap.
 
-- engineering specifications;
-- domain contracts;
-- CockroachDB persistence foundations;
-- product experience definition;
-- demonstration narrative;
-- architecture context;
-- execution roadmap.
-
-Current work is focused on implementing the first end-to-end product slice that
-proves persistent engineering memory.
+Current work is giving the three agent roles behaviour, so that a Requirements
+Agent and an Architecture Agent collaborate through that memory rather than
+through conversation.
 
 ## Repository status
 
-Completed: foundation, domain contracts, knowledge persistence, product
-experience, demo planning, architecture context, and the development roadmap.
+Completed: foundation, domain contracts, persistence for knowledge and for
+projects, sessions, messages and agent runs, product experience, demo planning,
+architecture decisions, and the development roadmap.
 
-Current: **M6 agent collaboration.** M5 is proven: one agent writes durable
-knowledge, its process ends, and another agent retrieves it in a separate run.
+Current: **M6 agent collaboration.** M5 is proven — one agent writes durable
+knowledge, its process ends, and another agent retrieves it in a separate run and
+session, reading only from the database.
 
 ## Implementation milestones
 

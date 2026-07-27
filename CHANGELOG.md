@@ -25,10 +25,10 @@
 
 ### Not added
 
-Application services, HTTP interfaces, user interface, retrieval and embeddings,
-agent execution, and cloud deployment are approved but not yet built. Persistence
-covers knowledge items and versions only; project, session, message,
-relationship, and AgentRun tables are not yet implemented.
+Agent behaviour, semantic retrieval, HTTP interfaces, the user interface, and
+cloud deployment are approved but not yet built. Agent roles are recorded on
+every run; nothing executes them yet. The `knowledge_relationships` table exists
+but is not yet wired to the domain.
 
 Authentication, teams, billing, administration, agent roles beyond the three
 authorised, general coding-agent hosting, production-scale retrieval, and

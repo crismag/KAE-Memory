@@ -1,6 +1,10 @@
 # Agent Execution Model
 
-**Status:** approved for implementation, 2026-07-27.
+**Status:** approved, and implemented as of M5.
+
+`AgentRun`, the status model, idempotency, retry, and continuation are live in
+`src/kae_memory/domain/execution.py` and `src/kae_memory/application/`. Agent
+*behaviour* — what each role actually does — is M6.
 
 Defines the durable execution contracts that make bounded multi-agent work
 recoverable. Complements [`AGENT_COLLABORATION.md`](AGENT_COLLABORATION.md),
