@@ -1,7 +1,8 @@
 # ADR-0002 — Python Library-First Bootstrap
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-07-26
+- **Accepted:** 2026-07-27
 
 ## Context
 

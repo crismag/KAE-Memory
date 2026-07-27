@@ -40,7 +40,7 @@ project:
     - prompt packages
     - development workflow documentation
     - knowledge-acquisition methodology
-    - public greenfield GitHub repository
+    - public GitHub implementation repository
     - engineering specifications
     - domain contracts
     - CockroachDB persistence foundations

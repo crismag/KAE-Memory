@@ -21,6 +21,31 @@ Nothing in this repository authorises implementation on its own. If the current
 state page and another document disagree, the current state page is correct and
 the other document needs updating.
 
+## Terminology
+
+Use these terms as written. Do not introduce synonyms where one of these already
+covers the concept.
+
+| Term | Meaning |
+| --- | --- |
+| Engineering Memory | The durable, provenance-aware knowledge layer. The platform's core capability. |
+| Product Discovery Workspace | The first product experience built on Engineering Memory. Not a separate product direction. |
+| Project | The durable boundary that owns all sessions, knowledge, and outputs. No cross-project reads. |
+| Session | A bounded period of work within one project. Continuity across sessions is the central proof. |
+| Message | A user submission, persisted verbatim as source evidence before interpretation. |
+| Evidence | Source material a statement rests on — a message, and later a document. |
+| Knowledge | A typed, versioned item of project understanding. Never used loosely for "information". |
+| Candidate Knowledge | Knowledge produced by extraction and not yet reviewed by a human. Enters the `proposed` lifecycle state. |
+| Confirmed Knowledge | Knowledge a human has validated. The `validated` lifecycle state; shown to users as "confirmed". |
+| Provenance | The source, actor, and execution recorded on every knowledge version. |
+| Supersession | Replacing knowledge while preserving the prior version. Never deletion. |
+| Traceability | The navigable path from an output statement back to the knowledge and evidence that produced it. |
+| Blueprint | The user-facing output package generated from confirmed knowledge, with statements labelled grounded, derived, or assumption. |
+
+Lifecycle state names in code — `proposed`, `validated`, `rejected`,
+`superseded` — are the authoritative set. User-facing labels may differ, as
+"confirmed" does for `validated`, but no third vocabulary should appear.
+
 ## Layers
 
 | Layer | Repository context | Load when |

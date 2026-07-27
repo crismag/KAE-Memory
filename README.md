@@ -86,6 +86,31 @@ Project model
 Coding agents must receive one bounded task context at a time. They must not be
 given the entire package as a universal implementation prompt.
 
+## Architecture overview
+
+```text
+AI Product Discovery Workspace          user-visible product (not yet built)
+        |
+Application services                    project, knowledge, retrieval, blueprint
+        |                               (specified, not yet built)
+Domain contracts                        projects, agents, knowledge items,
+        |                               immutable versions, provenance,
+        |                               lifecycle, typed relationships
+Persistence                             SQLAlchemy mappings, repositories,
+        |                               bounded serialization-failure retry
+CockroachDB                             durable, authoritative store
+```
+
+The core is a Python 3.12 library (ADR-0002). Domain contracts carry no
+persistence or transport dependencies; persistence sits behind a repository
+protocol so CockroachDB and model-provider adapters can change without rewriting
+workflows (ADR-0003). Durable knowledge is built before orchestration, retrieval,
+or generation (ADR-0001).
+
+The proposed KAE–AWS–CockroachDB end-to-end topology is recorded in
+[`docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md)
+and is not yet an approved deployment baseline.
+
 ## What exists in code
 
 - `src/kae_memory/domain/` — identifiers, provenance, knowledge items and

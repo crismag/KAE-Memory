@@ -103,6 +103,8 @@ baseline:
   relevance tuning.
 - **Production deployment.** Multi-region operation, scaling, SLAs, and
   operational hardening beyond the demonstration.
+- **Enterprise administration.** Tenancy, user management, roles, audit
+  consoles, and configuration surfaces.
 - **Document ingestion.** File uploads, parsing, chunking, and document-derived
   evidence.
 

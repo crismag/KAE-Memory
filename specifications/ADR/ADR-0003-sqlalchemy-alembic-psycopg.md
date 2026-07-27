@@ -1,6 +1,6 @@
 # ADR-0003 — SQLAlchemy, Alembic, and Psycopg Persistence
 
-**Status:** proposed
+**Status:** accepted, 2026-07-27
 
 ## Context
 

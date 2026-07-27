@@ -1,6 +1,11 @@
 # Implementation Roadmap
 
-**Status:** proposed dependency order.
+**Status:** superseded as a sequencing plan, retained for its epic definitions.
+
+The authoritative sequence is the M0–M10 milestone register in
+[`../docs/00_project/CURRENT_PROJECT_STATE.md`](../docs/00_project/CURRENT_PROJECT_STATE.md)
+and [`../docs/09_development/DEVELOPMENT_PLAN.md`](../docs/09_development/DEVELOPMENT_PLAN.md).
+Epics 1 to 3 below are complete.
 
 ## Epic 1 — Requirements and proof definition
 
@@ -40,4 +45,4 @@ Every implementation task must identify its objective, requirement and architect
 
 ## Current next gate
 
-Review and approve the proposed product requirements and domain/memory principles. Application scaffolding remains blocked until implementation technology and module decisions are accepted.
+Epics 1 to 3 are complete: requirements are approved, domain contracts and the knowledge persistence foundation are implemented, and ADR-0001 to ADR-0003 are accepted. The current gate is M4 repository realignment, followed by RA-01 to restore the quality gate. Epic 4 continues as milestones M6 and M7.
