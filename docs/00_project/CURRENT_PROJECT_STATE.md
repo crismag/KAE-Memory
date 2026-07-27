@@ -95,8 +95,8 @@ rejected rather than merged with a follow-up promise.
 | Semantic retrieval and embeddings | **Not implemented** — decided (ADR-0008); needs a CockroachDB v25.4+ cluster |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Implemented — `MemoryService` |
-| HTTP interface | Not implemented |
-| User interface | Not implemented — moved to M9 |
+| HTTP interface | **Not implemented** — the contract itself is M9's first step |
+| User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
 | Cloud services | None provisioned |
 
 The domain layer is ahead of the persistence layer, and the persistence layer is
@@ -169,7 +169,7 @@ Timing, sample data, and delivery craft:
 | ADR-0006 extraction provider, prompt, and schema | accepted — closes OQ-012 |
 | ADR-0007 worker runtime and renewable leases | accepted — closes OQ-015 |
 | ADR-0008 embedding model and vector index | accepted — closes OQ-014 |
-| Frontend technology | **open** — OQ-011, blocks M9 |
+| ADR-0009 discovery workspace frontend | accepted — closes OQ-011 |
 | Readiness model | **open** — OQ-013, blocks M9 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
 

@@ -135,12 +135,12 @@ Recorded:
 
 Still required, in this order:
 
-4. frontend technology choice (blocks Slice 1, OQ-011);
+4. ✔ ADR-0009 — frontend technology;
 5. physical schema for projects, sessions, messages, and relationships
    (blocks Slice 2, OQ-010);
 6. ✔ ADR-0006 — model provider, prompt contract, and output schema;
 7. ✔ ADR-0007 — worker runtime and renewable leases;
-8. readiness model (OQ-013, blocks Slice 9);
+9. readiness model (OQ-013, blocks Slice 9);
 7. AWS deployment baseline;
 8. embedding model and index strategy;
 9. workflow orchestration and asynchronous jobs;
@@ -290,7 +290,7 @@ and are not repeated here.
 
 **Goal:** make the proven chain visible as the product.
 
-**Blocked by:** OQ-011 frontend decision and its ADR.
+**Decided:** ADR-0009. Sequence: API contract, generated client, then UI.
 
 Deliver:
 

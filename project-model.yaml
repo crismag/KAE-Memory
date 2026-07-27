@@ -53,7 +53,6 @@ project:
     - CON-003
     - CON-004
   open_questions:
-    - OQ-011
     - OQ-013
     - OQ-016
   depth: full
@@ -475,6 +474,24 @@ decisions:
       - MOD-retrieval
       - MOD-persistence
       - MOD-workflow
+  - id: ADR-0009
+    title: Discovery workspace frontend technology
+    statement: >
+      React and TypeScript on Vite, React Router in declarative or data mode,
+      TanStack Query for server state, client-side rendering to static assets.
+      No JavaScript server runtime. The frontend is a presentation client; the
+      Python API stays authoritative and the browser never owns a run. The
+      frontend lives in frontend/ alongside src/, its API types are generated
+      from OpenAPI rather than hand-written, and its checks gate main.
+    status: accepted
+    record: specifications/ADR/ADR-0009-discovery-workspace-frontend.md
+    closes: OQ-011
+    affects:
+      - MOD-blueprint
+      - MOD-audit
+      - IF-project
+      - IF-knowledge
+      - IF-retrieval
 
 modules:
   - id: MOD-projects
@@ -861,28 +878,15 @@ open_questions:
   - id: OQ-011
     question: >
       Which frontend technology delivers the discovery workspace?
-    why_it_matters: >
-      M9 cannot begin implementation without an approved frontend decision and a
-      recorded ADR.
-    blocks:
-      - M9
-    owner: human product and architecture owner
-    risk_if_unanswered: high
-    default_if_unanswered: >
-      No frontend framework is approved and no UI code may be committed.
-    status: open
-  - id: OQ-012
-    question: >
-      What model provider, prompt contract, and validation schema govern candidate
-      knowledge extraction?
     status: closed
     resolution: >
-      Closed by ADR-0006. Claude on Amazon Bedrock, model IDs prefixed
-      anthropic., behind an ExtractionPort with a deterministic fixture adapter
-      for tests and demo fallback. Output is constrained by structured JSON
-      outputs and additionally validated in the domain, including verifying that
-      each source quote occurs in the submitted message. Sampling parameters are
-      rejected by the current models, so determinism comes from fixtures.
+      Closed by ADR-0009. React and TypeScript on Vite with React Router and
+      TanStack Query, client-side rendered to static assets, no JavaScript server
+      runtime. Four corrections: the package stays at src/ and the frontend goes
+      in frontend/ rather than relocating to backend/; run status follows the
+      domain enum with the client generated from OpenAPI early rather than
+      hand-written; M9 sequences API contract before UI because no interface
+      layer exists yet; and CI gains a Node job so frontend checks gate main.
   - id: OQ-013
     question: >
       What readiness model determines when a blueprint may be generated?
@@ -1046,8 +1050,10 @@ tasks:
     status: blocked
     blocked_by:
       - TASK-008
-      - OQ-011
       - OQ-013
+    note: >
+      Frontend decided by ADR-0009. Sequence within M9 is API contract, then
+      generated client, then UI. CI gains a Node job when frontend code lands.
     objective: >
       Implement the discovery workspace over real API state, the Review Agent and
       its quality findings, and reporting generated from operational data.
@@ -1200,6 +1206,7 @@ traces:
       - ADR-0006
       - ADR-0007
       - ADR-0008
+      - ADR-0009
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1313,6 +1320,7 @@ id_register:
   - {id: ADR-0006, type: decision, status: active, superseded_by: null}
   - {id: ADR-0007, type: decision, status: active, superseded_by: null}
   - {id: ADR-0008, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0009, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1331,7 +1339,7 @@ id_register:
   - {id: OQ-008, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-009, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-010, type: open_question, status: closed, superseded_by: null}
-  - {id: OQ-011, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-011, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-012, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
   - {id: OQ-014, type: open_question, status: closed, superseded_by: null}
@@ -1363,7 +1371,9 @@ id_register:
 undefined:
   - area: interface
     missing: >
-      Approved frontend technology, route contracts, and component boundaries.
+      The REST and SSE contract itself. No interface layer exists; ADR-0009
+      requires M9 to design the API contract and generate the client before UI
+      work begins.
     blocks:
       - M9
   - area: non_functional
@@ -1740,3 +1750,30 @@ history:
         Titan is an Amazon model and cannot be invoked by the Anthropic Bedrock
         client. Resolved with a separate EmbeddingPort and its own dependency.
     stage: AR-04 embedding model and vector index decision for M8
+  - commit: 14
+    added:
+      - ADR-0009
+      - specifications/ADR/ADR-0009-discovery-workspace-frontend.md
+    changed:
+      - OQ-011
+      - TASK-010
+    deferred:
+      - identity provider selection
+      - static hosting arrangement, to OQ-016
+      - server-side rendering, React Server Components, native mobile
+    conflicts:
+      - >
+        The proposal placed the package at backend/src/kae_memory/. Four config
+        paths are pinned to src/. Resolved by adding frontend/ alongside the
+        existing layout and treating any relocation as its own task.
+      - >
+        The proposed AgentRun TypeScript interface used queued, retry_wait, and
+        completed, contradicting the RunStatus enum that ADR-0007 settled. Third
+        vocabulary drift in three milestones. Resolved by making the domain enum
+        authoritative and generating the client from OpenAPI early rather than
+        deferring it.
+      - >
+        No HTTP interface layer exists, so the proposed endpoints presuppose a
+        contract that has not been designed. Resolved by sequencing M9 as API
+        contract, generated client, then UI.
+    stage: AR-05 discovery workspace frontend decision for M9
