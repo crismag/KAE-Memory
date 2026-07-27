@@ -1,5 +1,14 @@
 """Public KAE-Memory domain contracts."""
 
+from .chunks import (
+    EMBEDDING_VERSION,
+    EmbeddingState,
+    KnowledgeChunk,
+    content_hash,
+    estimate_tokens,
+    metadata_prefix,
+    split_text,
+)
 from .errors import (
     DomainError,
     DomainInvariantError,
@@ -11,6 +20,7 @@ from .execution import AgentRole, AgentRun, RunStatus, ensure_run_transition
 from .identifiers import (
     AgentId,
     AgentRunId,
+    ChunkId,
     ExecutionId,
     KnowledgeItemId,
     MessageId,
@@ -43,18 +53,22 @@ from .workspace import (
 )
 
 __all__ = [
+    "EMBEDDING_VERSION",
     "ActorType",
     "Agent",
     "AgentId",
     "AgentRole",
     "AgentRun",
     "AgentRunId",
+    "ChunkId",
     "DomainError",
     "DomainInvariantError",
+    "EmbeddingState",
     "ExecutionId",
     "InvalidIdentifierError",
     "InvalidLifecycleTransitionError",
     "InvalidRunTransitionError",
+    "KnowledgeChunk",
     "KnowledgeItem",
     "KnowledgeItemId",
     "KnowledgeKind",
@@ -78,5 +92,9 @@ __all__ = [
     "SessionId",
     "SessionStatus",
     "SessionType",
+    "content_hash",
     "ensure_run_transition",
+    "estimate_tokens",
+    "metadata_prefix",
+    "split_text",
 ]

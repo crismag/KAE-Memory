@@ -16,13 +16,40 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import Uuid
+from sqlalchemy.types import UserDefinedType, Uuid
 
 JSONB = postgresql.JSONB()
 """Native JSONB.
 
 No portable variant: CockroachDB is the only engine, in production and in tests
 alike (ADR-0011)."""
+
+
+class Vector(UserDefinedType[Any]):
+    """CockroachDB ``VECTOR(n)``.
+
+    A user-defined type rather than a dialect type: CockroachDB's vector support
+    is native, and SQLAlchemy has no built-in mapping for it. Values cross as the
+    ``'[1,2,3]'`` literal CockroachDB accepts, and come back as a string that the
+    repository parses.
+    """
+
+    cache_ok = True
+
+    def __init__(self, dimensions: int) -> None:
+        self.dimensions = dimensions
+
+    def get_col_spec(self, **_: Any) -> str:
+        return f"VECTOR({self.dimensions})"
+
+    def bind_processor(self, dialect: Any) -> Any:
+        def process(value: Any) -> Any:
+            if value is None:
+                return None
+            return "[" + ",".join(repr(float(component)) for component in value) + "]"
+
+        return process
+
 
 UUID_STR = Uuid(as_uuid=False)
 """Native UUID column mapped to ``str`` in Python.
@@ -255,4 +282,42 @@ class ProvenanceLinkRow(Base):
     link_type: Mapped[str] = mapped_column(String(40), nullable=False)
     source_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
     source_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeChunkRow(Base):
+    """An embeddable span of a knowledge item.
+
+    ``knowledge_id`` is ``String(64)`` because revision 0001 created
+    ``knowledge_items.id`` as ``String(64)``, not a UUID column. Two identifier
+    conventions in one table is the accepted cost of leaving 0001 untouched
+    (ADR-0008).
+    """
+
+    __tablename__ = "knowledge_chunks"
+    __table_args__ = (
+        UniqueConstraint("knowledge_id", "chunk_index", "embedding_version"),
+        Index("ix_knowledge_chunks_project_state", "project_id", "embedding_state"),
+        Index("ix_knowledge_chunks_knowledge", "knowledge_id"),
+    )
+
+    chunk_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        UUID_STR, ForeignKey("projects.project_id"), nullable=False
+    )
+    knowledge_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("knowledge_items.id"), nullable=False
+    )
+    knowledge_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    chunk_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+
+    embedding: Mapped[Any | None] = mapped_column(Vector(1024), nullable=True)
+    embedding_state: Mapped[str] = mapped_column(String(20), nullable=False)
+    embedding_model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    embedding_dimensions: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    embedding_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

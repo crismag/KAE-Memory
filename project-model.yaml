@@ -57,7 +57,7 @@ project:
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
-  current_milestone: M8
+  current_milestone: M9
 
 milestones:
   - id: M0
@@ -105,13 +105,16 @@ milestones:
   - id: M8
     title: Semantic Retrieval
     outcome: one embedding model, one index, semantic recall with explanations
-    status: current
+    status: complete
+    note: >
+      Pipeline verified against real CockroachDB vectors. Ranking quality
+      requires the opt-in live Titan evaluation, which has not yet run.
   - id: M9
     title: Workspace and Reporting
     outcome: >
       Discovery workspace over real state, Review Agent findings, and reporting
       generated from operational data.
-    status: open
+    status: current
   - id: M10
     title: AWS Demonstration
     outcome: deployed chain, disposable compute, health endpoint, managed secrets
@@ -562,10 +565,12 @@ modules:
   - id: MOD-retrieval
     name: Retrieval
     responsibility: structured and semantic recall with status and source filters
-    status: partial
-    implemented: partial
-    location: src/kae_memory/application/memory_service.py
-    note: structured retrieval by project and lifecycle exists; semantic recall is M8
+    status: implemented
+    implemented: true
+    location: src/kae_memory/application/
+    note: >
+      Structured and semantic recall both exist. Ranking quality is unmeasured
+      until the live Titan evaluation runs.
   - id: MOD-blueprint
     name: Blueprint Generation
     responsibility: grounded section generation, labelling, and export
@@ -1063,7 +1068,8 @@ tasks:
   - id: TASK-009
     title: Semantic retrieval
     milestone: M8
-    status: ready
+    status: complete
+    record: development/tasks/TASK-009-m8-semantic-retrieval.md
     note: >
       Decided by ADR-0008. Needs a CockroachDB v25.4+ cluster: vector tests are
       skipped, never silently passed, when one is absent.
@@ -1076,7 +1082,6 @@ tasks:
     milestone: M9
     status: blocked
     blocked_by:
-      - TASK-008
       - OQ-013
     note: >
       Frontend decided by ADR-0009. Sequence within M9 is API contract, then
@@ -1880,3 +1885,34 @@ history:
         SQLAlchemy's PostgreSQL dialect cannot parse CockroachDB's version
         string, so sqlalchemy-cockroachdb is added.
     stage: Retire SQLite from the test suite
+  - commit: 18
+    added:
+      - KnowledgeChunk domain contract and chunker
+      - EmbeddingPort with deterministic and Titan adapters
+      - migrations/versions/0004_add_knowledge_chunks_and_vector_index.py
+      - ChunkRepository with cosine search
+      - RetrievalService
+      - the retrieval evaluation fixture
+      - boto3 in the bedrock extra
+    changed:
+      - M8
+      - M9
+      - TASK-009
+      - TASK-010
+      - MOD-retrieval
+    deferred:
+      - reranking, hybrid search, a second embedding model
+      - the live Titan evaluation run, which measures ranking quality
+    conflicts:
+      - >
+        Alembic autogenerate against CockroachDB reported cosmetic type and index
+        differences that are not real changes. Revision 0004 was written by hand
+        so it contains only the new table, its indexes, and the raw CREATE VECTOR
+        INDEX statement.
+      - >
+        ADR-0008 treats the evaluation fixture as the acceptance criterion, but a
+        deterministic embedder cannot rank semantically. Resolved by scoring the
+        harness offline and gating the quality threshold behind an opt-in live
+        run, with chance-level recall printed so the offline number is not read
+        as a quality signal.
+    stage: M8 Semantic Retrieval

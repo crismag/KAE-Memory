@@ -66,6 +66,7 @@ package:
       - development/tasks/TASK-006-m5-persistence.md
       - development/tasks/TASK-007-m6-agent-collaboration.md
       - development/tasks/TASK-008-m7-resilience-recovery.md
+      - development/tasks/TASK-009-m8-semantic-retrieval.md
     implementation:
       - pyproject.toml
       - uv.lock
@@ -83,6 +84,7 @@ package:
       - migrations/versions/0001_create_knowledge_tables.py
       - migrations/versions/0002_create_workspace_and_execution_tables.py
       - migrations/versions/0003_add_agent_run_lease_ownership_columns.py
+      - migrations/versions/0004_add_knowledge_chunks_and_vector_index.py
       - tests/
   present_but_incomplete:
     - description: >
@@ -93,7 +95,6 @@ package:
   not_yet_implemented:
     - user interface (M9; framework decided in ADR-0009)
     - HTTP endpoints (M9)
-    - retrieval embeddings and vector indexes (M8)
     - reporting and quality findings (M9)
     - cloud infrastructure, health endpoint, and deployment configuration (M10)
   deliberately_absent:
