@@ -225,6 +225,43 @@ class MemoryService:
 
         return self._run(operation)
 
+    def enqueue_run(
+        self,
+        project_id: ProjectId,
+        role: AgentRole,
+        idempotency_key: str,
+        session_id: SessionId | None = None,
+        input_context: dict[str, Any] | None = None,
+    ) -> AgentRun:
+        """Record a run for a worker to claim, without starting it here.
+
+        The counterpart to :meth:`start_run`, which begins executing immediately
+        in this process. An enqueued run stays ``pending`` until a worker claims
+        it, so the caller returns as soon as the run is durable — the browser, or
+        any other client, never owns the execution (ADR-0007).
+        """
+
+        moment = self._clock()
+
+        def operation(db_session: DbSession) -> AgentRun:
+            repository = AgentRunRepository(db_session)
+            existing = repository.find_by_idempotency_key(project_id, idempotency_key)
+            if existing is not None:
+                return existing
+            run = AgentRun(
+                id=AgentRunId(_new_id()),
+                project_id=project_id,
+                role=role,
+                idempotency_key=idempotency_key,
+                session_id=session_id,
+                input_context=input_context or {},
+                next_attempt_at=moment,
+            )
+            repository.add(run, moment)
+            return run
+
+        return self._run(operation)
+
     def get_run(self, run_id: AgentRunId) -> AgentRun | None:
         """Return a run by identifier."""
 

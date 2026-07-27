@@ -76,20 +76,22 @@ package:
       - src/kae_memory/persistence/
       - src/kae_memory/application/
       - src/kae_memory/agents/
+      - src/kae_memory/worker/
       - migrations/env.py
       - migrations/script.py.mako
       - migrations/versions/0001_create_knowledge_tables.py
       - migrations/versions/0002_create_workspace_and_execution_tables.py
+      - migrations/versions/0003_add_agent_run_lease_ownership_columns.py
       - tests/
   present_but_incomplete:
     - description: >
         The Requirements and Architecture agents are implemented; the Review
-        agent is M9. Worker leases and recovery are M7.
-      milestone: M7
+        agent is M9. One worker, one active run: the lease protocol supports
+        concurrency but it is not built.
+      milestone: M9
   not_yet_implemented:
     - user interface (M9; framework decided in ADR-0009)
     - HTTP endpoints (M9)
-    - lease expiry and automatic reclaim (M7)
     - retrieval embeddings and vector indexes (M8)
     - reporting and quality findings (M9)
     - cloud infrastructure, health endpoint, and deployment configuration (M10)

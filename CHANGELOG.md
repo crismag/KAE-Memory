@@ -61,6 +61,21 @@ production-grade deployment remain out of scope.
 - Replaying a completed run returns its original output rather than extracting
   again.
 
+### Added in M7
+
+- Revision `0003`: lease ownership columns on `agent_runs` plus a claimable
+  index, added additively over `0002`.
+- `Lease` domain value object with a monotonically increasing fencing token, so
+  a worker that recovers after its lease was reassigned cannot overwrite the
+  newer owner's work.
+- The durable worker: compare-and-swap claims, concurrent heartbeat renewal,
+  a checkpoint after every step, bounded retry with backoff, `abandoned` on
+  exhaustion, and graceful release on shutdown.
+- `MemoryService.enqueue_run`, the counterpart to `start_run`, so work can be
+  submitted without the submitter owning its execution.
+- The kill-and-recovery proof: a worker dies mid-run and a replacement finishes
+  it from durable state alone.
+
 ### Fixed
 
 - Timezone normalisation when rehydrating knowledge, which broke the persistence
@@ -69,6 +84,9 @@ production-grade deployment remain out of scope.
   database URL read from `KAE_DATABASE_URL`.
 - Committed `uv.lock` for reproducible builds.
 - Ruff and formatting findings cleared; `make check` passes all four gates.
+- Revision `0003` no longer uses a non-constant `ADD COLUMN` default, which
+  SQLite rejects; the `NOT NULL` column is added nullable, backfilled, then
+  tightened.
 
 ### Added in RA-01
 

@@ -107,6 +107,7 @@ class AgentRunRow(Base):
         Index("ix_agent_runs_project_created", "project_id", "created_at"),
         Index("ix_agent_runs_project_status", "project_id", "status"),
         Index("ix_agent_runs_session_created", "session_id", "created_at"),
+        Index("ix_agent_runs_claimable", "status", "next_attempt_at"),
     )
 
     agent_run_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
@@ -130,6 +131,20 @@ class AgentRunRow(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # Lease ownership (revision 0003, ADR-0007). The claim is committed state,
+    # not a held lock: CockroachDB row locks do not outlive their transaction, so
+    # a long model call cannot be protected by keeping SELECT FOR UPDATE open.
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    lease_token: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    lease_acquired_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class MessageRow(Base):

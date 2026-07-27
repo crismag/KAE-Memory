@@ -1,12 +1,19 @@
 """Repositories for projects, sessions, messages, agent runs, and provenance."""
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session as DbSession
 
-from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
+from kae_memory.domain.execution import (
+    DEFAULT_LEASE_SECONDS,
+    AgentRole,
+    AgentRun,
+    Lease,
+    RunStatus,
+)
 from kae_memory.domain.identifiers import (
     AgentRunId,
     KnowledgeItemId,
@@ -200,6 +207,12 @@ class AgentRunRepository:
                 error_message=run.error_message,
                 created_at=moment,
                 updated_at=moment,
+                lease_owner=run.lease.owner if run.lease else None,
+                lease_token=run.lease.token if run.lease else 0,
+                lease_acquired_at=run.lease.acquired_at if run.lease else None,
+                lease_expires_at=run.lease.expires_at if run.lease else None,
+                heartbeat_at=run.lease.heartbeat_at if run.lease else None,
+                next_attempt_at=run.next_attempt_at or moment,
             )
         )
 
@@ -254,6 +267,142 @@ class AgentRunRepository:
             statement = statement.where(AgentRunRow.status == status.value)
         rows = self._session.scalars(statement.order_by(AgentRunRow.created_at.desc())).all()
         return tuple(_run_to_domain(row) for row in rows)
+
+    def claim_next(
+        self,
+        worker_id: str,
+        moment: datetime,
+        lease_seconds: int = DEFAULT_LEASE_SECONDS,
+        project_id: ProjectId | None = None,
+    ) -> AgentRun | None:
+        """Atomically claim one runnable or reclaimable run, or return ``None``.
+
+        Claiming is a compare-and-swap on ``lease_token`` rather than a held
+        ``SELECT ... FOR UPDATE``. Two workers may read the same candidate, but
+        only the one whose update still matches the observed token wins; the other
+        updates zero rows and looks again. This is portable across engines and is
+        the same guarantee a row lock would give, without holding a transaction
+        open across external work — which CockroachDB could not do anyway, since
+        its row locks end with the transaction.
+
+        The caller commits. This method performs no external work of its own, so
+        the claim transaction stays short.
+        """
+
+        expires_at = moment + timedelta(seconds=lease_seconds)
+        statement = select(AgentRunRow).where(
+            AgentRunRow.next_attempt_at <= moment,
+            AgentRunRow.status.in_(
+                [RunStatus.PENDING.value, RunStatus.RUNNING.value, RunStatus.FAILED.value]
+            ),
+        )
+        if project_id is not None:
+            statement = statement.where(AgentRunRow.project_id == str(project_id))
+
+        for row in self._session.scalars(statement.order_by(AgentRunRow.created_at)).all():
+            running = row.status == RunStatus.RUNNING.value
+            if running and (
+                row.lease_expires_at is None or as_aware(row.lease_expires_at) > moment
+            ):
+                continue  # still owned by a live worker
+
+            observed_token = row.lease_token
+            claimed = _affected(
+                self._session,
+                update(AgentRunRow)
+                .where(
+                    AgentRunRow.agent_run_id == row.agent_run_id,
+                    AgentRunRow.lease_token == observed_token,
+                )
+                .values(
+                    status=RunStatus.RUNNING.value,
+                    lease_owner=worker_id,
+                    lease_token=observed_token + 1,
+                    lease_acquired_at=moment,
+                    lease_expires_at=expires_at,
+                    heartbeat_at=moment,
+                    attempt_number=row.attempt_number + 1,
+                    started_at=moment,
+                    updated_at=moment,
+                ),
+            )
+            if claimed == 1:
+                self._session.expire(row)
+                reloaded = self._session.get(AgentRunRow, row.agent_run_id)
+                assert reloaded is not None
+                return _run_to_domain(reloaded)
+        return None
+
+    def heartbeat(self, run: AgentRun, moment: datetime, lease_seconds: int) -> bool:
+        """Extend the lease, or return ``False`` if this worker no longer owns it.
+
+        A ``False`` here means another worker has reclaimed the run. The caller
+        must stop working immediately rather than finishing the step, because
+        anything it writes afterwards would be rejected by fencing anyway.
+        """
+
+        if run.lease is None:
+            return False
+        return (
+            _affected(
+                self._session,
+                _fenced(run).values(
+                    heartbeat_at=moment,
+                    lease_expires_at=moment + timedelta(seconds=lease_seconds),
+                    updated_at=moment,
+                ),
+            )
+            == 1
+        )
+
+    def save_fenced(self, run: AgentRun, moment: datetime) -> bool:
+        """Persist a run mutation only if this worker still owns the lease.
+
+        Returns ``False`` rather than raising: losing a lease is an expected
+        outcome of the protocol, not an error condition.
+        """
+
+        if run.lease is None:
+            return False
+        return (
+            _affected(
+                self._session,
+                _fenced(run).values(
+                    status=run.status.value,
+                    attempt_number=run.attempt_number,
+                    input_context=run.input_context or {},
+                    output_summary=run.output_summary or {},
+                    continuation_state=run.continuation_state or {},
+                    started_at=run.started_at,
+                    completed_at=run.completed_at,
+                    failed_at=run.failed_at,
+                    error_code=run.error_code,
+                    error_message=run.error_message,
+                    next_attempt_at=run.next_attempt_at or moment,
+                    updated_at=moment,
+                ),
+            )
+            == 1
+        )
+
+    def release(self, run: AgentRun, moment: datetime) -> bool:
+        """Give up the lease without changing the run's outcome.
+
+        Graceful shutdown: the run becomes immediately claimable rather than
+        waiting out its expiry.
+        """
+
+        if run.lease is None:
+            return False
+        return (
+            _affected(
+                self._session,
+                _fenced(run).values(
+                    lease_expires_at=moment, heartbeat_at=moment, updated_at=moment
+                ),
+            )
+            == 1
+        )
 
     def list_resumable(self, project_id: ProjectId) -> tuple[AgentRun, ...]:
         """Return runs another worker may continue."""
@@ -337,6 +486,33 @@ class ProvenanceLinkRepository:
         return tuple(KnowledgeItemId(value) for value in rows)
 
 
+def _affected(session: DbSession, statement: Any) -> int:
+    """Execute an UPDATE and return how many rows it changed.
+
+    ``rowcount`` lives on ``CursorResult``; ``Session.execute`` is typed as the
+    wider ``Result``. Narrowing once here keeps every fenced call site readable.
+    """
+
+    return int(cast("Any", session.execute(statement)).rowcount)
+
+
+def _fenced(run: AgentRun) -> Any:
+    """Return an update fenced on owner, token, and an unexpired lease.
+
+    Every ownership-bearing mutation goes through here. A worker whose token has
+    been superseded matches zero rows and therefore cannot overwrite the newer
+    owner's work, even if it recovers mid-step.
+    """
+
+    assert run.lease is not None
+    return update(AgentRunRow).where(
+        AgentRunRow.agent_run_id == str(run.id),
+        AgentRunRow.lease_owner == run.lease.owner,
+        AgentRunRow.lease_token == run.lease.token,
+        AgentRunRow.lease_expires_at > run.lease.heartbeat_at,
+    )
+
+
 def _session_to_domain(row: SessionRow) -> Session:
     return Session(
         id=SessionId(row.session_id),
@@ -380,6 +556,22 @@ def _run_to_domain(row: AgentRunRow) -> AgentRun:
         failed_at=as_aware(row.failed_at) if row.failed_at is not None else None,
         error_code=row.error_code,
         error_message=row.error_message,
+        lease=_lease_to_domain(row),
+        next_attempt_at=as_aware(row.next_attempt_at) if row.next_attempt_at else None,
+    )
+
+
+def _lease_to_domain(row: AgentRunRow) -> Lease | None:
+    if row.lease_owner is None or row.lease_acquired_at is None or row.lease_expires_at is None:
+        return None
+    return Lease(
+        owner=row.lease_owner,
+        token=row.lease_token,
+        acquired_at=as_aware(row.lease_acquired_at),
+        expires_at=as_aware(row.lease_expires_at),
+        heartbeat_at=as_aware(row.heartbeat_at)
+        if row.heartbeat_at
+        else as_aware(row.lease_acquired_at),
     )
 
 
