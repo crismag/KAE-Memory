@@ -87,9 +87,18 @@ The demo proves the chain works. It does not prove the chain scales.
 - Secrets live in Secrets Manager or Parameter Store and are injected at
   runtime. They are never baked into an image or committed to infrastructure
   code.
-- The application database user is least-privilege: it needs DML on domain tables
-  and nothing more. Migrations run under a separate, more privileged credential.
-- Rotation procedure is documented even if it is manual for the demonstration.
+- The application database user is least-privilege and dedicated to the
+  application: DML on domain tables and nothing more. Never `root`. Migrations
+  run under a separate, more privileged credential.
+- The Cloud API / MCP service-account key is never reused as the application
+  database credential. They are separate credentials with separate blast radii —
+  see [`../06_architecture/MCP_ACCESS_POLICY.md`](../06_architecture/MCP_ACCESS_POLICY.md).
+- The connection URI is read from configuration at startup, so the credential can
+  change without a code change and the application is restartable after the
+  secret rotates.
+- Manual rotation is documented. **Automated SQL credential rotation and
+  zero-downtime secret refresh are deferred** to deployment hardening unless the
+  demonstration requires them.
 - Logs must not contain connection strings, bearer tokens, or full message
   content that could carry secrets.
 

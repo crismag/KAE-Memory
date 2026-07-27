@@ -48,6 +48,7 @@ package:
       - specifications/ADR/ADR-0002-python-library-first-bootstrap.md
       - specifications/ADR/ADR-0003-sqlalchemy-alembic-psycopg.md
       - specifications/ADR/ADR-0004-mcp-inspection-only.md
+      - specifications/ADR/ADR-0005-m5-physical-schema.md
     development:
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
@@ -55,6 +56,7 @@ package:
       - docs/09_development/PUBLIC_RELEASE_CHECKLIST.md
       - docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
       - development/tasks/TASK-001-domain-contracts.md
+      - development/tasks/TASK-006-m5-persistence.md
     implementation:
       - pyproject.toml
       - uv.lock

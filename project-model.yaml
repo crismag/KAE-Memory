@@ -53,7 +53,6 @@ project:
     - CON-003
     - CON-004
   open_questions:
-    - OQ-010
     - OQ-011
     - OQ-012
     - OQ-013
@@ -419,6 +418,22 @@ decisions:
       - MOD-workflow
       - MOD-persistence
       - MOD-audit
+  - id: ADR-0005
+    title: Physical schema for the M5 persistent-memory proof
+    statement: >
+      Additive revision 0002 creates projects, sessions, agent_runs, messages,
+      knowledge_relationships, and knowledge_provenance_links. Revision 0001 is
+      unchanged. Application-generated UUID keys, TIMESTAMPTZ, JSONB only for
+      open-ended state, no cascading deletion, no database enums, no vector
+      columns.
+    status: accepted
+    record: specifications/ADR/ADR-0005-m5-physical-schema.md
+    closes: OQ-010
+    affects:
+      - MOD-projects
+      - MOD-sessions
+      - MOD-persistence
+      - MOD-workflow
 
 modules:
   - id: MOD-projects
@@ -775,18 +790,16 @@ open_questions:
       truth.
   - id: OQ-010
     question: >
-      What is the physical schema for projects, sessions, messages, and
-      relationships, and how does it relate to the existing knowledge tables?
-    why_it_matters: >
-      The persistent-memory proof depends on tables that do not yet exist, including AgentRun, and the
-      existing knowledge migration must remain valid.
-    blocks:
-      - M5
-    owner: human product and architecture owner
-    risk_if_unanswered: critical
-    default_if_unanswered: >
-      No schema beyond the knowledge tables is treated as approved.
-    status: open
+      What is the physical schema for projects, sessions, messages,
+      relationships, and AgentRun, and how does it relate to the existing
+      knowledge tables?
+    status: closed
+    resolution: >
+      Closed by ADR-0005. Additive revision 0002 with six tables; revision 0001
+      unchanged. References into the existing knowledge tables use STRING(64)
+      because knowledge_items.id is STRING(64), not UUID. Project ownership of
+      knowledge is enforced in the application layer until an optional revision
+      0003 aligns the types.
   - id: OQ-011
     question: >
       Which frontend technology delivers the discovery workspace?
@@ -945,9 +958,8 @@ tasks:
   - id: TASK-006
     title: Persistent memory proof
     milestone: M5
-    status: ready_when_unblocked
-    blocked_by:
-      - OQ-010
+    status: ready
+    record: development/tasks/TASK-006-m5-persistence.md
     objective: >
       Implement project, session, message, and AgentRun persistence additive to
       revision 0001, with memory write and structured retrieval through
@@ -1138,6 +1150,7 @@ traces:
       - ADR-0002
       - ADR-0003
       - ADR-0004
+      - ADR-0005
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1247,6 +1260,7 @@ id_register:
   - {id: ADR-0002, type: decision, status: active, superseded_by: null}
   - {id: ADR-0003, type: decision, status: active, superseded_by: null}
   - {id: ADR-0004, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0005, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1264,7 +1278,7 @@ id_register:
   - {id: OQ-007, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-008, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-009, type: open_question, status: closed, superseded_by: null}
-  - {id: OQ-010, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-010, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-011, type: open_question, status: active, superseded_by: null}
   - {id: OQ-012, type: open_question, status: active, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
@@ -1295,12 +1309,6 @@ id_register:
   - {id: AT-009, type: acceptance_test, status: active, superseded_by: null}
 
 undefined:
-  - area: data
-    missing: >
-      Physical design for projects, sessions, messages, relationships, and
-      AgentRun, and their relationship to the existing knowledge tables.
-    blocks:
-      - M5
   - area: execution
     missing: >
       Worker runtime, lease mechanism and duration, and checkpoint granularity
@@ -1543,3 +1551,28 @@ history:
     deferred: []
     conflicts: []
     stage: RA-01 Restore Repository Readiness Gates
+  - commit: 8
+    added:
+      - ADR-0005
+      - specifications/ADR/ADR-0005-m5-physical-schema.md
+      - development/tasks/TASK-006-m5-persistence.md
+    changed:
+      - OQ-010
+      - TASK-006
+      - docs/06_architecture/MCP_ACCESS_POLICY.md
+      - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
+    deferred:
+      - vector columns and semantic indexes to M8
+      - alignment of knowledge_items.project_id to UUID, optional revision 0003
+      - automated SQL credential rotation and zero-downtime secret refresh
+    conflicts:
+      - >
+        The proposed schema referenced knowledge_items(knowledge_item_id) as
+        UUID; revision 0001 created knowledge_items.id as STRING(64). Resolved by
+        typing references into the existing knowledge tables as STRING(64) and
+        leaving 0001 unchanged.
+      - >
+        Relationship vocabularies disagree between ADR-0005 and the domain
+        RelationshipType enum. Recorded as a decision TASK-006 must surface
+        rather than resolve silently.
+    stage: AR-01 bounded data-architecture decision for M5
