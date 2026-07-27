@@ -91,7 +91,7 @@ rejected rather than merged with a follow-up promise.
 | Project / session / message persistence | Implemented — revision `0002`, repositories, application contracts |
 | AgentRun and workflow state | Implemented — status model, idempotency, interrupt and resume |
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
-| Agent execution (Requirements, Architecture, Review) | **Not implemented** — roles are recorded, behaviour is M6 |
+| Agent execution (Requirements, Architecture, Review) | **Not implemented** — contract decided (ADR-0006); Requirements and Architecture are M6, Review is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
 | Semantic retrieval and embeddings | **Not implemented** — required by M8 |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
@@ -167,7 +167,7 @@ Timing, sample data, and delivery craft:
 | ADR-0003 SQLAlchemy, Alembic, psycopg | accepted |
 | ADR-0004 MCP inspection-only | accepted |
 | ADR-0005 M5 physical schema (revision 0002) | accepted — closes OQ-010 |
-| Extraction provider, prompt contract, output schema | **open** — OQ-012, blocks M6 |
+| ADR-0006 extraction provider, prompt, and schema | accepted — closes OQ-012 |
 | Worker runtime and lease mechanism | **open** — OQ-015, blocks M7 |
 | Embedding model and index strategy | **open** — OQ-014, blocks M8 |
 | Frontend technology | **open** — OQ-011, blocks M9 |
@@ -222,13 +222,22 @@ describes the system that exists.
 and the proof passes: Agent A writes, its process ends, Agent B retrieves in
 another run.
 
-**Next: M6 — agent collaboration.** Implement the Requirements and Architecture
-agents over these contracts, a deterministic extraction adapter behind a port,
-and context assembly that gives the Architecture Agent confirmed requirements
-only. Blocked on **OQ-012**, the extraction contract, which AR-01 did not cover.
+**M6 is unblocked.** ADR-0006 closes OQ-012: Claude on Amazon Bedrock behind an
+`ExtractionPort`, structured JSON outputs, versioned per-role prompts, and
+source-quote verification before any write.
+
+**Next: implement M6 — agent collaboration.** The Requirements and Architecture
+agents over these contracts, a deterministic fixture adapter, and context assembly
+that gives the Architecture Agent confirmed requirements only.
+
+Task context: [`../../development/tasks/TASK-007-m6-agent-collaboration.md`](../../development/tasks/TASK-007-m6-agent-collaboration.md).
 
 Success condition for M6: the Architecture Agent uses validated requirements
 created in an earlier session.
+
+**Note for implementers:** `temperature`, `top_p`, and `top_k` are rejected by the
+current models. Determinism comes from the fixture adapter, and no test may make
+a live model call.
 
 Product workspace integration remains at M9, after the memory and collaboration
 chain is proven.

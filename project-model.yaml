@@ -54,7 +54,6 @@ project:
     - CON-004
   open_questions:
     - OQ-011
-    - OQ-012
     - OQ-013
     - OQ-014
     - OQ-015
@@ -434,6 +433,19 @@ decisions:
       - MOD-sessions
       - MOD-persistence
       - MOD-workflow
+  - id: ADR-0006
+    title: Extraction provider, prompt contract, and output schema
+    statement: >
+      Claude on Amazon Bedrock behind an ExtractionPort, with structured JSON
+      outputs, versioned per-role prompts, source-quote verification before any
+      write, and determinism from a fixture adapter rather than sampling
+      parameters, which the current models reject.
+    status: accepted
+    record: specifications/ADR/ADR-0006-extraction-contract.md
+    closes: OQ-012
+    affects:
+      - MOD-workflow
+      - MOD-knowledge
 
 modules:
   - id: MOD-projects
@@ -831,16 +843,14 @@ open_questions:
     question: >
       What model provider, prompt contract, and validation schema govern candidate
       knowledge extraction?
-    why_it_matters: >
-      Extraction determines knowledge quality, confirmation effort, and the
-      deterministic test fixtures required for reproducible slices.
-    blocks:
-      - M6
-    owner: human product and architecture owner
-    risk_if_unanswered: critical
-    default_if_unanswered: >
-      Only a deterministic fake extraction adapter may be used.
-    status: open
+    status: closed
+    resolution: >
+      Closed by ADR-0006. Claude on Amazon Bedrock, model IDs prefixed
+      anthropic., behind an ExtractionPort with a deterministic fixture adapter
+      for tests and demo fallback. Output is constrained by structured JSON
+      outputs and additionally validated in the domain, including verifying that
+      each source quote occurs in the submitted message. Sampling parameters are
+      rejected by the current models, so determinism comes from fixtures.
   - id: OQ-013
     question: >
       What readiness model determines when a blueprint may be generated?
@@ -982,9 +992,8 @@ tasks:
   - id: TASK-007
     title: Agent collaboration
     milestone: M6
-    status: blocked
-    blocked_by:
-      - OQ-012
+    status: ready
+    record: development/tasks/TASK-007-m6-agent-collaboration.md
     objective: >
       Implement the Requirements and Architecture agents, a deterministic
       extraction adapter behind a port, human confirmation, and context assembly
@@ -1168,6 +1177,7 @@ traces:
       - ADR-0003
       - ADR-0004
       - ADR-0005
+      - ADR-0006
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1278,6 +1288,7 @@ id_register:
   - {id: ADR-0003, type: decision, status: active, superseded_by: null}
   - {id: ADR-0004, type: decision, status: active, superseded_by: null}
   - {id: ADR-0005, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0006, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1297,7 +1308,7 @@ id_register:
   - {id: OQ-009, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-010, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-011, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-012, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-012, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
   - {id: OQ-014, type: open_question, status: active, superseded_by: null}
   - {id: OQ-015, type: open_question, status: active, superseded_by: null}
@@ -1337,12 +1348,6 @@ undefined:
       Approved frontend technology, route contracts, and component boundaries.
     blocks:
       - M9
-  - area: extraction
-    missing: >
-      Model provider decision, prompt contract, output schema, and validation and
-      failure behaviour.
-    blocks:
-      - M6
   - area: non_functional
     missing: >
       Measurable latency, availability, retention, tenancy, and security targets.
@@ -1624,3 +1629,24 @@ history:
         retrieval specifications. The column is a plain string, so values can be
         added later without a migration.
     stage: M5 Persistent Memory Proof
+  - commit: 10
+    added:
+      - ADR-0006
+      - specifications/ADR/ADR-0006-extraction-contract.md
+      - development/tasks/TASK-007-m6-agent-collaboration.md
+    changed:
+      - OQ-012
+      - TASK-007
+      - KG-002
+    deferred:
+      - embeddings and vector index to M8
+      - generation to M9
+      - provider fallbacks and cross-provider abstraction
+      - batch extraction, unavailable on Bedrock
+    conflicts:
+      - >
+        The roadmap called for deterministic test fixtures, which reads naturally
+        as temperature=0. The current models reject temperature, top_p, and
+        top_k. Resolved by sourcing determinism from a fixture adapter, with no
+        test permitted to make a live model call.
+    stage: AR-02 extraction contract decision for M6
