@@ -1,8 +1,10 @@
 # Database Architecture
 
 **Status:** logical design. The physical schema for the M5 proof is approved in
-[`ADR/ADR-0005-m5-physical-schema.md`](ADR/ADR-0005-m5-physical-schema.md),
-revision `0002`. Everything beyond that scope remains logical only.
+[`ADR/ADR-0005-m5-physical-schema.md`](ADR/ADR-0005-m5-physical-schema.md) and
+**implemented** as revisions `0001` and `0002`. Everything beyond that scope
+remains logical only — vector storage in particular is M8 and an additive later
+revision.
 
 ## Role of CockroachDB
 

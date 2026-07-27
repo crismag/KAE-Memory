@@ -25,14 +25,27 @@
 
 ### Not added
 
-Application services, HTTP interfaces, user interface, retrieval and embeddings,
-agent execution, and cloud deployment are approved but not yet built. Persistence
-covers knowledge items and versions only; project, session, message,
-relationship, and AgentRun tables are not yet implemented.
+Agent behaviour, semantic retrieval, HTTP interfaces, the user interface, and
+cloud deployment are approved but not yet built. Agent roles are recorded on
+every run; nothing executes them yet. The `knowledge_relationships` table exists
+but is not yet wired to the domain.
 
 Authentication, teams, billing, administration, agent roles beyond the three
 authorised, general coding-agent hosting, production-scale retrieval, and
 production-grade deployment remain out of scope.
+
+### Added in M5
+
+- Revision `0002`: `projects`, `sessions`, `agent_runs`, `messages`,
+  `knowledge_relationships`, and `knowledge_provenance_links`. Additive; revision
+  `0001` is unchanged.
+- Domain contracts for sessions, messages, and agent runs, including the run
+  status model with interruption, resumption, bounded retry, and terminal states.
+- `MemoryService`, the application boundary every domain write passes through.
+- Provenance links answering which run produced knowledge, which run used it, and
+  which message it came from.
+- The cross-run persistence proof: one agent writes, its process ends, another
+  retrieves in a separate run and session.
 
 ### Fixed
 

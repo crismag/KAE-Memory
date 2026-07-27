@@ -5,8 +5,20 @@ from .errors import (
     DomainInvariantError,
     InvalidIdentifierError,
     InvalidLifecycleTransitionError,
+    InvalidRunTransitionError,
 )
-from .identifiers import AgentId, ExecutionId, KnowledgeItemId, ProjectId, RelationshipId
+from .execution import AgentRole, AgentRun, RunStatus, ensure_run_transition
+from .identifiers import (
+    AgentId,
+    AgentRunId,
+    ExecutionId,
+    KnowledgeItemId,
+    MessageId,
+    ProjectId,
+    ProvenanceLinkId,
+    RelationshipId,
+    SessionId,
+)
 from .lifecycle import LifecycleState
 from .models import (
     Agent,
@@ -14,26 +26,55 @@ from .models import (
     KnowledgeVersion,
     Project,
     Provenance,
+    ProvenanceLink,
+    ProvenanceLinkType,
     Relationship,
     RelationshipType,
 )
+from .workspace import (
+    ActorType,
+    Message,
+    MessageType,
+    ProjectStatus,
+    Session,
+    SessionStatus,
+    SessionType,
+)
 
 __all__ = [
+    "ActorType",
     "Agent",
     "AgentId",
+    "AgentRole",
+    "AgentRun",
+    "AgentRunId",
     "DomainError",
     "DomainInvariantError",
     "ExecutionId",
     "InvalidIdentifierError",
     "InvalidLifecycleTransitionError",
+    "InvalidRunTransitionError",
     "KnowledgeItem",
     "KnowledgeItemId",
     "KnowledgeVersion",
     "LifecycleState",
+    "Message",
+    "MessageId",
+    "MessageType",
     "Project",
     "ProjectId",
+    "ProjectStatus",
     "Provenance",
+    "ProvenanceLink",
+    "ProvenanceLinkId",
+    "ProvenanceLinkType",
     "Relationship",
     "RelationshipId",
     "RelationshipType",
+    "RunStatus",
+    "Session",
+    "SessionId",
+    "SessionStatus",
+    "SessionType",
+    "ensure_run_transition",
 ]

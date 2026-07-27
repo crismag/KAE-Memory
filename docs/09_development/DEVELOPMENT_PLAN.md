@@ -20,9 +20,9 @@ green, and the project model is updated.
 | M1 | Domain | ✔ |
 | M2 | Persistence | ✔ |
 | M3 | Product Experience | ✔ |
-| M4 | Repository Realignment | ► current |
-| M5 | Persistent Memory Proof | open |
-| M6 | Agent Collaboration | open |
+| M4 | Repository Realignment | ✔ |
+| M5 | Persistent Memory Proof | ✔ |
+| M6 | Agent Collaboration | ► current |
 | M7 | Resilience and Recovery | open |
 | M8 | Semantic Retrieval | open |
 | M9 | Workspace and Reporting | open |
@@ -37,7 +37,7 @@ foundation, domain contracts, knowledge persistence, and product experience
 definition. Their outputs are the specifications, ADR-0001 to ADR-0003,
 `src/kae_memory/`, and the product documents in `docs/05_product/`.
 
-## M4 — Repository realignment ► current
+## M4 — Repository realignment ✔ complete
 
 **Outcome:** repository documentation describes the system that exists, and the
 quality gate is green again.
@@ -58,24 +58,24 @@ state the project's position in under a minute from `CURRENT_PROJECT_STATE.md`.
 
 **Permitted changes:** documentation, plus the defect fixes listed above.
 
-## M5 — Persistent memory proof
+## M5 — Persistent memory proof ✔ complete
 
 **Outcome:** the memory claim is proven end to end before any interface exists.
 
-**Work:** project, session, message, and AgentRun persistence; migrations additive
-to revision 0001; memory write and structured retrieval through application
-contracts; provenance resolving to a real run; one end-to-end test.
+**Delivered:** revision `0002` with projects, sessions, agent runs, messages,
+relationships, and provenance links; domain contracts and repositories for each;
+`MemoryService` as the single write boundary; provenance resolving to a real run.
 
-**Blocked by:** OQ-010 physical schema.
+**Success condition met:** Agent A writes something and Agent B retrieves it in
+another run, verified in `tests/application/test_cross_run_proof.py`.
 
-**Success condition:** Agent A writes something and Agent B retrieves it in
-another run.
+**Exit condition met:** AT-001 and AT-003 pass, alongside AT-005 and AT-007 at
+the contract level.
 
-**Exit condition:** AT-001 and AT-003 pass.
-
-## M6 — Agent collaboration
+## M6 — Agent collaboration ► current
 
 **Outcome:** two agents collaborate through memory, not through conversation.
+The contracts exist; this milestone gives them behaviour.
 
 **Work:** Requirements Agent, Architecture Agent, deterministic extraction adapter
 behind a port, human confirmation flow, context assembly, workflow state.

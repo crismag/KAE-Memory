@@ -15,3 +15,7 @@ class InvalidLifecycleTransitionError(DomainError):
 
 class DomainInvariantError(DomainError):
     """Raised when construction would violate a domain invariant."""
+
+
+class InvalidRunTransitionError(DomainError):
+    """Raised when an agent run attempts an unsupported status transition."""

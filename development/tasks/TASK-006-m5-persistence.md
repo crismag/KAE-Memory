@@ -1,6 +1,6 @@
 # TASK-006 — M5 Persistent Memory Proof
 
-**Status:** ready after ADR-0005 approval
+**Status:** complete, 2026-07-27
 **Milestone:** M5 · **Prompt:** MEM-01
 
 ## Objective
@@ -121,3 +121,36 @@ approval query; or `0001` appears to need modification.
 
 `make check` is green, the cross-run proof passes, and the pull request states
 which relationship vocabulary was adopted and why.
+
+## Completion notes
+
+Delivered as specified, with one decision surfaced rather than resolved silently.
+
+**Relationship vocabulary — decision.** The existing domain `RelationshipType`
+enum was adopted as the single authoritative vocabulary: `supports`,
+`contradicts`, `derives_from`, `implements`, `validates`, `supersedes`, `blocks`.
+ADR-0005's alternative list (`depends_on`, `refines`, `conflicts_with`,
+`derived_from`, `reviews`) was not adopted.
+
+Reasoning: the enum is already implemented, exported, tested, and cited by the
+domain and retrieval specifications, while ADR-0005's list was illustrative and
+written alongside the physical schema. Changing published domain behaviour to
+match an illustration would be the more disruptive choice. Because
+`knowledge_relationships.relationship_type` is a plain string, adding values
+later needs no migration — so nothing is foreclosed.
+
+**Beyond the strict scope, and why:**
+
+- `migrations/script.py.mako` — `alembic revision` could not run without it.
+  RA-01 added the environment but never exercised revision generation.
+- `file_template` in `alembic.ini`, so revisions are named consistently.
+- `src/kae_memory/persistence/timestamps.py` — the `_as_aware` helper from RA-01
+  moved out of the knowledge repository so the new repositories share it.
+- `SqlAlchemyKnowledgeRepository.save` and `list_for_project` — confirmation and
+  project-scoped retrieval need them.
+
+**Deviations:** none. Revision `0001` is unchanged, no vector columns were added,
+and no agent behaviour was implemented — roles are recorded, not executed.
+
+**Evidence:** `make check` green — 62 tests, 95% coverage. `alembic upgrade head`
+and `alembic downgrade base` verified, including that `0001` still stands alone.
