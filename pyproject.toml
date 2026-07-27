@@ -19,6 +19,8 @@ dependencies = [
 [project.optional-dependencies]
 bedrock = [
   "anthropic[bedrock]>=0.100",
+  # Titan is an Amazon model: the Anthropic Bedrock client cannot invoke it.
+  "boto3>=1.35",
 ]
 dev = [
   "mypy>=1.11",
@@ -48,7 +50,7 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-# The provider SDK is an optional extra, imported lazily so the suite and a
-# fixture-only demonstration run without it.
-module = "anthropic.*"
+# Provider SDKs are optional extras, imported lazily so the suite and a
+# fixture-only demonstration run without them.
+module = ["anthropic.*", "boto3.*"]
 ignore_missing_imports = true

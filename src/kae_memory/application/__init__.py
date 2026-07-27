@@ -5,5 +5,6 @@ credentials and never issue SQL against domain tables (ADR-0004).
 """
 
 from .memory_service import MemoryService, WriteKnowledgeRequest
+from .retrieval_service import RetrievalService, SearchHit
 
-__all__ = ["MemoryService", "WriteKnowledgeRequest"]
+__all__ = ["MemoryService", "RetrievalService", "SearchHit", "WriteKnowledgeRequest"]

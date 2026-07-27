@@ -49,8 +49,8 @@ session, reading only from the database.
 | M5 | Persistent Memory Proof | ✔ |
 | M6 | Agent Collaboration | ✔ |
 | M7 | Resilience and Recovery | ✔ |
-| M8 | Semantic Retrieval | ► current |
-| M9 | Workspace and Reporting | open |
+| M8 | Semantic Retrieval | ✔ |
+| M9 | Workspace and Reporting | ► current |
 | M10 | AWS Demonstration | open |
 | M11 | Demo Ready and Release | open |
 
@@ -138,12 +138,13 @@ and is not an approved deployment baseline.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, and recovery after worker death.
 - `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
-  and `0003` (lease ownership).
-- `tests/` — 97 tests including the cross-run persistence proof, the
-  cross-session agent-collaboration proof, and the kill-and-recovery proof.
+  `0003` (lease ownership), and `0004` (chunks and the vector index).
+- `tests/` — 112 tests including the cross-run persistence proof, the
+  cross-session agent-collaboration proof, the kill-and-recovery proof, and
+  semantic retrieval over a real vector index.
 
-Semantic retrieval, the Review agent, HTTP interfaces, and the user interface
-are **not** implemented. Check
+The Review agent, HTTP interfaces, and the user interface are **not**
+implemented. Check
 `src/kae_memory/` before assuming any capability exists.
 
 ## Getting started
@@ -153,8 +154,8 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 97 tests at 94%
-coverage. No test contacts a model provider.
+`make check` passes: ruff, ruff format, mypy strict, and 112 tests against
+CockroachDB. No test contacts a model provider.
 
 To run migrations, copy `.env.example` to `.env` and set `KAE_DATABASE_URL`, then
 `make migrate`. See [`CONTRIBUTING.md`](CONTRIBUTING.md).

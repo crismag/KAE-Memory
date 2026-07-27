@@ -24,15 +24,19 @@ through persistent memory.
 
 ## Current milestone
 
-**M8 — Semantic Retrieval** (next)
+**M9 — Workspace and Reporting** (next)
 
-M7 is complete: compute is disposable. A killed worker's run is reclaimed at
-lease expiry and finished by a replacement, from durable state alone. Measured
-recovery is 30–32 seconds, inside the 30–45 second target.
+M8 is complete: knowledge is chunked, embedded, and searchable by cosine distance
+over a real `VECTOR(1024)` index, with every hit explaining why it was returned.
 
-M8 adds semantic recall — Titan embeddings, `VECTOR(1024)`, cosine distance, and
-the evaluation fixture that proves retrieval actually works rather than merely
-running.
+**One caveat carried forward.** The suite runs offline against a deterministic
+embedder, which verifies the retrieval *pipeline* but cannot rank meaning.
+Measured recall is chance-level by construction. Ranking quality needs the opt-in
+live Titan run (`KAE_EVAL_LIVE_EMBEDDING=1`), which has not happened yet and
+requires Bedrock access to `amazon.titan-embed-text-v2:0`.
+
+M9 makes the whole chain visible as the product — the discovery workspace, the
+Review Agent, and reporting.
 
 ADR-0010 records a future provider-neutral and BYOK product direction without
 adding work to M7. Bedrock remains the only approved live demo adapter.
@@ -49,8 +53,8 @@ adding work to M7. Bedrock remains the only approved live demo adapter.
 | M5 | Persistent Memory Proof — one agent writes, another retrieves in a separate run | ✔ complete |
 | M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ✔ complete |
 | M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | ✔ complete |
-| M8 | Semantic Retrieval — embeddings, recall, return session | ► current |
-| M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | open |
+| M8 | Semantic Retrieval — embeddings, recall, return session | ✔ complete |
+| M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | ► current |
 | M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | open |
 | M11 | Demo Ready and Release — rehearsal, packaging, submission evidence | open |
 
@@ -60,14 +64,14 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`, after M7.
+Assessed 2026-07-27 against `make check`, after M8.
 
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
 | `ruff format --check` | ✔ 52 files formatted |
 | `mypy --strict` | ✔ clean across 14 source files |
-| `pytest` | ✔ 97 passed, 94% coverage |
+| `pytest` | ✔ 112 passed, against CockroachDB v26.2.1 |
 
 RA-01 cleared all four known defects:
 
@@ -96,7 +100,7 @@ rejected rather than merged with a follow-up promise.
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
 | Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
-| Semantic retrieval and embeddings | **Not implemented** — decided (ADR-0008); needs a CockroachDB v25.4+ cluster |
+| Semantic retrieval and embeddings | Implemented — `VECTOR(1024)`, cosine, one index. Ranking quality unmeasured pending the live Titan run |
 | Deployment and health endpoint | **Not implemented** — required by M10 |
 | Application services | Implemented — `MemoryService` |
 | HTTP interface | **Not implemented** — the contract itself is M9's first step |
@@ -222,21 +226,24 @@ death is the proof; a demo without it does not satisfy the release.
 
 ## Immediate next task
 
-**Implement M8 — semantic retrieval.**
+**Two things, in this order.**
 
-Use ADR-0008 as the contract: Titan Text Embeddings V2 at 1,024 normalised
-dimensions, `VECTOR(1024)`, cosine distance, one index on a shared
-`knowledge_chunks` table, embedding generated asynchronously through the worker
-that M7 just built.
+**1. Run the live retrieval evaluation.** M8's pipeline is verified, but ADR-0008's
+acceptance criterion — the expected item appearing in top-k — is only genuinely
+tested against the real model:
 
-Two constraints carry real weight. Vector behaviour **cannot run on SQLite**, so
-M8 splits portable tests from CockroachDB-gated ones, and the gated set is
-reported as skipped rather than silently green. And the **evaluation fixture is
-the acceptance criterion** — creating embeddings and an index is not evidence
-that retrieval works.
+```bash
+KAE_EVAL_LIVE_EMBEDDING=1 AWS_REGION=us-east-1 \
+  uv run pytest tests/retrieval/test_evaluation_fixture.py -s
+```
 
-Requires a CockroachDB **v25.4+** cluster; vector indexes reached general
-availability there.
+It enforces a 75% recall threshold and needs Bedrock access to
+`amazon.titan-embed-text-v2:0`. Until it runs, semantic recall is plumbing that
+works rather than retrieval that is good.
+
+**2. Implement M9 — workspace and reporting.** Blocked on **OQ-013**, the
+readiness model. Per ADR-0009 the sequence inside M9 is **API contract →
+generated client → UI**, and CI gains a Node job when frontend code lands.
 
 ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
 billing, or extra live adapters.

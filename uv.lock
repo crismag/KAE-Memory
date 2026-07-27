@@ -442,6 +442,7 @@ dependencies = [
 [package.optional-dependencies]
 bedrock = [
     { name = "anthropic", extra = ["bedrock"] },
+    { name = "boto3" },
 ]
 dev = [
     { name = "mypy" },
@@ -454,6 +455,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "anthropic", extras = ["bedrock"], marker = "extra == 'bedrock'", specifier = ">=0.100" },
+    { name = "boto3", marker = "extra == 'bedrock'", specifier = ">=1.35" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },

@@ -6,6 +6,16 @@ provider SDK.
 """
 
 from .deterministic import DeterministicExtractionAdapter
+from .embedding import (
+    EMBEDDING_DIMENSIONS,
+    TITAN_V2_MODEL,
+    DeterministicEmbeddingAdapter,
+    EmbeddingError,
+    EmbeddingPort,
+    EmbeddingResult,
+    InvalidEmbeddingError,
+    is_normalised,
+)
 from .extraction import (
     EXTRACTION_SCHEMA,
     SCHEMA_VERSION,
@@ -26,17 +36,24 @@ from .prompts import prompt_for
 from .roles import AgentOutcome, ArchitectureAgent, RequirementsAgent
 
 __all__ = [
+    "EMBEDDING_DIMENSIONS",
     "EXTRACTION_SCHEMA",
     "SCHEMA_VERSION",
+    "TITAN_V2_MODEL",
     "AgentOutcome",
     "ArchitectureAgent",
     "Confidence",
+    "DeterministicEmbeddingAdapter",
     "DeterministicExtractionAdapter",
+    "EmbeddingError",
+    "EmbeddingPort",
+    "EmbeddingResult",
     "ExtractedItem",
     "ExtractionError",
     "ExtractionPort",
     "ExtractionRequest",
     "ExtractionResult",
+    "InvalidEmbeddingError",
     "InvalidOutputError",
     "OutputTruncatedError",
     "ProviderRefusedError",
@@ -44,5 +61,6 @@ __all__ = [
     "ProviderUnavailableError",
     "RequirementsAgent",
     "UnverifiableOutputError",
+    "is_normalised",
     "prompt_for",
 ]

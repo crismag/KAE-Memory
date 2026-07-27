@@ -47,6 +47,11 @@ class RelationshipId(Identifier):
 
 
 @dataclass(frozen=True, slots=True)
+class ChunkId(Identifier):
+    """Stable knowledge-chunk identifier."""
+
+
+@dataclass(frozen=True, slots=True)
 class ProvenanceLinkId(Identifier):
     """Stable provenance-link identifier."""
 
