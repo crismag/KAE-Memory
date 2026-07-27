@@ -184,7 +184,7 @@ Timing, sample data, and delivery craft:
 | ADR-0009 discovery workspace frontend | accepted — closes OQ-011 |
 | ADR-0010 provider-neutral extraction and BYOK direction | accepted — direction only; no current implementation |
 | ADR-0011 tests run against CockroachDB | accepted — SQLite retired; amends ADR-0003 and ADR-0008 |
-| Readiness model | **open** — OQ-013, blocks M9 |
+| ADR-0012 blueprint readiness model | accepted — closes OQ-013 |
 | AWS runtime choice | **open** — OQ-016, blocks M10 |
 
 ## Open risks
@@ -241,9 +241,15 @@ It enforces a 75% recall threshold and needs Bedrock access to
 `amazon.titan-embed-text-v2:0`. Until it runs, semantic recall is plumbing that
 works rather than retrieval that is good.
 
-**2. Implement M9 — workspace and reporting.** Blocked on **OQ-013**, the
-readiness model. Per ADR-0009 the sequence inside M9 is **API contract →
-generated client → UI**, and CI gains a Node job when frontend code lands.
+**2. Implement M9 — workspace and reporting.** Now unblocked: ADR-0012 settles
+readiness. Per ADR-0009 the sequence is **API contract → generated client → UI**,
+and CI gains a Node job when frontend code lands.
+
+ADR-0012 records five prerequisites that must land before readiness means
+anything — relationship wiring for contradictions, a blocker concept, a
+project-level knowledge revision for staleness, the discovery-area to
+knowledge-kind mapping, and keeping recalculation out of the three agent roles.
+M9 is therefore larger than "build the workspace".
 
 ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
 billing, or extra live adapters.

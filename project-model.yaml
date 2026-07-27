@@ -53,7 +53,6 @@ project:
     - CON-003
     - CON-004
   open_questions:
-    - OQ-013
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
@@ -523,6 +522,23 @@ decisions:
     affects:
       - MOD-persistence
       - MOD-retrieval
+  - id: ADR-0012
+    title: Blueprint readiness model
+    statement: >
+      Readiness is weighted coverage of versioned discovery areas over confirmed
+      knowledge, not conversation volume or model confidence. Only confirmed
+      knowledge can make an area sufficient. Percentage and blueprint eligibility
+      are distinct: an implementation blueprint requires every mandatory area
+      sufficient, no critical blocker, no mandatory contradiction, and a result
+      reflecting the latest knowledge revision. Calculation is deterministic
+      application logic; snapshots are append-only and explainable.
+    status: accepted
+    record: specifications/ADR/ADR-0012-blueprint-readiness-model.md
+    closes: OQ-013
+    affects:
+      - MOD-blueprint
+      - MOD-audit
+      - MOD-knowledge
 
 modules:
   - id: MOD-projects
@@ -923,31 +939,15 @@ open_questions:
   - id: OQ-013
     question: >
       What readiness model determines when a blueprint may be generated?
-    why_it_matters: >
-      Readiness is a visible product signal and a gate on the primary output; an
-      invented formula would misrepresent project state to the user.
-    blocks:
-      - M9
-    owner: human product and architecture owner
-    risk_if_unanswered: medium
-    default_if_unanswered: >
-      Readiness is presented as coverage of required discovery areas only, with no
-      numeric score treated as approved.
-    status: open
-  - id: OQ-014
-    question: >
-      Which embedding model, vector column type, and index strategy support
-      semantic retrieval?
     status: closed
     resolution: >
-      Closed by ADR-0008. amazon.titan-embed-text-v2:0 at 1024 normalised float
-      dimensions, CockroachDB VECTOR(1024), cosine distance, one vector index on
-      a shared knowledge_chunks table. Four corrections against the repository:
-      knowledge_id is STRING(64) not UUID; identifiers and timestamps are
-      application-generated; vector behaviour cannot run on SQLite so M8 tests
-      split into portable and CockroachDB-gated; and Titan needs a separate
-      EmbeddingPort with boto3, since the Anthropic Bedrock client cannot invoke
-      an Amazon model.
+      Closed by ADR-0012. Weighted coverage of versioned discovery areas over
+      confirmed knowledge, with draft and implementation gates kept separate from
+      the percentage. Five prerequisites recorded for M9: recalculation must stay
+      deterministic application logic rather than becoming a fourth agent role;
+      contradiction blocking needs the relationship layer wired; blocker is a new
+      concept; a project-level knowledge revision is needed for staleness; and
+      discovery areas must be mapped onto the knowledge kinds.
   - id: OQ-016
     question: >
       Which AWS runtime hosts the application and worker, ECS Fargate or App
@@ -1080,9 +1080,13 @@ tasks:
   - id: TASK-010
     title: Workspace, Review Agent, and reporting
     milestone: M9
-    status: blocked
-    blocked_by:
-      - OQ-013
+    status: ready
+    note: >
+      Decided by ADR-0009 and ADR-0012. Sequence: API contract, generated client,
+      then UI. ADR-0012 records five prerequisites that must land before
+      readiness is meaningful: relationship wiring, a blocker concept, a
+      project-level knowledge revision, the area-to-kind mapping, and keeping
+      recalculation out of the agent roles.
     note: >
       Frontend decided by ADR-0009. Sequence within M9 is API contract, then
       generated client, then UI. CI gains a Node job when frontend code lands.
@@ -1241,6 +1245,7 @@ traces:
       - ADR-0009
       - ADR-0010
       - ADR-0011
+      - ADR-0012
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1359,6 +1364,7 @@ id_register:
   - {id: ADR-0009, type: decision, status: active, superseded_by: null}
   - {id: ADR-0010, type: decision, status: active, superseded_by: null}
   - {id: ADR-0011, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0012, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1379,7 +1385,7 @@ id_register:
   - {id: OQ-010, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-011, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-012, type: open_question, status: closed, superseded_by: null}
-  - {id: OQ-013, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-013, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-014, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-016, type: open_question, status: active, superseded_by: null}
@@ -1916,3 +1922,28 @@ history:
         run, with chance-level recall printed so the offline number is not read
         as a quality signal.
     stage: M8 Semantic Retrieval
+  - commit: 19
+    added:
+      - ADR-0012
+      - specifications/ADR/ADR-0012-blueprint-readiness-model.md
+    changed:
+      - OQ-013
+      - TASK-010
+    deferred:
+      - readiness templates for project types beyond software
+      - a non-agent deferred work kind on the worker
+    conflicts:
+      - >
+        The proposal allowed readiness recalculation through the durable worker,
+        but enqueue_run takes an AgentRole and FR-009 authorises exactly three.
+        Resolved by keeping calculation as synchronous deterministic application
+        logic; only classification is agent work, and that is the Review agent.
+      - >
+        Mandatory-area contradiction blocking depends on knowledge_relationships,
+        which exists as a table but has no domain wiring. Recorded as an M9
+        prerequisite rather than assumed present.
+      - >
+        Blocker, project-level knowledge revision, and the mapping from discovery
+        areas to KnowledgeKind have no representation yet. Recorded as decisions
+        M9 must make explicitly.
+    stage: AR-06 blueprint readiness model for M9
