@@ -101,7 +101,7 @@ rejected rather than merged with a follow-up promise.
 | Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
 | Semantic retrieval and embeddings | Implemented — `VECTOR(1024)`, cosine, one index. Ranking quality unmeasured pending the live Titan run |
-| Deployment and health endpoint | **Not implemented** — required by M10 |
+| Deployment and health endpoint | **Not implemented** — decided (ADR-0013). Neither entrypoint exists; the worker has no daemon loop or SIGTERM handling |
 | Application services | Implemented — `MemoryService` |
 | HTTP interface | **Not implemented** — the contract itself is M9's first step |
 | User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
@@ -185,7 +185,7 @@ Timing, sample data, and delivery craft:
 | ADR-0010 provider-neutral extraction and BYOK direction | accepted — direction only; no current implementation |
 | ADR-0011 tests run against CockroachDB | accepted — SQLite retired; amends ADR-0003 and ADR-0008 |
 | ADR-0012 blueprint readiness model | accepted — closes OQ-013 |
-| AWS runtime choice | **open** — OQ-016, blocks M10 |
+| ADR-0013 portable runtime, optional AWS | accepted — closes OQ-016; amends FR-016 |
 
 ## Open risks
 

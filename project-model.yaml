@@ -52,8 +52,7 @@ project:
     - CON-002
     - CON-003
     - CON-004
-  open_questions:
-    - OQ-016
+  open_questions: []
   depth: full
   current_stage: implementation_kickoff
   current_milestone: M9
@@ -539,6 +538,22 @@ decisions:
       - MOD-blueprint
       - MOD-audit
       - MOD-knowledge
+  - id: ADR-0013
+    title: Portable runtime and optional AWS deployment
+    statement: >
+      The API and worker are portable Python processes runnable locally, under
+      Docker Compose, under an OS supervisor, or on ECS Fargate without code
+      changes. CockroachDB stays authoritative for work, leases, checkpoints, and
+      recovery; the runtime only keeps a process alive. AWS becomes an optional
+      enhancement rather than a requirement, amending FR-016 and restating
+      AT-008 and AT-009 against the portable profile.
+    status: accepted
+    record: specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
+    closes: OQ-016
+    amends: FR-016
+    affects:
+      - MOD-workflow
+      - MOD-persistence
 
 modules:
   - id: MOD-projects
@@ -952,16 +967,15 @@ open_questions:
     question: >
       Which AWS runtime hosts the application and worker, ECS Fargate or App
       Runner?
-    why_it_matters: >
-      The deployment must prove disposable compute with the least operational
-      surface; the choice affects restart semantics and cost controls.
-    blocks:
-      - M10
-    owner: human product and architecture owner
-    risk_if_unanswered: high
-    default_if_unanswered: >
-      No AWS service is provisioned.
-    status: open
+    status: closed
+    resolution: >
+      Closed by ADR-0013, which reframes the question. The API and worker are
+      portable processes; the required deployment is Docker Compose or an OS
+      supervisor against CockroachDB Cloud, and ECS Fargate is the preferred but
+      optional production reference. Recovery stays a CockroachDB capability
+      rather than an AWS feature. Three gaps recorded for M10: neither entrypoint
+      exists, the worker has no daemon loop or SIGTERM handling, and the health
+      endpoint depends on M9.
 
 assumptions:
   - classification: assumption
@@ -1094,12 +1108,17 @@ tasks:
       Implement the discovery workspace over real API state, the Review Agent and
       its quality findings, and reporting generated from operational data.
   - id: TASK-011
-    title: AWS demonstration deployment
+    title: Deployment and recovery demonstration
     milestone: M10
     status: blocked
     blocked_by:
       - TASK-010
-      - OQ-016
+    note: >
+      Decided by ADR-0013. Required level is portable processes under Docker
+      Compose or an OS supervisor; AWS is an optional enhancement. Must add both
+      entrypoints, the worker daemon loop honouring idle_poll_seconds, and a
+      SIGTERM handler honouring graceful_shutdown_seconds — both config fields
+      exist but are unused.
     objective: >
       Deploy application, worker, and CockroachDB Cloud with health endpoint,
       managed secrets, structured logs, reproducible deployment, and documented
@@ -1196,16 +1215,18 @@ acceptance_tests:
       - FR-017
     scenario: >
       The deployed health endpoint reports healthy with the expected migration
-      revision.
+      revision, under whichever deployment profile is in use. Restated by
+      ADR-0013.
     status: defined
   - id: AT-009
     covers:
       - FR-016
       - FR-011
     scenario: >
-      Terminating the worker task and letting the platform restart it results in
-      the interrupted run resuming and completing, with no duplicated knowledge
-      and no manual intervention.
+      Terminating the worker process and letting the configured supervisor
+      restart it results in the interrupted run resuming and completing, with no
+      duplicated knowledge and no manual intervention. Restated by ADR-0013; an
+      AWS task replacement is one satisfying supervisor.
     status: defined
 
 traces:
@@ -1246,6 +1267,7 @@ traces:
       - ADR-0010
       - ADR-0011
       - ADR-0012
+      - ADR-0013
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1365,6 +1387,7 @@ id_register:
   - {id: ADR-0010, type: decision, status: active, superseded_by: null}
   - {id: ADR-0011, type: decision, status: active, superseded_by: null}
   - {id: ADR-0012, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0013, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1388,7 +1411,7 @@ id_register:
   - {id: OQ-013, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-014, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
-  - {id: OQ-016, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-016, type: open_question, status: closed, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
   - {id: TASK-002, type: task, status: active, superseded_by: null}
   - {id: TASK-003, type: task, status: active, superseded_by: null}
@@ -1429,8 +1452,9 @@ undefined:
       - M10
   - area: deployment
     missing: >
-      AWS runtime choice. Deployment shape, secrets handling, health checks, and
-      teardown are approved in AWS_DEMONSTRATION_BASELINE.md.
+      Runnable entrypoints. Neither python -m kae_memory.api nor
+      python -m kae_memory.worker exists, and the worker has no daemon loop,
+      SIGTERM handling, or environment configuration.
     blocks:
       - M10
 
@@ -1947,3 +1971,28 @@ history:
         areas to KnowledgeKind have no representation yet. Recorded as decisions
         M9 must make explicitly.
     stage: AR-06 blueprint readiness model for M9
+  - commit: 20
+    added:
+      - ADR-0013
+      - specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
+    changed:
+      - OQ-016
+      - FR-016, amended
+      - AT-008 and AT-009, restated against the portable profile
+      - TASK-011
+      - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
+    deferred:
+      - Lambda event handlers
+      - multi-service or multi-region deployment
+    conflicts:
+      - >
+        FR-016 as approved required deployment to AWS. ADR-0013 makes AWS
+        optional, so the requirement was amended rather than left contradicting
+        the decision. Automatic replacement, expiry-based reclamation, checkpoint
+        continuation, no manual repair, and no duplicated output all remain
+        mandatory; only the hosting platform became a choice.
+      - >
+        AT-009 was phrased around terminating an ECS task and the platform
+        restarting it. Restated as terminating the worker process and the
+        configured supervisor restarting it, with the same nine steps.
+    stage: AR-07 portable runtime and optional AWS deployment for M10
