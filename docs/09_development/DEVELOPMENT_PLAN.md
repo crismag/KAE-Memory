@@ -80,7 +80,7 @@ The contracts exist; this milestone gives them behaviour.
 **Work:** Requirements Agent, Architecture Agent, deterministic extraction adapter
 behind a port, human confirmation flow, context assembly, workflow state.
 
-**Blocked by:** OQ-012 extraction contract.
+**Decided:** ADR-0006 — Bedrock behind an `ExtractionPort`, structured JSON outputs, fixture-based determinism.
 
 **Success condition:** the Architecture Agent uses validated requirements created
 in an earlier session.
@@ -95,7 +95,7 @@ in an earlier session.
 expiry and reclaim, failure simulation, continuation from the last committed
 checkpoint.
 
-**Blocked by:** OQ-015 worker runtime and lease mechanism.
+**Decided:** ADR-0007 — fencing-token leases, 30-second duration, additive revision `0003` for the lease columns. Waits only on M6.
 
 **Success condition:** a new worker resumes after the previous execution stops.
 

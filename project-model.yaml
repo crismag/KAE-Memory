@@ -56,7 +56,6 @@ project:
     - OQ-011
     - OQ-013
     - OQ-014
-    - OQ-015
     - OQ-016
   depth: full
   current_stage: implementation_kickoff
@@ -446,6 +445,21 @@ decisions:
     affects:
       - MOD-workflow
       - MOD-knowledge
+  - id: ADR-0007
+    title: Durable worker runtime and renewable run leases
+    statement: >
+      A dedicated long-running worker process separate from the API, claiming
+      runs through short atomic CockroachDB transactions with a monotonically
+      increasing fencing token, a 30-second renewable lease, and durable
+      checkpoints after every step. CockroachDB is the authoritative owner of
+      runnable work, ownership, expiry, retry state, and checkpoints. The
+      guarantee is at-least-once step execution; exactly-once is not claimed.
+    status: accepted
+    record: specifications/ADR/ADR-0007-worker-runtime-and-leases.md
+    closes: OQ-015
+    affects:
+      - MOD-workflow
+      - MOD-persistence
 
 modules:
   - id: MOD-projects
@@ -883,16 +897,14 @@ open_questions:
     question: >
       What worker runtime and lease mechanism support durable continuation, and
       what is the lease duration?
-    why_it_matters: >
-      Recovery after worker death is the central demonstration proof and depends
-      on how a run is claimed and reclaimed.
-    blocks:
-      - M7
-    owner: human product and architecture owner
-    risk_if_unanswered: critical
-    default_if_unanswered: >
-      No worker runtime is approved and recovery cannot be demonstrated.
-    status: open
+    status: closed
+    resolution: >
+      Closed by ADR-0007. A dedicated Python worker process separate from the
+      API, claiming runs through short atomic transactions with a fencing token,
+      a 30-second lease renewed every 10 seconds, and a durable checkpoint after
+      every step. Lease fields arrive in additive revision 0003. The existing
+      RunStatus enum stands; queued maps to pending and retry_wait is expressed
+      as failed with a future next_attempt_at.
   - id: OQ-016
     question: >
       Which AWS runtime hosts the application and worker, ECS Fargate or App
@@ -1004,7 +1016,9 @@ tasks:
     status: blocked
     blocked_by:
       - TASK-007
-      - OQ-015
+    note: >
+      Unblocked by ADR-0007; waits only on M6. Requires additive revision 0003
+      for the lease columns.
     objective: >
       Implement idempotency keys, bounded retry with backoff, durable run status
       with lease expiry and reclaim, failure simulation, and continuation from
@@ -1178,6 +1192,7 @@ traces:
       - ADR-0004
       - ADR-0005
       - ADR-0006
+      - ADR-0007
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1289,6 +1304,7 @@ id_register:
   - {id: ADR-0004, type: decision, status: active, superseded_by: null}
   - {id: ADR-0005, type: decision, status: active, superseded_by: null}
   - {id: ADR-0006, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0007, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1311,7 +1327,7 @@ id_register:
   - {id: OQ-012, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-013, type: open_question, status: active, superseded_by: null}
   - {id: OQ-014, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-015, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-016, type: open_question, status: active, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
   - {id: TASK-002, type: task, status: active, superseded_by: null}
@@ -1337,12 +1353,6 @@ id_register:
   - {id: AT-009, type: acceptance_test, status: active, superseded_by: null}
 
 undefined:
-  - area: execution
-    missing: >
-      Worker runtime, lease mechanism and duration, and checkpoint granularity
-      for continuation.
-    blocks:
-      - M7
   - area: interface
     missing: >
       Approved frontend technology, route contracts, and component boundaries.
@@ -1650,3 +1660,21 @@ history:
         top_k. Resolved by sourcing determinism from a fixture adapter, with no
         test permitted to make a live model call.
     stage: AR-02 extraction contract decision for M6
+  - commit: 11
+    added:
+      - ADR-0007
+      - specifications/ADR/ADR-0007-worker-runtime-and-leases.md
+    changed:
+      - OQ-015
+      - TASK-008
+    deferred:
+      - multiple concurrent workers
+      - OQ-016 AWS runtime, recorded formally at M10
+    conflicts:
+      - >
+        The draft lease design named fields attempt_count, checkpoint, and
+        last_error, and statuses queued and retry_wait. Resolved in favour of the
+        existing columns and RunStatus enum: attempt_number, continuation_state,
+        error_code and error_message; queued maps to pending, and retry_wait is
+        failed with a future next_attempt_at.
+    stage: AR-03 durable worker runtime and lease decision for M7
