@@ -1,8 +1,12 @@
 # Codex and Claude Execution Roadmap
 
-**Status:** proposed development-control plan. This document does not authorise
-implementation before the corresponding requirements and architecture decisions
-are approved.
+**Status:** active development-control plan, resequenced 2026-07-27 against the
+implemented repository. This document does not authorise implementation before
+the corresponding requirements and architecture decisions are approved.
+
+Read [`../00_project/CURRENT_PROJECT_STATE.md`](../00_project/CURRENT_PROJECT_STATE.md)
+first. It records which milestone is current and which defects block the next
+slice.
 
 ## 1. Purpose
 
@@ -86,9 +90,9 @@ Product proof
 
 ## 5. Planning gates before implementation
 
-### Gate A — Product experience approved
+### Gate A — Product experience approved ✔ passed
 
-Approve:
+Approved 2026-07-27 by the product-experience documents in `docs/05_product/`:
 
 - product identity;
 - first target user;
@@ -98,35 +102,51 @@ Approve:
 - visible knowledge states;
 - output package.
 
-### Gate B — MVP requirements approved
+### Gate B — MVP requirements approved ◐ partially passed
 
-Requirements must cover:
+Approved 2026-07-27 in
+[`../02_requirements/MVP_REQUIREMENTS_BASELINE.md`](../02_requirements/MVP_REQUIREMENTS_BASELINE.md):
 
-- project and session creation;
-- raw-input persistence;
-- structured extraction;
-- confirmation and revision;
-- cross-session retrieval;
-- gap-driven questions;
-- blueprint generation;
-- memory audit;
-- export and traceability;
-- failure recovery.
+- project and session creation (FR-001, FR-002);
+- raw-input persistence (FR-003);
+- structured extraction (FR-004);
+- confirmation and revision (FR-005);
+- supersession without loss (FR-006);
+- cross-session retrieval (FR-007);
+- blueprint preview with traceability (FR-008).
 
-### Gate C — Architecture decisions approved
+Still required before the retrieval and demo milestones:
 
-At minimum, record ADRs for:
+- gap-driven question selection;
+- memory audit behaviour;
+- export beyond Markdown;
+- failure recovery and non-functional targets.
 
-1. application boundary and modular shape;
-2. backend and frontend technology choices;
-3. CockroachDB ownership and memory model;
-4. AWS deployment baseline;
-5. Bedrock model and embedding integration;
-6. workflow orchestration and asynchronous jobs;
-7. Managed MCP audit boundary;
-8. authentication and tenant isolation;
-9. observability and secrets;
-10. demo fallback and seed-data strategy.
+Deferred and not authorised: multi-agent runtime, MCP write operations, advanced
+retrieval, document ingestion.
+
+### Gate C — Architecture decisions approved ◐ partially passed
+
+Recorded:
+
+1. ✔ ADR-0001 — memory-first ordering;
+2. ✔ ADR-0002 — application boundary and library-first modular shape;
+3. ✔ ADR-0003 — SQLAlchemy, Alembic, and psycopg persistence.
+
+Still required, in this order:
+
+4. frontend technology choice (blocks Slice 1, OQ-011);
+5. physical schema for projects, sessions, messages, and relationships
+   (blocks Slice 2, OQ-010);
+6. model provider, prompt contract, and output schema (blocks Slice 2, OQ-012);
+   see also OQ-013 readiness model, which blocks Slice 9;
+7. AWS deployment baseline;
+8. embedding model and index strategy;
+9. workflow orchestration and asynchronous jobs;
+10. Managed MCP audit boundary;
+11. authentication and tenant isolation;
+12. observability and secrets;
+13. demo fallback and seed-data strategy.
 
 ### Gate D — Service provisioning checklist ready
 
@@ -143,9 +163,51 @@ Before launching billable or externally accessible services, document:
 
 ## 6. Implementation sequence
 
-### Slice 0 — Clickable product prototype
+The sequence below was resequenced on 2026-07-27. Domain contracts and knowledge
+persistence already exist, so persistence is no longer a greenfield slice — it is
+an integration target.
+
+```text
+M4 Repository Realignment
+  -> PX-01 UI Planning
+  -> PX-02 Clickable Prototype
+  -> Walking Skeleton
+  -> Application Layer
+  -> Persistence Integration
+  -> Knowledge Lifecycle
+  -> Retrieval
+  -> AWS
+  -> Demo Hardening
+```
+
+Slice numbers map to milestones M4–M10.
+
+### Slice 0 — Repository realignment (M4)
+
+**Goal:** make the repository describe itself accurately and pass its own quality
+gate before new feature work starts.
+
+Deliver:
+
+- project model, README, requirements baseline, scope, brief, development plan,
+  roadmap, and context index updated to the implemented state;
+- `docs/00_project/CURRENT_PROJECT_STATE.md` as the first-loaded context;
+- timezone normalisation fix on knowledge rehydration;
+- ruff and formatting findings cleared;
+- `alembic.ini` and `migrations/env.py` so revision 0001 is executable;
+- committed `uv.lock`;
+- tests for `run_transaction` retry and exhaustion.
+
+**Exit condition:** `make check` is green on `main`.
+
+**Assistant task boundary:** documentation plus the listed defect fixes. No new
+features, tables, endpoints, or services.
+
+### Slice 1 — Clickable product prototype (M5)
 
 **Goal:** validate the user journey before backend implementation.
+
+**Blocked by:** OQ-011 frontend decision and its ADR.
 
 Deliver:
 
@@ -164,35 +226,51 @@ three-minute story and reveal missing product rules.
 **Assistant task boundary:** UI prototype only. No cloud infrastructure, database
 schema, or production agent framework.
 
-### Slice 1 — Local walking skeleton
+### Slice 2 — Walking skeleton (M6)
 
-**Goal:** prove the application workflow with replaceable adapters.
+**Goal:** prove the application workflow end to end with replaceable adapters.
+
+**Blocked by:** OQ-010 physical schema, OQ-012 extraction contract.
 
 Deliver:
 
-- project creation;
+- project and session creation;
 - message submission;
-- raw-input persistence in a local development store;
-- deterministic fake extraction adapter;
+- raw-input persistence;
+- deterministic fake extraction adapter behind a port;
+- candidate knowledge expressed with the **existing** domain contracts in
+  `src/kae_memory/domain/` — do not define a parallel knowledge model;
 - discovery workspace reading real API state;
 - tests for input durability and idempotency.
 
-The local store is temporary and must not define the final CockroachDB schema.
+Use the existing `KnowledgeRepository` protocol as the persistence port. A
+temporary store, if used, must satisfy that protocol and must not define a new
+schema shape.
 
-### Slice 2 — CockroachDB transactional memory
+### Slice 3 — Application layer and persistence integration (M6–M7)
 
-**Goal:** make CockroachDB the authoritative store for the first product slice.
+**Goal:** connect the application workflow to the persistence layer that already
+exists, and extend it to the entities it still lacks.
+
+The knowledge item and version tables, the SQLAlchemy mapping, the repository,
+and the CockroachDB serialization-retry policy are already implemented. This
+slice integrates against them rather than rebuilding them.
 
 Deliver:
 
-- approved migrations;
-- project, session, message, workflow, and knowledge records;
-- transaction retry behaviour;
-- source traceability;
-- integration tests against CockroachDB;
-- replacement of the temporary persistence adapter.
+- migrations for project, session, message, and relationship records, additive to
+  revision 0001;
+- application services wired to `SqlAlchemyKnowledgeRepository` and
+  `run_transaction`;
+- relationship persistence for traceability;
+- source traceability from blueprint statement to message;
+- integration tests against CockroachDB, not only SQLite;
+- removal of any temporary store introduced in Slice 2.
 
-### Slice 3 — Bedrock extraction workflow
+**Constraint:** revision 0001 must remain valid. Rewriting it requires an
+explicit decision, not an agent's judgement.
+
+### Slice 4 — Bedrock extraction workflow (M6)
 
 **Goal:** convert user input into validated candidate knowledge.
 
@@ -206,7 +284,7 @@ Deliver:
 - failure and retry path;
 - deterministic test fixtures.
 
-### Slice 4 — Confirmation and supersession
+### Slice 5 — Confirmation and supersession (M7)
 
 **Goal:** prove trustworthy knowledge evolution.
 
@@ -218,7 +296,7 @@ Deliver:
 - dependent-output review flags;
 - audit records.
 
-### Slice 5 — Semantic memory and return session
+### Slice 6 — Semantic memory and return session (M8)
 
 **Goal:** prove persistent recall across sessions.
 
@@ -231,7 +309,7 @@ Deliver:
 - source-aware search results;
 - prepared return-session demo.
 
-### Slice 6 — Gap-driven interview
+### Slice 7 — Gap-driven interview (M8)
 
 **Goal:** ask the next purposeful question.
 
@@ -244,7 +322,7 @@ Deliver:
 - readiness updates;
 - workflow tests.
 
-### Slice 7 — Managed MCP Memory Auditor
+### Slice 8 — Managed MCP Memory Auditor (deferred)
 
 **Goal:** demonstrate a meaningful second CockroachDB AI tool.
 
@@ -257,7 +335,7 @@ Deliver:
 - Quality view integration;
 - audit logs and failure handling.
 
-### Slice 8 — Blueprint and traceability
+### Slice 9 — Blueprint and traceability (M9)
 
 **Goal:** produce the customer outcome.
 
@@ -270,7 +348,7 @@ Deliver:
 - Markdown export;
 - prepared demo blueprint.
 
-### Slice 9 — AWS deployment and asynchronous processing
+### Slice 10 — AWS deployment and asynchronous processing (M9)
 
 **Goal:** deploy the coherent product slice.
 
@@ -287,7 +365,7 @@ Deliver only the services justified by approved decisions, expected to include:
 
 Do not provision every proposed AWS service before the application requires it.
 
-### Slice 10 — Demo hardening
+### Slice 11 — Demo hardening (M10)
 
 Deliver:
 
@@ -305,7 +383,26 @@ Deliver:
 Do not issue all prompts at once. Issue the next prompt only after the previous
 pull request is reviewed and the repository state is updated.
 
+### Prompt RA-01 — Repository realignment ► current
+
+Objective:
+
+> Restore a green `make check` without adding features. Fix timezone
+> normalisation when rehydrating knowledge from the database, clear the ruff and
+> formatting findings, add `alembic.ini` and `migrations/env.py` so revision 0001
+> can be applied and rolled back, commit `uv.lock`, and add tests for
+> `run_transaction` retry, backoff, and exhaustion.
+
+Prohibited: new tables, endpoints, services, UI, or model calls.
+
+Expected evidence:
+
+- `make check` output showing all four gates passing;
+- `alembic upgrade head` and `alembic downgrade base` output.
+
 ### Prompt PX-01 — Product prototype planning
+
+Issue after RA-01 merges and OQ-011 is decided.
 
 Objective:
 
@@ -340,8 +437,11 @@ Expected evidence:
 Objective:
 
 > Convert the accepted requirements and three-system proposal into the minimum ADR
-> set required for the first walking skeleton. Compare alternatives, record
-> consequences, and leave unresolved choices explicit. Do not scaffold code.
+> set required for the first walking skeleton — the frontend choice (OQ-011), the
+> physical schema for projects, sessions, messages, and relationships (OQ-010),
+> and the extraction contract (OQ-012). Compare alternatives, record consequences,
+> and leave unresolved choices explicit. Build on ADR-0001 to ADR-0003 rather than
+> revisiting them. Do not scaffold code.
 
 ### Prompt DEV-01 — Walking skeleton
 
@@ -352,7 +452,9 @@ Objective:
 > Implement one vertical path from project creation to saved user message and
 > deterministic candidate knowledge shown in the discovery workspace. Use ports
 > for persistence and AI extraction so CockroachDB and Bedrock adapters can be
-> introduced later without rewriting the application workflow.
+> introduced later without rewriting the application workflow. Reuse the existing
+> domain contracts and `KnowledgeRepository` protocol in `src/kae_memory/`; do not
+> introduce a second knowledge model.
 
 ## 8. Pull-request expectations
 

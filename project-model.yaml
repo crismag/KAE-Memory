@@ -1,16 +1,17 @@
 model:
-  version: 4
-  last_commit: 4
-  generated: "2026-07-26"
+  version: 5
+  last_commit: 5
+  generated: "2026-07-27"
 
 project:
   name: KAE-Memory
   working_title: Persistent Memory and Knowledge Evolution for Autonomous AI Agents
   description: >
-    Persistent-memory foundation for an AI-native software engineering platform
-    in which specialised AI agents collaborate across the software development
-    lifecycle using durable shared project knowledge.
-  status: requirements
+    Engineering-memory operating system for an AI-native software engineering
+    platform, demonstrated through an AI product-discovery workspace that turns
+    an incomplete software idea into confirmed, source-traceable engineering
+    knowledge and a development blueprint.
+  status: implementation
   project_type: platform
   intended_users:
     - independent software developers
@@ -24,7 +25,9 @@ project:
     - human developers
     - AI coding agents
     - internal platform agents
-  target_platforms: []
+  target_platforms:
+    - web application
+    - Python library
   downstream_consumers:
     - human team
     - coding agents
@@ -37,19 +40,78 @@ project:
     - prompt packages
     - development workflow documentation
     - knowledge-acquisition methodology
-    - public greenfield GitHub repository
+    - public GitHub implementation repository
+    - engineering specifications
+    - domain contracts
+    - CockroachDB persistence foundations
+    - product experience definition
+    - demonstration narrative
+    - execution roadmap
   known_constraints:
     - CON-001
     - CON-002
     - CON-003
     - CON-004
   open_questions:
-    - OQ-006
-    - OQ-007
-    - OQ-008
-    - OQ-009
+    - OQ-010
+    - OQ-011
+    - OQ-012
+    - OQ-013
   depth: full
-  current_stage: 3
+  current_stage: implementation_kickoff
+  current_milestone: M4
+
+milestones:
+  - id: M0
+    title: Foundation
+    outcome: repository, tooling, CI, and layered context model
+    status: complete
+  - id: M1
+    title: Domain
+    outcome: identifiers, provenance, knowledge versions, lifecycle, typed errors
+    status: complete
+  - id: M2
+    title: Persistence
+    outcome: SQLAlchemy knowledge mapping, retry semantics, first migration
+    status: complete
+    note: >
+      Knowledge items and versions only. Project, session, message, and
+      relationship tables are not implemented.
+  - id: M3
+    title: Product Experience
+    outcome: product identity, journey, screens, demo narrative, architecture context
+    status: complete
+  - id: M4
+    title: Repository Realignment
+    outcome: project documents describe the repository that actually exists
+    status: current
+  - id: M5
+    title: Clickable Prototype
+    outcome: seeded UI proving the discovery journey without backend dependencies
+    status: open
+  - id: M6
+    title: Walking Skeleton
+    outcome: >
+      Application layer over the existing persistence foundation: project
+      creation, persisted message, candidate knowledge, and the schema the
+      remaining entities still require.
+    status: open
+  - id: M7
+    title: Knowledge Lifecycle
+    outcome: confirm, reject, revise, and supersede with audit history
+    status: open
+  - id: M8
+    title: Semantic Retrieval
+    outcome: embeddings, structured and semantic recall, return-session proof
+    status: open
+  - id: M9
+    title: AWS Integration
+    outcome: deployment of only the services the coherent product slice requires
+    status: open
+  - id: M10
+    title: Demo Ready
+    outcome: resettable environment, seed data, fallbacks, submission evidence
+    status: open
 
 requirements:
   - id: BG-001
@@ -75,8 +137,9 @@ requirements:
   - id: CON-001
     title: Specification boundary
     statement: >
-      The context-architecture engagement produces requirements, design, tasks,
-      and development context rather than the full production codebase.
+      Product direction, requirements, architecture, and task definition precede
+      implementation. Coding agents execute bounded tasks rather than inventing
+      scope.
     type: constraint
     source: operating-principles
     priority: must
@@ -95,8 +158,8 @@ requirements:
   - id: CON-003
     title: Incremental implementation
     statement: >
-      Implementation proceeds incrementally from the existing planning and
-      architecture foundation.
+      Implementation proceeds incrementally in vertical, independently verifiable
+      product slices.
     type: constraint
     source: user-interview
     priority: must
@@ -112,11 +175,232 @@ requirements:
     priority: must
     status: captured
     confidence: high
+  - id: FR-001
+    title: Project creation
+    statement: >
+      A user can create a durable project from an incomplete idea and return to it
+      by stable identifier.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-002
+    title: Session continuity
+    statement: >
+      Work is grouped into sessions belonging to a project, and a later session
+      resumes from durable project state rather than an empty conversation.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-003
+    title: Message and source capture
+    statement: >
+      Every user submission is persisted verbatim as source evidence before any
+      interpretation occurs.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-004
+    title: Candidate knowledge extraction
+    statement: >
+      Submitted input produces typed candidate knowledge items with provenance
+      linking each item to the source that produced it.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: medium
+  - id: FR-005
+    title: Human confirmation
+    statement: >
+      A human can confirm, reject, or revise candidate knowledge, and the item's
+      status is visible in the interface.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-006
+    title: Supersession without loss
+    statement: >
+      Correcting knowledge marks the prior version superseded and keeps it
+      retrievable rather than deleting it.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-007
+    title: Cross-session retrieval
+    statement: >
+      Confirmed project knowledge can be retrieved in a later session with its
+      status, version, and source visible.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: high
+  - id: FR-008
+    title: Blueprint preview
+    statement: >
+      Confirmed knowledge can be rendered as a reviewable blueprint whose
+      statements link back to their supporting evidence.
+    type: functional
+    source: product-experience
+    priority: must
+    status: approved
+    confidence: medium
 
-decisions: []
-modules: []
-interfaces: []
-entities: []
+decisions:
+  - id: ADR-0001
+    title: Memory-first foundation
+    statement: >
+      Durable, provenance-aware knowledge is implemented before orchestration,
+      retrieval, generation, or user interface work.
+    status: accepted
+    record: specifications/ADR/ADR-0001-memory-first.md
+    affects:
+      - MOD-knowledge
+      - MOD-persistence
+  - id: ADR-0002
+    title: Python library-first bootstrap
+    statement: >
+      The system begins as a Python 3.12 library with transport- and
+      persistence-independent domain contracts. Application and service layers are
+      added only when a slice requires them.
+    status: accepted
+    record: specifications/ADR/ADR-0002-python-library-first-bootstrap.md
+    affects:
+      - MOD-knowledge
+      - MOD-workflow
+  - id: ADR-0003
+    title: SQLAlchemy, Alembic, and psycopg persistence
+    statement: >
+      Persistence uses SQLAlchemy 2.0 mappings, Alembic migrations, and psycopg 3
+      against CockroachDB, with serialization-failure retry at the unit-of-work
+      boundary.
+    status: accepted
+    record: specifications/ADR/ADR-0003-sqlalchemy-alembic-psycopg.md
+    affects:
+      - MOD-persistence
+
+modules:
+  - id: MOD-projects
+    name: Projects
+    responsibility: durable project identity, ownership, and lifecycle
+    status: specified
+    implemented: false
+  - id: MOD-sessions
+    name: Sessions
+    responsibility: session boundaries, message capture, and continuity state
+    status: specified
+    implemented: false
+  - id: MOD-knowledge
+    name: Knowledge
+    responsibility: typed knowledge items, immutable versions, provenance, relationships
+    status: implemented
+    implemented: true
+    location: src/kae_memory/domain/
+  - id: MOD-persistence
+    name: Persistence
+    responsibility: relational mapping, repositories, transactions, migrations
+    status: partial
+    implemented: partial
+    location: src/kae_memory/persistence/
+    note: knowledge items and versions only
+  - id: MOD-workflow
+    name: Workflow
+    responsibility: extraction, question selection, confirmation, and supersession flows
+    status: specified
+    implemented: false
+  - id: MOD-retrieval
+    name: Retrieval
+    responsibility: structured and semantic recall with status and source filters
+    status: specified
+    implemented: false
+  - id: MOD-blueprint
+    name: Blueprint Generation
+    responsibility: grounded section generation, labelling, and export
+    status: specified
+    implemented: false
+  - id: MOD-audit
+    name: Audit
+    responsibility: change history, quality findings, and traceability inspection
+    status: specified
+    implemented: false
+
+interfaces:
+  - id: IF-project
+    name: Project Service
+    consumers:
+      - user interface
+      - coding agents
+    responsibility: create, list, and open projects; expose readiness state
+    status: proposed
+    implemented: false
+  - id: IF-knowledge
+    name: Knowledge Service
+    consumers:
+      - user interface
+      - internal platform agents
+    responsibility: submit sources, propose candidates, confirm, revise, supersede
+    status: proposed
+    implemented: false
+  - id: IF-retrieval
+    name: Retrieval Service
+    consumers:
+      - user interface
+      - coding agents
+    responsibility: return task-relevant knowledge with status, version, and provenance
+    status: proposed
+    implemented: false
+  - id: IF-blueprint
+    name: Blueprint Service
+    consumers:
+      - user interface
+    responsibility: generate, label, and export traceable blueprint sections
+    status: proposed
+    implemented: false
+
+entities:
+  - id: ENT-project
+    name: Project
+    owner: MOD-projects
+    implemented: domain-only
+  - id: ENT-agent
+    name: Agent
+    owner: MOD-projects
+    implemented: domain-only
+  - id: ENT-session
+    name: Session
+    owner: MOD-sessions
+    implemented: false
+  - id: ENT-message
+    name: Message
+    owner: MOD-sessions
+    implemented: false
+  - id: ENT-knowledge-item
+    name: KnowledgeItem
+    owner: MOD-knowledge
+    implemented: true
+  - id: ENT-knowledge-version
+    name: KnowledgeVersion
+    owner: MOD-knowledge
+    implemented: true
+  - id: ENT-provenance
+    name: Provenance
+    owner: MOD-knowledge
+    implemented: true
+  - id: ENT-relationship
+    name: Relationship
+    owner: MOD-knowledge
+    implemented: domain-only
+
 actors:
   - human product and architecture owner
   - human developer
@@ -131,41 +415,94 @@ sources:
     purpose: implementation repository
     authority: primary
     trust_level: high
-    freshness: "2026-07-26"
+    freshness: "2026-07-27"
     scope: >
-      Greenfield implementation repository for the persistent-memory foundation.
+      Implementation repository containing the project model, specifications,
+      domain contracts, persistence foundations, product experience, and roadmap.
     important_paths:
-      - .gitignore
+      - README.md
+      - project-model.yaml
+      - docs/
+      - specifications/
+      - src/kae_memory/
+      - migrations/
+      - tests/
+      - .github/workflows/ci.yml
     excluded_paths: []
     extracted_findings:
-      - EV-001
+      - EV-002
+      - EV-003
+      - EV-004
     access_status: accessed
 
 evidence:
-  - id: EV-001
+  - id: EV-002
     source: SRC-001
     statement: >
-      The public repository currently exposes one commit and a root .gitignore,
-      with no visible application source, tests, schema, CI, or architecture
-      package.
+      The repository contains a domain package, a persistence package with
+      SQLAlchemy mappings and a CockroachDB retry policy, one Alembic revision,
+      ten tests, a CI workflow, nine engineering specifications, three accepted
+      ADRs, and eleven project documents.
     location: repository root
     type: current_behavior
     confidence: high
     supports:
       - CON-004
+      - ADR-0002
+      - ADR-0003
+  - id: EV-003
+    source: SRC-001
+    statement: >
+      Persistence covers knowledge items and knowledge versions only. Project,
+      agent, session, message, and relationship tables do not exist, and no
+      application service, interface, or user interface is implemented.
+    location: src/kae_memory/, migrations/versions/
+    type: current_behavior
+    confidence: high
+    supports:
+      - OQ-010
+  - id: EV-004
+    source: SRC-001
+    statement: >
+      make check does not pass. ruff reports six findings, ruff format would
+      reformat two files, and one persistence test fails because SQLite returns
+      naive datetimes that violate the timezone-aware provenance invariant.
+      Alembic has no alembic.ini or migrations/env.py, and no uv.lock is
+      committed. mypy strict passes.
+    location: repository root
+    type: current_behavior
+    confidence: high
+    supports:
+      - TASK-002
+      - TASK-003
+      - TASK-004
+      - TASK-005
 
 knowledge_gaps:
   - id: KG-001
     topic: Uncommitted project assets
     why_needed: >
-      Previously described repository structure and supporting documentation
-      were not visible in the public repository.
+      Previously described repository structure and supporting documentation were
+      not visible in the public repository.
     category: source
     current_understanding: >
-      They may be local, private, or not yet committed.
+      The repository now contains the specification, product, architecture, and
+      implementation assets that were previously unaccounted for.
+    risk_if_wrong: low
+    blocks: []
+    status: closed
+  - id: KG-002
+    topic: Extraction quality bounds
+    why_needed: >
+      Candidate-knowledge extraction quality determines how much human
+      confirmation effort the product requires.
+    category: behaviour
+    current_understanding: >
+      A deterministic fake adapter is planned for the walking skeleton; real model
+      behaviour is unmeasured.
     risk_if_wrong: medium
     blocks:
-      - repository-state validation
+      - extraction acceptance criteria
     status: open
 
 research_findings: []
@@ -176,14 +513,15 @@ risks:
       Beginning implementation before defining the project may cause invented
       scope and untraceable development tasks.
     category: delivery
-    likelihood: high
+    likelihood: low
     impact: high
     affects:
       - BG-001
     mitigation: >
-      Approve requirements, architecture, and bounded tasks before implementation.
+      Requirements, architecture decisions, and bounded task contexts are now
+      recorded and precede each slice.
     owner: human product and architecture owner
-    status: open
+    status: mitigated
   - id: RISK-002
     description: >
       Multi-agent collaboration through persistent shared memory may create
@@ -195,22 +533,65 @@ risks:
       - BG-001
       - UN-001
     mitigation: >
-      Make the first release test persistent collaboration, provenance,
-      conflict handling, and reuse across sessions.
+      Lifecycle states, supersession without deletion, and provenance on every
+      version are implemented in the domain and must be preserved by every slice.
     owner: human product and architecture owner
     status: open
   - id: RISK-003
     description: >
       Premature repository bootstrapping could embed accidental architecture.
     category: delivery
-    likelihood: high
-    impact: high
+    likelihood: low
+    impact: medium
     affects:
       - CON-003
       - CON-004
     mitigation: >
-      Bootstrap context and planning files first; defer implementation-specific
-      structure until the MVP and architecture are approved.
+      The bootstrap was constrained to a library-first core with ports at the
+      persistence boundary, recorded in ADR-0002 and ADR-0003.
+    owner: human product and architecture owner
+    status: mitigated
+  - id: RISK-004
+    description: >
+      Project documentation drifted ahead of and behind the implemented code,
+      causing coding agents to act on an inaccurate repository state.
+    category: delivery
+    likelihood: high
+    impact: high
+    affects:
+      - CON-001
+      - CON-003
+    mitigation: >
+      docs/00_project/CURRENT_PROJECT_STATE.md is the first-loaded context and is
+      updated at the close of every milestone.
+    owner: human product and architecture owner
+    status: mitigating
+  - id: RISK-005
+    description: >
+      The main branch does not pass its own quality gate, so CI signal is
+      unreliable and defects can accumulate unnoticed.
+    category: quality
+    likelihood: high
+    impact: high
+    affects:
+      - CON-003
+    mitigation: >
+      TASK-002 through TASK-005 restore a green make check before slice work
+      begins.
+    owner: human product and architecture owner
+    status: open
+  - id: RISK-006
+    description: >
+      Hackathon demonstration depends on cloud services that are not yet
+      provisioned and on model behaviour that is not yet measured.
+    category: delivery
+    likelihood: medium
+    impact: high
+    affects:
+      - BG-001
+    mitigation: >
+      Deterministic adapters, seeded demo state, and documented fallback outputs
+      are required before the demo milestone.
     owner: human product and architecture owner
     status: open
 
@@ -218,72 +599,230 @@ open_questions:
   - id: OQ-006
     question: >
       What is the approved MVP-1 feature boundary and its Must-have requirements?
-    why_it_matters: >
-      Architecture and implementation tasks must trace to an approved release
-      boundary.
-    blocks:
-      - requirements baseline
-      - architecture
-      - development tasks
-    owner: human product and architecture owner
-    risk_if_unanswered: critical
-    default_if_unanswered: >
-      Only capabilities directly required to prove persistent multi-agent
-      engineering memory are considered candidate MVP scope.
-    status: open
+    status: closed
+    resolution: >
+      Closed by the approved MVP requirements baseline and MVP scope boundary:
+      project, session, message, knowledge, confirmation, supersession,
+      retrieval, and blueprint preview are in; multi-agent runtime, MCP write
+      operations, advanced retrieval, and document ingestion are deferred.
   - id: OQ-007
     question: >
       What are the approved bounded contexts, module boundaries, and service
       contracts?
-    why_it_matters: >
-      Repository layout and task scope depend on stable ownership boundaries.
-    blocks:
-      - executable architecture
-      - implementation tasks
-    owner: human product and architecture owner
-    risk_if_unanswered: high
-    default_if_unanswered: >
-      No service decomposition or framework-specific repository structure is
-      approved.
-    status: open
+    status: closed
+    resolution: >
+      Closed by the module and interface sets recorded in this model: projects,
+      sessions, knowledge, persistence, workflow, retrieval, blueprint, and audit,
+      exposed through project, knowledge, retrieval, and blueprint services.
   - id: OQ-008
     question: >
       What is the persistent engineering-memory domain model and its ownership?
-    why_it_matters: >
-      Memory is the central product capability and shapes data, retrieval,
-      provenance, versioning, and conflict behaviour.
-    blocks:
-      - data architecture
-      - CockroachDB schema
-      - memory contracts
-    owner: human product and architecture owner
-    risk_if_unanswered: critical
-    default_if_unanswered: >
-      No physical database schema may be treated as approved.
-    status: open
+    status: closed
+    resolution: >
+      Closed by the implemented domain contracts and DOMAIN_MODEL specification.
+      Physical design beyond the knowledge tables remains open under OQ-010.
   - id: OQ-009
     question: >
       Are the previously described repository structure and supporting documents
       stored elsewhere or not yet committed?
+    status: closed
+    resolution: >
+      Closed by EV-002. The assets are committed and are the current source of
+      truth.
+  - id: OQ-010
+    question: >
+      What is the physical schema for projects, sessions, messages, and
+      relationships, and how does it relate to the existing knowledge tables?
     why_it_matters: >
-      Existing assets may constrain or replace parts of this bootstrap package.
+      The walking skeleton depends on tables that do not yet exist, and the
+      existing knowledge migration must remain valid.
     blocks:
-      - complete source inventory
+      - M6
+      - M7
+    owner: human product and architecture owner
+    risk_if_unanswered: high
+    default_if_unanswered: >
+      No schema beyond the knowledge tables is treated as approved.
+    status: open
+  - id: OQ-011
+    question: >
+      Which frontend technology delivers the clickable prototype and the MVP
+      workspace?
+    why_it_matters: >
+      M5 cannot begin implementation without an approved frontend decision and a
+      recorded ADR.
+    blocks:
+      - M5
+    owner: human product and architecture owner
+    risk_if_unanswered: high
+    default_if_unanswered: >
+      No frontend framework is approved and no UI code may be committed.
+    status: open
+  - id: OQ-012
+    question: >
+      What model provider, prompt contract, and validation schema govern candidate
+      knowledge extraction?
+    why_it_matters: >
+      Extraction determines knowledge quality, confirmation effort, and the
+      deterministic test fixtures required for reproducible slices.
+    blocks:
+      - M6
+      - M7
+    owner: human product and architecture owner
+    risk_if_unanswered: critical
+    default_if_unanswered: >
+      Only a deterministic fake extraction adapter may be used.
+    status: open
+  - id: OQ-013
+    question: >
+      What readiness model determines when a blueprint may be generated?
+    why_it_matters: >
+      Readiness is a visible product signal and a gate on the primary output; an
+      invented formula would misrepresent project state to the user.
+    blocks:
+      - M10
     owner: human product and architecture owner
     risk_if_unanswered: medium
     default_if_unanswered: >
-      Treat the public repository as greenfield.
+      Readiness is presented as coverage of required discovery areas only, with no
+      numeric score treated as approved.
     status: open
 
 assumptions:
   - classification: assumption
     statement: >
-      CockroachDB remains the preferred durable-memory foundation, but no
-      physical schema or integration architecture is approved.
+      CockroachDB remains the durable-memory foundation. The knowledge tables are
+      approved; the remaining physical design is not.
+    status: active
+  - classification: assumption
+    statement: >
+      AWS is the intended deployment target, but no service is provisioned and no
+      deployment baseline is approved.
     status: active
 
-tasks: []
-acceptance_tests: []
+tasks:
+  - id: TASK-001
+    title: Define core domain contracts
+    milestone: M1
+    status: complete
+    scope:
+      - src/kae_memory/domain/
+      - tests/domain/
+    record: development/tasks/TASK-001-domain-contracts.md
+  - id: TASK-002
+    title: Repository realignment
+    milestone: M4
+    status: in_progress
+    objective: >
+      Update the project model, README, requirements baseline, scope, brief,
+      development plan, execution roadmap, and context index so that repository
+      documentation describes the implemented system, and add a first-loaded
+      current-state page.
+    scope:
+      - README.md
+      - project-model.yaml
+      - docs/
+    prohibited:
+      - application code
+      - schema changes
+      - service provisioning
+  - id: TASK-003
+    title: Restore green quality gate
+    milestone: M4
+    status: ready
+    objective: >
+      Fix timezone normalisation on knowledge rehydration, clear the six ruff
+      findings and two formatting differences, and make make check pass.
+    scope:
+      - src/kae_memory/
+      - tests/
+    acceptance:
+      - make check passes locally and in CI
+  - id: TASK-004
+    title: Executable migration environment
+    milestone: M4
+    status: ready
+    objective: >
+      Add alembic.ini and migrations/env.py so revision 0001 can be applied and
+      rolled back, and document the local database workflow.
+    scope:
+      - alembic.ini
+      - migrations/
+      - docs/09_development/
+  - id: TASK-005
+    title: Reproducible dependency resolution and retry tests
+    milestone: M4
+    status: ready
+    objective: >
+      Commit uv.lock and add tests covering run_transaction retry, backoff, and
+      exhaustion behaviour including SQLSTATE 40001 detection.
+    scope:
+      - uv.lock
+      - tests/persistence/
+  - id: TASK-006
+    title: UI prototype plan
+    milestone: M5
+    status: blocked
+    blocked_by:
+      - OQ-011
+    objective: >
+      Produce docs/09_development/plans/PX_01_UI_PROTOTYPE_PLAN.md defining
+      routes, components, states, seeded demo data, and accessibility
+      requirements. No implementation.
+  - id: TASK-007
+    title: Walking skeleton
+    milestone: M6
+    status: blocked
+    blocked_by:
+      - OQ-010
+      - OQ-012
+    objective: >
+      Implement project creation, message submission, durable source capture, and
+      deterministic candidate extraction behind ports, surfaced in the discovery
+      workspace.
+  - id: TASK-008
+    title: Confirmation and supersession flow
+    milestone: M7
+    status: blocked
+    blocked_by:
+      - TASK-007
+    objective: >
+      Implement confirm, reject, revise, and supersede operations over the
+      existing lifecycle contracts with audit history and dependent-output flags.
+
+acceptance_tests:
+  - id: AT-001
+    covers:
+      - FR-003
+      - FR-004
+    scenario: >
+      A submitted message is persisted verbatim and produces at least one
+      candidate knowledge item whose provenance identifies that message.
+    status: defined
+  - id: AT-002
+    covers:
+      - FR-005
+      - FR-006
+    scenario: >
+      Confirming an item makes it active; revising it creates a new version and
+      leaves the prior version retrievable as superseded.
+    status: defined
+  - id: AT-003
+    covers:
+      - FR-002
+      - FR-007
+    scenario: >
+      A second session for the same project retrieves knowledge confirmed in the
+      first session, with status, version, and source intact.
+    status: defined
+  - id: AT-004
+    covers:
+      - FR-008
+    scenario: >
+      A generated blueprint section links each statement to the confirmed
+      knowledge item and source evidence that produced it.
+    status: defined
+
 traces:
   - business_goal: BG-001
     user_need: UN-001
@@ -291,29 +830,74 @@ traces:
       - CON-002
       - CON-003
       - CON-004
-    decisions: []
-    modules: []
-    tasks: []
-    tests: []
+      - FR-001
+      - FR-002
+      - FR-003
+      - FR-004
+      - FR-005
+      - FR-006
+      - FR-007
+      - FR-008
+    decisions:
+      - ADR-0001
+      - ADR-0002
+      - ADR-0003
+    modules:
+      - MOD-projects
+      - MOD-sessions
+      - MOD-knowledge
+      - MOD-persistence
+      - MOD-workflow
+      - MOD-retrieval
+      - MOD-blueprint
+      - MOD-audit
+    tasks:
+      - TASK-001
+      - TASK-002
+      - TASK-003
+      - TASK-004
+      - TASK-005
+      - TASK-006
+      - TASK-007
+      - TASK-008
+    tests:
+      - AT-001
+      - AT-002
+      - AT-003
+      - AT-004
 
 artifacts:
   - path: README.md
-    generated_from_model_version: 4
+    generated_from_model_version: 5
   - path: docs/CONTEXT_INDEX.md
-    generated_from_model_version: 4
+    generated_from_model_version: 5
+  - path: docs/00_project/CURRENT_PROJECT_STATE.md
+    generated_from_model_version: 5
   - path: docs/00_project/PROJECT_BRIEF.md
-    generated_from_model_version: 4
+    generated_from_model_version: 5
   - path: docs/01_discovery/PROBLEM_DEFINITION.md
     generated_from_model_version: 4
   - path: docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md
-    generated_from_model_version: 4
+    generated_from_model_version: 5
   - path: docs/05_product/MVP_SCOPE.md
+    generated_from_model_version: 5
+  - path: docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md
+    generated_from_model_version: 4
+  - path: docs/05_product/DEMO_STORY_AND_SCRIPT.md
+    generated_from_model_version: 4
+  - path: docs/05_product/MVP_UI_WORKSPACE.md
     generated_from_model_version: 4
   - path: docs/06_architecture/ARCHITECTURE_WORKPLAN.md
     generated_from_model_version: 4
-  - path: docs/09_development/DEVELOPMENT_PLAN.md
+  - path: docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md
     generated_from_model_version: 4
+  - path: docs/09_development/DEVELOPMENT_PLAN.md
+    generated_from_model_version: 5
+  - path: docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
+    generated_from_model_version: 5
   - path: docs/10_prompts/TASK_CONTEXT_TEMPLATE.md
+    generated_from_model_version: 4
+  - path: specifications/
     generated_from_model_version: 4
 
 id_register:
@@ -323,39 +907,89 @@ id_register:
   - {id: CON-002, type: constraint, status: active, superseded_by: null}
   - {id: CON-003, type: constraint, status: active, superseded_by: null}
   - {id: CON-004, type: constraint, status: active, superseded_by: null}
+  - {id: FR-001, type: requirement, status: active, superseded_by: null}
+  - {id: FR-002, type: requirement, status: active, superseded_by: null}
+  - {id: FR-003, type: requirement, status: active, superseded_by: null}
+  - {id: FR-004, type: requirement, status: active, superseded_by: null}
+  - {id: FR-005, type: requirement, status: active, superseded_by: null}
+  - {id: FR-006, type: requirement, status: active, superseded_by: null}
+  - {id: FR-007, type: requirement, status: active, superseded_by: null}
+  - {id: FR-008, type: requirement, status: active, superseded_by: null}
+  - {id: ADR-0001, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0002, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0003, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
-  - {id: EV-001, type: evidence, status: active, superseded_by: null}
-  - {id: KG-001, type: knowledge_gap, status: active, superseded_by: null}
-  - {id: RISK-001, type: risk, status: active, superseded_by: null}
+  - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
+  - {id: EV-002, type: evidence, status: active, superseded_by: null}
+  - {id: EV-003, type: evidence, status: active, superseded_by: null}
+  - {id: EV-004, type: evidence, status: active, superseded_by: null}
+  - {id: KG-001, type: knowledge_gap, status: closed, superseded_by: null}
+  - {id: KG-002, type: knowledge_gap, status: active, superseded_by: null}
+  - {id: RISK-001, type: risk, status: mitigated, superseded_by: null}
   - {id: RISK-002, type: risk, status: active, superseded_by: null}
-  - {id: RISK-003, type: risk, status: active, superseded_by: null}
-  - {id: OQ-006, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-007, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-008, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-009, type: open_question, status: active, superseded_by: null}
+  - {id: RISK-003, type: risk, status: mitigated, superseded_by: null}
+  - {id: RISK-004, type: risk, status: active, superseded_by: null}
+  - {id: RISK-005, type: risk, status: active, superseded_by: null}
+  - {id: RISK-006, type: risk, status: active, superseded_by: null}
+  - {id: OQ-006, type: open_question, status: closed, superseded_by: null}
+  - {id: OQ-007, type: open_question, status: closed, superseded_by: null}
+  - {id: OQ-008, type: open_question, status: closed, superseded_by: null}
+  - {id: OQ-009, type: open_question, status: closed, superseded_by: null}
+  - {id: OQ-010, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-011, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-012, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-013, type: open_question, status: active, superseded_by: null}
+  - {id: TASK-001, type: task, status: complete, superseded_by: null}
+  - {id: TASK-002, type: task, status: active, superseded_by: null}
+  - {id: TASK-003, type: task, status: active, superseded_by: null}
+  - {id: TASK-004, type: task, status: active, superseded_by: null}
+  - {id: TASK-005, type: task, status: active, superseded_by: null}
+  - {id: TASK-006, type: task, status: active, superseded_by: null}
+  - {id: TASK-007, type: task, status: active, superseded_by: null}
+  - {id: TASK-008, type: task, status: active, superseded_by: null}
+  - {id: AT-001, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-002, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-003, type: acceptance_test, status: active, superseded_by: null}
+  - {id: AT-004, type: acceptance_test, status: active, superseded_by: null}
 
 undefined:
-  - area: requirements
-    missing: >
-      Approved functional and non-functional requirements with measurable
-      acceptance criteria.
-    blocks:
-      - Stage 5 architecture
-      - Stage 8 task planning
-  - area: architecture
-    missing: >
-      Approved module boundaries, interfaces, data ownership, failure behaviour,
-      deployment constraints, and significant decisions.
-    blocks:
-      - repository implementation structure
-      - executable development tasks
   - area: data
     missing: >
-      Engineering-memory domain model, provenance rules, versioning semantics,
-      conflict handling, retrieval behaviour, and physical persistence design.
+      Physical design for projects, sessions, messages, and relationships, and
+      their relationship to the existing knowledge tables.
     blocks:
-      - CockroachDB schema
-      - memory service contracts
+      - M6
+      - M7
+  - area: interface
+    missing: >
+      Approved frontend technology, route contracts, and component boundaries.
+    blocks:
+      - M5
+  - area: extraction
+    missing: >
+      Model provider decision, prompt contract, output schema, and validation and
+      failure behaviour.
+    blocks:
+      - M6
+  - area: non_functional
+    missing: >
+      Measurable latency, availability, retention, tenancy, and security targets.
+      No figures may be invented.
+    blocks:
+      - M9
+      - M10
+  - area: retrieval
+    missing: >
+      Approved embedding model, vector index strategy, and relevance behaviour.
+    blocks:
+      - M8
+  - area: deployment
+    missing: >
+      Approved AWS baseline, secrets handling, cost controls, and teardown
+      procedure.
+    blocks:
+      - M9
+      - M10
 
 history:
   - commit: 1
@@ -410,3 +1044,66 @@ history:
     conflicts:
       - EV-001 vs OQ-003
     stage: Requirements Stage 3
+  - commit: 5
+    added:
+      - FR-001
+      - FR-002
+      - FR-003
+      - FR-004
+      - FR-005
+      - FR-006
+      - FR-007
+      - FR-008
+      - ADR-0002
+      - ADR-0003
+      - EV-002
+      - EV-003
+      - EV-004
+      - KG-002
+      - RISK-004
+      - RISK-005
+      - RISK-006
+      - OQ-010
+      - OQ-011
+      - OQ-012
+      - OQ-013
+      - TASK-002
+      - TASK-003
+      - TASK-004
+      - TASK-005
+      - TASK-006
+      - TASK-007
+      - TASK-008
+      - AT-001
+      - AT-002
+      - AT-003
+      - AT-004
+      - M0..M10 milestone register
+    changed:
+      - project.status
+      - project.current_stage
+      - modules
+      - interfaces
+      - entities
+      - EV-001
+      - KG-001
+      - RISK-001
+      - RISK-003
+      - OQ-006
+      - OQ-007
+      - OQ-008
+      - OQ-009
+    deferred:
+      - multi-agent runtime
+      - MCP write operations
+      - advanced retrieval
+      - document ingestion
+    conflicts:
+      - >
+        Documentation described a pre-implementation bootstrap while the
+        repository contained domain contracts, persistence, CI, and product
+        definition. Resolved in favour of the repository state recorded in EV-002
+        and EV-003.
+    stage: >
+      Product Experience milestone, Three-System Architecture context, Codex and
+      Claude Execution Roadmap, and Repository Realignment

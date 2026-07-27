@@ -1,6 +1,9 @@
 # Architecture Workplan
 
-**Status:** architecture not yet approved.
+**Status:** partially approved. ADR-0001 to ADR-0003 are accepted; the questions
+below are the architecture work that remains. See
+[`../00_project/CURRENT_PROJECT_STATE.md`](../00_project/CURRENT_PROJECT_STATE.md)
+for which decisions block which milestone.
 
 The architecture must be derived from the approved MVP requirements. This
 workplan records the views and decisions required before implementation tasks

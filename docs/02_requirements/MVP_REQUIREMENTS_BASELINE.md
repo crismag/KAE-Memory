@@ -1,87 +1,147 @@
 # MVP Requirements Baseline
 
-**Status:** not yet approved.
+**Status:** approved for implementation, 2026-07-27.
 
-This document defines the work required to produce the first approved requirements
-baseline. It deliberately does not convert candidate capabilities into approved
-requirements.
+This baseline approves the minimum set of requirements needed to authorise the
+first end-to-end product slice. It deliberately approves less than the full
+product. Anything not listed under "Approved MVP requirements" is not authorised,
+and a coding agent must not implement it.
 
-## Established requirements and constraints
+## Established constraints
 
 - The platform must address persistent, long-term AI engineering collaboration.
 - Human owners retain requirements validation, architecture approval, final
   technical decisions, and quality assurance.
-- Development proceeds incrementally.
+- Development proceeds incrementally in vertical, independently verifiable
+  slices.
 - The `crismag/KAE-Memory` repository is the implementation target.
-- The first release must test persistent shared memory as the foundation for
+- The first release must prove persistent shared memory as the foundation for
   multi-agent engineering collaboration.
 
-## Candidate capability areas requiring validation
+## Approved MVP requirements
 
-The following are **derived-unvalidated**. They are review prompts, not approved
-scope:
+Each requirement below is authorised for implementation. Identifiers match
+`project-model.yaml`.
 
-1. Project registration and durable identity.
-2. Agent identity and role attribution.
-3. Persistent storage of engineering knowledge.
-4. Provenance for every stored contribution.
-5. Version history and supersession.
-6. Retrieval of task-relevant project context.
-7. Representation of requirements, decisions, tasks, and artefacts.
-8. Cross-session continuity.
-9. Conflict detection or explicit competing claims.
-10. Human validation and correction.
-11. Trace links between needs, requirements, decisions, tasks, and evidence.
-12. An observable multi-agent proof workflow.
+### FR-001 — Project
 
-## Required requirement dimensions
+A user can create a durable project from an incomplete idea and reopen it later
+by stable identifier. A project owns all knowledge, sessions, and outputs derived
+within it. No cross-project reads.
 
-Before Gate 2, the baseline must define:
+*Acceptance:* a project created in one session is retrievable in another with its
+identity and creation provenance intact.
 
-### Actors and permissions
+### FR-002 — Session
 
-Who can read, write, validate, supersede, reject, and delete each memory class.
+Work is grouped into sessions belonging to a project. A new session resumes from
+durable project state and shows what was previously established, what changed,
+and what remains uncertain.
 
-### Memory inputs
+*Acceptance:* AT-003.
 
-What agents or humans may submit, required metadata, supported artefact types,
-and boundary validation.
+### FR-003 — Message
 
-### Memory outputs
+Every user submission is persisted verbatim as source evidence before any
+interpretation occurs. The stored text is never rewritten by extraction.
 
-What retrieval returns, ordering and relevance behaviour, provenance, version,
-confidence, and conflict indicators.
+*Acceptance:* AT-001. A stored message is byte-identical to what was submitted.
 
-### Knowledge lifecycle
+### FR-004 — Knowledge
 
-Creation, validation, amendment, supersession, rejection, retention, deletion,
-and restoration behaviour.
+Submitted input produces typed candidate knowledge items. Every knowledge version
+carries provenance identifying its source, actor, and execution. History is
+append-oriented; prior versions are never overwritten.
 
-### Failure behaviour
+*Acceptance:* AT-001. Each candidate resolves to the message that produced it.
 
-Unavailable database, partial writes, duplicate submissions, conflicting
-updates, stale retrieval, malformed content, and provider failure.
+### FR-005 — Confirmation
 
-### Non-functional requirements
+A human can confirm, reject, or revise candidate knowledge. Status is visible in
+the interface using the labels proposed, confirmed, needs review, conflicting,
+and superseded. Model confidence may be shown as supporting information but never
+substitutes for confirmation.
 
-Expected scale, latency, availability, durability, consistency, portability,
-observability, privacy, security, auditability, and maintainability. No figures
-may be invented.
+*Acceptance:* AT-002. Invalid lifecycle transitions return a typed error.
 
-### Acceptance proof
+### FR-006 — Supersession
 
-A repeatable scenario showing at least two specialised agents completing
-different stages of one software-engineering workflow while retrieving and
-reusing durable shared knowledge across separate sessions.
+Correcting knowledge marks the prior version superseded and keeps it retrievable.
+Deletion is not part of the MVP correction path.
+
+*Acceptance:* AT-002. Both the superseded and active versions remain visible.
+
+### FR-007 — Retrieval
+
+Confirmed project knowledge can be retrieved in a later session, filtered by
+project and status, with version and provenance returned alongside content.
+Retrieval in the MVP is structural. Semantic retrieval is deferred.
+
+*Acceptance:* AT-003.
+
+### FR-008 — Blueprint preview
+
+Confirmed knowledge can be rendered as a reviewable blueprint whose statements
+link back to their supporting evidence. Statements are labelled grounded,
+derived, or assumption. Export is Markdown.
+
+*Acceptance:* AT-004. No blueprint statement lacks a label or a trace target.
+
+## Deferred — not authorised for the MVP
+
+These are recognised as product direction but must not be implemented under this
+baseline:
+
+- **Multi-agent autonomy.** Concurrent specialised agents acting without human
+  confirmation. The MVP proves durable memory with a single extraction workflow
+  and a human in the loop.
+- **MCP write operations.** A read-only audit boundary may be explored later; no
+  MCP path may write to project memory.
+- **Full workflow orchestration.** Multi-step agent workflows, scheduling,
+  asynchronous job graphs, and autonomous progression between discovery stages.
+- **Advanced retrieval.** Embeddings, vector indexes, hybrid ranking, and
+  relevance tuning.
+- **Production deployment.** Multi-region operation, scaling, SLAs, and
+  operational hardening beyond the demonstration.
+- **Enterprise administration.** Tenancy, user management, roles, audit
+  consoles, and configuration surfaces.
+- **Document ingestion.** File uploads, parsing, chunking, and document-derived
+  evidence.
+
+Adding any of these requires a new approved requirement and an architecture
+decision.
+
+## Requirement dimensions still to be defined
+
+Approval of the capabilities above does not approve their non-functional
+envelope. The following must be defined before the AWS integration (M9) and
+demo-ready (M10) milestones, and no figures may be invented in the meantime:
+
+- **Actors and permissions** — who may read, write, confirm, supersede, and
+  reject each knowledge class. The MVP assumes a single trusted human owner per
+  project and no authentication.
+- **Failure behaviour** — unavailable database, partial writes, duplicate
+  submissions, conflicting updates, stale retrieval, malformed content, and model
+  provider failure. Serialization-failure retry is implemented; the rest is not.
+- **Non-functional requirements** — scale, latency, availability, durability,
+  consistency, portability, observability, privacy, security, auditability, and
+  maintainability.
+- **Data sensitivity and retention** — what may be stored, for how long, and what
+  a deletion request means given supersession-without-loss.
 
 ## Open decisions
 
-- Exact MVP boundary
-- Participating agent roles
-- Knowledge validation model
-- Retrieval semantics
-- Conflict model
-- Required consistency guarantees
-- Data sensitivity and retention
-- Deployment and operating constraints
-- CockroachDB physical design
+Tracked in `project-model.yaml`:
+
+- OQ-010 — physical schema for projects, sessions, messages, and relationships.
+- OQ-011 — frontend technology for the prototype and workspace.
+- OQ-012 — extraction model provider, prompt contract, and output schema.
+- OQ-013 — readiness model gating blueprint generation.
+
+## Proof scenario
+
+The baseline is satisfied when a reviewer can watch a project created in one
+session, see knowledge extracted from a submitted paragraph and confirmed by a
+human, return in a separate session to find that knowledge intact with its
+provenance, correct one item so the prior version becomes superseded rather than
+lost, and generate a blueprint whose statements trace back to confirmed memory.
