@@ -129,7 +129,7 @@ script captured as screens land.
 **Exit condition:** AT-004 passes and the ten-beat narrative can be walked
 locally.
 
-## M10 — AWS demonstration
+## M10 — Deployment and recovery demonstration
 
 **Outcome:** the chain is deployed and compute is provably disposable.
 
@@ -137,7 +137,7 @@ locally.
 CloudWatch logs carrying run identifiers, `GET /health`, reproducible deployment,
 documented teardown.
 
-**Blocked by:** OQ-016 AWS runtime choice.
+**Decided:** ADR-0013 — portable API and worker processes. Required level is Docker Compose or an OS supervisor; AWS is an optional enhancement.
 
 **Exit condition:** AT-008 and AT-009 pass — terminating the worker task results
 in the interrupted run resuming with no duplicated knowledge and no manual

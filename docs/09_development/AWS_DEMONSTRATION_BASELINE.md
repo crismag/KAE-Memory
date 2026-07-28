@@ -2,10 +2,18 @@
 
 **Status:** approved scope, 2026-07-27.
 
+**Amended by [`../../specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md`](../../specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md).**
+Everything below describes the **optional AWS enhancement**. The *required* M10
+profile is portable API and worker processes under Docker Compose or an
+operating-system supervisor, against CockroachDB Cloud. AWS strengthens the
+production story; it does not gate feature completion.
+
 Defines the smallest AWS footprint that proves the deployment claim. This is a
 **demonstration** baseline, not a production architecture.
 
 ## What deployment must prove
+
+The same five claims apply to both acceptance levels. Only the platform differs.
 
 1. The application is deployed and reachable.
 2. Compute is disposable — killing the worker loses no project knowledge.

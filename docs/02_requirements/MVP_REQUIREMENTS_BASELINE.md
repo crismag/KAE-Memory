@@ -172,9 +172,21 @@ database.
 
 ### FR-016 — Demonstration deployment
 
-The application, one worker, and CockroachDB Cloud are deployed to AWS such that
+*Amended by [`ADR-0013`](../../specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md).
+This requirement originally read "deployed to AWS". AWS is now one satisfying
+deployment rather than the definition.*
+
+The application and one worker are deployed against CockroachDB Cloud such that
 the application is reachable, compute is disposable, and an interrupted run
-resumes after a worker restart.
+resumes after the worker process is replaced by its configured supervisor.
+
+*Required:* portable API and worker processes, automatic worker replacement
+through Docker or an operating-system supervisor, expiry-based reclamation,
+checkpoint continuation, and no manual run repair.
+
+*Optional enhancement:* ECS on Fargate with ECR, a load balancer, IAM task roles,
+and CloudWatch. Preferred for production and for the demonstration; it does not
+gate feature completion.
 
 *Bounded:* single region, one service, one worker. Not production-grade — see
 [`../09_development/AWS_DEMONSTRATION_BASELINE.md`](../09_development/AWS_DEMONSTRATION_BASELINE.md).
