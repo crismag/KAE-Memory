@@ -52,7 +52,9 @@ project:
     - CON-002
     - CON-003
     - CON-004
-  open_questions: []
+  open_questions:
+    - OQ-017
+    - OQ-018
   depth: full
   current_stage: implementation_kickoff
   current_milestone: M9
@@ -976,6 +978,35 @@ open_questions:
       rather than an AWS feature. Three gaps recorded for M10: neither entrypoint
       exists, the worker has no daemon loop or SIGTERM handling, and the health
       endpoint depends on M9.
+  - id: OQ-017
+    question: >
+      Should Amazon SQS deliver run-requested signals to the worker, and under
+      what contract?
+    status: open
+    context: >
+      Raised by the repository-organisation work, which anticipates deploy/aws/sqs
+      but creates no files there. SQS is compatible with ADR-0007 as a wake-up
+      mechanism over a database that stays authoritative for run status, lease
+      ownership, expiry, attempts, checkpoints, and results, and the worker is
+      already safe under duplicate delivery because claiming is a compare-and-swap
+      on a monotonic fencing token. It is still a second delivery path and
+      therefore a decision. It also has no current purpose: the worker has no
+      daemon loop to wake.
+    blocks:
+      - M10
+  - id: OQ-018
+    question: >
+      Is Amazon EC2 with systemd, rather than ECS on Fargate, the optional hosted
+      reference deployment?
+    status: open
+    context: >
+      ADR-0013 made Docker Compose or an OS process supervisor the required
+      profile and ECS on Fargate the preferred optional production reference. EC2
+      with systemd satisfies the required profile exactly, so nothing mandatory
+      changes; what changes is the optional reference, from a managed container
+      runtime to a self-managed instance. Recorded rather than absorbed silently.
+    blocks:
+      - M10
 
 assumptions:
   - classification: assumption
@@ -1412,6 +1443,8 @@ id_register:
   - {id: OQ-014, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-016, type: open_question, status: closed, superseded_by: null}
+  - {id: OQ-017, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-018, type: open_question, status: active, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
   - {id: TASK-002, type: task, status: active, superseded_by: null}
   - {id: TASK-003, type: task, status: active, superseded_by: null}
@@ -2034,3 +2067,33 @@ history:
         from quality attributes. Extending KnowledgeKind would have changed the
         extraction vocabulary in ADR-0006.
     stage: M9 readiness foundation
+  - commit: 22
+    added:
+      - OQ-017
+      - OQ-018
+      - deploy, config, and operations directories with their READMEs
+      - operations/runbooks/worker-recovery-demo.md
+    changed:
+      - .env.example, expanded and corrected
+      - .gitignore, local secret rules
+      - README.md, file-ownership boundary
+    deferred:
+      - Docker, Kubernetes, and infrastructure-as-code
+      - per-provider source trees and speculative AWS service directories
+      - install, deploy, systemd, reverse-proxy, EC2, and SQS files, until M10
+    conflicts:
+      - >
+        The organisation brief introduces Amazon SQS, which no ADR authorises.
+        Recorded as OQ-017 rather than implemented. It is compatible with
+        ADR-0007 as a wake-up signal over an authoritative database, and the
+        worker is already safe under duplicate delivery, but a second delivery
+        path is a decision and there is no daemon loop to wake yet.
+      - >
+        The brief names EC2 as the first application host, while ADR-0013 named
+        ECS on Fargate as the preferred optional reference. EC2 with systemd
+        satisfies ADR-0013's required profile exactly, so no requirement is
+        weakened; only the optional reference changes. Recorded as OQ-018.
+      - >
+        .env.example still offered a SQLite connection string, which ADR-0011
+        retired. Removed.
+    stage: minimal repository organisation for the first deployment

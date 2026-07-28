@@ -137,11 +137,16 @@ and is not an approved deployment baseline.
   verification, and the Requirements and Architecture agents.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, and recovery after worker death.
+- `src/kae_memory/domain/readiness.py` and `application/readiness_service.py` —
+  the deterministic blueprint-readiness calculator, discovery blockers,
+  contradiction resolution, area assignment, and append-only snapshots.
 - `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
-  `0003` (lease ownership), and `0004` (chunks and the vector index).
-- `tests/` — 112 tests including the cross-run persistence proof, the
-  cross-session agent-collaboration proof, the kill-and-recovery proof, and
-  semantic retrieval over a real vector index.
+  `0003` (lease ownership), `0004` (chunks and the vector index), and `0005`
+  (readiness, blockers, and area links).
+- `tests/` — 140 tests including the cross-run persistence proof, the
+  cross-session agent-collaboration proof, the kill-and-recovery proof, semantic
+  retrieval over a real vector index, and readiness scoring that cannot be
+  inflated by generating unconfirmed text.
 
 The Review agent, HTTP interfaces, and the user interface are **not**
 implemented. Check
@@ -154,11 +159,31 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 112 tests against
+`make check` passes: ruff, ruff format, mypy strict, and 140 tests against
 CockroachDB. No test contacts a model provider.
 
 To run migrations, copy `.env.example` to `.env` and set `KAE_DATABASE_URL`, then
 `make migrate`. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Where files belong
+
+The layout separates by **responsibility, not by hosting vendor**, and is
+intentionally minimal — directories appear when a real file belongs in them.
+
+| Responsibility | Location |
+| --- | --- |
+| Python business logic, API, worker | `src/kae_memory/` |
+| Frontend source, when it begins | `frontend/` |
+| Safe committed defaults | [`config/`](config/) |
+| Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
+| Generic Linux installation, systemd, reverse proxy | [`deploy/server/`](deploy/server/) |
+| AWS-specific provisioning | [`deploy/aws/`](deploy/aws/) |
+| Deployment and recovery procedures | [`operations/runbooks/`](operations/runbooks/) |
+| Architecture explanation | [`docs/`](docs/) |
+
+`scripts/` operates the project; `deploy/` installs it onto a target system. No
+Docker, Kubernetes, or infrastructure-as-code framework is introduced — see
+[`deploy/README.md`](deploy/README.md) for what is deferred and why.
 
 ## Repository context
 

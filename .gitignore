@@ -149,6 +149,8 @@ activemq-data/
 
 # Environments
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -216,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# KAE local configuration and secrets
+#   Never committed. See config/README.md for what may be committed instead.
+.local/
+.secrets/
+*.pem
+*.key

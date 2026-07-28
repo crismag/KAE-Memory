@@ -186,6 +186,8 @@ Timing, sample data, and delivery craft:
 | ADR-0011 tests run against CockroachDB | accepted — SQLite retired; amends ADR-0003 and ADR-0008 |
 | ADR-0012 blueprint readiness model | accepted — closes OQ-013 |
 | ADR-0013 portable runtime, optional AWS | accepted — closes OQ-016; amends FR-016 |
+| SQS as a run-request signal | **open** — OQ-017, no ADR authorises it |
+| EC2 rather than Fargate as the optional hosted reference | **open** — OQ-018 |
 
 ## Open risks
 
