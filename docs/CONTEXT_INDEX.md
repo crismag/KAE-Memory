@@ -87,7 +87,7 @@ frontend framework or authorise implementation by themselves.
 
 - `specifications/` holds the domain, memory, retrieval, agent-execution, API,
   and database specifications and the accepted architecture decisions ADR-0001 to
-  ADR-0011.
+  ADR-0012.
 - `specifications/AGENT_EXECUTION_MODEL.md` defines AgentRun, the run status
   model, idempotency, retry, continuation, and the three agent roles.
 - `docs/06_architecture/MCP_ACCESS_POLICY.md` records the inspection-only MCP
