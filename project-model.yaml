@@ -1488,9 +1488,9 @@ id_register:
 undefined:
   - area: interface
     missing: >
-      Server-Sent Events, the generated TypeScript client, and the workspace UI.
-      The REST contract is decided by ADR-0014 and implemented; run updates are
-      still poll-only, and list endpoints are unpaginated.
+      The generated TypeScript client and the workspace UI. The REST and SSE
+      contract is decided by ADR-0014 and implemented; list endpoints are still
+      unpaginated.
     blocks:
       - M9
   - area: non_functional
@@ -2146,3 +2146,19 @@ history:
         assigned to no area, because coverage is measured per area. Correct
         under ADR-0012, and surprising enough that the API test states it.
     stage: M9 HTTP API contract and implementation
+  - commit: 24
+    added:
+      - GET /v1/runs/{id}/events, run progress over Server-Sent Events
+    changed:
+      - undefined interface area
+    deferred:
+      - the generated TypeScript client and the workspace UI
+      - a push channel from the worker
+    conflicts:
+      - >
+        ADR-0009 requires that correctness never depend on an uninterrupted
+        browser connection. The stream is therefore a view of durable state that
+        polls CockroachDB, not a channel the worker publishes to. A push channel
+        would make the worker aware of connected browsers and give the run a
+        second place to fail.
+    stage: M9 run event stream

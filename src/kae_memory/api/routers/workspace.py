@@ -1,14 +1,16 @@
 """Projects, sessions, messages, knowledge, and runs."""
 
 from fastapi import APIRouter, status
+from fastapi.responses import StreamingResponse
 
 from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import AgentRunId, KnowledgeItemId, ProjectId, SessionId
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 
-from ..dependencies import Memory
+from ..dependencies import Memory, SessionFactory
 from ..errors import not_found
+from ..events import StreamConfig, run_events
 from ..parsing import parse_enum
 from ..schemas import (
     CreateProjectRequest,
@@ -190,6 +192,31 @@ def get_run(run_id: str, memory: Memory) -> RunResponse:
     if run is None:
         raise not_found("run", run_id)
     return RunResponse.of(run)
+
+
+@router.get(
+    "/runs/{run_id}/events",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
+def stream_run_events(run_id: str, factory: SessionFactory) -> StreamingResponse:
+    """Stream run progress as Server-Sent Events.
+
+    A convenience over ``GET /v1/runs/{id}``, never a replacement for it.
+    Correctness must not depend on an uninterrupted browser connection
+    (ADR-0009), so a client that misses the stream entirely can still read the
+    same state with an ordinary request.
+
+    Emits the current state immediately, then on every change to status,
+    attempt, checkpoint, or error. Closes when the run reaches a terminal
+    status.
+    """
+
+    return StreamingResponse(
+        run_events(factory, AgentRunId(run_id), StreamConfig()),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/runs/{run_id}/knowledge", response_model=list[KnowledgeResponse])

@@ -257,11 +257,11 @@ landed. All five prerequisites ADR-0012 recorded are closed:
 
 The **API contract is now decided and implemented** (ADR-0014): projects,
 sessions, messages, knowledge, runs, readiness, blockers, and contradictions
-under `/v1`, plus `GET /health`. `python -m kae_memory.api` serves it and
+under `/v1`, plus `GET /health` and run progress over **Server-Sent Events** at
+`GET /v1/runs/{id}/events`. `python -m kae_memory.api` serves it and
 `/openapi.json` is the schema the client is generated from.
 
-What remains in M9: **Server-Sent Events** for run updates, the **generated
-TypeScript client**, the **workspace UI**, the **Review Agent's** classification
+What remains in M9: the **generated TypeScript client**, the **workspace UI**, the **Review Agent's** classification
 and findings, and reporting. CI gains a Node job when frontend code lands.
 
 ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
