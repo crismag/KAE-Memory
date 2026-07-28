@@ -58,6 +58,12 @@ package:
       - specifications/ADR/ADR-0012-blueprint-readiness-model.md
       - specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
     development:
+      - deploy/README.md
+      - deploy/server/README.md
+      - deploy/aws/README.md
+      - config/README.md
+      - operations/README.md
+      - operations/runbooks/worker-recovery-demo.md
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
       - docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md

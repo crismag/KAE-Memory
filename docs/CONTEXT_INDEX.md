@@ -85,6 +85,9 @@ frontend framework or authorise implementation by themselves.
 
 ## Architecture context
 
+- `deploy/`, `config/`, and `operations/` hold deployment assets, committed
+  non-secret configuration, and runbooks. Each is intentionally minimal; see
+  `deploy/README.md` for the boundary and for what is deliberately deferred.
 - `specifications/` holds the domain, memory, retrieval, agent-execution, API,
   and database specifications and the accepted architecture decisions ADR-0001 to
   ADR-0013.
