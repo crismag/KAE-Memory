@@ -5,8 +5,10 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -106,6 +108,11 @@ class ProjectRow(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # Monotonic counter incremented on every authoritative knowledge change. A
+    # counter rather than a timestamp: timestamps collide under concurrent writes
+    # and make "did anything change since this snapshot?" ambiguous (ADR-0012).
+    knowledge_revision: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
 
 
 class SessionRow(Base):
@@ -251,6 +258,12 @@ class KnowledgeRelationshipRow(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
+    # Resolution is a relational column, not a JSONB key: readiness gates on
+    # unresolved contradictions, and anything that gates must be queryable
+    # without parsing an opaque value (ADR-0012).
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
 
 class ProvenanceLinkRow(Base):
     """Relational link from knowledge to the run or message it came from.
@@ -321,3 +334,101 @@ class KnowledgeChunkRow(Base):
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     embedded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ReadinessTemplateRow(Base):
+    """A versioned readiness template.
+
+    The area definitions live in ``JSONB`` because their shape is open-ended
+    configuration. Nothing gates on them directly — gating reads the snapshot,
+    whose every decisive value is a relational column.
+    """
+
+    __tablename__ = "readiness_templates"
+
+    template_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    version: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    definition: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeAreaLinkRow(Base):
+    """A knowledge item's assignment to a readiness area.
+
+    Endpoints are ``String(64)`` because revision 0001 created
+    ``knowledge_items.id`` as ``String(64)``, not a UUID column.
+    """
+
+    __tablename__ = "knowledge_area_links"
+    __table_args__ = (
+        UniqueConstraint("knowledge_item_id", "area_key"),
+        Index("ix_knowledge_area_links_project_area", "project_id", "area_key"),
+    )
+
+    area_link_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        UUID_STR, ForeignKey("projects.project_id"), nullable=False
+    )
+    knowledge_item_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("knowledge_items.id"), nullable=False
+    )
+    area_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    assigned_by_agent_run_id: Mapped[str | None] = mapped_column(
+        UUID_STR, ForeignKey("agent_runs.agent_run_id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DiscoveryBlockerRow(Base):
+    """Something owned that must be closed before a blueprint is credible."""
+
+    __tablename__ = "discovery_blockers"
+    __table_args__ = (Index("ix_discovery_blockers_project_status", "project_id", "status"),)
+
+    blocker_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        UUID_STR, ForeignKey("projects.project_id"), nullable=False
+    )
+    area_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    severity: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ReadinessSnapshotRow(Base):
+    """One append-only readiness calculation.
+
+    Per-area detail is ``JSONB``; every value used for gating — score, status,
+    both eligibility flags, and the blocker and contradiction counts — is a
+    relational column, so eligibility is queryable without parsing JSON.
+    """
+
+    __tablename__ = "readiness_snapshots"
+    __table_args__ = (
+        Index("ix_readiness_snapshots_project_calculated", "project_id", "calculated_at"),
+    )
+
+    snapshot_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        UUID_STR, ForeignKey("projects.project_id"), nullable=False
+    )
+    template_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    template_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    calculation_version: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    knowledge_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    draft_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    implementation_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    mandatory_area_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    mandatory_area_sufficient_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    open_blocker_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    critical_blocker_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    unresolved_contradiction_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    area_results: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

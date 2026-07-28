@@ -20,6 +20,8 @@ from .execution import AgentRole, AgentRun, RunStatus, ensure_run_transition
 from .identifiers import (
     AgentId,
     AgentRunId,
+    AreaLinkId,
+    BlockerId,
     ChunkId,
     ExecutionId,
     KnowledgeItemId,
@@ -28,6 +30,7 @@ from .identifiers import (
     ProvenanceLinkId,
     RelationshipId,
     SessionId,
+    SnapshotId,
 )
 from .lifecycle import LifecycleState
 from .models import (
@@ -42,6 +45,21 @@ from .models import (
     Relationship,
     RelationshipType,
 )
+from .readiness import (
+    CALCULATION_VERSION,
+    DRAFT_THRESHOLD,
+    SOFTWARE_TEMPLATE,
+    AreaDefinition,
+    AreaResult,
+    AreaState,
+    Blocker,
+    BlockerSeverity,
+    BlockerStatus,
+    KnowledgeAreaLink,
+    ReadinessSnapshot,
+    ReadinessStatus,
+    ReadinessTemplate,
+)
 from .workspace import (
     ActorType,
     Message,
@@ -53,13 +71,24 @@ from .workspace import (
 )
 
 __all__ = [
+    "CALCULATION_VERSION",
+    "DRAFT_THRESHOLD",
     "EMBEDDING_VERSION",
+    "SOFTWARE_TEMPLATE",
     "ActorType",
     "Agent",
     "AgentId",
     "AgentRole",
     "AgentRun",
     "AgentRunId",
+    "AreaDefinition",
+    "AreaLinkId",
+    "AreaResult",
+    "AreaState",
+    "Blocker",
+    "BlockerId",
+    "BlockerSeverity",
+    "BlockerStatus",
     "ChunkId",
     "DomainError",
     "DomainInvariantError",
@@ -68,6 +97,7 @@ __all__ = [
     "InvalidIdentifierError",
     "InvalidLifecycleTransitionError",
     "InvalidRunTransitionError",
+    "KnowledgeAreaLink",
     "KnowledgeChunk",
     "KnowledgeItem",
     "KnowledgeItemId",
@@ -84,6 +114,9 @@ __all__ = [
     "ProvenanceLink",
     "ProvenanceLinkId",
     "ProvenanceLinkType",
+    "ReadinessSnapshot",
+    "ReadinessStatus",
+    "ReadinessTemplate",
     "Relationship",
     "RelationshipId",
     "RelationshipType",
@@ -92,6 +125,7 @@ __all__ = [
     "SessionId",
     "SessionStatus",
     "SessionType",
+    "SnapshotId",
     "content_hash",
     "ensure_run_transition",
     "estimate_tokens",

@@ -241,15 +241,21 @@ It enforces a 75% recall threshold and needs Bedrock access to
 `amazon.titan-embed-text-v2:0`. Until it runs, semantic recall is plumbing that
 works rather than retrieval that is good.
 
-**2. Implement M9 — workspace and reporting.** Now unblocked: ADR-0012 settles
-readiness. Per ADR-0009 the sequence is **API contract → generated client → UI**,
-and CI gains a Node job when frontend code lands.
+**2. Continue M9 — workspace and reporting.** The readiness foundation has
+landed. All five prerequisites ADR-0012 recorded are closed:
 
-ADR-0012 records five prerequisites that must land before readiness means
-anything — relationship wiring for contradictions, a blocker concept, a
-project-level knowledge revision for staleness, the discovery-area to
-knowledge-kind mapping, and keeping recalculation out of the three agent roles.
-M9 is therefore larger than "build the workspace".
+| Prerequisite | Resolution |
+| --- | --- |
+| Recalculation must not become a fourth agent role | Synchronous deterministic application logic; classification stays with the Review Agent |
+| Relationship wiring for contradictions | `RelationshipRepository`, with `resolved_at` as a relational column |
+| "Blocker" is a new concept | A dedicated `discovery_blockers` table, not a knowledge kind |
+| No representation of an authoritative revision | `projects.knowledge_revision`, a monotonic counter |
+| Areas do not map onto knowledge kinds | Existing eight kinds kept, plus an explicit `knowledge_area_links` assignment |
+
+What remains in M9 is the part users see: the readiness API contract, the
+generated client, the workspace UI, the Review Agent's classification and
+findings, and reporting. Per ADR-0009 the sequence is **API contract → generated
+client → UI**, and CI gains a Node job when frontend code lands.
 
 ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
 billing, or extra live adapters.
