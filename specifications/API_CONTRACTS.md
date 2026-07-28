@@ -1,6 +1,9 @@
 # API Contracts
 
-**Status:** conceptual contract; endpoint syntax is not approved.
+**Status:** superseded in part. The open decisions below were settled by
+[`ADR/ADR-0014-http-api-contract.md`](ADR/ADR-0014-http-api-contract.md), and the
+implemented contract is the OpenAPI document the running API serves at
+`/openapi.json`. This file remains the conceptual framing.
 
 ## Contract principles
 
@@ -54,4 +57,11 @@ Important state changes may publish events such as knowledge submitted, validate
 
 ## Open decisions
 
-Protocol style, authentication mechanism, pagination, filtering syntax, event delivery, schema evolution, public versus internal contracts, and consistency semantics per operation.
+Settled by ADR-0014: protocol style, authentication (none, and the API is unsafe
+to expose publicly because of it), pagination shape, schema evolution, and
+consistency semantics.
+
+Still open: event delivery beyond Server-Sent Events, public versus internal
+exposure, rate limiting, and HTTP-level idempotency keys — the last deferred
+because `start_run` is already idempotent on a caller-supplied key, so the
+durable path is protected.

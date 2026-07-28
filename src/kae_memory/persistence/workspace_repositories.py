@@ -72,6 +72,23 @@ class ProjectRepository:
             status=ProjectStatus(row.status),
         )
 
+    def list_all(self) -> tuple[Project, ...]:
+        """Return every project, newest first."""
+
+        rows = self._session.scalars(
+            select(ProjectRow).order_by(ProjectRow.created_at.desc())
+        ).all()
+        return tuple(
+            Project(
+                id=ProjectId(row.project_id),
+                name=row.name,
+                key=row.project_key,
+                description=row.description,
+                status=ProjectStatus(row.status),
+            )
+            for row in rows
+        )
+
     def get_by_key(self, project_key: str) -> Project | None:
         """Return a project by its human-readable key."""
 

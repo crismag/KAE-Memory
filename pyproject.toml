@@ -28,6 +28,10 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.6",
 ]
+api = [
+    "fastapi>=0.140.12",
+    "uvicorn>=0.51.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kae_memory"]
@@ -54,3 +58,9 @@ files = ["src", "tests"]
 # fixture-only demonstration run without them.
 module = ["anthropic.*", "boto3.*"]
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "httpx2>=2.9.1",
+]

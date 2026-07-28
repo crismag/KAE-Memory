@@ -2,10 +2,10 @@ TEST_DB_CONTAINER ?= kae-crdb-test
 TEST_DB_VERSION   ?= v26.2.1
 TEST_DB_PORT      ?= 26258
 
-.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs
+.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api
 
 install:
-	uv sync --extra dev
+	uv sync --extra dev --extra api
 
 lint:
 	uv run ruff check .
@@ -45,3 +45,9 @@ migrate:
 
 migrate-down:
 	uv run alembic downgrade base
+
+# Serves the same application `python -m kae_memory.api` serves. Needs
+# KAE_DATABASE_URL; binds to loopback unless KAE_API_HOST says otherwise,
+# because the API has no authentication (ADR-0014).
+api:
+	uv run python -m kae_memory.api

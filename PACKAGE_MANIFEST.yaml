@@ -57,6 +57,7 @@ package:
       - specifications/ADR/ADR-0011-test-against-cockroachdb.md
       - specifications/ADR/ADR-0012-blueprint-readiness-model.md
       - specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
+      - specifications/ADR/ADR-0014-http-api-contract.md
     development:
       - deploy/README.md
       - deploy/server/README.md
@@ -87,6 +88,7 @@ package:
       - src/kae_memory/application/
       - src/kae_memory/agents/
       - src/kae_memory/worker/
+      - src/kae_memory/api/
       - migrations/env.py
       - migrations/script.py.mako
       - migrations/versions/0001_create_knowledge_tables.py

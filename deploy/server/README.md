@@ -11,7 +11,7 @@ managed container runtime.
 
 ## Planned layout
 
-Added in M10, when there is a process to supervise. Directories appear with their
+Added in M10, when the worker is a process too. The API already is: `kae-api.service` invokes `python -m kae_memory.api`. Directories appear with their
 files, not before.
 
 ```text
