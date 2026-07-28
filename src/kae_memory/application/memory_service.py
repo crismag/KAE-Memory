@@ -42,6 +42,7 @@ from kae_memory.domain.workspace import (
     Session,
     SessionType,
 )
+from kae_memory.persistence.readiness_repositories import bump_knowledge_revision
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
 from kae_memory.persistence.workspace_repositories import (
@@ -409,6 +410,11 @@ class MemoryService:
                     )
                 written.append(item)
 
+            if written:
+                # Writing knowledge is an authoritative change, so any readiness
+                # snapshot taken before this transaction is now stale (ADR-0012).
+                bump_knowledge_revision(db_session, run.project_id)
+
             if complete_run:
                 runs.save(run.succeed(moment, output_summary), moment)
 
@@ -426,6 +432,7 @@ class MemoryService:
                 raise LookupError(f"unknown knowledge item: {item_id}")
             confirmed = item.transition_to(LifecycleState.VALIDATED)
             repository.save(confirmed)
+            bump_knowledge_revision(db_session, item.project_id)
             return confirmed
 
         return self._run(operation)

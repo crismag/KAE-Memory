@@ -124,7 +124,7 @@ memory summary, agent execution history, traceability, unresolved conflicts,
 validation coverage, and the recovery demonstration report; screenshots and demo
 script captured as screens land.
 
-**Decided:** ADR-0009 — React, TypeScript, Vite, React Router, TanStack Query. Sequence within M9: **API contract → generated client → UI.** Still blocked on OQ-013 readiness. CI gains a Node job when frontend code lands.
+**Decided:** ADR-0009 — React, TypeScript, Vite, React Router, TanStack Query. Sequence within M9: **API contract → generated client → UI.** Readiness settled by ADR-0012, and its foundation — deterministic calculator, blockers, contradictions, area links, snapshots, and the project knowledge revision — has landed. CI gains a Node job when frontend code lands.
 
 **Exit condition:** AT-004 passes and the ten-beat narrative can be walked
 locally.

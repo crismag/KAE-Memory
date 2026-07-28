@@ -87,6 +87,7 @@ package:
       - migrations/versions/0002_create_workspace_and_execution_tables.py
       - migrations/versions/0003_add_agent_run_lease_ownership_columns.py
       - migrations/versions/0004_add_knowledge_chunks_and_vector_index.py
+      - migrations/versions/0005_add_readiness_blockers_and_area_links.py
       - tests/
   present_but_incomplete:
     - description: >

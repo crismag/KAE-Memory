@@ -73,3 +73,18 @@ class AgentRunId(Identifier):
     An ``AgentRunId`` is the value recorded as ``Provenance.execution_id``, so a
     knowledge version always resolves to the execution that produced it.
     """
+
+
+@dataclass(frozen=True, slots=True)
+class BlockerId(Identifier):
+    """Stable blocker identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class AreaLinkId(Identifier):
+    """Stable knowledge-to-readiness-area link identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotId(Identifier):
+    """Stable readiness-snapshot identifier."""

@@ -1094,7 +1094,7 @@ tasks:
   - id: TASK-010
     title: Workspace, Review Agent, and reporting
     milestone: M9
-    status: ready
+    status: in_progress
     note: >
       Decided by ADR-0009 and ADR-0012. Sequence: API contract, generated client,
       then UI. ADR-0012 records five prerequisites that must land before
@@ -1996,3 +1996,41 @@ history:
         restarting it. Restated as terminating the worker process and the
         configured supervisor restarting it, with the same nine steps.
     stage: AR-07 portable runtime and optional AWS deployment for M10
+  - commit: 21
+    added:
+      - readiness domain, repositories, and calculator
+      - migration 0005
+      - discovery blockers
+      - knowledge area links
+      - project knowledge revision counter
+      - contradiction resolution on knowledge_relationships
+    changed:
+      - TASK-010, in progress
+      - MemoryService, which now advances the knowledge revision on authoritative
+        writes
+    deferred:
+      - the readiness API contract, generated client, and workspace UI
+      - Review Agent classification into areas
+    conflicts:
+      - >
+        ADR-0012 allowed recalculation "through the durable worker", but
+        enqueue_run requires an AgentRole and FR-009 authorises exactly three.
+        Readiness calculation is synchronous deterministic application logic
+        instead; no fourth agent role was added.
+      - >
+        ADR-0012 wrote "confirmed knowledge" where the domain already had
+        LifecycleState.VALIDATED. No new state was introduced; the two words name
+        one state.
+      - >
+        ADR-0012 left the blocker representation open. M9 chose a dedicated
+        discovery_blockers table rather than a knowledge kind, because a blocker
+        has an owner and a resolved state that the knowledge lifecycle does not
+        express, and modelling it as knowledge would place it in the extraction
+        vocabulary and the readiness denominator.
+      - >
+        ADR-0012 left the area-to-kind mapping open. M9 kept the existing eight
+        KnowledgeKind values and added an explicit knowledge_area_links
+        assignment, because kinds alone cannot separate functional requirements
+        from quality attributes. Extending KnowledgeKind would have changed the
+        extraction vocabulary in ADR-0006.
+    stage: M9 readiness foundation
