@@ -24,7 +24,10 @@ exercised locally.
 **Not yet runnable end to end.** The protocol below is implemented and covered by
 `tests/worker/test_recovery.py`, but there is no worker process to kill:
 `python -m kae_memory.worker` has no `__main__`, and the worker has no daemon
-loop or `SIGTERM` handler (ADR-0013). M10 adds all three.
+loop or `SIGTERM` handler (ADR-0013). M10 adds all three. The API entrypoint
+already exists, so run state is observable over HTTP while the demonstration
+runs — `GET /v1/runs/{id}` shows the status, lease owner, and continuation
+state at every step below.
 
 Until then, `test_a_killed_worker_is_replaced_and_the_run_completes` demonstrates
 the same nine steps in-process, using only durable state — a second `Worker`

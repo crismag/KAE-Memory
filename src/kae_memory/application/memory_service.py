@@ -124,6 +124,11 @@ class MemoryService:
 
         return self._run(lambda session: ProjectRepository(session).get(project_id))
 
+    def list_projects(self) -> tuple[Project, ...]:
+        """Return every project, newest first."""
+
+        return self._run(lambda session: ProjectRepository(session).list_all())
+
     def open_session(self, project_id: ProjectId, session_type: SessionType) -> Session:
         """Open a working session within a project."""
 
@@ -150,6 +155,16 @@ class MemoryService:
             return SessionRepository(db_session).close(session_id, moment)
 
         return self._run(operation)
+
+    def get_session(self, session_id: SessionId) -> Session | None:
+        """Return a session by identifier."""
+
+        return self._run(lambda db_session: SessionRepository(db_session).get(session_id))
+
+    def sessions_for_project(self, project_id: ProjectId) -> tuple[Session, ...]:
+        """Return a project's sessions."""
+
+        return self._run(lambda session: SessionRepository(session).list_for_project(project_id))
 
     def record_message(
         self,

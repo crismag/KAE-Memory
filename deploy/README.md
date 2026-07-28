@@ -61,11 +61,11 @@ architecture, and creating them now would imply decisions nobody has made.
 
 ## Blocking gaps
 
-The two things this directory installs **do not exist yet**, recorded in
-ADR-0013:
+One of the two things this directory installs now exists. `python -m
+kae_memory.api` serves the HTTP contract (ADR-0014) and answers `GET /health`.
+The worker does not:
 
-- neither entrypoint exists — `python -m kae_memory.worker` has no `__main__`,
-  and `kae_memory.api` awaits M9;
+- `python -m kae_memory.worker` has no `__main__`;
 - the worker is a library, not a process. It claims, checkpoints, and recovers,
   but has no daemon loop, no signal handling, and no environment configuration.
   `WorkerConfig.idle_poll_seconds` and `graceful_shutdown_seconds` are declared
@@ -79,4 +79,8 @@ expiry rather than being released immediately. Recovery still succeeds; it is
 just slower and less deliberate than it should look in a demonstration.
 
 Service files, install and deploy scripts, and reverse-proxy configuration are
-added in M10, once there is a process to supervise.
+added in M10, once the worker is a process too.
+
+**The API has no authentication** (ADR-0014). The MVP defers it, so any
+deployment must keep the API behind a network boundary. It binds to loopback
+unless `KAE_API_HOST` says otherwise, which is a default, not a defence.

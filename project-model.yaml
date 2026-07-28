@@ -556,6 +556,21 @@ decisions:
     affects:
       - MOD-workflow
       - MOD-persistence
+  - id: ADR-0014
+    title: HTTP API contract
+    statement: >
+      Versioned REST/JSON over FastAPI and uvicorn as an optional api extra,
+      under /v1 with an unversioned /health. One error envelope with stable
+      codes, mapped from domain error types. No authentication, which the MVP
+      defers and which makes the API unsafe to expose publicly. Enqueueing agent
+      work returns 202 with a durable run identifier rather than holding the
+      request open. Cursor pagination is specified but not yet implemented.
+    status: accepted
+    record: specifications/ADR/ADR-0014-http-api-contract.md
+    affects:
+      - MOD-projects
+      - MOD-knowledge
+      - MOD-workflow
 
 modules:
   - id: MOD-projects
@@ -1299,6 +1314,7 @@ traces:
       - ADR-0011
       - ADR-0012
       - ADR-0013
+      - ADR-0014
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1419,6 +1435,7 @@ id_register:
   - {id: ADR-0011, type: decision, status: active, superseded_by: null}
   - {id: ADR-0012, type: decision, status: active, superseded_by: null}
   - {id: ADR-0013, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0014, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1471,9 +1488,9 @@ id_register:
 undefined:
   - area: interface
     missing: >
-      The REST and SSE contract itself. No interface layer exists; ADR-0009
-      requires M9 to design the API contract and generate the client before UI
-      work begins.
+      Server-Sent Events, the generated TypeScript client, and the workspace UI.
+      The REST contract is decided by ADR-0014 and implemented; run updates are
+      still poll-only, and list endpoints are unpaginated.
     blocks:
       - M9
   - area: non_functional
@@ -1485,8 +1502,8 @@ undefined:
       - M10
   - area: deployment
     missing: >
-      Runnable entrypoints. Neither python -m kae_memory.api nor
-      python -m kae_memory.worker exists, and the worker has no daemon loop,
+      A runnable worker entrypoint. python -m kae_memory.api now exists, but
+      python -m kae_memory.worker does not, and the worker has no daemon loop,
       SIGTERM handling, or environment configuration.
     blocks:
       - M10
@@ -2097,3 +2114,35 @@ history:
         .env.example still offered a SQLite connection string, which ADR-0011
         retired. Removed.
     stage: minimal repository organisation for the first deployment
+  - commit: 23
+    added:
+      - ADR-0014
+      - src/kae_memory/api, the HTTP interface
+      - python -m kae_memory.api, the portable API entrypoint ADR-0013 required
+      - GET /health, satisfying FR-017
+    changed:
+      - specifications/API_CONTRACTS.md, partly superseded
+      - MemoryService, which gained list_projects, get_session, and
+        sessions_for_project
+      - undefined interface and deployment areas
+    deferred:
+      - Server-Sent Events for run updates
+      - the generated TypeScript client and the workspace UI
+      - cursor pagination, whose shape is recorded so the client anticipates it
+      - HTTP-level idempotency keys, which belong with authentication
+    conflicts:
+      - >
+        API_CONTRACTS.md declared endpoint syntax unapproved and left protocol,
+        authentication, pagination, schema evolution, and consistency open.
+        ADR-0014 settles them rather than letting an implementation define the
+        contract by accident, and the specification now points at it.
+      - >
+        The API has no authentication, because the MVP scope defers it and
+        FR-017 requires /health to work without it. That makes the API unsafe to
+        expose publicly. Recorded in the ADR and in the deployment README, and
+        the server binds to loopback by default rather than every interface.
+      - >
+        A readiness snapshot reports not_started when knowledge exists but is
+        assigned to no area, because coverage is measured per area. Correct
+        under ADR-0012, and surprising enough that the API test states it.
+    stage: M9 HTTP API contract and implementation
