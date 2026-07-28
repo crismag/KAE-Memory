@@ -136,7 +136,8 @@ and is not an approved deployment baseline.
   adapter and a Bedrock adapter, versioned per-role prompts, source-quote
   verification, and the Requirements and Architecture agents.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
-  checkpoints after every step, and recovery after worker death.
+  checkpoints after every step, recovery after worker death, and the daemon loop
+  behind `python -m kae_memory.worker`.
 - `src/kae_memory/api/` — the HTTP contract (ADR-0014): projects, sessions,
   messages, knowledge, runs, readiness, blockers, contradictions, `GET /health`,
   and run progress over Server-Sent Events. Served by `python -m kae_memory.api`.
@@ -146,7 +147,7 @@ and is not an approved deployment baseline.
 - `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
   `0003` (lease ownership), `0004` (chunks and the vector index), and `0005`
   (readiness, blockers, and area links).
-- `tests/` — 168 tests including the HTTP contract and the cross-run persistence proof, the
+- `tests/` — 178 tests including the HTTP contract and the cross-run persistence proof, the
   cross-session agent-collaboration proof, the kill-and-recovery proof, semantic
   retrieval over a real vector index, and readiness scoring that cannot be
   inflated by generating unconfirmed text.
@@ -162,8 +163,12 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 168 tests against
+`make check` passes: ruff, ruff format, mypy strict, and 178 tests against
 CockroachDB. No test contacts a model provider.
+
+`make worker` runs the durable worker as a **separate process** from the API — it
+claims queued runs and executes them, so an enqueued run actually completes. It
+uses the offline extractor by default and needs no credentials.
 
 `make api` serves the HTTP contract at <http://127.0.0.1:8000>, with interactive
 documentation at `/docs` and the OpenAPI document at `/openapi.json`. **It has no

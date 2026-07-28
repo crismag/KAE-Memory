@@ -175,6 +175,12 @@ class MessageRepository:
             )
         )
 
+    def get(self, message_id: MessageId) -> Message | None:
+        """Return a message by identifier."""
+
+        row = self._session.get(MessageRow, str(message_id))
+        return None if row is None else _message_to_domain(row)
+
     def next_sequence_number(self, session_id: SessionId) -> int:
         """Return the next sequence number for a session."""
 

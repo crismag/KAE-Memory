@@ -2,7 +2,7 @@ TEST_DB_CONTAINER ?= kae-crdb-test
 TEST_DB_VERSION   ?= v26.2.1
 TEST_DB_PORT      ?= 26258
 
-.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api
+.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker
 
 install:
 	uv sync --extra dev --extra api
@@ -51,3 +51,8 @@ migrate-down:
 # because the API has no authentication (ADR-0014).
 api:
 	uv run python -m kae_memory.api
+
+# The durable worker, as a separate process from the API (ADR-0013). Needs
+# KAE_DATABASE_URL. Uses the offline extractor unless KAE_EXTRACTION=bedrock.
+worker:
+	uv run python -m kae_memory.worker

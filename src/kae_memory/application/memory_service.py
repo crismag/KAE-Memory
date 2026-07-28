@@ -202,6 +202,11 @@ class MemoryService:
 
         return self._run(operation)
 
+    def get_message(self, message_id: MessageId) -> Message | None:
+        """Return a message by identifier."""
+
+        return self._run(lambda db_session: MessageRepository(db_session).get(message_id))
+
     def messages_for_session(self, session_id: SessionId) -> tuple[Message, ...]:
         """Return a session's messages in submission order."""
 
