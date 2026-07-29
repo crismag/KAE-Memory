@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
 from kae_memory.application.review_service import Finding
 from kae_memory.domain.execution import AgentRun
 from kae_memory.domain.models import KnowledgeItem, Project
@@ -370,3 +371,124 @@ class ReviewResponse(BaseModel):
     project_id: str
     counts: dict[str, int]
     findings: list[FindingResponse]
+
+
+class StatementResponse(BaseModel):
+    """One blueprint statement.
+
+    Carries its knowledge item, so tracing it is one hop rather than a parallel
+    trace API over derived identifiers (ADR-0016). No statement lacks a label or
+    a trace target — FR-008's acceptance condition, and it holds structurally.
+    """
+
+    id: str
+    text: str
+    label: str
+    kind: str
+    knowledge_item_id: str
+    knowledge_version: int
+    source_message_id: str | None
+    produced_by_run_id: str | None
+
+    @classmethod
+    def of(cls, statement: BlueprintStatement) -> "StatementResponse":
+        return cls(
+            id=statement.id,
+            text=statement.text,
+            label=statement.label.value,
+            kind=statement.kind,
+            knowledge_item_id=str(statement.knowledge_item_id),
+            knowledge_version=statement.knowledge_version,
+            source_message_id=(
+                None if statement.source_message_id is None else str(statement.source_message_id)
+            ),
+            produced_by_run_id=(
+                None if statement.produced_by_run_id is None else str(statement.produced_by_run_id)
+            ),
+        )
+
+
+class SectionResponse(BaseModel):
+    area_key: str
+    area_name: str
+    statements: list[StatementResponse]
+
+
+class BlueprintResponse(BaseModel):
+    """A blueprint, with its own limits attached rather than implied."""
+
+    project_id: str
+    project_name: str
+    complete: bool
+    draft_eligible: bool
+    implementation_eligible: bool
+    readiness_percentage: int
+    statement_count: int
+    missing_mandatory_areas: list[str]
+    open_questions: list[str]
+    unassigned_confirmed_count: int
+    sections: list[SectionResponse]
+
+    @classmethod
+    def of(cls, blueprint: Blueprint) -> "BlueprintResponse":
+        return cls(
+            project_id=str(blueprint.project_id),
+            project_name=blueprint.project_name,
+            complete=blueprint.complete,
+            draft_eligible=blueprint.draft_eligible,
+            implementation_eligible=blueprint.implementation_eligible,
+            readiness_percentage=blueprint.readiness_percentage,
+            statement_count=blueprint.statement_count,
+            missing_mandatory_areas=list(blueprint.missing_mandatory_areas),
+            open_questions=list(blueprint.open_questions),
+            unassigned_confirmed_count=blueprint.unassigned_confirmed_count,
+            sections=[
+                SectionResponse(
+                    area_key=section.area_key,
+                    area_name=section.area_name,
+                    statements=[StatementResponse.of(s) for s in section.statements],
+                )
+                for section in blueprint.sections
+            ],
+        )
+
+
+class TraceStepResponse(BaseModel):
+    relation: str
+    reference: str
+    detail: str | None
+
+
+class TraceResponse(BaseModel):
+    """A knowledge item's chain of custody: project, session, message, run, versions."""
+
+    knowledge_item_id: str
+    project_id: str
+    kind: str
+    lifecycle: str
+    current_content: str
+    produced_by_run_id: str | None
+    used_by_run_ids: list[str]
+    source_message_ids: list[str]
+    session_ids: list[str]
+    steps: list[TraceStepResponse]
+
+    @classmethod
+    def of(cls, trace: KnowledgeTrace) -> "TraceResponse":
+        return cls(
+            knowledge_item_id=str(trace.knowledge_item_id),
+            project_id=str(trace.project_id),
+            kind=trace.kind,
+            lifecycle=trace.lifecycle,
+            current_content=trace.current_content,
+            produced_by_run_id=(
+                None if trace.produced_by_run_id is None else str(trace.produced_by_run_id)
+            ),
+            used_by_run_ids=[str(run) for run in trace.used_by_run_ids],
+            source_message_ids=[str(message) for message in trace.source_message_ids],
+            session_ids=[str(session) for session in trace.session_ids],
+            steps=[
+                TraceStepResponse(relation=s.relation, reference=s.reference, detail=s.detail)
+                for s in trace.steps
+            ],
+        )

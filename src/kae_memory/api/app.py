@@ -21,7 +21,7 @@ from .dependencies import (
     migration_revision,
 )
 from .errors import install_error_handlers
-from .routers import readiness, workspace
+from .routers import blueprint, readiness, workspace
 from .schemas import HealthResponse
 
 DESCRIPTION = """
@@ -57,6 +57,7 @@ def create_app(
     install_error_handlers(app)
     app.include_router(workspace.router)
     app.include_router(readiness.router)
+    app.include_router(blueprint.router)
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:

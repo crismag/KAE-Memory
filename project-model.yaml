@@ -597,6 +597,22 @@ decisions:
     affects:
       - MOD-audit
       - MOD-knowledge
+  - id: ADR-0016
+    title: Blueprint generation and statement traceability
+    statement: >
+      A blueprint is generated from confirmed knowledge, not authored: each
+      statement is a knowledge item's own text grouped by its readiness area, and
+      no model writes connective prose. Blueprints are derived rather than
+      stored, with deterministic statement identifiers, labelled grounded,
+      derived, or assumption from provenance. Markdown export renders the same
+      structure, and a trace endpoint resolves any statement to its project,
+      session, message, and run.
+    status: accepted
+    record: specifications/ADR/ADR-0016-blueprint-generation-and-trace.md
+    satisfies: FR-008
+    affects:
+      - MOD-blueprint
+      - MOD-audit
 
 modules:
   - id: MOD-projects
@@ -648,8 +664,8 @@ modules:
   - id: MOD-blueprint
     name: Blueprint Generation
     responsibility: grounded section generation, labelling, and export
-    status: specified
-    implemented: false
+    status: implemented
+    implemented: true
   - id: MOD-audit
     name: Audit
     responsibility: change history, quality findings, and traceability inspection
@@ -1251,6 +1267,7 @@ acceptance_tests:
       first session, with status, version, and source intact.
     status: defined
   - id: AT-004
+    status_note: passing as of M9
     covers:
       - FR-008
     scenario: >
@@ -1342,6 +1359,7 @@ traces:
       - ADR-0013
       - ADR-0014
       - ADR-0015
+      - ADR-0016
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1464,6 +1482,7 @@ id_register:
   - {id: ADR-0013, type: decision, status: active, superseded_by: null}
   - {id: ADR-0014, type: decision, status: active, superseded_by: null}
   - {id: ADR-0015, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0016, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -2252,3 +2271,29 @@ history:
         no areas at all. Recorded as an accepted limit rather than fixed by
         guessing.
     stage: M9 review agent and quality findings
+  - commit: 27
+    added:
+      - ADR-0016
+      - BlueprintService, Markdown export, and the knowledge trace
+      - GET /v1/projects/{id}/blueprint, blueprint.md, and knowledge/{id}/trace
+    changed:
+      - MOD-blueprint, now implemented
+      - AT-004, passing
+      - ReadinessService.assign_area, which now rejects a kind the area cannot count
+    deferred:
+      - model-written blueprint prose, which needs a labelling rule first
+      - blueprint sections for knowledge assigned to no area
+    conflicts:
+      - >
+        Area assignment was permissive while readiness applied a kind guard when
+        scoring, so an assignment could produce a blueprint statement that
+        contributed nothing to the percentage beside it. Assignment now rejects a
+        kind the area does not declare: assigned and counts must mean the same
+        thing.
+      - >
+        FR-008 asks for a reviewable blueprint, and a model asked to write one
+        would produce unattributable connective prose — the failure the labelling
+        requirement exists to prevent. Statements are knowledge items' own text
+        instead, which reads as a structured list rather than a document. Named
+        rather than papered over.
+    stage: M9 blueprint generation and traceability
