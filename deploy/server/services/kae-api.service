@@ -1,0 +1,33 @@
+# The HTTP API. Independently restartable from the worker (ADR-0013).
+#
+# Install to /etc/systemd/system/. The environment file is root-owned and lives
+# outside the application directory: it carries KAE_DATABASE_URL, which contains
+# the database password (FR-018).
+
+[Unit]
+Description=KAE-Memory API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=kae
+Group=kae
+WorkingDirectory=/opt/kae-memory
+EnvironmentFile=/etc/kae-memory/api.env
+ExecStart=/opt/kae-memory/.venv/bin/python -m kae_memory.api
+Restart=always
+RestartSec=5
+
+# The API holds no durable state, so a hard stop loses nothing.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/kae-memory
+
+[Install]
+WantedBy=multi-user.target

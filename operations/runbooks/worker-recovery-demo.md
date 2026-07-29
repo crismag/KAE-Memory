@@ -21,13 +21,12 @@ exercised locally.
 
 ## Status
 
-**Not yet runnable end to end.** The protocol below is implemented and covered by
-`tests/worker/test_recovery.py`, but there is no worker process to kill:
-`python -m kae_memory.worker` has no `__main__`, and the worker has no daemon
-loop or `SIGTERM` handler (ADR-0013). M10 adds all three. The API entrypoint
-already exists, so run state is observable over HTTP while the demonstration
-runs — `GET /v1/runs/{id}` shows the status, lease owner, and continuation
-state at every step below.
+**Runnable.** `python -m kae_memory.worker` runs as a process, the daemon loop
+claims work, and `SIGTERM` is handled (ADR-0017). Run state is observable over
+HTTP throughout — `GET /v1/runs/{id}` shows status, attempt, and continuation
+state at every step below, and `GET /v1/runs/{id}/events` streams the changes.
+
+Show **both** shutdown paths. They prove different things.
 
 Until then, `test_a_killed_worker_is_replaced_and_the_run_completes` demonstrates
 the same nine steps in-process, using only durable state — a second `Worker`
@@ -72,13 +71,17 @@ attempt. Agents short-circuit on terminal runs for exactly this reason.
 - **`abandoned`** — the run exhausted its retry budget. That is a terminal
   outcome, not a recovery failure. Read `error_code` and `error_message`.
 
-## Expected timing
+## Two shutdowns, two proofs
 
-The lease expiry wait in step 5 is ~30 seconds. Today it is unavoidable: with no
-`SIGTERM` handler, stopping the worker is a hard kill, so the lease is never
-released deliberately and must time out.
+**Ungraceful — `kill -9`, or the instance disappearing.** The lease is never
+released, so the replacement waits out the ~30-second expiry before claiming.
+This is the case a real outage produces, and the wait *is* the safety property:
+nothing may reclaim a run whose owner might still be alive.
 
-Once M10 honours `graceful_shutdown_seconds`, a clean stop releases the lease
-immediately and the replacement claims it at once. Both paths are correct;
-the graceful one is faster and demonstrates better. Keep an ungraceful kill in
-the demonstration too — that is the case a real outage produces.
+**Graceful — `systemctl restart kae-worker`.** `SIGTERM` reaches the worker, the
+current step finishes and checkpoints, the lease is released, and the replacement
+claims immediately. No wait.
+
+Both are correct. Show the ungraceful one to prove the protocol and the graceful
+one to prove the deployment. Saying which is which matters: a demonstration that
+only shows the fast path has not shown recovery at all.

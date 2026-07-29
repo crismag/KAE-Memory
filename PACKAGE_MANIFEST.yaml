@@ -63,6 +63,7 @@ package:
       - specifications/ADR/ADR-0014-http-api-contract.md
       - specifications/ADR/ADR-0015-review-agent-and-findings.md
       - specifications/ADR/ADR-0016-blueprint-generation-and-trace.md
+      - specifications/ADR/ADR-0017-deployment-topology.md
     development:
       - deploy/README.md
       - deploy/server/README.md
@@ -70,6 +71,12 @@ package:
       - config/README.md
       - operations/README.md
       - operations/runbooks/worker-recovery-demo.md
+      - operations/runbooks/deploy-first-demo.md
+      - operations/runbooks/restart-services.md
+      - deploy/static-site/README.md
+      - deploy/aws/ec2/README.md
+      - deploy/server/install.sh
+      - deploy/server/deploy.sh
       - docs/09_development/DEVELOPMENT_PLAN.md
       - docs/09_development/KAE_WITH_MEMORY_DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md

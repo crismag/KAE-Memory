@@ -11,6 +11,22 @@
 
 import type { components } from "./schema";
 
+/**
+ * Where the API lives.
+ *
+ * Empty by default, which means same-origin — the recommended shape, where nginx
+ * serves this build and proxies `/v1` (ADR-0017). Set `VITE_API_BASE_URL` at
+ * build time only when the frontend is hosted separately, and read the
+ * split-origin warning in `deploy/static-site/README.md` first: it publishes an
+ * API that has no authentication.
+ *
+ * Baked in at build time because a static host has no runtime to configure.
+ */
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+
+/** Resolve a path against the configured API base. */
+export const url = (path: string): string => `${BASE}${path}`;
+
 export type Project = components["schemas"]["ProjectResponse"];
 export type Session = components["schemas"]["SessionResponse"];
 export type Message = components["schemas"]["MessageResponse"];
@@ -48,7 +64,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(url(path), {
     ...init,
     headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
   });
@@ -130,7 +146,7 @@ export const api = {
  * their query and treat this as an invalidation signal.
  */
 export function subscribeToRun(runId: string, onChange: (run: Run) => void): () => void {
-  const source = new EventSource(`/v1/runs/${runId}/events`);
+  const source = new EventSource(url(`/v1/runs/${runId}/events`));
   source.addEventListener("run", (event) => onChange(JSON.parse((event as MessageEvent).data)));
   source.addEventListener("close", () => source.close());
   return () => source.close();

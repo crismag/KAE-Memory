@@ -75,3 +75,14 @@ describe("the API client", () => {
     await expect(api.assignArea("p", "k", "problem_and_value")).resolves.toBeUndefined();
   });
 });
+
+describe("the API base URL", () => {
+  it("is same-origin by default, so no host is baked into a build", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respond([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.projects();
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/v1/projects");
+  });
+});

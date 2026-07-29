@@ -9,12 +9,10 @@ speculative.
 operations/
 ├── README.md
 └── runbooks/
+    ├── deploy-first-demo.md
+    ├── restart-services.md
     └── worker-recovery-demo.md
 ```
-
-`deploy-first-demo.md` and `restart-services.md` are added in M10, alongside the
-scripts and service definitions they would describe. Writing them against
-entrypoints that do not exist yet would produce instructions nobody can follow.
 
 ## The runbook that matters
 

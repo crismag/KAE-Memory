@@ -30,6 +30,7 @@ class Settings:
     database_url: str
     host: str = "127.0.0.1"
     port: int = 8000
+    cors_origins: tuple[str, ...] = ()
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -48,6 +49,14 @@ class Settings:
             # authentication (ADR-0014).
             host=os.environ.get("KAE_API_HOST", "127.0.0.1"),
             port=int(os.environ.get("KAE_API_PORT", "8000")),
+            # Empty by default, so a misconfigured split-origin deployment fails
+            # closed rather than opening an unauthenticated API to any origin
+            # (ADR-0017). Same-origin hosting needs none of this.
+            cors_origins=tuple(
+                origin.strip()
+                for origin in os.environ.get("KAE_CORS_ORIGINS", "").split(",")
+                if origin.strip()
+            ),
         )
 
 

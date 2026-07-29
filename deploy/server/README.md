@@ -9,10 +9,7 @@ supervisor running the API and the worker as independently restartable services
 against CockroachDB Cloud. It satisfies durable continuation without a paid
 managed container runtime.
 
-## Planned layout
-
-Added in M10, when the worker is a process too. The API already is: `kae-api.service` invokes `python -m kae_memory.api`. Directories appear with their
-files, not before.
+## Layout
 
 ```text
 deploy/server/
@@ -55,11 +52,10 @@ and letting systemd restart it is exactly AT-009, restated by ADR-0013 as
 terminating the worker *process* and letting the *configured supervisor* restart
 it.
 
-Two `WorkerConfig` fields must be honoured before these units mean anything —
-`idle_poll_seconds` for the daemon loop and `graceful_shutdown_seconds` for a
-`SIGTERM` handler. Both are declared today and unused. Without the handler,
-`systemctl restart` is a hard kill and the lease expires on its own rather than
-being released.
+`TimeoutStopSec` on the worker unit is 35 seconds, deliberately longer than the
+worker's 25-second `graceful_shutdown_seconds`. Were it shorter, systemd would
+`SIGKILL` a worker still checkpointing and turn a graceful handover back into a
+thirty-second expiry wait — the exact behaviour the handler exists to avoid.
 
 ### Reverse proxy
 

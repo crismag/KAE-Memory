@@ -12,7 +12,11 @@ execution path that works without credentials.
 
 import logging
 import os
+import signal
 import socket
+import threading
+from collections.abc import Callable
+from types import FrameType
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -43,6 +47,55 @@ def build_config() -> WorkerConfig:
     )
 
 
+def install_signal_handlers(worker: Worker, deadline_seconds: float) -> Callable[[], None]:
+    """Ask the worker to stop on SIGTERM or SIGINT, and bound how long it may take.
+
+    systemd sends `SIGTERM` before forcing termination, and ADR-0007's graceful
+    path — stop accepting work, checkpoint, release the lease — only runs if
+    something catches it. Without this the run waits out its full lease expiry
+    instead of being released immediately.
+
+    The deadline is the second half of the promise. A step that hangs must not
+    hold the shutdown open past `graceful_shutdown_seconds`, so the process exits
+    and lets the lease expire the slow way rather than never exiting at all.
+
+    Returns a canceller. It has to be a callable rather than the timer itself:
+    the timer does not exist until a signal arrives, so returning it at install
+    time always returned ``None`` and left the deadline uncancellable — which
+    killed the test process that installed a handler and then finished normally.
+    """
+
+    pending: list[threading.Timer] = []
+
+    def handle(signum: int, _frame: FrameType | None) -> None:
+        if worker.stop_requested():
+            # A second signal means someone is impatient, or systemd escalated.
+            _LOGGER.warning("second signal %s, exiting now", signum)
+            os._exit(1)
+
+        _LOGGER.info("signal %s received, finishing the current step", signum)
+        worker.request_stop()
+        timer = threading.Timer(deadline_seconds, _expire, args=(deadline_seconds,))
+        timer.daemon = True
+        timer.start()
+        pending.append(timer)
+
+    for received in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(received, handle)
+
+    def cancel() -> None:
+        for timer in pending:
+            timer.cancel()
+        pending.clear()
+
+    return cancel
+
+
+def _expire(deadline_seconds: float) -> None:  # pragma: no cover - timing path
+    _LOGGER.error("graceful shutdown exceeded %.0fs, exiting", deadline_seconds)
+    os._exit(1)
+
+
 def main() -> None:
     """Run the worker until interrupted."""
 
@@ -63,18 +116,20 @@ def main() -> None:
     config = build_config()
     worker = Worker(factory, AgentStepExecutor(factory, default_extractor()), config)
 
-    _LOGGER.info("worker %s polling every %.1fs", config.worker_id, config.idle_poll_seconds)
+    cancel_shutdown_deadline = install_signal_handlers(worker, config.graceful_shutdown_seconds)
+    _LOGGER.info(
+        "worker %s polling every %.1fs, graceful shutdown %.0fs",
+        config.worker_id,
+        config.idle_poll_seconds,
+        config.graceful_shutdown_seconds,
+    )
     try:
         processed = worker.run_forever()
-    except KeyboardInterrupt:
-        # Ctrl-C during a step: ask the worker to stop, then let the current
-        # step finish and release its lease. SIGTERM handling and
-        # `graceful_shutdown_seconds` belong to a supervised deployment, which
-        # is M10.
+    except KeyboardInterrupt:  # pragma: no cover - only when no handler is installed
         worker.request_stop()
-        _LOGGER.info("worker %s stopping", config.worker_id)
         processed = 0
     finally:
+        cancel_shutdown_deadline()
         engine.dispose()
 
     _LOGGER.info("worker %s completed %d run(s)", config.worker_id, processed)

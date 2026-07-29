@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { api, type Trace } from "../api/client";
+import { api, type Trace, url } from "../api/client";
 import { ErrorNote } from "./ErrorNote";
 
 /** Every statement carries a label and a trace target (FR-008). */
@@ -26,7 +26,7 @@ export function BlueprintPanel({ projectId }: { projectId: string }) {
               {data.statement_count} statement(s) · readiness {data.readiness_percentage}%
             </span>
             <span className="grow" />
-            <a href={`/v1/projects/${projectId}/blueprint.md`}>Export Markdown</a>
+            <a href={url(`/v1/projects/${projectId}/blueprint.md`)}>Export Markdown</a>
           </div>
 
           {data.sections.map((section) => (

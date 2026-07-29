@@ -220,6 +220,11 @@ class Worker:
             # rejected anything this worker tried to write.
             return None
 
+    def stop_requested(self) -> bool:
+        """Whether a stop has been asked for."""
+
+        return self._stopping
+
     def run_forever(self, sleep: Callable[[float], None] = time.sleep) -> int:
         """Claim and execute runs until asked to stop. Returns how many completed.
 

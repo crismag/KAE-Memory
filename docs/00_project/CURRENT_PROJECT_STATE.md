@@ -101,7 +101,7 @@ rejected rather than merged with a follow-up promise.
 | Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
 | Relationship persistence | Table exists; domain wiring is M9 |
 | Semantic retrieval and embeddings | Implemented — `VECTOR(1024)`, cosine, one index. Ranking quality unmeasured pending the live Titan run |
-| Deployment and health endpoint | **Partly implemented** — `GET /health`, `python -m kae_memory.api`, and `python -m kae_memory.worker` exist. Production signal handling, supervision, and packaging are M10 |
+| Deployment and health endpoint | **Implemented** — both entrypoints, systemd units, install and deploy scripts, SIGTERM handling, and the runbooks. Not yet run on a real instance |
 | Application services | Implemented — `MemoryService` |
 | HTTP interface | **Not implemented** — the contract itself is M9's first step |
 | User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
@@ -190,9 +190,9 @@ Timing, sample data, and delivery craft:
 | ADR-0013 amendment, 2026-07-28 | the runnable local worker moves to M9; deployment stays M10 |
 | ADR-0015 Review Agent and findings | accepted — findings are derived, never stored |
 | ADR-0016 blueprint generation and trace | accepted — no model writes blueprint prose |
+| ADR-0017 deployment topology | accepted — closes OQ-018; EC2 and systemd, static frontend |
 | SQS as a run-request signal | **open** — OQ-017, no ADR authorises it |
 | KAE with Memory product direction | **14 open questions** — OQ-019 to OQ-032; see the alignment review |
-| EC2 rather than Fargate as the optional hosted reference | **open** — OQ-018 |
 
 ## Open risks
 

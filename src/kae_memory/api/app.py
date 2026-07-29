@@ -5,10 +5,11 @@ same application over different databases, with no import-time connection and no
 global state.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -38,8 +39,15 @@ with a durable run identifier, and the client polls the run.
 def create_app(
     session_factory: sessionmaker[DbSession],
     engine: Engine | None = None,
+    cors_origins: Sequence[str] = (),
 ) -> FastAPI:
-    """Return an application bound to ``session_factory``."""
+    """Return an application bound to ``session_factory``.
+
+    ``cors_origins`` is empty by default. A browser on another origin cannot
+    reach this API unless a deployment names its origin explicitly — and doing so
+    exposes an API with no authentication, which ADR-0017 permits only behind a
+    network allowlist.
+    """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -54,6 +62,16 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.session_factory = session_factory
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(cors_origins),
+            # No credentials: there are none. Allowing them would imply a session
+            # or token model that does not exist (ADR-0014).
+            allow_credentials=False,
+            allow_methods=["GET", "POST"],
+            allow_headers=["content-type"],
+        )
     install_error_handlers(app)
     app.include_router(workspace.router)
     app.include_router(readiness.router)
@@ -85,4 +103,4 @@ def app_from_environment() -> FastAPI:
 
     settings = Settings.from_environment()
     engine = build_engine(settings)
-    return create_app(sessionmaker(engine), engine)
+    return create_app(sessionmaker(engine), engine, settings.cors_origins)
