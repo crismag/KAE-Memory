@@ -32,13 +32,23 @@ def test_constructing_the_bedrock_adapter_opens_no_connection() -> None:
     assert "anthropic" not in sys.modules
 
 
-def test_missing_extra_is_reported_as_provider_unavailable() -> None:
-    """Without the optional extra, the failure is typed rather than an ImportError."""
+def test_missing_extra_is_reported_as_provider_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without the optional extra, the failure is typed rather than an ImportError.
 
-    pytest.importorskip  # noqa: B018 - documents the intent below
-    if "anthropic" in sys.modules:  # pragma: no cover - only when the extra is installed
-        pytest.skip("the bedrock extra is installed in this environment")
+    The absence is *simulated* rather than inferred from the environment. An
+    earlier version skipped when ``anthropic`` was already in ``sys.modules``,
+    which never fired: installing the extra does not import it. With the extra
+    present the test therefore fell through to a real ``extract`` call and
+    contacted Bedrock — the exact thing this file exists to prevent.
 
+    Binding the name to ``None`` in ``sys.modules`` makes the import raise
+    ``ImportError`` whether or not the package is installed, so the typed-error
+    path is exercised identically in both environments and no socket opens.
+    """
+
+    monkeypatch.setitem(sys.modules, "anthropic", None)
     adapter = BedrockExtractionAdapter(region="eu-west-1")
     request = ExtractionRequest(role=AgentRole.REQUIREMENTS, source_text="text")
 

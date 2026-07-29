@@ -2,7 +2,7 @@ TEST_DB_CONTAINER ?= kae-crdb-test
 TEST_DB_VERSION   ?= v26.2.1
 TEST_DB_PORT      ?= 26258
 
-.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker
+.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker frontend frontend-install openapi
 
 install:
 	uv sync --extra dev --extra api
@@ -56,3 +56,16 @@ api:
 # KAE_DATABASE_URL. Uses the offline extractor unless KAE_EXTRACTION=bedrock.
 worker:
 	uv run python -m kae_memory.worker
+
+frontend-install:
+	npm --prefix frontend ci
+
+# The workspace, proxying /v1 and /health to the API on port 8000.
+frontend:
+	npm --prefix frontend run dev
+
+# Regenerate the OpenAPI document and the typed client from it. CI diffs the
+# result, so a backend contract change that skips this step fails the build.
+openapi:
+	uv run python scripts/development/dump-openapi.py
+	npm --prefix frontend run generate-client

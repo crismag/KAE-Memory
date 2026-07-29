@@ -1,0 +1,2633 @@
+{
+  "components": {
+    "schemas": {
+      "AreaResultResponse": {
+        "properties": {
+          "confirmed_count": {
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
+          "contradicted": {
+            "title": "Contradicted",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "mandatory": {
+            "title": "Mandatory",
+            "type": "boolean"
+          },
+          "minimum_confirmed": {
+            "title": "Minimum Confirmed",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proposed_count": {
+            "title": "Proposed Count",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "weight",
+          "mandatory",
+          "state",
+          "confirmed_count",
+          "proposed_count",
+          "minimum_confirmed",
+          "contradicted"
+        ],
+        "title": "AreaResultResponse",
+        "type": "object"
+      },
+      "AssignAreaRequest": {
+        "properties": {
+          "area_key": {
+            "title": "Area Key",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "area_key"
+        ],
+        "title": "AssignAreaRequest",
+        "type": "object"
+      },
+      "BlockerResponse": {
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "summary",
+          "severity",
+          "status",
+          "area_key",
+          "owner",
+          "resolution_note",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "BlockerResponse",
+        "type": "object"
+      },
+      "BlueprintResponse": {
+        "description": "A blueprint, with its own limits attached rather than implied.",
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "draft_eligible": {
+            "title": "Draft Eligible",
+            "type": "boolean"
+          },
+          "implementation_eligible": {
+            "title": "Implementation Eligible",
+            "type": "boolean"
+          },
+          "missing_mandatory_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Mandatory Areas",
+            "type": "array"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Open Questions",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "readiness_percentage": {
+            "title": "Readiness Percentage",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionResponse"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "statement_count": {
+            "title": "Statement Count",
+            "type": "integer"
+          },
+          "unassigned_confirmed_count": {
+            "title": "Unassigned Confirmed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "complete",
+          "draft_eligible",
+          "implementation_eligible",
+          "readiness_percentage",
+          "statement_count",
+          "missing_mandatory_areas",
+          "open_questions",
+          "unassigned_confirmed_count",
+          "sections"
+        ],
+        "title": "BlueprintResponse",
+        "type": "object"
+      },
+      "CalculateReadinessRequest": {
+        "properties": {
+          "not_applicable_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Applicable Areas",
+            "type": "array"
+          }
+        },
+        "title": "CalculateReadinessRequest",
+        "type": "object"
+      },
+      "ContradictionResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_knowledge_item_id": {
+            "title": "Source Knowledge Item Id",
+            "type": "string"
+          },
+          "target_knowledge_item_id": {
+            "title": "Target Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "source_knowledge_item_id",
+          "target_knowledge_item_id"
+        ],
+        "title": "ContradictionResponse",
+        "type": "object"
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "EnqueueRunRequest": {
+        "description": "``idempotency_key`` is required, not optional.\n\n``MemoryService`` deduplicates on it, so a client that retries a request it\nnever saw the answer to converges on one run instead of two. Making it\noptional would leave the one durable replay protection this API has to a\ncaller's discretion.",
+        "properties": {
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_context": {
+            "additionalProperties": true,
+            "title": "Input Context",
+            "type": "object"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "role",
+          "idempotency_key"
+        ],
+        "title": "EnqueueRunRequest",
+        "type": "object"
+      },
+      "FindingResponse": {
+        "description": "One quality finding.\n\nNo identifier, deliberately: findings are derived from state, not stored, so\nthere is nothing stable to address. A finding disappears when the condition\nthat produced it does (ADR-0015).",
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Knowledge Item Ids",
+            "type": "array"
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "severity",
+          "summary",
+          "recommended_action",
+          "area_key",
+          "knowledge_item_ids"
+        ],
+        "title": "FindingResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "FR-017. Reports without authentication and without leaking credentials.",
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "migration_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Revision"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "migration_revision",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "KnowledgeResponse": {
+        "description": "Carries every version, because history is the product.\n\nA knowledge item that only exposes its current text would make the audit\ntrail invisible to the interface that exists to show it.",
+        "properties": {
+          "current_content": {
+            "title": "Current Content",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "kind",
+          "lifecycle",
+          "current_content",
+          "versions"
+        ],
+        "title": "KnowledgeResponse",
+        "type": "object"
+      },
+      "KnowledgeVersionResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "content",
+          "source",
+          "recorded_at"
+        ],
+        "title": "KnowledgeVersionResponse",
+        "type": "object"
+      },
+      "MessageResponse": {
+        "properties": {
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "message_type": {
+            "title": "Message Type",
+            "type": "string"
+          },
+          "sequence_number": {
+            "title": "Sequence Number",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "sequence_number",
+          "actor_type",
+          "message_type",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "OpenSessionRequest": {
+        "properties": {
+          "session_type": {
+            "title": "Session Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_type"
+        ],
+        "title": "OpenSessionRequest",
+        "type": "object"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "key",
+          "description",
+          "status"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "RaiseBlockerRequest": {
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "severity": {
+            "default": "critical",
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "RaiseBlockerRequest",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "description": "Everything needed to interrogate the number, never the number alone.\n\n``is_stale`` is computed against the project's current revision at read time,\nwhich is why it is not a stored status.",
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaResultResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "calculated_at": {
+            "format": "date-time",
+            "title": "Calculated At",
+            "type": "string"
+          },
+          "calculation_version": {
+            "title": "Calculation Version",
+            "type": "integer"
+          },
+          "critical_blocker_count": {
+            "title": "Critical Blocker Count",
+            "type": "integer"
+          },
+          "draft_eligible": {
+            "title": "Draft Eligible",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "implementation_eligible": {
+            "title": "Implementation Eligible",
+            "type": "boolean"
+          },
+          "is_stale": {
+            "title": "Is Stale",
+            "type": "boolean"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "missing_mandatory_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Mandatory Areas",
+            "type": "array"
+          },
+          "open_blocker_count": {
+            "title": "Open Blocker Count",
+            "type": "integer"
+          },
+          "percentage": {
+            "title": "Percentage",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "template_key": {
+            "title": "Template Key",
+            "type": "string"
+          },
+          "template_version": {
+            "title": "Template Version",
+            "type": "integer"
+          },
+          "unresolved_contradiction_count": {
+            "title": "Unresolved Contradiction Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "percentage",
+          "score",
+          "status",
+          "draft_eligible",
+          "implementation_eligible",
+          "missing_mandatory_areas",
+          "open_blocker_count",
+          "critical_blocker_count",
+          "unresolved_contradiction_count",
+          "knowledge_revision",
+          "template_key",
+          "template_version",
+          "calculation_version",
+          "is_stale",
+          "areas",
+          "calculated_at"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RecordContradictionRequest": {
+        "properties": {
+          "source_knowledge_item_id": {
+            "title": "Source Knowledge Item Id",
+            "type": "string"
+          },
+          "target_knowledge_item_id": {
+            "title": "Target Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_knowledge_item_id",
+          "target_knowledge_item_id"
+        ],
+        "title": "RecordContradictionRequest",
+        "type": "object"
+      },
+      "RecordMessageRequest": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_type": {
+            "default": "user",
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "content": {
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "message_type": {
+            "default": "input",
+            "title": "Message Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "RecordMessageRequest",
+        "type": "object"
+      },
+      "ResolveRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ResolveRequest",
+        "type": "object"
+      },
+      "ResolvedResponse": {
+        "description": "Whether the call changed anything.\n\n``False`` means it was already resolved, which is not an error \u2014 a retried\nresolution should be safe.",
+        "properties": {
+          "resolved": {
+            "title": "Resolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "resolved"
+        ],
+        "title": "ResolvedResponse",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "description": "What a reviewer needs without inspecting the database (FR-015).",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "counts",
+          "findings"
+        ],
+        "title": "ReviewResponse",
+        "type": "object"
+      },
+      "RunResponse": {
+        "properties": {
+          "attempt_number": {
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "continuation_state": {
+            "additionalProperties": true,
+            "title": "Continuation State",
+            "type": "object"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "output_summary": {
+            "additionalProperties": true,
+            "title": "Output Summary",
+            "type": "object"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "role",
+          "status",
+          "attempt_number",
+          "idempotency_key",
+          "continuation_state",
+          "output_summary",
+          "error_code",
+          "error_message"
+        ],
+        "title": "RunResponse",
+        "type": "object"
+      },
+      "SectionResponse": {
+        "properties": {
+          "area_key": {
+            "title": "Area Key",
+            "type": "string"
+          },
+          "area_name": {
+            "title": "Area Name",
+            "type": "string"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/StatementResponse"
+            },
+            "title": "Statements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "area_key",
+          "area_name",
+          "statements"
+        ],
+        "title": "SectionResponse",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "type",
+          "status",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "StatementResponse": {
+        "description": "One blueprint statement.\n\nCarries its knowledge item, so tracing it is one hop rather than a parallel\ntrace API over derived identifiers (ADR-0016). No statement lacks a label or\na trace target \u2014 FR-008's acceptance condition, and it holds structurally.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "knowledge_version": {
+            "title": "Knowledge Version",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "produced_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By Run Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "label",
+          "kind",
+          "knowledge_item_id",
+          "knowledge_version",
+          "source_message_id",
+          "produced_by_run_id"
+        ],
+        "title": "StatementResponse",
+        "type": "object"
+      },
+      "TraceResponse": {
+        "description": "A knowledge item's chain of custody: project, session, message, run, versions.",
+        "properties": {
+          "current_content": {
+            "title": "Current Content",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "produced_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By Run Id"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "session_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Session Ids",
+            "type": "array"
+          },
+          "source_message_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Message Ids",
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TraceStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "used_by_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By Run Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "project_id",
+          "kind",
+          "lifecycle",
+          "current_content",
+          "produced_by_run_id",
+          "used_by_run_ids",
+          "source_message_ids",
+          "session_ids",
+          "steps"
+        ],
+        "title": "TraceResponse",
+        "type": "object"
+      },
+      "TraceStepResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation",
+          "reference",
+          "detail"
+        ],
+        "title": "TraceStepResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "\nEngineering memory for AI product discovery.\n\n**This API has no authentication.** The MVP defers authentication, teams, and\nroles, so it is safe only behind a network boundary (ADR-0014).\n\nLong operations never hold a request open: enqueueing agent work returns `202`\nwith a durable run identifier, and the client polls the run.\n",
+    "title": "KAE-Memory",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "FR-017. Unversioned on purpose: an operational probe should not move\nwhen the business contract does.\n\nReports ``degraded`` rather than ``ok`` when the database is unreachable,\nand never returns a connection string \u2014 the URL contains the password.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/knowledge/{item_id}/confirm": {
+      "post": {
+        "description": "Confirm a candidate.\n\nConfirmation is a human act. No agent performs it, which is why this is an\nendpoint and not a step inside a run.",
+        "operationId": "confirm_knowledge_v1_knowledge__item_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Knowledge",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/knowledge/{item_id}/trace": {
+      "get": {
+        "description": "Return a knowledge item's chain of custody.\n\nProject, the sessions and messages it came from, the run that produced it,\nthe runs that consumed it, and every version with its provenance \u2014 the answer\nto \"why does the blueprint say this?\"",
+        "operationId": "trace_knowledge_v1_knowledge__item_id__trace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trace Knowledge",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "description": "List every project, newest first.",
+        "operationId": "list_projects_v1_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  },
+                  "title": "Response List Projects V1 Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Create a durable project.",
+        "operationId": "create_project_v1_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "description": "Return one project.",
+        "operationId": "get_project_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blockers": {
+      "get": {
+        "description": "List a project's blockers.",
+        "operationId": "list_blockers_v1_projects__project_id__blockers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "blocker_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Blocker Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BlockerResponse"
+                  },
+                  "title": "Response List Blockers V1 Projects  Project Id  Blockers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Blockers",
+        "tags": [
+          "readiness"
+        ]
+      },
+      "post": {
+        "description": "Record something that must be closed before a blueprint is credible.",
+        "operationId": "raise_blocker_v1_projects__project_id__blockers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaiseBlockerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raise Blocker",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blockers/{blocker_id}/resolve": {
+      "post": {
+        "description": "Close a blocker.",
+        "operationId": "resolve_blocker_v1_projects__project_id__blockers__blocker_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Blocker",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blueprint": {
+      "get": {
+        "description": "Render confirmed knowledge as a blueprint.\n\nReturned even below the draft threshold, marked incomplete. Refusing would\ntell a user nothing about *what is missing*, and for an early project the\nmissing-area list is the most useful thing the blueprint can say.\n\nEvery statement is a confirmed knowledge item's own text. No model writes\nblueprint prose (ADR-0016), because generated connective text would be\nunattributable \u2014 the failure FR-008's labelling exists to prevent.",
+        "operationId": "get_blueprint_v1_projects__project_id__blueprint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueprintResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Blueprint",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blueprint.md": {
+      "get": {
+        "description": "Export the same blueprint as Markdown (FR-008).\n\nA rendering of the same structure the JSON exposes, so the two cannot\ndisagree. Every statement keeps its label and knowledge identifier, so an\nexported document is as traceable as the API response.",
+        "operationId": "export_blueprint_v1_projects__project_id__blueprint_md_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {},
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Blueprint",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/contradictions": {
+      "post": {
+        "description": "Record that two knowledge items contradict each other.\n\nAn unresolved contradiction touching a mandatory area blocks readiness, which\nis what makes this more than an annotation.",
+        "operationId": "record_contradiction_v1_projects__project_id__contradictions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordContradictionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContradictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Contradiction",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/contradictions/{relationship_id}/resolve": {
+      "post": {
+        "description": "Resolve a contradiction.\n\n``resolved: false`` means it was already settled. That is not an error \u2014 a\nretried resolution has to be safe \u2014 and the edge is never deleted, because a\ncontradiction that was raised and closed is part of the audit trail.",
+        "operationId": "resolve_contradiction_v1_projects__project_id__contradictions__relationship_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "relationship_id",
+            "required": true,
+            "schema": {
+              "title": "Relationship Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Contradiction",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge": {
+      "get": {
+        "description": "List a project's knowledge.\n\nUnfiltered by default. The workspace needs to show proposed candidates beside\nconfirmed knowledge, because the difference between them is the thing a user\nacts on.",
+        "operationId": "list_knowledge_v1_projects__project_id__knowledge_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lifecycle",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeResponse"
+                  },
+                  "title": "Response List Knowledge V1 Projects  Project Id  Knowledge Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Knowledge",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness": {
+      "get": {
+        "description": "Return the latest snapshot, calculating one if none exists.\n\nCalculating on first read rather than returning 404 means the workspace shows\na real zero for an untouched project instead of an error it would have to\nexplain.",
+        "operationId": "get_readiness_v1_projects__project_id__readiness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Readiness",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/areas": {
+      "post": {
+        "description": "Link a knowledge item to a discovery area.\n\nAn authoritative change: it alters which areas an item can cover, so the\nproject's knowledge revision advances and earlier snapshots go stale.",
+        "operationId": "assign_area_v1_projects__project_id__readiness_areas_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignAreaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Area",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/calculate": {
+      "post": {
+        "description": "Recalculate and append a snapshot.\n\nAppends rather than replaces. Readiness history is how the product shows\nreadiness *moving* as knowledge is confirmed.",
+        "operationId": "calculate_readiness_v1_projects__project_id__readiness_calculate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateReadinessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Calculate Readiness",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/history": {
+      "get": {
+        "description": "Return snapshots oldest first.",
+        "operationId": "readiness_history_v1_projects__project_id__readiness_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReadinessResponse"
+                  },
+                  "title": "Response Readiness History V1 Projects  Project Id  Readiness History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Readiness History",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/review": {
+      "get": {
+        "description": "Return quality findings, most severe first (FR-015).\n\nDerived from operational data on every request rather than stored, so the\nfindings can never disagree with the state they describe. Acting on one means\nchanging that state \u2014 confirm the knowledge, assign the area, resolve the\ncontradiction \u2014 and the finding disappears.",
+        "operationId": "review_findings_v1_projects__project_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Findings",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/runs": {
+      "get": {
+        "description": "List a project's execution history, most recent first.",
+        "operationId": "list_runs_v1_projects__project_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  },
+                  "title": "Response List Runs V1 Projects  Project Id  Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Enqueue agent work and return immediately.\n\n**202, never 200.** The run is durable when this returns, but it has not\nstarted: a worker claims it. The browser does not own the run (ADR-0009), so\nclosing the tab cannot lose it.\n\nIdempotent on ``idempotency_key`` \u2014 a retried request converges on the\noriginal run rather than creating a second.",
+        "operationId": "enqueue_run_v1_projects__project_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnqueueRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Run",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sessions": {
+      "get": {
+        "description": "List a project's sessions.",
+        "operationId": "list_sessions_v1_projects__project_id__sessions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionResponse"
+                  },
+                  "title": "Response List Sessions V1 Projects  Project Id  Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Open a working session.",
+        "operationId": "open_session_v1_projects__project_id__sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Session",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}": {
+      "get": {
+        "description": "Return one run. This is what a client polls while work proceeds.",
+        "operationId": "get_run_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}/events": {
+      "get": {
+        "description": "Stream run progress as Server-Sent Events.\n\nA convenience over ``GET /v1/runs/{id}``, never a replacement for it.\nCorrectness must not depend on an uninterrupted browser connection\n(ADR-0009), so a client that misses the stream entirely can still read the\nsame state with an ordinary request.\n\nEmits the current state immediately, then on every change to status,\nattempt, checkpoint, or error. Closes when the run reaches a terminal\nstatus.",
+        "operationId": "stream_run_events_v1_runs__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Run Events",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}/knowledge": {
+      "get": {
+        "description": "Return the knowledge a run produced.\n\nOne run, one result: replaying a completed run returns its original output\nrather than producing a second set.",
+        "operationId": "knowledge_produced_by_v1_runs__run_id__knowledge_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeResponse"
+                  },
+                  "title": "Response Knowledge Produced By V1 Runs  Run Id  Knowledge Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Knowledge Produced By",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/close": {
+      "post": {
+        "description": "Close a session.",
+        "operationId": "close_session_v1_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Session",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/messages": {
+      "get": {
+        "description": "List a session's messages in submission order.",
+        "operationId": "list_messages_v1_sessions__session_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MessageResponse"
+                  },
+                  "title": "Response List Messages V1 Sessions  Session Id  Messages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Record a message verbatim as source evidence.\n\nThe stored text is never rewritten by extraction, so the original wording\nstays available as the source of anything derived from it.",
+        "operationId": "record_message_v1_sessions__session_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Message",
+        "tags": [
+          "workspace"
+        ]
+      }
+    }
+  }
+}

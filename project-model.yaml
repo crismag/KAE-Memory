@@ -1647,9 +1647,9 @@ id_register:
 undefined:
   - area: interface
     missing: >
-      The generated TypeScript client and the workspace UI. The REST and SSE
-      contract is decided by ADR-0014 and implemented; list endpoints are still
-      unpaginated.
+      Semantic retrieval is not wired into the product path, and list endpoints
+      are unpaginated. The REST and SSE contract, the generated client, and the
+      workspace all exist.
     blocks:
       - M9
   - area: non_functional
@@ -2470,3 +2470,21 @@ history:
         and prohibition set — five are agents, one is a deterministic service,
         two are capabilities, and one is an orchestrator stage.
     stage: KAE with Memory alignment review and development plan
+  - commit: 30
+    added:
+      - frontend/, the discovery workspace over the real API
+      - a TypeScript client generated from the OpenAPI document
+      - scripts/development/dump-openapi.py
+      - a CI frontend job that diffs the regenerated client
+    changed:
+      - Makefile, README, and the undefined interface area
+    deferred:
+      - wiring semantic retrieval into the product path
+      - pagination, which the client is generated against unpaginated lists
+    conflicts:
+      - >
+        The live retrieval evaluation could not run. The available AWS identity
+        is not authorised for bedrock:InvokeModel on
+        amazon.titan-embed-text-v2:0, so M8's outstanding quality claim remains
+        unproven and is blocked on an IAM change rather than on engineering.
+    stage: M9 workspace and generated client

@@ -144,6 +144,9 @@ and is not an approved deployment baseline.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, recovery after worker death, and the daemon loop
   behind `python -m kae_memory.worker`.
+- `frontend/` — the discovery workspace (ADR-0009): React, TypeScript, Vite,
+  React Router, TanStack Query, and a client generated from the API's own
+  OpenAPI document.
 - `src/kae_memory/api/` — the HTTP contract (ADR-0014): projects, sessions,
   messages, knowledge, runs, readiness, review findings, blockers,
   contradictions, blueprint generation and Markdown export, knowledge trace,
@@ -159,8 +162,9 @@ and is not an approved deployment baseline.
   retrieval over a real vector index, and readiness scoring that cannot be
   inflated by generating unconfirmed text.
 
-The generated client and the user interface are **not** implemented, and semantic
-retrieval is built but not yet wired into the product path. Check
+Semantic retrieval is built but not yet wired into the product path, and its
+ranking quality is unmeasured — the live evaluation needs Bedrock access that the
+current AWS identity lacks. Check
 `src/kae_memory/` before assuming any capability exists.
 
 ## Getting started
@@ -176,6 +180,9 @@ CockroachDB. No test contacts a model provider.
 `make worker` runs the durable worker as a **separate process** from the API — it
 claims queued runs and executes them, so an enqueued run actually completes. It
 uses the offline extractor by default and needs no credentials.
+
+`make frontend` serves the workspace at <http://127.0.0.1:5173>, proxying the API.
+Run `make api` and `make worker` alongside it.
 
 `make api` serves the HTTP contract at <http://127.0.0.1:8000>, with interactive
 documentation at `/docs` and the OpenAPI document at `/openapi.json`. **It has no

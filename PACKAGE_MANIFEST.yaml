@@ -95,6 +95,10 @@ package:
       - src/kae_memory/agents/
       - src/kae_memory/worker/
       - src/kae_memory/api/
+      - frontend/src/
+      - frontend/package.json
+      - frontend/openapi.json
+      - scripts/development/dump-openapi.py
       - migrations/env.py
       - migrations/script.py.mako
       - migrations/versions/0001_create_knowledge_tables.py
