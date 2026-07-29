@@ -14,6 +14,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from kae_memory.application.review_service import Finding
 from kae_memory.domain.execution import AgentRun
 from kae_memory.domain.models import KnowledgeItem, Project
 from kae_memory.domain.readiness import AreaResult, Blocker, ReadinessSnapshot
@@ -334,3 +335,38 @@ class ResolvedResponse(BaseModel):
     """
 
     resolved: bool
+
+
+class FindingResponse(BaseModel):
+    """One quality finding.
+
+    No identifier, deliberately: findings are derived from state, not stored, so
+    there is nothing stable to address. A finding disappears when the condition
+    that produced it does (ADR-0015).
+    """
+
+    kind: str
+    severity: str
+    summary: str
+    recommended_action: str
+    area_key: str | None
+    knowledge_item_ids: list[str]
+
+    @classmethod
+    def of(cls, finding: Finding) -> "FindingResponse":
+        return cls(
+            kind=finding.kind.value,
+            severity=finding.severity.value,
+            summary=finding.summary,
+            recommended_action=finding.recommended_action,
+            area_key=finding.area_key,
+            knowledge_item_ids=[str(item) for item in finding.knowledge_item_ids],
+        )
+
+
+class ReviewResponse(BaseModel):
+    """What a reviewer needs without inspecting the database (FR-015)."""
+
+    project_id: str
+    counts: dict[str, int]
+    findings: list[FindingResponse]
