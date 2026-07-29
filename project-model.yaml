@@ -55,6 +55,20 @@ project:
   open_questions:
     - OQ-017
     - OQ-018
+    - OQ-019
+    - OQ-020
+    - OQ-021
+    - OQ-022
+    - OQ-023
+    - OQ-024
+    - OQ-025
+    - OQ-026
+    - OQ-027
+    - OQ-028
+    - OQ-029
+    - OQ-030
+    - OQ-031
+    - OQ-032
   depth: full
   current_stage: implementation_kickoff
   current_milestone: M9
@@ -1064,6 +1078,90 @@ open_questions:
       runtime to a self-managed instance. Recorded rather than absorbed silently.
     blocks:
       - M10
+  - id: OQ-019
+    question: >
+      What is directive memory, physically — a KnowledgeKind extension with an authority column, or a separate directives table?
+    status: open
+    context: >
+      Blocks stage 1. The precedence model depends on instructions outranking confirmed knowledge, and nothing in the schema expresses that today.
+  - id: OQ-020
+    question: >
+      Does authority belong to the stored item, or to the retrieval policy that ranks it?
+    status: open
+    context: >
+      Storing it invites drift between the value and its reason; computing it keeps one source of truth. ADR-0012 chose computed for readiness.
+  - id: OQ-021
+    question: >
+      Which acceptance list becomes canonical, and do AT-001 to AT-009 stay unchanged?
+    status: open
+    context: >
+      Four lists currently describe the same proof, so no acceptance test can cite one.
+  - id: OQ-022
+    question: >
+      Where do generated artifacts live — knowledge items, a dedicated table, or external references?
+    status: open
+    context: >
+      Code, documents, and test files produced by KAE have no representation.
+  - id: OQ-023
+    question: >
+      What is retained verbatim, and for how long?
+    status: open
+    context: >
+      Blocks stage 2. Prompt capture must not ship before a redaction rule exists; storing transcripts without one is how a secret reaches a database.
+  - id: OQ-024
+    question: >
+      What may be embedded, and what must remain structured-only?
+    status: open
+    context: >
+      Secrets, superseded items, and rejected candidates arguably should never enter the vector index, and the chunk table has no lifecycle column to exclude them.
+  - id: OQ-025
+    question: >
+      Is user preference memory project-, user-, or organisation-scoped?
+    status: open
+    context: >
+      Cannot be answered inside the current model; depends on OQ-028.
+  - id: OQ-026
+    question: >
+      Who owns the repository KAE works in?
+    status: open
+    context: >
+      Blocks stage 3. Determines the isolation model, the credential model, and whether generated code ever executes on KAE infrastructure.
+  - id: OQ-027
+    question: >
+      What is the code-execution isolation boundary?
+    status: open
+    context: >
+      Blocks stage 5. If an implementation agent runs tests, something executes untrusted generated code.
+  - id: OQ-028
+    question: >
+      What is the tenancy and access model?
+    status: open
+    context: >
+      The MVP assumes a single trusted operator with no authentication. Organisation scope, cross-project memory, and approval gates all presuppose identity.
+  - id: OQ-029
+    question: >
+      What are the autonomy levels, and who sets them?
+    status: open
+    context: >
+      Approval-of-action does not exist; only knowledge confirmation does.
+  - id: OQ-030
+    question: >
+      Who is the target user — product owner or engineer?
+    status: open
+    context: >
+      The two imply different interfaces, defaults, and proof moments.
+  - id: OQ-031
+    question: >
+      Does KAE perform implementation or coordinate the tools that do?
+    status: open
+    context: >
+      Performing it means owning execution, isolation, and quality. Coordinating changes the MCP strategy substantially.
+  - id: OQ-032
+    question: >
+      What is the memory quality bar?
+    status: open
+    context: >
+      Ten quality measures are proposed and none has a threshold. The one measurable today sits at chance level offline and has never been measured live.
 
 assumptions:
   - classification: assumption
@@ -1509,6 +1607,20 @@ id_register:
   - {id: OQ-016, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-017, type: open_question, status: active, superseded_by: null}
   - {id: OQ-018, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-019, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-020, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-021, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-022, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-023, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-024, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-025, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-026, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-027, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-028, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-029, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-030, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-031, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-032, type: open_question, status: active, superseded_by: null}
   - {id: TASK-001, type: task, status: complete, superseded_by: null}
   - {id: TASK-002, type: task, status: active, superseded_by: null}
   - {id: TASK-003, type: task, status: active, superseded_by: null}
@@ -2317,3 +2429,44 @@ history:
         authority. CURRENT_PROJECT_STATE.md remains authoritative for what
         exists, and MVP_REQUIREMENTS_BASELINE.md for what is authorised.
     stage: store the KAE with Memory review brief
+  - commit: 29
+    added:
+      - docs/05_product/KAE_WITH_MEMORY_ALIGNMENT_REVIEW.md
+      - docs/05_product/KAE_WITH_MEMORY_OPEN_QUESTIONS.md
+      - docs/09_development/KAE_WITH_MEMORY_DEVELOPMENT_PLAN.md
+      - OQ-019 through OQ-032
+    changed:
+      - docs/CONTEXT_INDEX.md
+    deferred:
+      - promoting any KWM requirement into the baseline
+      - authorising any agent role beyond the three FR-009 allows
+      - ten architecture decisions the plan names but does not write
+    conflicts:
+      - >
+        Fifteen of the forty-six proposed KWM requirements are already
+        implemented and covered by acceptance tests under the approved baseline,
+        while being stated as proposed. Restating an implemented requirement
+        invites a second implementation of provenance or lifecycle beside the one
+        that exists. Every KWM requirement now needs a disposition before the
+        register is used to scope work.
+      - >
+        Directive memory has no representation anywhere — no table, no domain
+        type, no authority field. The precedence model that instructions outrank
+        confirmed knowledge cannot be implemented or tested against the current
+        schema, so it is the prerequisite for most of the package.
+      - >
+        The vision states KAE should construct or update a repository, while
+        MVP_SCOPE.md excludes code generation and states the three authorised
+        agents write knowledge, not code. The boundary is expected to move, but
+        only by an approved requirement and an ADR, not by being outgrown.
+      - >
+        The proposed scope hierarchy runs from organisation to AgentRun, while
+        the MVP excludes teams, roles, and permissions and assumes a single
+        trusted operator. The upper levels have no meaning until an access model
+        exists.
+      - >
+        The agent model lists ten candidate roles. Reviewed against the
+        repository's own test — a role exists when it has a distinct write scope
+        and prohibition set — five are agents, one is a deterministic service,
+        two are capabilities, and one is an orchestrator stage.
+    stage: KAE with Memory alignment review and development plan

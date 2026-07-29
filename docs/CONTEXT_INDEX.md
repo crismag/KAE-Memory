@@ -144,7 +144,15 @@ the approved MVP, current agent-role limit, accepted ADRs, or current state page
   instruction for refining the four documents above: the product claim they must
   carry, the framings they must not drift between, the review work required, and
   the acceptance criteria for it. Stored so the review can be checked against
-  what was asked. **The review has not been performed yet.**
+  what was asked. The review was performed on 2026-07-28.
+- `docs/05_product/KAE_WITH_MEMORY_ALIGNMENT_REVIEW.md` records the twelve gaps
+  between the package and the implemented system. Read it before planning any
+  work from the package: three gaps block planning outright.
+- `docs/05_product/KAE_WITH_MEMORY_OPEN_QUESTIONS.md` registers OQ-019 onward —
+  the product questions whose wrong answers would be expensive to reverse.
+- `docs/09_development/KAE_WITH_MEMORY_DEVELOPMENT_PLAN.md` stages the work from
+  the current discovery workspace to the wider product, with the ADRs each stage
+  needs and the promotion path a proposed requirement must follow.
 
 Use these documents to shape future requirements and ADRs. Do not issue coding
 work directly from them until the relevant requirements are approved and reflected
