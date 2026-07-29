@@ -27,6 +27,7 @@ package:
     product:
       - docs/05_product/MVP_SCOPE.md
       - docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md
+      - docs/05_product/KAE_WITH_MEMORY_REVIEW_BRIEF.md
       - docs/05_product/MVP_UI_WORKSPACE.md
       - docs/05_product/DEMO_STORY_AND_SCRIPT.md
       - docs/05_product/UNIFIED_DEMO_NARRATIVE.md
