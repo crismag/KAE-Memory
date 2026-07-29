@@ -550,6 +550,16 @@ decisions:
       enhancement rather than a requirement, amending FR-016 and restating
       AT-008 and AT-009 against the portable profile.
     status: accepted
+    amended: >
+      2026-07-28. M9 owns the runnable local worker process required for the
+      integrated asynchronous workflow: python -m kae_memory.worker, a minimal
+      daemon loop, and a deterministic default execution path. The API and worker
+      remain separate processes, CockroachDB remains authoritative for queued
+      work, leases, checkpoints, and results, and the browser never executes or
+      owns a run. M10 retains deployment packaging, supervisor configuration,
+      production signal handling, automatic replacement, secrets, logging, health
+      operations, and optional AWS evidence. No SQS, Docker, systemd, EC2, or
+      Fargate work enters with the amendment.
     record: specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
     closes: OQ-016
     amends: FR-016
@@ -1488,9 +1498,9 @@ id_register:
 undefined:
   - area: interface
     missing: >
-      Server-Sent Events, the generated TypeScript client, and the workspace UI.
-      The REST contract is decided by ADR-0014 and implemented; run updates are
-      still poll-only, and list endpoints are unpaginated.
+      The generated TypeScript client and the workspace UI. The REST and SSE
+      contract is decided by ADR-0014 and implemented; list endpoints are still
+      unpaginated.
     blocks:
       - M9
   - area: non_functional
@@ -1502,9 +1512,9 @@ undefined:
       - M10
   - area: deployment
     missing: >
-      A runnable worker entrypoint. python -m kae_memory.api now exists, but
-      python -m kae_memory.worker does not, and the worker has no daemon loop,
-      SIGTERM handling, or environment configuration.
+      Production signal handling and supervision. Both entrypoints now exist and
+      the worker has a daemon loop honouring idle_poll_seconds, but SIGTERM
+      handling and graceful_shutdown_seconds remain unimplemented and are M10's.
     blocks:
       - M10
 
@@ -2146,3 +2156,52 @@ history:
         assigned to no area, because coverage is measured per area. Correct
         under ADR-0012, and surprising enough that the API test states it.
     stage: M9 HTTP API contract and implementation
+  - commit: 24
+    added:
+      - GET /v1/runs/{id}/events, run progress over Server-Sent Events
+    changed:
+      - undefined interface area
+    deferred:
+      - the generated TypeScript client and the workspace UI
+      - a push channel from the worker
+    conflicts:
+      - >
+        ADR-0009 requires that correctness never depend on an uninterrupted
+        browser connection. The stream is therefore a view of durable state that
+        polls CockroachDB, not a channel the worker publishes to. A push channel
+        would make the worker aware of connected browsers and give the run a
+        second place to fail.
+    stage: M9 run event stream
+  - commit: 25
+    added:
+      - python -m kae_memory.worker, the runnable local worker
+      - Worker.run_forever, the daemon loop
+      - AgentStepExecutor, which executes a claimed run rather than starting one
+      - a default offline sentence fixture for extraction
+    changed:
+      - ADR-0013, amended so M9 owns the runnable local worker
+      - MemoryService, which gained get_message
+    deferred:
+      - production signal handling and graceful shutdown, which stay M10
+      - the review agent, which fails typed rather than pretending to succeed
+    conflicts:
+      - >
+        ADR-0013 placed the worker entrypoint in M10, but M9's exit condition is
+        an asynchronous workflow that cannot complete without something claiming
+        enqueued runs. Amended rather than worked around; running agents inside
+        an HTTP request would have contradicted ADR-0009.
+      - >
+        The agents in agents/roles.py start their own runs, because M6 drove them
+        directly. A worker claims a run that already exists, so the executor
+        performs the same work against an existing run. Two callers succeeding
+        one run is an illegal transition, not a redundant one.
+      - >
+        DeterministicExtractionAdapter previously required a caller-supplied
+        fixture and failed without one, which left the default worker path
+        unusable. It now defaults to a rule-based sentence fixture. That is not
+        extraction intelligence, and both the code and the demonstration must say
+        which adapter produced a result.
+      - >
+        KnowledgeKind.UNKNOWN maps to no readiness area. Correct — a recorded gap
+        is not coverage — and surprising enough that the workflow test states it.
+    stage: M9 runnable local worker

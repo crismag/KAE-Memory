@@ -1,6 +1,6 @@
 # ADR-0013 — Portable runtime and optional AWS deployment
 
-- **Status:** accepted
+- **Status:** accepted, amended 2026-07-28 (see [Amendment](#amendment-2026-07-28--the-runnable-local-worker-moves-to-m9))
 - **Date:** 2026-07-27
 - **Closes:** OQ-016
 - **Blocks:** M10 — AWS Demonstration
@@ -131,6 +131,51 @@ read from the environment.
 FR-017's `GET /health` — status, database connectivity, applied migration
 revision, version — belongs to the API, which M9 delivers. AT-008 therefore
 cannot pass before M9, regardless of deployment choice.
+
+## Amendment 2026-07-28 — the runnable local worker moves to M9
+
+Narrow, and scoped to milestone ownership rather than to any decision above.
+
+This ADR recorded that the worker is a library rather than a process and placed
+the entrypoint and daemon loop in M10, alongside deployment. That ordering does
+not survive contact with M9's exit condition. The integrated product workflow —
+submit an idea, extract candidates, confirm them, derive decisions, review, and
+generate a traceable blueprint — is asynchronous by design. Steps that enqueue a
+run cannot complete if nothing claims it, so **M9 cannot be walked end to end
+without a running worker**, and the API would enqueue runs that stay `pending`
+for ever.
+
+**M9 now owns the runnable local worker process** required for that workflow:
+`python -m kae_memory.worker`, a minimal daemon loop that claims and executes
+queued runs, and a deterministic execution path as the default demonstrable
+mode.
+
+Unchanged by this amendment, and restated because they are the reason the split
+is safe:
+
+- **The API and the worker remain separate processes.** Running agent work
+  inside a request would contradict ADR-0009.
+- **CockroachDB remains authoritative** for queued work, leases, fencing tokens,
+  checkpoints, retry state, and results. The worker process is a consumer of
+  that state, never a second source of it.
+- **The browser never executes or owns a run.** Enqueue still returns `202` with
+  a durable identifier.
+
+**M10 retains everything operational:** deployment packaging, supervisor
+configuration, production signal handling and graceful shutdown, automatic
+process replacement, secrets delivery, logging, health operations, and the
+optional AWS evidence. The M9 worker handles `KeyboardInterrupt` so a local
+session stops cleanly; `SIGTERM` handling and `graceful_shutdown_seconds` stay
+M10, because they are properties of a supervised deployment rather than of the
+workflow.
+
+No SQS, Docker, systemd, EC2, Fargate, or other deployment work enters here.
+OQ-017 and OQ-018 remain open and untouched.
+
+The consequence for the recorded gaps below: the first is now half closed —
+`python -m kae_memory.api` and `python -m kae_memory.worker` both exist — and the
+second narrows from "no daemon loop, no signal handling, no configuration" to
+"no production signal handling", which is M10's.
 
 ## Consequences
 

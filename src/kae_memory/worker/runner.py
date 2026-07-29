@@ -13,6 +13,7 @@ checkpoints, and idempotent effects**. It is never exactly-once: a worker can
 complete an external call and die before recording the result.
 """
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -218,6 +219,26 @@ class Worker:
             # Another worker owns it now. Nothing to clean up: fencing already
             # rejected anything this worker tried to write.
             return None
+
+    def run_forever(self, sleep: Callable[[float], None] = time.sleep) -> int:
+        """Claim and execute runs until asked to stop. Returns how many completed.
+
+        The whole daemon loop. It polls rather than subscribing because
+        CockroachDB is authoritative for what is runnable (ADR-0007) — a queue
+        would be a second source of truth about work that already has one.
+
+        ``idle_poll_seconds`` is honoured here, which is the first time it has
+        been: it was declared with the rest of :class:`WorkerConfig` and unused
+        until the worker became a process.
+        """
+
+        processed = 0
+        while not self._stopping:
+            if self.run_once() is None:
+                sleep(self._config.idle_poll_seconds)
+                continue
+            processed += 1
+        return processed
 
     def run_until_idle(self, max_runs: int = 100) -> int:
         """Process runs until none are claimable. Returns how many completed."""
