@@ -225,3 +225,7 @@ __marimo__/
 .secrets/
 *.pem
 *.key
+
+# Frontend
+node_modules/
+frontend/dist/

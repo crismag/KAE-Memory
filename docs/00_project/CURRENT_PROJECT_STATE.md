@@ -265,6 +265,11 @@ under `/v1`, plus `GET /health` and run progress over **Server-Sent Events** at
 `GET /v1/runs/{id}/events`. `python -m kae_memory.api` serves it and
 `/openapi.json` is the schema the client is generated from.
 
+The **workspace UI and generated client have landed** (ADR-0009): React,
+TypeScript, Vite, React Router, and TanStack Query, with the client generated
+from the API's own OpenAPI document and CI diffing it so a backend contract
+change cannot skip regeneration.
+
 What remains in M9: the **generated TypeScript client**, the **workspace UI**, the **Review Agent's** classification
 and findings, and reporting. CI gains a Node job when frontend code lands.
 
