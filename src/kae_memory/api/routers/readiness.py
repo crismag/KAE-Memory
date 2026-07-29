@@ -10,7 +10,7 @@ from fastapi import APIRouter, status
 from kae_memory.domain.identifiers import BlockerId, KnowledgeItemId, ProjectId, RelationshipId
 from kae_memory.domain.readiness import BlockerSeverity, BlockerStatus
 
-from ..dependencies import Memory, Readiness
+from ..dependencies import Memory, Readiness, Review
 from ..errors import not_found
 from ..parsing import parse_enum
 from ..schemas import (
@@ -18,11 +18,13 @@ from ..schemas import (
     BlockerResponse,
     CalculateReadinessRequest,
     ContradictionResponse,
+    FindingResponse,
     RaiseBlockerRequest,
     ReadinessResponse,
     RecordContradictionRequest,
     ResolvedResponse,
     ResolveRequest,
+    ReviewResponse,
 )
 
 router = APIRouter(prefix="/v1/projects/{project_id}", tags=["readiness"])
@@ -87,6 +89,25 @@ def assign_area(
     _require_project(memory, project_id)
     readiness.assign_area(
         ProjectId(project_id), KnowledgeItemId(body.knowledge_item_id), body.area_key
+    )
+
+
+@router.get("/review", response_model=ReviewResponse)
+def review_findings(project_id: str, memory: Memory, review: Review) -> ReviewResponse:
+    """Return quality findings, most severe first (FR-015).
+
+    Derived from operational data on every request rather than stored, so the
+    findings can never disagree with the state they describe. Acting on one means
+    changing that state — confirm the knowledge, assign the area, resolve the
+    contradiction — and the finding disappears.
+    """
+
+    _require_project(memory, project_id)
+    identifier = ProjectId(project_id)
+    return ReviewResponse(
+        project_id=project_id,
+        counts=review.summary(identifier),
+        findings=[FindingResponse.of(finding) for finding in review.findings(identifier)],
     )
 
 

@@ -22,6 +22,8 @@ from sqlalchemy.orm import sessionmaker
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
 from kae_memory.agents.extraction import ExtractionPort, ExtractionRequest
 from kae_memory.application.memory_service import MemoryService, WriteKnowledgeRequest
+from kae_memory.application.readiness_service import ReadinessService
+from kae_memory.application.review_service import ReviewService, Severity, classify_offline
 from kae_memory.domain.execution import AgentRole, AgentRun
 from kae_memory.domain.identifiers import MessageId
 from kae_memory.domain.lifecycle import LifecycleState
@@ -32,9 +34,9 @@ from .runner import StepResult
 class UnsupportedRoleError(RuntimeError):
     """The run names a role this worker cannot execute.
 
-    ``review`` is authorised by FR-009 and not implemented. Failing loudly is the
-    honest outcome: silently succeeding an empty review run would report a
-    project as reviewed when nothing looked at it.
+    Unreachable through :class:`AgentRole` today — all three authorised roles
+    have an execution path. It stays as the guard for a fourth appearing without
+    one, because failing loudly beats succeeding a run that did nothing.
     """
 
     error_code = "role_not_implemented"
@@ -78,7 +80,9 @@ class AgentStepExecutor:
             return self._requirements(memory, run)
         if run.role is AgentRole.ARCHITECTURE:
             return self._architecture(memory, run)
-        raise UnsupportedRoleError(
+        if run.role is AgentRole.REVIEW:
+            return self._review(run)
+        raise UnsupportedRoleError(  # pragma: no cover - the enum has three members
             f"the {run.role.value} agent is not implemented; run {run.id} cannot be executed"
         )
 
@@ -170,6 +174,51 @@ class AgentStepExecutor:
                 "prompt_version": result.prompt_version,
                 "schema_version": result.schema_version,
                 "model": result.model,
+            },
+        )
+
+    def _review(self, run: AgentRun) -> StepResult:
+        """Classify what can be classified, and report what is wrong.
+
+        The one authoritative write a review run performs is an area link,
+        stamped with the run that proposed it — reversible, attributable, and
+        unable to invent coverage, because an area still needs *confirmed*
+        knowledge of an accepted kind to become sufficient.
+
+        It does **not** record contradictions. It reports candidates and a human
+        records one, because an unresolved contradiction on a mandatory area
+        blocks readiness: a false positive would stall a project on a model's
+        say-so. Flagging costs a reader a moment; recording costs the project
+        its gate (ADR-0015).
+        """
+
+        readiness = ReadinessService(self.session_factory)
+        review = ReviewService(self.session_factory)
+        memory = MemoryService(self.session_factory)
+
+        existing = {str(link.knowledge_item_id) for link in readiness.area_links(run.project_id)}
+        candidates = [
+            item
+            for item in memory.retrieve_knowledge(run.project_id, lifecycle=None)
+            if str(item.id) not in existing
+        ]
+
+        assigned = 0
+        for item_id, area_key in classify_offline(candidates):
+            readiness.assign_area(run.project_id, item_id, area_key, run.id)
+            assigned += 1
+
+        found = review.findings(run.project_id)
+        return StepResult(
+            checkpoint={"phase": "reviewed", "assigned": assigned},
+            done=True,
+            output_summary={
+                "areas_assigned": assigned,
+                "findings": len(found),
+                "critical_findings": sum(1 for f in found if f.severity is Severity.CRITICAL),
+                # Findings are derived, so the run records how many it saw rather
+                # than a copy that could disagree with the state later.
+                "classification": "offline_by_kind",
             },
         )
 

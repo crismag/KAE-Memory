@@ -217,6 +217,13 @@ class ReadinessService:
 
         return self._run(operation)
 
+    def area_links(self, project_id: ProjectId) -> tuple[KnowledgeAreaLink, ...]:
+        """Return every area assignment in a project."""
+
+        return self._run(
+            lambda session: KnowledgeAreaLinkRepository(session).list_for_project(project_id)
+        )
+
     def record_contradiction(
         self,
         project_id: ProjectId,

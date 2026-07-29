@@ -99,24 +99,24 @@ def test_a_run_without_input_fails_typed(factory: sessionmaker[Session]) -> None
     assert executed.error_code == MissingRunInputError.error_code
 
 
-def test_the_review_role_fails_loudly_rather_than_pretending(
-    factory: sessionmaker[Session],
-) -> None:
-    """FR-009 authorises three roles; the third is not implemented.
+def test_all_three_authorised_roles_are_executable(factory: sessionmaker[Session]) -> None:
+    """FR-009 authorises exactly three roles, and the worker now executes each.
 
-    Succeeding an empty review run would report a project as reviewed when
-    nothing looked at it.
+    ``UnsupportedRoleError`` remains as the guard for a fourth role appearing
+    without an execution path — it should never be reachable through the enum.
     """
 
     memory = MemoryService(factory)
-    project = memory.create_project("Review")
-    memory.enqueue_run(project.id, AgentRole.REVIEW, "review-1")
+    project = memory.create_project("Roles")
+    for index, role in enumerate(AgentRole):
+        memory.enqueue_run(project.id, role, f"role-{index}", input_context={"source_text": IDEA})
 
-    executed = _worker(factory).run_once()
+    worker = _worker(factory)
+    executed = [worker.run_once() for _ in AgentRole]
 
-    assert executed is not None
-    assert executed.status is RunStatus.FAILED
-    assert executed.error_code == UnsupportedRoleError.error_code
+    assert len(list(AgentRole)) == 3
+    assert all(run is not None and run.status is RunStatus.SUCCEEDED for run in executed)
+    assert UnsupportedRoleError.error_code == "role_not_implemented"
 
 
 def test_architecture_consumes_only_confirmed_knowledge(factory: sessionmaker[Session]) -> None:

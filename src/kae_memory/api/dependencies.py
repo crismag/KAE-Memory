@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
+from kae_memory.application.review_service import ReviewService
 
 APP_VERSION = "0.1.0"
 
@@ -88,6 +89,13 @@ def get_readiness(request: Request) -> ReadinessService:
     return ReadinessService(factory)
 
 
+def get_review(request: Request) -> ReviewService:
+    """Return the request's review service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ReviewService(factory)
+
+
 def get_session_factory(request: Request) -> sessionmaker[DbSession]:
     """Return the shared session factory."""
 
@@ -112,4 +120,5 @@ def database_status(session_factory: sessionmaker[DbSession]) -> str:
 
 Memory = Annotated[MemoryService, Depends(get_memory)]
 Readiness = Annotated[ReadinessService, Depends(get_readiness)]
+Review = Annotated[ReviewService, Depends(get_review)]
 SessionFactory = Annotated["sessionmaker[DbSession]", Depends(get_session_factory)]

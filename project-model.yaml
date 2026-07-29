@@ -581,6 +581,22 @@ decisions:
       - MOD-projects
       - MOD-knowledge
       - MOD-workflow
+  - id: ADR-0015
+    title: Review Agent output and the findings model
+    statement: >
+      The Review Agent produces findings, not knowledge. Findings are derived
+      from persisted state on every request and never stored, so they cannot
+      disagree with the state they describe and have no identity to dismiss. The
+      agent may classify knowledge into readiness areas, attributed to the run
+      that proposed it, and may not record contradictions — a false positive
+      would block readiness on a model's say-so. Offline classification covers
+      only kinds that exactly one area accepts.
+    status: accepted
+    record: specifications/ADR/ADR-0015-review-agent-and-findings.md
+    satisfies: FR-015
+    affects:
+      - MOD-audit
+      - MOD-knowledge
 
 modules:
   - id: MOD-projects
@@ -1325,6 +1341,7 @@ traces:
       - ADR-0012
       - ADR-0013
       - ADR-0014
+      - ADR-0015
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1446,6 +1463,7 @@ id_register:
   - {id: ADR-0012, type: decision, status: active, superseded_by: null}
   - {id: ADR-0013, type: decision, status: active, superseded_by: null}
   - {id: ADR-0014, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0015, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -2205,3 +2223,32 @@ history:
         KnowledgeKind.UNKNOWN maps to no readiness area. Correct — a recorded gap
         is not coverage — and surprising enough that the workflow test states it.
     stage: M9 runnable local worker
+  - commit: 26
+    added:
+      - ADR-0015
+      - ReviewService and the derived findings model
+      - review run execution, completing all three authorised roles
+      - GET /v1/projects/{id}/review
+    changed:
+      - the worker executor, which now handles AgentRole.REVIEW
+    deferred:
+      - model-assisted classification and contradiction candidates
+      - pagination of findings
+    conflicts:
+      - >
+        Findings do not fit the extraction contract. Requirements and
+        Architecture produce knowledge that enters the lifecycle; a finding is a
+        statement about the knowledge base rather than a member of it, and
+        forcing it through ExtractedItem would place it in the readiness
+        denominator and the extraction vocabulary.
+      - >
+        The Review Agent may classify but may not record contradictions. An
+        unresolved contradiction on a mandatory area blocks readiness, so a false
+        positive would stall a project on a model's say-so. Flagging costs a
+        reader a moment; recording costs the project its gate.
+      - >
+        Offline classification reaches only actor and assumption — the two kinds
+        exactly one area accepts. A typical offline extraction therefore assigns
+        no areas at all. Recorded as an accepted limit rather than fixed by
+        guessing.
+    stage: M9 review agent and quality findings

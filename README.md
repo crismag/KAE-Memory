@@ -135,24 +135,27 @@ and is not an approved deployment baseline.
 - `src/kae_memory/agents/` — `ExtractionPort` with a deterministic fixture
   adapter and a Bedrock adapter, versioned per-role prompts, source-quote
   verification, and the Requirements and Architecture agents.
+- `src/kae_memory/application/review_service.py` — quality findings derived from
+  operational data: gaps, unclassified and unconfirmed knowledge, open questions,
+  unresolved contradictions, and blockers.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, recovery after worker death, and the daemon loop
   behind `python -m kae_memory.worker`.
 - `src/kae_memory/api/` — the HTTP contract (ADR-0014): projects, sessions,
-  messages, knowledge, runs, readiness, blockers, contradictions, `GET /health`,
-  and run progress over Server-Sent Events. Served by `python -m kae_memory.api`.
+  messages, knowledge, runs, readiness, review findings, blockers,
+  contradictions, `GET /health`, and run progress over Server-Sent Events. Served by `python -m kae_memory.api`.
 - `src/kae_memory/domain/readiness.py` and `application/readiness_service.py` —
   the deterministic blueprint-readiness calculator, discovery blockers,
   contradiction resolution, area assignment, and append-only snapshots.
 - `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
   `0003` (lease ownership), `0004` (chunks and the vector index), and `0005`
   (readiness, blockers, and area links).
-- `tests/` — 178 tests including the HTTP contract and the cross-run persistence proof, the
+- `tests/` — 191 tests including the HTTP contract and the cross-run persistence proof, the
   cross-session agent-collaboration proof, the kill-and-recovery proof, semantic
   retrieval over a real vector index, and readiness scoring that cannot be
   inflated by generating unconfirmed text.
 
-The Review agent, the generated client, and the user interface are **not**
+Blueprint generation, the generated client, and the user interface are **not**
 implemented. Check
 `src/kae_memory/` before assuming any capability exists.
 
@@ -163,7 +166,7 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 178 tests against
+`make check` passes: ruff, ruff format, mypy strict, and 191 tests against
 CockroachDB. No test contacts a model provider.
 
 `make worker` runs the durable worker as a **separate process** from the API — it
