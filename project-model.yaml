@@ -2297,3 +2297,23 @@ history:
         instead, which reads as a structured list rather than a document. Named
         rather than papered over.
     stage: M9 blueprint generation and traceability
+  - commit: 28
+    added:
+      - docs/05_product/KAE_WITH_MEMORY_REVIEW_BRIEF.md
+    changed:
+      - docs/CONTEXT_INDEX.md
+    deferred:
+      - the review the brief asks for, which is a separate pull request
+    conflicts:
+      - >
+        The brief names PR #30 on branch docs/kae-with-memory-product-definition
+        as its target. That pull request merged on 2026-07-28 as 1577ac9, so the
+        review now applies to the four documents as they stand on main and its
+        output belongs in a new pull request. Recorded in the brief's header
+        rather than left to mislead a later reader.
+      - >
+        The brief proposes a wider product than the approved MVP framing and a
+        second requirement register. Stored as direction-setting input, not
+        authority. CURRENT_PROJECT_STATE.md remains authoritative for what
+        exists, and MVP_REQUIREMENTS_BASELINE.md for what is authorised.
+    stage: store the KAE with Memory review brief
