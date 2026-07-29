@@ -191,6 +191,7 @@ Timing, sample data, and delivery craft:
 | ADR-0015 Review Agent and findings | accepted — findings are derived, never stored |
 | ADR-0016 blueprint generation and trace | accepted — no model writes blueprint prose |
 | SQS as a run-request signal | **open** — OQ-017, no ADR authorises it |
+| KAE with Memory product direction | **14 open questions** — OQ-019 to OQ-032; see the alignment review |
 | EC2 rather than Fargate as the optional hosted reference | **open** — OQ-018 |
 
 ## Open risks

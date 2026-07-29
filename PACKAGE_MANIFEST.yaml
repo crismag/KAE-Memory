@@ -28,6 +28,8 @@ package:
       - docs/05_product/MVP_SCOPE.md
       - docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md
       - docs/05_product/KAE_WITH_MEMORY_REVIEW_BRIEF.md
+      - docs/05_product/KAE_WITH_MEMORY_ALIGNMENT_REVIEW.md
+      - docs/05_product/KAE_WITH_MEMORY_OPEN_QUESTIONS.md
       - docs/05_product/MVP_UI_WORKSPACE.md
       - docs/05_product/DEMO_STORY_AND_SCRIPT.md
       - docs/05_product/UNIFIED_DEMO_NARRATIVE.md
@@ -69,6 +71,7 @@ package:
       - operations/README.md
       - operations/runbooks/worker-recovery-demo.md
       - docs/09_development/DEVELOPMENT_PLAN.md
+      - docs/09_development/KAE_WITH_MEMORY_DEVELOPMENT_PLAN.md
       - docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md
       - docs/09_development/AI_PROVIDER_AND_COST_CONTROL_CONTEXT.md
       - docs/09_development/AWS_DEMONSTRATION_BASELINE.md
