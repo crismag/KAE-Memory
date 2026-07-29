@@ -15,6 +15,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.review_service import ReviewService
@@ -89,6 +90,13 @@ def get_readiness(request: Request) -> ReadinessService:
     return ReadinessService(factory)
 
 
+def get_blueprint(request: Request) -> BlueprintService:
+    """Return the request's blueprint service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return BlueprintService(factory)
+
+
 def get_review(request: Request) -> ReviewService:
     """Return the request's review service."""
 
@@ -121,4 +129,5 @@ def database_status(session_factory: sessionmaker[DbSession]) -> str:
 Memory = Annotated[MemoryService, Depends(get_memory)]
 Readiness = Annotated[ReadinessService, Depends(get_readiness)]
 Review = Annotated[ReviewService, Depends(get_review)]
+Blueprints = Annotated[BlueprintService, Depends(get_blueprint)]
 SessionFactory = Annotated["sessionmaker[DbSession]", Depends(get_session_factory)]

@@ -189,6 +189,7 @@ Timing, sample data, and delivery craft:
 | ADR-0014 HTTP API contract | accepted — settles the open decisions in API_CONTRACTS.md |
 | ADR-0013 amendment, 2026-07-28 | the runnable local worker moves to M9; deployment stays M10 |
 | ADR-0015 Review Agent and findings | accepted — findings are derived, never stored |
+| ADR-0016 blueprint generation and trace | accepted — no model writes blueprint prose |
 | SQS as a run-request signal | **open** — OQ-017, no ADR authorises it |
 | EC2 rather than Fargate as the optional hosted reference | **open** — OQ-018 |
 

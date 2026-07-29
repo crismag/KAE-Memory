@@ -4,9 +4,11 @@ Covers the four things ADR-0012 recorded as missing: relationship wiring,
 blockers, the project knowledge revision, and area assignment.
 """
 
+import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.models import KnowledgeItem
@@ -311,3 +313,44 @@ def test_the_shipped_template_persists_and_reloads(factory: sessionmaker[Session
         stored = ReadinessTemplateRepository(session).latest_active("software")
 
     assert stored == SOFTWARE_TEMPLATE
+
+
+def test_an_area_refuses_knowledge_of_a_kind_it_cannot_count(
+    factory: sessionmaker[Session],
+) -> None:
+    """Otherwise "assigned" and "counts" become two different things.
+
+    A blueprint would then render a statement contributing nothing to the score
+    printed beside it — which is exactly the kind of quiet divergence the
+    readiness model exists to prevent.
+    """
+
+    memory = MemoryService(factory)
+    readiness = ReadinessService(factory)
+    project = memory.create_project("Kind guard")
+    question = _write(memory, project.id, "unknown", "q1", confirm=False)
+
+    with pytest.raises(DomainInvariantError) as error:
+        readiness.assign_area(project.id, question.id, "problem_and_value")
+
+    assert "does not accept 'unknown'" in str(error.value)
+    assert readiness.area_links(project.id) == ()
+
+
+def test_the_api_reports_a_rejected_assignment_as_422(factory: sessionmaker[Session]) -> None:
+    from fastapi.testclient import TestClient
+
+    from kae_memory.api import create_app
+
+    memory = MemoryService(factory)
+    project = memory.create_project("Kind guard over HTTP")
+    question = _write(memory, project.id, "unknown", "q1", confirm=False)
+
+    with TestClient(create_app(factory)) as client:
+        response = client.post(
+            f"/v1/projects/{project.id}/readiness/areas",
+            json={"knowledge_item_id": str(question.id), "area_key": "problem_and_value"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "domain_invariant_violated"

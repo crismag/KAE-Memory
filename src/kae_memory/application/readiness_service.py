@@ -19,6 +19,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import (
     AgentRunId,
     AreaLinkId,
@@ -199,7 +200,8 @@ class ReadinessService:
         snapshot becomes stale.
         """
 
-        if self._template.area(area_key) is None:
+        area = self._template.area(area_key)
+        if area is None:
             raise LookupError(f"unknown readiness area: {area_key!r}")
         link = KnowledgeAreaLink(
             id=AreaLinkId(_new_id()),
@@ -211,6 +213,18 @@ class ReadinessService:
         )
 
         def operation(session: DbSession) -> KnowledgeAreaLink:
+            # An area only counts knowledge of a kind it declares, so accepting an
+            # assignment it can never count would make "assigned" and "counts"
+            # two different things — and a blueprint would render a statement
+            # that contributes nothing to the score it sits beside.
+            item = SqlAlchemyKnowledgeRepository(session).get(item_id)
+            if item is None:
+                raise LookupError(f"unknown knowledge item: {item_id}")
+            if item.kind not in {kind.value for kind in area.kinds}:
+                raise DomainInvariantError(
+                    f"area {area_key!r} does not accept {item.kind!r} knowledge; "
+                    f"it accepts {', '.join(sorted(kind.value for kind in area.kinds))}"
+                )
             KnowledgeAreaLinkRepository(session).add(link)
             bump_knowledge_revision(session, project_id)
             return link

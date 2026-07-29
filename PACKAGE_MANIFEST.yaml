@@ -59,6 +59,7 @@ package:
       - specifications/ADR/ADR-0013-portable-runtime-and-optional-aws.md
       - specifications/ADR/ADR-0014-http-api-contract.md
       - specifications/ADR/ADR-0015-review-agent-and-findings.md
+      - specifications/ADR/ADR-0016-blueprint-generation-and-trace.md
     development:
       - deploy/README.md
       - deploy/server/README.md
