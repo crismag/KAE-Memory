@@ -121,6 +121,29 @@ frontend framework or authorise implementation by themselves.
 The roadmap is a control plan. Each implementation still requires one approved,
 task-specific context with an exact file scope and acceptance criteria.
 
+## KAE with Memory product-shaping context
+
+Load this proposed package after the current MVP memory foundation is understood
+and when defining the wider software-development product. It does not supersede
+the approved MVP, current agent-role limit, accepted ADRs, or current state page.
+
+- `docs/05_product/KAE_WITH_MEMORY_PRODUCT_VISION.md` defines the wider product
+  proposition: KAE acquires, persists, retrieves, and applies shared project
+  knowledge while producing real software-engineering outputs.
+- `docs/06_architecture/MEMORY_AND_DATA_OPERATING_MODEL.md` defines event,
+  knowledge, directive, and execution memory; authority, scope, retrieval,
+  versioning, and agent write-back expectations.
+- `docs/06_architecture/AGENT_AND_MCP_FUNCTIONAL_MODEL.md` defines the current and
+  candidate future agent responsibilities, bounded context and write-back
+  contracts, orchestration principles, human gates, and MCP boundaries.
+- `docs/02_requirements/KAE_WITH_MEMORY_FUNCTIONAL_REQUIREMENTS.md` provides a
+  proposed requirement register and demonstration scenarios for turning the
+  memory foundation into an active software-development system.
+
+Use these documents to shape future requirements and ADRs. Do not issue coding
+work directly from them until the relevant requirements are approved and reflected
+in `CURRENT_PROJECT_STATE.md` and `project-model.yaml`.
+
 ## Current loading rule
 
 No coding agent should be asked to implement application code from this context
