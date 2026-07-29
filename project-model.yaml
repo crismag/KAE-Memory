@@ -2538,3 +2538,31 @@ history:
         thirty-second lease expiry — the behaviour the handler exists to avoid.
         Set to 35s against a 25s budget.
     stage: M10 deployment topology and supervised processes
+  - commit: 32
+    added:
+      - scripts/development/run-local.sh and make dev
+      - docs/09_development/LOCAL_DEVELOPMENT.md
+      - operations/runbooks/enablement-sequence.md
+      - a persistent development database, separate from the disposable test one
+    changed:
+      - .env.example, which now names an AWS profile rather than inviting keys
+      - README getting-started
+    deferred:
+      - deploying to a real instance, which needs the AWS account
+      - the live retrieval evaluation, still blocked on Bedrock model access
+    conflicts:
+      - >
+        The first version of run-local.sh printed a healthy summary while the API
+        had already exited on a port collision. It now pre-checks both ports and
+        waits for /health before claiming the stack is up, because a start script
+        that lies about success is worse than one that fails.
+      - >
+        Signalling only the npm wrapper left Vite holding port 5173, which then
+        blocked the next start with a confusing address-in-use error. Cleanup now
+        signals descendants first.
+      - >
+        Credential location decided: ~/.aws/credentials with a named profile for
+        local development, referenced from .env by AWS_PROFILE, and an instance
+        role with no keys at all on EC2. A .env naming a profile is harmless if it
+        leaks; a .env holding a secret access key is an incident.
+    stage: local development and the enablement sequence
