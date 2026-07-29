@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Comment": "Instance-role policy for the KAE-Memory EC2 host. Attach to the instance profile; never create long-lived access keys. Least privilege: model invocation and log writes, nothing else.",
+  "Statement": [
+    {
+      "Sid": "InvokeApprovedModels",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel"],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-*"
+      ]
+    },
+    {
+      "Sid": "WriteOwnLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/kae-memory/*"
+    }
+  ]
+}

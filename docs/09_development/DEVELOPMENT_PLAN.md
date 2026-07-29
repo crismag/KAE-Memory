@@ -137,7 +137,7 @@ locally.
 CloudWatch logs carrying run identifiers, `GET /health`, reproducible deployment,
 documented teardown.
 
-**Decided:** ADR-0013 — portable API and worker processes. Required level is Docker Compose or an OS supervisor; AWS is an optional enhancement.
+**Decided:** ADR-0013 amended, then ADR-0017 — one EC2 instance running the API and worker as systemd units, the frontend as static assets on any host, CockroachDB Cloud authoritative. No container runtime.
 
 **Exit condition:** AT-008 and AT-009 pass — terminating the worker task results
 in the interrupted run resuming with no duplicated knowledge and no manual

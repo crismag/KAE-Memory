@@ -157,7 +157,7 @@ and is not an approved deployment baseline.
 - `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
   `0003` (lease ownership), `0004` (chunks and the vector index), and `0005`
   (readiness, blockers, and area links).
-- `tests/` — 205 tests including the HTTP contract and the cross-run persistence proof, the
+- `tests/` — 210 tests including the HTTP contract and the cross-run persistence proof, the
   cross-session agent-collaboration proof, the kill-and-recovery proof, semantic
   retrieval over a real vector index, and readiness scoring that cannot be
   inflated by generating unconfirmed text.
@@ -174,7 +174,7 @@ make install     # uv sync --extra dev
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 205 tests against
+`make check` passes: ruff, ruff format, mypy strict, and 210 tests against
 CockroachDB. No test contacts a model provider.
 
 `make worker` runs the durable worker as a **separate process** from the API — it

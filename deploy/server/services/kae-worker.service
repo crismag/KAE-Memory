@@ -1,0 +1,33 @@
+# The durable worker. Killing and restarting this unit is the recovery
+# demonstration (AT-009).
+#
+# TimeoutStopSec must exceed WorkerConfig.graceful_shutdown_seconds (25s), or
+# systemd sends SIGKILL while the worker is still checkpointing and releasing
+# its lease — turning a graceful handover back into a thirty-second expiry wait.
+
+[Unit]
+Description=KAE-Memory durable worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=kae
+Group=kae
+WorkingDirectory=/opt/kae-memory
+EnvironmentFile=/etc/kae-memory/worker.env
+ExecStart=/opt/kae-memory/.venv/bin/python -m kae_memory.worker
+Restart=always
+RestartSec=5
+
+KillSignal=SIGTERM
+TimeoutStopSec=35
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/kae-memory
+
+[Install]
+WantedBy=multi-user.target

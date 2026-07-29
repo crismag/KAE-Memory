@@ -54,7 +54,6 @@ project:
     - CON-004
   open_questions:
     - OQ-017
-    - OQ-018
     - OQ-019
     - OQ-020
     - OQ-021
@@ -627,6 +626,24 @@ decisions:
     affects:
       - MOD-blueprint
       - MOD-audit
+  - id: ADR-0017
+    title: 'Deployment topology: EC2, static frontend hosting, CockroachDB Cloud'
+    statement: >
+      One EC2 instance runs the API and worker as separate systemd units, the
+      frontend is static assets on any host, and CockroachDB Cloud stays
+      authoritative. EC2 with systemd replaces ECS on Fargate as the hosted
+      reference, collapsing ADR-0013's required and optional profiles into one
+      shape. The worker now handles SIGTERM and honours graceful_shutdown_seconds.
+      Splitting the frontend onto another origin requires CORS, which defaults to
+      empty so a misconfiguration fails closed, and publishes an API that has no
+      authentication — permitted only behind a network allowlist.
+    status: accepted
+    record: specifications/ADR/ADR-0017-deployment-topology.md
+    closes: OQ-018
+    satisfies: FR-016, FR-017, FR-018
+    affects:
+      - MOD-workflow
+      - MOD-persistence
 
 modules:
   - id: MOD-projects
@@ -1069,15 +1086,11 @@ open_questions:
     question: >
       Is Amazon EC2 with systemd, rather than ECS on Fargate, the optional hosted
       reference deployment?
-    status: open
-    context: >
-      ADR-0013 made Docker Compose or an OS process supervisor the required
-      profile and ECS on Fargate the preferred optional production reference. EC2
-      with systemd satisfies the required profile exactly, so nothing mandatory
-      changes; what changes is the optional reference, from a managed container
-      runtime to a self-managed instance. Recorded rather than absorbed silently.
-    blocks:
-      - M10
+    status: closed
+    resolution: >
+      Closed by ADR-0017. EC2 with systemd is the hosted reference and satisfies
+      ADR-0013's required profile directly, so the required and optional profiles
+      collapse into one shape. No container runtime is introduced.
   - id: OQ-019
     question: >
       What is directive memory, physically — a KnowledgeKind extension with an authority column, or a separate directives table?
@@ -1458,6 +1471,7 @@ traces:
       - ADR-0014
       - ADR-0015
       - ADR-0016
+      - ADR-0017
     modules:
       - MOD-projects
       - MOD-sessions
@@ -1581,6 +1595,7 @@ id_register:
   - {id: ADR-0014, type: decision, status: active, superseded_by: null}
   - {id: ADR-0015, type: decision, status: active, superseded_by: null}
   - {id: ADR-0016, type: decision, status: active, superseded_by: null}
+  - {id: ADR-0017, type: decision, status: active, superseded_by: null}
   - {id: SRC-001, type: source, status: active, superseded_by: null}
   - {id: EV-001, type: evidence, status: superseded, superseded_by: EV-002}
   - {id: EV-002, type: evidence, status: active, superseded_by: null}
@@ -1606,7 +1621,7 @@ id_register:
   - {id: OQ-015, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-016, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-017, type: open_question, status: active, superseded_by: null}
-  - {id: OQ-018, type: open_question, status: active, superseded_by: null}
+  - {id: OQ-018, type: open_question, status: closed, superseded_by: null}
   - {id: OQ-019, type: open_question, status: active, superseded_by: null}
   - {id: OQ-020, type: open_question, status: active, superseded_by: null}
   - {id: OQ-021, type: open_question, status: active, superseded_by: null}
@@ -1661,9 +1676,10 @@ undefined:
       - M10
   - area: deployment
     missing: >
-      Production signal handling and supervision. Both entrypoints now exist and
-      the worker has a daemon loop honouring idle_poll_seconds, but SIGTERM
-      handling and graceful_shutdown_seconds remain unimplemented and are M10's.
+      Nothing structural. Both entrypoints run under systemd, SIGTERM is handled,
+      and graceful_shutdown_seconds is honoured. What remains is operational: TLS
+      issuance, log shipping, and a demonstration that has actually been run on a
+      real instance.
     blocks:
       - M10
 
@@ -2488,3 +2504,37 @@ history:
         amazon.titan-embed-text-v2:0, so M8's outstanding quality claim remains
         unproven and is blocked on an IAM change rather than on engineering.
     stage: M9 workspace and generated client
+  - commit: 31
+    added:
+      - ADR-0017
+      - SIGTERM handling and graceful shutdown in the worker
+      - fail-closed CORS configuration on the API
+      - deploy/server install and deploy scripts, systemd units, nginx example
+      - deploy/aws/ec2 bootstrap, IAM policy, and configuration guide
+      - deploy/static-site hosting contract
+      - the deployment and restart runbooks
+      - a build-time API base URL for the frontend
+    changed:
+      - OQ-018, closed
+      - the recovery runbook, now runnable
+      - the undefined deployment area
+    deferred:
+      - TLS issuance and renewal
+      - automated frontend upload, which needs a deployment credential
+      - SQS, which stays unauthorised under OQ-017
+    conflicts:
+      - >
+        Hosting the frontend separately from the API makes the browser call
+        cross-origin, which publishes an API that ADR-0014 recorded as unsafe to
+        expose because the MVP defers authentication. CORS defaults to empty so a
+        misconfiguration fails closed, and the same-origin shape — nginx serving
+        the build and proxying the API — is the documented default. The
+        split-origin shape is permitted only behind a security-group allowlist
+        and only for a bounded demonstration.
+      - >
+        systemd's TimeoutStopSec must exceed the worker's
+        graceful_shutdown_seconds. Were it shorter, systemd would SIGKILL a
+        worker still checkpointing and turn a graceful handover back into a
+        thirty-second lease expiry — the behaviour the handler exists to avoid.
+        Set to 35s against a 25s budget.
+    stage: M10 deployment topology and supervised processes

@@ -28,8 +28,9 @@ small AWS-specific integrations   deploy/aws/
 | Safe committed defaults | [`../config/`](../config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`server/`](server/) |
-| EC2 bootstrap and IAM | `aws/ec2/`, when files exist |
-| SQS creation and queue policy | `aws/sqs/`, when files exist |
+| EC2 bootstrap and IAM | [`aws/ec2/`](aws/ec2/) |
+| Static frontend hosting | [`static-site/`](static-site/) |
+| SQS creation and queue policy | `aws/sqs/`, if OQ-017 is ever decided |
 | Local developer command | `scripts/`, when scripts exist |
 | Deployment and recovery procedure | [`../operations/runbooks/`](../operations/runbooks/) |
 | Architecture explanation | [`../docs/`](../docs/) |
@@ -59,14 +60,12 @@ deferred.
 These may become valid later. They are not part of the minimum current
 architecture, and creating them now would imply decisions nobody has made.
 
-## Blocking gaps
+## The one thing to keep in mind
 
-One of the two things this directory installs now exists. `python -m
-kae_memory.api` serves the HTTP contract (ADR-0014) and answers `GET /health`.
-The worker does not:
-
-- `python -m kae_memory.worker` has no `__main__`;
-- the worker is a library, not a process. It claims, checkpoints, and recovers,
+Both entrypoints now exist and both run as supervised processes. `python -m
+kae_memory.api` serves the HTTP contract (ADR-0014); `python -m
+kae_memory.worker` claims and executes queued runs and handles `SIGTERM`
+(ADR-0017). It claims, checkpoints, and recovers,
   but has no daemon loop, no signal handling, and no environment configuration.
   `WorkerConfig.idle_poll_seconds` and `graceful_shutdown_seconds` are declared
   and never used.

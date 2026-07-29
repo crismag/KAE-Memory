@@ -310,3 +310,30 @@ def _write_two_items(client: TestClient, project_id: str) -> tuple[str, str]:
         ],
     )
     return str(items[0].id), str(items[1].id)
+
+
+def test_cors_is_closed_unless_a_deployment_names_an_origin(
+    factory: sessionmaker[Session],
+) -> None:
+    """Fail closed.
+
+    A split-origin deployment exposes an API with no authentication, so allowing
+    every origin by default would turn a misconfiguration into a breach
+    (ADR-0017).
+    """
+
+    with TestClient(create_app(factory)) as client:
+        response = client.get("/health", headers={"Origin": "https://example.com"})
+
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_a_named_origin_is_allowed_without_credentials(factory: sessionmaker[Session]) -> None:
+    """No credentials: there are none, and allowing them would imply a session model."""
+
+    with TestClient(create_app(factory, cors_origins=["https://kae.example"])) as client:
+        response = client.get("/health", headers={"Origin": "https://kae.example"})
+
+    assert response.headers["access-control-allow-origin"] == "https://kae.example"
+    assert "access-control-allow-credentials" not in response.headers
