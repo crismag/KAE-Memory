@@ -115,7 +115,10 @@ def test_search_is_scoped_to_one_project(factory: sessionmaker[Session]) -> None
     retrieval.embed_pending(mine.id)
     retrieval.embed_pending(theirs.id)
 
-    hits = retrieval.search(mine.id, "Reports are filed weekly.")
+    # No relevance cutoff: this asks who *can* be returned, not who ranks well.
+    # Hash-derived vectors clear no threshold, which would empty the result and
+    # make a scoping assertion pass for the wrong reason.
+    hits = retrieval.search(mine.id, "Reports are filed weekly.", max_distance=None)
 
     assert hits, "the query should still match something inside its own project"
     returned = {str(hit.knowledge_id) for hit in hits}
@@ -139,7 +142,11 @@ def test_search_can_filter_by_knowledge_kind(factory: sessionmaker[Session]) -> 
         retrieval.chunk_knowledge(item, project.name)
     retrieval.embed_pending(project.id)
 
-    decisions = retrieval.search(project.id, "Cycles", kinds=[KnowledgeKind.DECISION])
+    # As above: the metadata filter is the subject, so the relevance cutoff is
+    # lifted to keep the deterministic embedder from emptying the result set.
+    decisions = retrieval.search(
+        project.id, "Cycles", kinds=[KnowledgeKind.DECISION], max_distance=None
+    )
 
     assert decisions
     assert {hit.kind for hit in decisions} == {KnowledgeKind.DECISION}

@@ -86,9 +86,55 @@ def test_search_does_not_claim_semantic_relevance_it_lacks(
 
     payload = tools.kae_search_knowledge(context, project_id, "approval workflow")
 
-    assert payload["embedder"] == "deterministic"
-    assert payload["semantic_relevance"] is False
-    assert "not semantic relevance" in payload["ranking_note"]
+    assert payload["semantic_search_available"] is False
+    assert payload["search_mode"] == "lexical"
+    assert payload["ranking"] == {
+        "lexical": True,
+        "semantic": False,
+        "metadata_filtered": False,
+    }
+    assert any("Semantic ranking is unavailable" in w for w in payload["warnings"])
+
+
+def test_search_keeps_vector_internals_out_of_the_normal_result(
+    context: tools.ToolContext, project_id: str
+) -> None:
+    """A cosine distance is evidence, not an answer. It ships on request only."""
+
+    payload = tools.kae_search_knowledge(context, project_id, "approval")
+
+    assert "diagnostics" not in payload
+    assert all("distance" not in result for result in payload["results"])
+    assert all(
+        result["relevance"] in {"strong", "partial", "moderate"} for result in payload["results"]
+    )
+
+
+def test_diagnostics_still_expose_the_underlying_evidence(
+    context: tools.ToolContext, project_id: str
+) -> None:
+    """Hidden by default is not the same as unavailable."""
+
+    payload = tools.kae_search_knowledge(context, project_id, "approval", diagnostics=True)
+
+    assert payload["diagnostics"]["embedder"] == "deterministic"
+    assert payload["diagnostics"]["semantic_relevance"] is False
+
+
+def test_an_explicit_mode_overrides_the_automatic_choice(
+    context: tools.ToolContext, project_id: str
+) -> None:
+    """Semantic on a hash embedder is allowed, but never silently."""
+
+    payload = tools.kae_search_knowledge(context, project_id, "approval", mode="semantic")
+
+    assert payload["search_mode"] == "semantic"
+    assert any("carries no meaning" in w for w in payload["warnings"])
+
+
+def test_an_unknown_mode_is_rejected(context: tools.ToolContext, project_id: str) -> None:
+    with pytest.raises(InvalidArgumentError):
+        tools.kae_search_knowledge(context, project_id, "approval", mode="magic")
 
 
 def test_readiness_names_the_scope_it_computed(context: tools.ToolContext, project_id: str) -> None:

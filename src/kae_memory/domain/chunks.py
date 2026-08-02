@@ -27,6 +27,19 @@ Changing the model, its dimensions, or the prefix convention means a new version
 and a full re-embed — never a silent mix of old and new vectors.
 """
 
+MAX_DISTANCE = 0.75
+"""How far a vector may sit from the query and still count as a result.
+
+Cosine distance over unit vectors runs 0 to 2, with 1.0 meaning orthogonal —
+no relationship at all. A cutoff below 1.0 is therefore the line between "this
+is about your query" and "this is merely the closest row we happened to store".
+
+Provisional, and it should be tuned against the evaluation fixture once a real
+embedding model is in place. Its job today is structural: without any cutoff,
+nearest-neighbour search on a small corpus returns the whole corpus for every
+query, which reads as a ranking failure but is really a missing filter.
+"""
+
 TARGET_TOKENS = 500
 """Middle of the 300 to 700 token band in ADR-0008."""
 
@@ -158,6 +171,22 @@ def metadata_prefix(
     if status:
         lines.append(f"Status: {status}")
     return "\n".join(lines)
+
+
+def strip_metadata_prefix(text: str) -> str:
+    """Return the chunk body without the prefix :func:`metadata_prefix` added.
+
+    The prefix helps an embedding model and hurts a lexical one: every chunk in
+    a project literally contains the word "project", so matching against the
+    stored text would rank the whole corpus for a one-word query. Lexical
+    matching runs on the body; kind and status stay available as real filters.
+    """
+
+    head, separator, body = text.partition("\n\n")
+    if not separator:
+        return text
+    lines = head.splitlines()
+    return body if lines and lines[0].startswith("Type: ") else text
 
 
 def split_text(
