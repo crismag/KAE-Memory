@@ -14,12 +14,13 @@ from sqlalchemy.orm import Session, sessionmaker
 from kae_memory.application import MemoryService
 from kae_memory.domain.errors import IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.identifiers import ProjectId, SessionId
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 
 OBSERVATION = "The approval endpoint accepts a single approver identifier."
 
 
-def _project_and_session(service: MemoryService) -> tuple[str, str]:
+def _project_and_session(service: MemoryService) -> tuple[ProjectId, SessionId]:
     project = service.create_project("Ministry reporting")
     working = service.open_session(project.id, SessionType.DISCOVERY)
     return project.id, working.id

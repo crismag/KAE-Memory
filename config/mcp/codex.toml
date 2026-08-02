@@ -1,0 +1,12 @@
+# Codex — append to ~/.codex/config.toml
+#
+# Run `kae-memory-mcp doctor` first. It reports configuration, database
+# reachability, and migration state, and prints no credentials.
+
+[mcp_servers.kae-memory]
+command = "kae-memory-mcp"
+args = ["serve"]
+
+[mcp_servers.kae-memory.env]
+KAE_DATABASE_URL = "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
+KAE_ENVIRONMENT = "local"

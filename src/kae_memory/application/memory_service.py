@@ -86,9 +86,7 @@ def _payload_fingerprint(
     """
 
     normalised = " ".join(content.split())
-    material = "\x1f".join(
-        [normalised, actor_type.value, message_type.value, actor_id or ""]
-    )
+    material = "\x1f".join([normalised, actor_type.value, message_type.value, actor_id or ""])
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 

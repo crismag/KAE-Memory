@@ -36,9 +36,7 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("messages", sa.Column("idempotency_key", sa.String(length=200), nullable=True))
-    op.add_column(
-        "messages", sa.Column("payload_fingerprint", sa.String(length=64), nullable=True)
-    )
+    op.add_column("messages", sa.Column("payload_fingerprint", sa.String(length=64), nullable=True))
     op.create_index(
         "uq_messages_project_idempotency",
         "messages",

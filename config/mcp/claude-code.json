@@ -1,0 +1,9 @@
+{
+  "//": "Claude Code — register with: claude mcp add-json kae-memory \"$(cat config/mcp/claude-code.json)\"",
+  "command": "kae-memory-mcp",
+  "args": ["serve"],
+  "env": {
+    "KAE_DATABASE_URL": "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable",
+    "KAE_ENVIRONMENT": "local"
+  }
+}
