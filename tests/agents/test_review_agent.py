@@ -120,19 +120,26 @@ class TestItWritesNoKnowledge:
 
 
 class TestContradictionDetection:
-    def test_an_opposed_pair_is_recorded(
+    def test_an_opposed_pair_is_proposed_not_recorded(
         self, services: tuple[MemoryService, ReadinessService]
     ) -> None:
-        """The capability that did not exist: detection, not just recording."""
+        """Detection is the capability. Recording is a human's call.
+
+        An unresolved contradiction on a mandatory area blocks readiness, so a
+        false positive would stall the project on a model's say-so. Flagging
+        costs a reader a moment; recording costs the project its gate
+        (ADR-0015).
+        """
 
         memory, readiness = services
         project, _ = _seed(memory, CONFLICTING, "rev-contra")
 
         outcome = _agent(services).run_on_confirmed_knowledge(project.id, None, "review-4")
 
-        assert len(outcome.contradictions) == 1
+        assert len(outcome.proposed_contradictions) == 1
+        assert outcome.contradictions == ()
         findings = {f.kind.value for f in readiness_findings(readiness, project.id)}
-        assert "unresolved_contradiction" in findings
+        assert "unresolved_contradiction" not in findings
 
     def test_agreeing_statements_are_left_alone(
         self, services: tuple[MemoryService, ReadinessService]
@@ -146,10 +153,10 @@ class TestContradictionDetection:
 
         assert outcome.contradictions == ()
 
-    def test_readiness_sees_the_contradiction(
+    def test_readiness_is_untouched_by_a_proposal(
         self, services: tuple[MemoryService, ReadinessService]
     ) -> None:
-        """Detection is worthless if the calculation never learns of it."""
+        """A proposal must not reach the gate before a human has seen it."""
 
         memory, readiness = services
         project, _ = _seed(memory, CONFLICTING, "rev-contra-readiness")
@@ -157,23 +164,45 @@ class TestContradictionDetection:
         _agent(services).run_on_confirmed_knowledge(project.id, None, "review-6")
         snapshot = readiness.calculate(project.id)
 
-        assert any(area.contradicted for area in snapshot.areas) or any(
-            f.kind.value == "unresolved_contradiction"
-            for f in readiness_findings(readiness, project.id)
+        assert snapshot.unresolved_contradiction_count == 0
+        assert not any(area.contradicted for area in snapshot.areas)
+
+    def test_recording_is_available_when_a_caller_accepts_the_trade(
+        self, factory: sessionmaker[Session], services: tuple[MemoryService, ReadinessService]
+    ) -> None:
+        """Opt-in, never the default, and never for an unattended path."""
+
+        memory, readiness = services
+        project, _ = _seed(memory, CONFLICTING, "rev-contra-optin")
+        agent = ReviewAgent(
+            memory, readiness, DeterministicReviewAdapter(), record_contradictions=True
         )
+
+        outcome = agent.run_on_confirmed_knowledge(project.id, None, "review-optin")
+
+        assert len(outcome.contradictions) == 1
+        assert outcome.proposed_contradictions == ()
+        assert readiness.calculate(project.id).unresolved_contradiction_count == 1
 
 
 class TestAreaClassification:
-    def test_statements_are_assigned_to_areas(
+    def test_only_unambiguous_kinds_are_assigned_offline(
         self, services: tuple[MemoryService, ReadinessService]
     ) -> None:
+        """Refusing to guess is the point.
+
+        ``actor`` is accepted by exactly one area, so no judgement is needed.
+        ``goal`` and ``requirement`` are accepted by several, and choosing for
+        the team would manufacture coverage a user then has to unpick.
+        """
+
         memory, readiness = services
         project, _ = _seed(memory, CLASSIFIABLE, "rev-areas")
 
         outcome = _agent(services).run_on_confirmed_knowledge(project.id, None, "review-7")
 
-        assert len(outcome.area_assignments) == len(CLASSIFIABLE)
-        assert len(readiness.area_links(project.id)) == len(CLASSIFIABLE)
+        assert [area for _, area in outcome.area_assignments] == ["users_and_stakeholders"]
+        assert len(readiness.area_links(project.id)) == 1
 
     def test_assignment_records_the_run_that_made_it(
         self, services: tuple[MemoryService, ReadinessService]
@@ -292,7 +321,7 @@ class TestRunDiscipline:
     def test_a_replayed_key_does_not_duplicate_edges(
         self, services: tuple[MemoryService, ReadinessService]
     ) -> None:
-        """Contradiction edges carry no natural key, so a replay would double them."""
+        """A replayed key must not re-run the review or double its effects."""
 
         memory, readiness = services
         project, _ = _seed(memory, CONFLICTING, "rev-replay")
@@ -306,7 +335,7 @@ class TestRunDiscipline:
             for f in readiness_findings(readiness, project.id)
             if f.kind.value == "unresolved_contradiction"
         ]
-        assert len(contradictions) == 1
+        assert contradictions == [], "a proposal writes no edge to duplicate"
 
     def test_a_provider_failure_fails_the_run_typed(
         self, services: tuple[MemoryService, ReadinessService]
@@ -412,7 +441,18 @@ class TestGrounding:
     def test_the_offline_fixture_is_honest_about_itself(self) -> None:
         """A demo leaning on rules must not read as model judgement."""
 
-        payload = offline_review_fixture(self._request())
+        request = ReviewRequest(
+            statements=(
+                ReviewedStatement(
+                    knowledge_id=KnowledgeItemId("22222222-2222-2222-2222-222222222222"),
+                    kind="actor",
+                    text="Ministry leaders submit monthly reports.",
+                ),
+            ),
+            area_keys=("users_and_stakeholders",),
+        )
+
+        payload = offline_review_fixture(request)
 
         assert isinstance(payload, dict)
         rationales = " ".join(str(f.get("rationale", "")) for f in payload["findings"])
