@@ -126,9 +126,11 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "kae_search_knowledge",
         "description": (
-            "Search project knowledge without loading the whole project. The "
-            "response names the active embedder and states whether its ranking "
-            "is semantic."
+            "Search project knowledge without loading the whole project. "
+            "Lexical mode matches the query's terms and word families with no "
+            "embedding model involved; semantic mode ranks by meaning and needs "
+            "a real embedder. The response names the mode that ran, labels each "
+            "result's relevance, and warns when semantic ranking is unavailable."
         ),
         "inputSchema": {
             "type": "object",
@@ -137,6 +139,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "query": {"type": "string"},
                 "limit": {"type": "integer", "minimum": 1, "maximum": 50},
                 "kinds": {"type": "array", "items": {"type": "string"}},
+                "mode": {
+                    "type": "string",
+                    "enum": ["auto", "lexical", "semantic"],
+                    "description": (
+                        "auto falls back to lexical whenever the active embedder "
+                        "cannot rank meaning."
+                    ),
+                },
+                "diagnostics": {
+                    "type": "boolean",
+                    "description": (
+                        "Include vector distances, coverage scores, and the "
+                        "embedded text alongside the normal result."
+                    ),
+                },
             },
             "required": ["project_id", "query"],
             "additionalProperties": False,
@@ -261,6 +278,8 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("query", ""),
             int(arguments.get("limit", 8)),
             arguments.get("kinds"),
+            str(arguments.get("mode", "auto")),
+            bool(arguments.get("diagnostics", False)),
         ),
         "kae_get_open_decisions": lambda: tools.kae_get_open_decisions(
             context, arguments.get("project_id", "")
@@ -350,12 +369,24 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_search_knowledge(
-        project_id: str, query: str, limit: int = 8, kinds: list[str] | None = None
+        project_id: str,
+        query: str,
+        limit: int = 8,
+        kinds: list[str] | None = None,
+        mode: str = "auto",
+        diagnostics: bool = False,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_search_knowledge",
-            {"project_id": project_id, "query": query, "limit": limit, "kinds": kinds},
+            {
+                "project_id": project_id,
+                "query": query,
+                "limit": limit,
+                "kinds": kinds,
+                "mode": mode,
+                "diagnostics": diagnostics,
+            },
         )
 
     def kae_get_open_decisions(project_id: str) -> dict[str, Any]:

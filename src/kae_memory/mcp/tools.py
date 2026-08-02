@@ -13,15 +13,23 @@ Two honesty rules run through the whole module, both from ADR-0018:
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
-from kae_memory.application.blueprint_service import BlueprintService
+from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
-from kae_memory.application.retrieval_service import RetrievalService
-from kae_memory.application.review_service import ReviewService
+from kae_memory.application.retrieval_service import (
+    MAX_DISTANCE,
+    RetrievalService,
+    SearchHit,
+    SearchMode,
+)
+from kae_memory.application.review_service import Finding, ReviewService
+from kae_memory.domain.chunks import strip_metadata_prefix
 from kae_memory.domain.identifiers import ProjectId, SessionId
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp.errors import (
     CapabilityUnavailableError,
@@ -92,11 +100,128 @@ def kae_list_projects(context: ToolContext) -> dict[str, Any]:
     }
 
 
+_STATUS_LABELS = {
+    "not_started": "Not started",
+    "discovering": "In discovery",
+    "draft_ready": "Requirements draft ready",
+    "blocked": "Blocked",
+    "blueprint_ready": "Implementation ready",
+    "stale": "Stale — knowledge changed since the last calculation",
+}
+"""Human wording for each readiness status. The machine value ships alongside."""
+
+
+def _readiness_explanation(snapshot: ReadinessSnapshot) -> dict[str, Any]:
+    """Show the arithmetic behind the percentage.
+
+    A bare number invites the reader to guess how it was reached. Every area
+    already carries a weight and a credit, so the figure can be shown as the sum
+    it is — which also makes it obvious which missing area costs the most.
+    """
+
+    applicable = [area for area in snapshot.areas if area.state.value != "not_applicable"]
+    earned = sum(area.credit * area.weight for area in applicable)
+    total = sum(area.weight for area in applicable)
+
+    def described(area: AreaResult) -> dict[str, Any]:
+        return {
+            "area": area.key,
+            "name": area.name,
+            "state": area.state.value,
+            "weight": area.weight,
+            "credit": area.credit,
+            # A partial area contributes and still owes: half credit for a
+            # requirement area worth 2.0 leaves 1.0 on the table, which is
+            # invisible if only earned weight is reported.
+            "weight_outstanding": round(area.weight * (1.0 - area.credit), 2),
+            "mandatory": area.mandatory,
+            "confirmed_statements": area.confirmed_count,
+            "awaiting_review": area.proposed_count,
+            "confirmed_needed": area.minimum_confirmed,
+        }
+
+    return {
+        "method": (
+            "Credit-weighted share of applicable areas. An area is worth full "
+            "credit when sufficient, half when partial, none when missing."
+        ),
+        "earned_weight": round(earned, 2),
+        "applicable_weight": round(total, 2),
+        # Split by whether an area contributes anything, not by whether it is
+        # finished. A partial area appears under ``contributing`` and still
+        # reports the weight it owes.
+        "contributing": [described(a) for a in applicable if a.credit > 0],
+        "missing": [described(a) for a in applicable if a.credit == 0],
+        "incomplete": [described(a) for a in applicable if a.credit < 1.0],
+    }
+
+
+def _readiness_projection(snapshot: ReadinessSnapshot) -> dict[str, Any]:
+    """Compute the percentage that resolving every missing mandatory area gives.
+
+    Arithmetic over the same weights, not a forecast: it states what the score
+    *would* be, and deliberately says nothing about how hard the work is or how
+    long it takes.
+    """
+
+    applicable = [area for area in snapshot.areas if area.state.value != "not_applicable"]
+    total = sum(area.weight for area in applicable)
+    if not total:  # pragma: no cover - a template always defines applicable areas
+        return {"percentage_if_mandatory_areas_resolved": snapshot.percentage, "requires": []}
+
+    outstanding = [a for a in applicable if a.mandatory and a.credit < 1.0]
+    projected = sum(area.weight * (1.0 if area.mandatory else area.credit) for area in applicable)
+    return {
+        "percentage_if_mandatory_areas_resolved": round(projected / total * 100),
+        "requires": [{"area": a.key, "name": a.name, "weight": a.weight} for a in outstanding],
+        "note": (
+            "Arithmetic on the current weights, not an estimate of effort. "
+            "Optional areas are left at their present state."
+        ),
+    }
+
+
+def _knowledge_health(
+    blueprint: Blueprint, findings: Sequence[Finding], snapshot: ReadinessSnapshot
+) -> dict[str, Any]:
+    """Count what the project knows, and how firmly it knows it.
+
+    Counts come from the statements and findings themselves rather than from the
+    knowledge revision, which is a version counter and not a quantity of
+    anything.
+    """
+
+    labels: dict[str, int] = {}
+    for section in blueprint.sections:
+        for statement in section.statements:
+            labels[statement.label.value] = labels.get(statement.label.value, 0) + 1
+
+    def ids_for(kind: str) -> int:
+        return sum(len(f.knowledge_item_ids) for f in findings if f.kind.value == kind)
+
+    return {
+        "confirmed_statements": blueprint.statement_count,
+        "grounded": labels.get("grounded", 0),
+        "derived": labels.get("derived", 0),
+        "assumptions": labels.get("assumption", 0),
+        "open_questions": len(blueprint.open_questions),
+        "awaiting_review": ids_for("unconfirmed_knowledge"),
+        "unclassified": ids_for("unclassified_knowledge"),
+        "contradictions": sum(1 for f in findings if f.kind.value == "unresolved_contradiction"),
+        "coverage_percentage": snapshot.percentage,
+    }
+
+
 def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str, Any]:
     """Return the current concise understanding of one project.
 
     Composes the blueprint with readiness, because the blueprint needs the
     readiness figures to state its own limits honestly.
+
+    Everything here is counted or computed from confirmed knowledge. The
+    response adds no narrative and no purpose statement: summarising a project
+    in words nobody confirmed would put an unattributable claim in the one tool
+    whose value is that it never makes them.
     """
 
     project = _require_project(context, project_id)
@@ -110,6 +235,7 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
         snapshot.missing_mandatory_areas,
     )
     findings = context.review.findings(project.id)
+    by_area = {area.key: area.name for area in snapshot.areas}
 
     return {
         "project": {"project_id": str(project.id), "name": project.name, "key": project.key},
@@ -118,10 +244,22 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
             "scope": "project",
             "percentage": snapshot.percentage,
             "status": snapshot.status.value,
+            "status_label": _STATUS_LABELS.get(snapshot.status.value, snapshot.status.value),
             "draft_eligible": snapshot.draft_eligible,
             "implementation_eligible": snapshot.implementation_eligible,
+            "ready_for": {
+                "Requirements draft": snapshot.draft_eligible,
+                "Implementation": snapshot.implementation_eligible,
+            },
             "missing_mandatory_areas": list(snapshot.missing_mandatory_areas),
+            "missing_information": [
+                {"area": key, "name": by_area.get(key, key)}
+                for key in snapshot.missing_mandatory_areas
+            ],
+            "explanation": _readiness_explanation(snapshot),
+            "projection": _readiness_projection(snapshot),
         },
+        "knowledge_health": _knowledge_health(blueprint, findings, snapshot),
         "sections": [
             {
                 "area": section.area_key,
@@ -141,14 +279,78 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
         ],
         "statement_count": blueprint.statement_count,
         "open_questions": list(blueprint.open_questions),
+        # Every finding, at its own severity. Filtering to open questions hid the
+        # critical ones — the areas with no confirmed knowledge at all — behind
+        # the least urgent thing the reviewer had to say.
         "findings": [
-            {"kind": f.kind.value, "summary": f.summary, "severity": f.severity.value}
+            {
+                "kind": f.kind.value,
+                "severity": f.severity.value,
+                "summary": f.summary,
+                "recommended_action": f.recommended_action,
+                "area": f.area_key,
+                "knowledge_ids": [str(i) for i in f.knowledge_item_ids],
+            }
             for f in findings
-            if f.kind.value in {"open_question", "unresolved_contradiction", "open_blocker"}
+        ],
+        "findings_by_severity": {
+            severity: [f.summary for f in findings if f.severity.value == severity]
+            for severity in ("critical", "major", "minor")
+        },
+        "recommended_next_steps": [
+            {
+                "action": f.recommended_action,
+                "severity": f.severity.value,
+                "because": f.summary,
+            }
+            for f in sorted(
+                findings, key=lambda f: ("critical", "major", "minor").index(f.severity.value)
+            )
         ],
         "complete": blueprint.complete,
         "unassigned_confirmed_count": blueprint.unassigned_confirmed_count,
     }
+
+
+def _project_knowledge_named(context: ToolContext, project: Any, module: str) -> dict[str, Any]:
+    """Report project knowledge whose wording matches a requested module name.
+
+    This is offered *instead of* module context, never as it. Matching the words
+    "approval workflow" tells you a statement mentions those words; it does not
+    tell you the statement belongs to an approval module, because nothing in
+    this version records module membership. The caveat travels with the data so
+    a reader cannot pick up the statements without it.
+    """
+
+    offer: dict[str, Any] = {
+        "scope": "project",
+        "match_type": "name_terms",
+        "caveat": (
+            "These statements match the wording of the requested name. That is a "
+            "term match, not module membership — no record of which knowledge "
+            "belongs to this module exists in this version."
+        ),
+    }
+    if context.retrieval is None:
+        offer["available"] = False
+        offer["reason"] = "no retrieval service is configured in this environment"
+        offer["statements"] = []
+        offer["count"] = 0
+        return offer
+
+    hits = context.retrieval.find(project.id, module, limit=20)
+    offer["available"] = True
+    offer["statements"] = [
+        {
+            "knowledge_id": str(hit.knowledge_id),
+            "kind": hit.kind.value,
+            "text": strip_metadata_prefix(hit.text),
+            "matched_terms": list(hit.matched_terms),
+        }
+        for hit in hits
+    ]
+    offer["count"] = len(hits)
+    return offer
 
 
 def kae_get_module_context(context: ToolContext, project_id: str, module: str) -> dict[str, Any]:
@@ -158,9 +360,13 @@ def kae_get_module_context(context: ToolContext, project_id: str, module: str) -
     kind here, no general relationship write path exists, and nothing traverses
     the graph — so any module context this tool produced would be invented by
     the adapter rather than retrieved from the domain.
+
+    The gap now names its subject and the way out. "Unavailable" alone leaves a
+    caller unable to tell an unregistered module from an unsupported feature,
+    and those have different remedies.
     """
 
-    _require_project(context, project_id)
+    project = _require_project(context, project_id)
     if not module or not module.strip():
         raise InvalidArgumentError("module is required")
     raise CapabilityUnavailableError(
@@ -177,7 +383,45 @@ def kae_get_module_context(context: ToolContext, project_id: str, module: str) -
             "kae_search_knowledge to locate knowledge related to this module",
             "kae_get_open_decisions to see what is unresolved",
         ],
+        subject={
+            "module": module,
+            "project": project.name,
+            "status": "not_registered",
+            "detail": (
+                "No module of this name is recorded, and none could be: modules "
+                "are not yet a knowledge kind, so this version has nowhere to "
+                "register one. The name was not rejected — it was never lookable."
+            ),
+        },
+        available_now=_project_knowledge_named(context, project, module),
+        next_steps=[
+            "Read the project briefing for the confirmed knowledge that does exist.",
+            "Resolve the open decisions that would block this module's requirements.",
+            "Registering modules requires the module capability itself; it is a "
+            "product change, not a configuration one.",
+        ],
     )
+
+
+_SEARCH_MODES = ("auto", "lexical", "semantic")
+
+_STRONG_DISTANCE = 0.35
+"""Below this, a vector hit is close enough to call a strong match."""
+
+
+def _relevance(hit: SearchHit) -> str:
+    """Describe how well a hit answered the query, in words a caller can act on.
+
+    A cosine distance is a fact about two vectors, not an answer to "should I
+    read this". Callers were reading raw distances as confidence and getting it
+    wrong, because the meaningful range differs per model.
+    """
+
+    if hit.mode is SearchMode.LEXICAL:
+        return "strong" if hit.coverage and hit.coverage >= 1.0 else "partial"
+    if hit.distance is None:  # pragma: no cover - semantic hits always carry one
+        return "unknown"
+    return "strong" if hit.distance <= _STRONG_DISTANCE else "moderate"
 
 
 def kae_search_knowledge(
@@ -186,12 +430,19 @@ def kae_search_knowledge(
     query: str,
     limit: int = 8,
     kinds: list[str] | None = None,
+    mode: str = "auto",
+    diagnostics: bool = False,
 ) -> dict[str, Any]:
     """Search project knowledge without loading the whole project.
 
-    The response states which embedder ranked it. With the deterministic
-    adapter the ordering is hash-derived and carries no meaning, and saying so
-    is the difference between a useful tool and a misleading one.
+    Two retrieval paths, and the response always names which one ran. Lexical
+    matching answers term queries with no model involved; semantic matching
+    answers conceptual ones and needs a real embedder. ``auto`` picks lexical
+    while the active embedder cannot rank meaning, because a hash-derived
+    ordering presented as relevance is worse than no ranking at all.
+
+    Vector internals stay out of the normal result. ``diagnostics=True`` returns
+    them for development and for anyone who wants the underlying evidence.
     """
 
     project = _require_project(context, project_id)
@@ -199,10 +450,12 @@ def kae_search_knowledge(
         raise InvalidArgumentError("query is required")
     if limit < 1 or limit > 50:
         raise InvalidArgumentError("limit must be between 1 and 50")
+    if mode not in _SEARCH_MODES:
+        raise InvalidArgumentError(f"mode must be one of: {', '.join(_SEARCH_MODES)}")
     if context.retrieval is None:
         raise CapabilityUnavailableError(
-            capability="semantic search",
-            missing=["an embedding adapter is not configured in this environment"],
+            capability="knowledge search",
+            missing=["a retrieval service is not configured in this environment"],
             use_instead=["kae_get_project_briefing"],
         )
 
@@ -217,29 +470,74 @@ def kae_search_knowledge(
             )
         parsed_kinds = [KnowledgeKind(k) for k in kinds]
 
-    hits = context.retrieval.search(project.id, query, limit=limit, kinds=parsed_kinds)
-    return {
+    warnings: list[str] = []
+    resolved = mode
+    if mode == "auto":
+        resolved = "semantic" if context.semantic_ranking else "lexical"
+        if not context.semantic_ranking:
+            warnings.append(
+                "Semantic ranking is unavailable because no semantic embedding model "
+                "is configured. Matched on query terms instead, so conceptual queries "
+                "that share no wording with the stored text will not be found."
+            )
+    elif mode == "semantic" and not context.semantic_ranking:
+        warnings.append(
+            "Semantic mode was requested but the active embedder is hash-derived. "
+            "The ordering below carries no meaning and must not be read as relevance."
+        )
+
+    if resolved == "lexical":
+        hits = context.retrieval.find(project.id, query, limit=limit, kinds=parsed_kinds)
+    else:
+        hits = context.retrieval.search(project.id, query, limit=limit, kinds=parsed_kinds)
+
+    if not hits:
+        warnings.append(
+            "Nothing matched. This is a result, not a failure: no stored knowledge "
+            "met the relevance threshold for this query."
+        )
+
+    payload: dict[str, Any] = {
         "query": query,
-        "embedder": context.embedder_name,
-        "semantic_relevance": context.semantic_ranking,
-        "ranking_note": (
-            "Ranked by a real embedding model."
-            if context.semantic_ranking
-            else "The active embedder is hash-derived and has no notion of meaning. "
-            "Ordering here is not semantic relevance and must not be read as such."
-        ),
-        "hits": [
+        "search_mode": resolved,
+        "semantic_search_available": context.semantic_ranking,
+        "ranking": {
+            "lexical": resolved == "lexical",
+            "semantic": resolved == "semantic",
+            "metadata_filtered": parsed_kinds is not None,
+        },
+        "results": [
             {
                 "knowledge_id": str(hit.knowledge_id),
                 "kind": hit.kind.value,
-                "text": hit.text,
-                "distance": hit.distance,
+                "text": strip_metadata_prefix(hit.text),
+                "relevance": _relevance(hit),
+                "matched_terms": list(hit.matched_terms),
                 "why": hit.why,
             }
             for hit in hits
         ],
         "count": len(hits),
+        "warnings": warnings,
     }
+
+    if diagnostics:
+        payload["diagnostics"] = {
+            "embedder": context.embedder_name,
+            "semantic_relevance": context.semantic_ranking,
+            "max_distance": MAX_DISTANCE if resolved == "semantic" else None,
+            "hits": [
+                {
+                    "knowledge_id": str(hit.knowledge_id),
+                    "chunk_id": str(hit.chunk_id),
+                    "distance": hit.distance,
+                    "coverage": hit.coverage,
+                    "embedded_text": hit.text,
+                }
+                for hit in hits
+            ],
+        }
+    return payload
 
 
 def kae_get_open_decisions(context: ToolContext, project_id: str) -> dict[str, Any]:
