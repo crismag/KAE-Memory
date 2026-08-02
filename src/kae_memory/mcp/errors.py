@@ -47,13 +47,25 @@ class CapabilityUnavailableError(McpError):
     capability: str
     missing: list[str] = field(default_factory=list)
     use_instead: list[str] = field(default_factory=list)
+    subject: dict[str, Any] | None = None
+    available_now: dict[str, Any] | None = None
+    next_steps: list[str] = field(default_factory=list)
     code = "capability_unavailable"
 
     def __str__(self) -> str:
         return f"{self.capability} is not available in this KAE-Memory version"
 
     def payload(self) -> dict[str, Any]:
-        return {
+        """Render the gap, and where possible the path out of it.
+
+        ``subject``, ``available_now``, and ``next_steps`` are additive. They
+        describe what *was* asked for, what the store can honestly offer in its
+        place, and what would close the gap — without softening the error. A
+        caller that only understands the original fields still reads this
+        correctly as unavailable.
+        """
+
+        payload: dict[str, Any] = {
             "error": self.code,
             "message": str(self),
             "capability": self.capability,
@@ -65,6 +77,13 @@ class CapabilityUnavailableError(McpError):
                 "were known."
             ),
         }
+        if self.subject is not None:
+            payload["subject"] = self.subject
+        if self.available_now is not None:
+            payload["available_now"] = self.available_now
+        if self.next_steps:
+            payload["next_steps"] = self.next_steps
+        return payload
 
 
 def safe_error(exception: Exception) -> dict[str, Any]:
