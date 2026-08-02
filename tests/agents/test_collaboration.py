@@ -71,7 +71,7 @@ def test_architecture_agent_uses_requirements_confirmed_in_an_earlier_session(
     service_a = MemoryService(factory)
     project = service_a.create_project("Ministry reporting", key="ministry")
     discovery = service_a.open_session(project.id, SessionType.DISCOVERY)
-    message = service_a.record_message(project.id, discovery.id, BRIEF)
+    message = service_a.record_message(project.id, discovery.id, BRIEF).message
 
     requirements = RequirementsAgent(
         service_a, DeterministicExtractionAdapter(_requirements_fixture)
@@ -123,7 +123,7 @@ def test_architecture_agent_ignores_unconfirmed_candidates(
     service = MemoryService(factory)
     project = service.create_project("Unconfirmed", key="unconfirmed")
     session = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, session.id, BRIEF)
+    message = service.record_message(project.id, session.id, BRIEF).message
 
     RequirementsAgent(
         service, DeterministicExtractionAdapter(_requirements_fixture)
@@ -165,7 +165,7 @@ def test_fabricated_source_quote_fails_the_run_and_writes_nothing(
     service = MemoryService(factory)
     project = service.create_project("Fabrication", key="fabrication")
     session = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, session.id, BRIEF)
+    message = service.record_message(project.id, session.id, BRIEF).message
     agent = RequirementsAgent(service, DeterministicExtractionAdapter(fabricating))
 
     with pytest.raises(UnverifiableOutputError):
@@ -184,7 +184,7 @@ def test_run_records_prompt_and_schema_versions(factory: sessionmaker[Session]) 
     service = MemoryService(factory)
     project = service.create_project("Versions", key="versions")
     session = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, session.id, BRIEF)
+    message = service.record_message(project.id, session.id, BRIEF).message
 
     outcome = RequirementsAgent(
         service, DeterministicExtractionAdapter(_requirements_fixture)
@@ -202,7 +202,7 @@ def test_extraction_is_idempotent_by_key(factory: sessionmaker[Session]) -> None
     service = MemoryService(factory)
     project = service.create_project("Replay", key="replay")
     session = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, session.id, BRIEF)
+    message = service.record_message(project.id, session.id, BRIEF).message
     agent = RequirementsAgent(service, DeterministicExtractionAdapter([_requirements_fixture] * 2))
 
     first = agent.run_on_message(project.id, session.id, message.id, BRIEF, "requirements-1")

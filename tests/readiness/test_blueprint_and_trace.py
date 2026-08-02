@@ -29,7 +29,7 @@ def _seed(factory: sessionmaker[Session]) -> tuple[ProjectId, KnowledgeItemId, s
     readiness = ReadinessService(factory)
     project = memory.create_project("Reporting")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
-    message = memory.record_message(project.id, session.id, IDEA)
+    message = memory.record_message(project.id, session.id, IDEA).message
     run = memory.start_run(project.id, AgentRole.REQUIREMENTS, "extract-1")
     item = memory.write_knowledge(
         run.id,
@@ -117,7 +117,7 @@ def test_an_assumption_stays_an_assumption_even_when_a_message_prompted_it(
     readiness = ReadinessService(factory)
     project = memory.create_project("Assumed")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
-    message = memory.record_message(project.id, session.id, "Probably monthly.")
+    message = memory.record_message(project.id, session.id, "Probably monthly.").message
     run = memory.start_run(project.id, AgentRole.REQUIREMENTS, "extract-1")
     item = memory.write_knowledge(
         run.id,

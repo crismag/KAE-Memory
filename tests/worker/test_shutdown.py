@@ -59,7 +59,7 @@ def test_a_stopping_worker_finishes_its_step_and_stops_claiming(
     project = memory.create_project("Shutdown")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
     for index in range(2):
-        message = memory.record_message(project.id, session.id, IDEA)
+        message = memory.record_message(project.id, session.id, IDEA).message
         memory.enqueue_run(
             project.id,
             AgentRole.REQUIREMENTS,
@@ -92,7 +92,7 @@ def test_a_released_run_is_immediately_claimable_by_another_worker(
     memory = MemoryService(factory)
     project = memory.create_project("Handover")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
-    message = memory.record_message(project.id, session.id, IDEA)
+    message = memory.record_message(project.id, session.id, IDEA).message
     run = memory.enqueue_run(
         project.id,
         AgentRole.ARCHITECTURE,

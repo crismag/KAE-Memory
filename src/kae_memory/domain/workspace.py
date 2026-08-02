@@ -93,6 +93,7 @@ class Message:
     created_at: datetime
     actor_id: str | None = None
     agent_run_id: AgentRunId | None = None
+    idempotency_key: str | None = None
 
     def __post_init__(self) -> None:
         if self.sequence_number < 1:
