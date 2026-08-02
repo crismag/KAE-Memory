@@ -4,18 +4,19 @@ Mirrors :mod:`~kae_memory.agents.deterministic`: recorded payloads pass through
 the same resolution path a live response would, so a payload that production
 would reject is rejected here too.
 
-The offline reviewer is **not review intelligence**. It finds contradictions by
-negation-matching and classifies areas by knowledge kind — surface rules a
-language model would not need. It exists so that cloning the repository is
-enough to walk the chain, and any demonstration leaning on it should say which
-adapter ran.
+The offline reviewer is **not review intelligence**. It finds contradiction
+candidates by negation-matching, and classifies only where a kind is accepted
+by exactly one area — surface rules a language model would not need. It refuses
+the ambiguous cases rather than guessing them (ADR-0015). It exists so that
+cloning the repository is enough to walk the chain, and any demonstration
+leaning on it should say which adapter ran.
 """
 
 from collections.abc import Callable, Sequence
 
+from kae_memory.application.review_service import unambiguous_area_for
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.lexical import content_words, is_negated, similarity
-from kae_memory.domain.models import KnowledgeKind
 
 from .extraction import Confidence
 from .prompts import prompt_for
@@ -28,23 +29,6 @@ from .review import (
 )
 
 Fixture = Callable[[ReviewRequest], object]
-
-_KIND_TO_AREA: dict[str, str] = {
-    KnowledgeKind.GOAL.value: "problem_and_value",
-    KnowledgeKind.ACTOR.value: "users_and_stakeholders",
-    KnowledgeKind.REQUIREMENT.value: "functional_requirements",
-    KnowledgeKind.CONSTRAINT.value: "constraints_and_assumptions",
-    KnowledgeKind.ASSUMPTION.value: "constraints_and_assumptions",
-    KnowledgeKind.RULE.value: "acceptance_criteria",
-    KnowledgeKind.DECISION.value: "scope_and_boundaries",
-}
-"""Which area a kind most often serves.
-
-A default, not a truth. Kinds cannot resolve areas on their own — "functional
-requirements" and "quality attributes" are both ``requirement`` — which is
-precisely why these are proposals a human confirms rather than assignments.
-``unknown`` is absent: an open question belongs to no area until it is answered.
-"""
 
 _OPPOSED_SIMILARITY = 0.6
 """How alike two statements must be before a polarity difference reads as conflict.
@@ -60,7 +44,11 @@ def offline_review_fixture(request: ReviewRequest) -> object:
     findings: list[dict[str, object]] = []
 
     for statement in request.statements:
-        area = _KIND_TO_AREA.get(statement.kind)
+        # Only where the kind leaves no choice. Picking between "functional
+        # requirements" and "quality attributes" for a requirement is the
+        # discrimination a model is for, and guessing it offline would
+        # manufacture coverage a user then has to unpick (ADR-0015).
+        area = unambiguous_area_for(statement.kind)
         if area and (not request.area_keys or area in request.area_keys):
             findings.append(
                 {
@@ -69,8 +57,8 @@ def offline_review_fixture(request: ReviewRequest) -> object:
                     "area_key": area,
                     "confidence": Confidence.LOW.value,
                     "rationale": (
-                        f"offline fixture mapped kind {statement.kind!r} to its most "
-                        "common area; not a judgement about content"
+                        f"offline fixture: kind {statement.kind!r} is accepted by "
+                        "exactly one area, so no judgement was needed"
                     ),
                 }
             )

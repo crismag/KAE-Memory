@@ -218,13 +218,19 @@ class ReviewOutcome:
 
     run: AgentRun
     contradictions: tuple[RelationshipId, ...] = ()
+    proposed_contradictions: tuple[tuple[KnowledgeItemId, KnowledgeItemId], ...] = ()
     area_assignments: tuple[tuple[KnowledgeItemId, str], ...] = ()
     unsupported: tuple[KnowledgeItemId, ...] = ()
     rejected_assignments: tuple[dict[str, str], ...] = ()
 
     @property
     def finding_count(self) -> int:
-        return len(self.contradictions) + len(self.area_assignments) + len(self.unsupported)
+        return (
+            len(self.contradictions)
+            + len(self.proposed_contradictions)
+            + len(self.area_assignments)
+            + len(self.unsupported)
+        )
 
 
 class ReviewAgent:
@@ -235,10 +241,16 @@ class ReviewAgent:
     confirmed them, and an unsupported claim is flagged rather than removed —
     deleting what a person approved is not a reviewer's decision to make.
 
-    Two things it *does* write, both already modelled and both reversible by a
-    human: contradiction edges, which readiness already consumes, and discovery
-    area links, which carry the run that assigned them. Neither confirms
-    anything. Classification proposes; calculation decides.
+    It writes discovery area links, which carry the run that assigned them and
+    which a human can change. It does **not** record contradictions by default.
+    An unresolved contradiction on a mandatory area blocks readiness, so a false
+    positive would stall a project on a model's say-so: flagging costs a reader
+    a moment, recording costs the project its gate (ADR-0015). Detected pairs
+    are returned as proposals for a person to act on.
+
+    ``record_contradictions=True`` is available for a caller who has accepted
+    that trade deliberately. It is not the default, and no automated path should
+    turn it on without a human in the loop.
     """
 
     role = AgentRole.REVIEW
@@ -249,11 +261,13 @@ class ReviewAgent:
         readiness: ReadinessService,
         reviewer: ReviewPort,
         template: ReadinessTemplate = SOFTWARE_TEMPLATE,
+        record_contradictions: bool = False,
     ) -> None:
         self._service = service
         self._readiness = readiness
         self._reviewer = reviewer
         self._template = template
+        self._record_contradictions = record_contradictions
 
     def run_on_confirmed_knowledge(
         self,
@@ -309,6 +323,7 @@ class ReviewAgent:
             raise
 
         contradictions: list[RelationshipId] = []
+        proposed: list[tuple[KnowledgeItemId, KnowledgeItemId]] = []
         assignments: list[tuple[KnowledgeItemId, str]] = []
         unsupported: list[KnowledgeItemId] = []
         rejected: list[dict[str, str]] = []
@@ -316,6 +331,9 @@ class ReviewAgent:
         for finding in result.findings:
             if finding.kind is ReviewFindingKind.CONTRADICTION:
                 assert finding.counterpart_id is not None
+                if not self._record_contradictions:
+                    proposed.append((finding.subject_id, finding.counterpart_id))
+                    continue
                 edge = self._readiness.record_contradiction(
                     project_id,
                     finding.subject_id,
@@ -359,6 +377,7 @@ class ReviewAgent:
             output_summary={
                 "findings": len(result.findings),
                 "contradictions": len(contradictions),
+                "proposed_contradictions": len(proposed),
                 "area_assignments": len(assignments),
                 "unsupported_claims": len(unsupported),
                 "rejected_assignments": rejected,
@@ -371,6 +390,7 @@ class ReviewAgent:
         return ReviewOutcome(
             run=completed,
             contradictions=tuple(contradictions),
+            proposed_contradictions=tuple(proposed),
             area_assignments=tuple(assignments),
             unsupported=tuple(unsupported),
             rejected_assignments=tuple(rejected),
