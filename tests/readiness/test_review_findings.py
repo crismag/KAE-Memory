@@ -33,9 +33,17 @@ def _kinds(service: ReviewService, project_id: ProjectId) -> set[FindingKind]:
 
 
 def _write(memory: MemoryService, project_id: ProjectId, kind: str, key: str) -> object:
+    """Write one item, distinct per ``key``.
+
+    Two items with identical content are one item now, so a contradiction
+    between them is not expressible — which is correct, and means fixtures must
+    say different things when they mean different statements.
+    """
+
     run = memory.start_run(project_id, AgentRole.REQUIREMENTS, key)
     return memory.write_knowledge(
-        run.id, [WriteKnowledgeRequest(kind=kind, content=f"A {kind}.", source="test")]
+        run.id,
+        [WriteKnowledgeRequest(kind=kind, content=f"A {kind} for {key}.", source="test")],
     )[0]
 
 

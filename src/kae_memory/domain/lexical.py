@@ -158,6 +158,71 @@ def terms(query: str) -> tuple[str, ...]:
     return tuple(seen)
 
 
+NEAR_DUPLICATE_SIMILARITY = 0.85
+"""How alike two statements must be before they are worth a human's attention.
+
+High on purpose. A false positive costs someone a decision they did not need to
+make; a false negative leaves a duplicate that readiness will count twice. The
+first is cheap to dismiss, so the threshold errs toward silence.
+"""
+
+_NEGATIONS = frozenset({"cannot", "never", "no", "not"})
+"""Polarity markers, held apart from content.
+
+Two statements differing only by one of these are not near-duplicates — they
+are a contradiction, and reporting them as the same thing would file a conflict
+under housekeeping.
+"""
+
+
+def content_words(text: str) -> frozenset[str]:
+    """Return the stemmed, meaning-bearing words of ``text``.
+
+    Stopwords and negations are excluded. Negations are compared separately by
+    :func:`is_negated` so that polarity is a distinct signal rather than one
+    token's worth of overlap.
+    """
+
+    return frozenset(
+        stem(word)
+        for word in _WORD.findall(text.lower())
+        if word not in _STOPWORDS and word not in _NEGATIONS
+    )
+
+
+def is_negated(text: str) -> bool:
+    """Return whether ``text`` carries a negation marker."""
+
+    lowered = f" {text.lower()} "
+    return any(f" {token} " in lowered for token in _NEGATIONS)
+
+
+def similarity(first: str, second: str) -> float:
+    """Return how much meaning two statements share, from 0.0 to 1.0.
+
+    Jaccard overlap of content stems. Deliberately blind to word order, because
+    "only an approver may approve" and "may approve only an approver" say the
+    same thing badly, and neither is a second fact.
+    """
+
+    left, right = content_words(first), content_words(second)
+    if not left or not right:
+        return 0.0
+    return len(left & right) / len(left | right)
+
+
+def is_near_duplicate(
+    first: str, second: str, threshold: float = NEAR_DUPLICATE_SIMILARITY
+) -> bool:
+    """Return whether two statements say the same thing with the same polarity.
+
+    Polarity is checked first. Without it, a rule and its exact negation score
+    near-identical overlap and would be reported as duplicates of each other.
+    """
+
+    return is_negated(first) == is_negated(second) and similarity(first, second) >= threshold
+
+
 def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
     """Score ``text`` against already-stemmed ``query_terms``.
 
@@ -174,4 +239,14 @@ def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
     return LexicalMatch(score=len(hit) / len(query_terms), matched_terms=hit)
 
 
-__all__ = ["LexicalMatch", "match", "stem", "terms"]
+__all__ = [
+    "NEAR_DUPLICATE_SIMILARITY",
+    "LexicalMatch",
+    "content_words",
+    "is_near_duplicate",
+    "is_negated",
+    "match",
+    "similarity",
+    "stem",
+    "terms",
+]
