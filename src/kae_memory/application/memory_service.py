@@ -6,15 +6,18 @@ invariants that make the audit trail trustworthy live here and in the domain
 layer, not in the schema.
 """
 
+import hashlib
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.errors import IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import (
     AgentId,
@@ -66,6 +69,58 @@ def _new_id() -> str:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _payload_fingerprint(
+    content: str,
+    actor_type: ActorType,
+    message_type: MessageType,
+    actor_id: str | None,
+) -> str:
+    """Return a stable fingerprint of a message payload.
+
+    Content is normalised for whitespace so that a reformatted resubmission of
+    the same statement is recognised as a replay rather than reported as a
+    conflict. Actor and type are included because the same words from a
+    different actor are a different submission.
+    """
+
+    normalised = " ".join(content.split())
+    material = "\x1f".join([normalised, actor_type.value, message_type.value, actor_id or ""])
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _resolve_replay(
+    db_session: DbSession,
+    project_id: ProjectId,
+    idempotency_key: str,
+    fingerprint: str | None,
+) -> "MessageRecord":
+    """Resolve a unique-key violation into a replay or a conflict."""
+
+    existing = MessageRepository(db_session).find_by_idempotency_key(project_id, idempotency_key)
+    if existing is None:  # pragma: no cover - the constraint fired, so a row exists
+        raise IdempotencyConflictError(
+            f"idempotency key {idempotency_key!r} conflicted but no record was found"
+        )
+    message, stored_fingerprint = existing
+    if stored_fingerprint != fingerprint:
+        raise IdempotencyConflictError(
+            f"idempotency key {idempotency_key!r} was already used with a different payload"
+        )
+    return MessageRecord(message=message, replayed=True)
+
+
+@dataclass(frozen=True, slots=True)
+class MessageRecord:
+    """A recorded message and whether this call created it.
+
+    ``replayed`` lets a caller distinguish "your submission was accepted" from
+    "this was already recorded" without comparing timestamps or guessing.
+    """
+
+    message: Message
+    replayed: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,15 +230,33 @@ class MemoryService:
         message_type: MessageType = MessageType.INPUT,
         actor_id: str | None = None,
         agent_run_id: AgentRunId | None = None,
-    ) -> Message:
+        idempotency_key: str | None = None,
+    ) -> MessageRecord:
         """Persist a submission verbatim as source evidence.
 
         The stored text is never rewritten by extraction.
+
+        With an ``idempotency_key``, a retry is safe (ADR-0018). The guarantee
+        is the unique constraint, not a prior lookup: checking first and
+        inserting second races, and two concurrent retries would both find
+        nothing. The insert is attempted, and a violation is resolved by
+        reading the record that won.
+
+        Sameness is decided by a payload fingerprint. Replaying the same
+        payload returns the original; reusing the key for different content
+        raises :class:`IdempotencyConflictError`, because returning the
+        original would silently discard the caller's new content and writing a
+        second record would break the guarantee the key exists to provide.
         """
 
         moment = self._clock()
+        fingerprint = (
+            _payload_fingerprint(content, actor_type, message_type, actor_id)
+            if idempotency_key is not None
+            else None
+        )
 
-        def operation(db_session: DbSession) -> Message:
+        def operation(db_session: DbSession) -> MessageRecord:
             repository = MessageRepository(db_session)
             message = Message(
                 id=MessageId(_new_id()),
@@ -196,11 +269,23 @@ class MemoryService:
                 created_at=moment,
                 actor_id=actor_id,
                 agent_run_id=agent_run_id,
+                idempotency_key=idempotency_key,
             )
-            repository.add(message)
-            return message
+            repository.add(message, fingerprint)
+            db_session.flush()
+            return MessageRecord(message=message, replayed=False)
 
-        return self._run(operation)
+        if idempotency_key is None:
+            return self._run(operation)
+
+        try:
+            return self._run(operation)
+        except IntegrityError:
+            return self._run(
+                lambda db_session: _resolve_replay(
+                    db_session, project_id, idempotency_key, fingerprint
+                )
+            )
 
     def get_message(self, message_id: MessageId) -> Message | None:
         """Return a message by identifier."""

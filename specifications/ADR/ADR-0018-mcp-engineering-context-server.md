@@ -1,7 +1,8 @@
 # ADR-0018 — KAE MCP is an application adapter owned by KAE-Memory
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-08-01
+- **Accepted:** 2026-08-02
 - **Depends on:** [`ADR-0004`](ADR-0004-mcp-inspection-only.md), [`ADR-0005`](ADR-0005-m5-physical-schema.md), [`ADR-0014`](ADR-0014-http-api-contract.md)
 - **Milestone:** MCP-M1
 

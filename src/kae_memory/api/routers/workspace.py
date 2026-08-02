@@ -97,16 +97,16 @@ def record_message(session_id: str, body: RecordMessageRequest, memory: Memory) 
     session = memory.get_session(SessionId(session_id))
     if session is None:
         raise not_found("session", session_id)
-    return MessageResponse.of(
-        memory.record_message(
-            session.project_id,
-            session.id,
-            body.content,
-            actor_type=parse_enum(ActorType, body.actor_type, "actor_type"),
-            message_type=parse_enum(MessageType, body.message_type, "message_type"),
-            actor_id=body.actor_id,
-        )
+    record = memory.record_message(
+        session.project_id,
+        session.id,
+        body.content,
+        actor_type=parse_enum(ActorType, body.actor_type, "actor_type"),
+        message_type=parse_enum(MessageType, body.message_type, "message_type"),
+        actor_id=body.actor_id,
+        idempotency_key=body.idempotency_key,
     )
+    return MessageResponse.of(record.message)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageResponse])

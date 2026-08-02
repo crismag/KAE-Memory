@@ -19,3 +19,12 @@ class DomainInvariantError(DomainError):
 
 class InvalidRunTransitionError(DomainError):
     """Raised when an agent run attempts an unsupported status transition."""
+
+
+class IdempotencyConflictError(DomainError):
+    """A retried write reused a key with a different payload.
+
+    Returning the original record would silently discard the caller's new
+    content; writing a second record would break the guarantee the key exists
+    to provide. Neither is safe, so the conflict is reported.
+    """

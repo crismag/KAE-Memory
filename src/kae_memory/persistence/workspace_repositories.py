@@ -156,7 +156,7 @@ class MessageRepository:
     def __init__(self, session: DbSession) -> None:
         self._session = session
 
-    def add(self, message: Message) -> None:
+    def add(self, message: Message, fingerprint: str | None = None) -> None:
         """Persist a message. Messages are never updated once written."""
 
         self._session.add(
@@ -172,6 +172,8 @@ class MessageRepository:
                 content=message.content,
                 message_metadata={},
                 created_at=message.created_at,
+                idempotency_key=message.idempotency_key,
+                payload_fingerprint=fingerprint,
             )
         )
 
@@ -180,6 +182,24 @@ class MessageRepository:
 
         row = self._session.get(MessageRow, str(message_id))
         return None if row is None else _message_to_domain(row)
+
+    def find_by_idempotency_key(
+        self, project_id: ProjectId, idempotency_key: str
+    ) -> tuple[Message, str | None] | None:
+        """Return the message previously recorded under this key, with its fingerprint.
+
+        Used to resolve a unique-violation after the fact, not to avoid one:
+        checking first and inserting second is exactly the race the constraint
+        exists to close.
+        """
+
+        row = self._session.scalars(
+            select(MessageRow).where(
+                MessageRow.project_id == str(project_id),
+                MessageRow.idempotency_key == idempotency_key,
+            )
+        ).one_or_none()
+        return None if row is None else (_message_to_domain(row), row.payload_fingerprint)
 
     def next_sequence_number(self, session_id: SessionId) -> int:
         """Return the next sequence number for a session."""
@@ -559,6 +579,7 @@ def _message_to_domain(row: MessageRow) -> Message:
         created_at=as_aware(row.created_at),
         actor_id=row.actor_id,
         agent_run_id=AgentRunId(row.agent_run_id) if row.agent_run_id else None,
+        idempotency_key=row.idempotency_key,
     )
 
 

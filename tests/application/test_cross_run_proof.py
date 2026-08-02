@@ -24,7 +24,7 @@ def test_agent_b_retrieves_knowledge_written_by_agent_a(factory: sessionmaker[Se
         project.id,
         session_a.id,
         "We need to replace the physical reporting binder used by ministry coordinators.",
-    )
+    ).message
     run_a = service_a.start_run(
         project.id,
         AgentRole.REQUIREMENTS,
@@ -84,7 +84,9 @@ def test_provenance_answers_produced_and_used_relationally(
     service = MemoryService(factory)
     project = service.create_project("Traceability")
     session = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, session.id, "Reporting cycles are configurable.")
+    message = service.record_message(
+        project.id, session.id, "Reporting cycles are configurable."
+    ).message
     writer = service.start_run(project.id, AgentRole.REQUIREMENTS, "req-1", session.id)
     items = service.write_knowledge(
         writer.id,

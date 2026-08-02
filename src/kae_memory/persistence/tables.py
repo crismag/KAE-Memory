@@ -190,6 +190,10 @@ class MessageRow(Base):
     __tablename__ = "messages"
     __table_args__ = (
         UniqueConstraint("session_id", "sequence_number"),
+        # Idempotency is enforced here, not by a read-then-insert: a lookup
+        # before an insert races, and the guarantee has to survive two clients
+        # and a crash between the two statements (ADR-0018).
+        UniqueConstraint("project_id", "idempotency_key", name="uq_messages_project_idempotency"),
         Index("ix_messages_session_sequence", "session_id", "sequence_number"),
         Index("ix_messages_project_created", "project_id", "created_at"),
     )
@@ -213,6 +217,10 @@ class MessageRow(Base):
         "metadata", JSONB, nullable=False, default=dict
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    #: SHA-256 over the normalised payload. Sameness is decided by comparing
+    #: this, never by comparing free text.
+    payload_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
 
 class KnowledgeRelationshipRow(Base):

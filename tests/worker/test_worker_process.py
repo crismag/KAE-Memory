@@ -42,7 +42,7 @@ def _enqueue_requirements(
 ) -> tuple[Project, WorkSession, Message, AgentRun]:
     project = memory.create_project("Reporting")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
-    message = memory.record_message(project.id, session.id, IDEA)
+    message = memory.record_message(project.id, session.id, IDEA).message
     run = memory.enqueue_run(
         project.id,
         AgentRole.REQUIREMENTS,
@@ -165,7 +165,7 @@ def test_the_loop_drains_the_queue_then_stops_when_asked(factory: sessionmaker[S
     project = memory.create_project("Queue")
     session = memory.open_session(project.id, SessionType.DISCOVERY)
     for index in range(3):
-        message = memory.record_message(project.id, session.id, IDEA)
+        message = memory.record_message(project.id, session.id, IDEA).message
         memory.enqueue_run(
             project.id,
             AgentRole.REQUIREMENTS,

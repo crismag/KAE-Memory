@@ -29,7 +29,7 @@ def _seed(factory: sessionmaker[Session]) -> None:
     project = service.create_project("Approval", key=PROJECT_KEY)
 
     discovery = service.open_session(project.id, SessionType.DISCOVERY)
-    message = service.record_message(project.id, discovery.id, "Coordinators file reports.")
+    message = service.record_message(project.id, discovery.id, "Coordinators file reports.").message
     writer = service.start_run(project.id, AgentRole.REQUIREMENTS, "req-1", discovery.id)
     items = service.write_knowledge(
         writer.id,

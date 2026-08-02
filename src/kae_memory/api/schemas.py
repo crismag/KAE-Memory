@@ -84,6 +84,9 @@ class RecordMessageRequest(BaseModel):
     actor_type: str = "user"
     message_type: str = "input"
     actor_id: str | None = None
+    #: Supply to make a retry safe. The same key with the same payload returns
+    #: the original record; the same key with different content is a conflict.
+    idempotency_key: str | None = Field(default=None, max_length=200)
 
 
 class MessageResponse(BaseModel):

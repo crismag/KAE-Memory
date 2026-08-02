@@ -16,6 +16,9 @@ dependencies = [
   "sqlalchemy-cockroachdb>=2.0",
 ]
 
+[project.scripts]
+kae-memory-mcp = "kae_memory.mcp.__main__:main"
+
 [project.optional-dependencies]
 bedrock = [
   "anthropic[bedrock]>=0.100",
@@ -31,6 +34,9 @@ dev = [
 api = [
     "fastapi>=0.140.12",
     "uvicorn>=0.51.0",
+]
+mcp = [
+    "mcp>=1.2",
 ]
 
 [tool.hatch.build.targets.wheel]
