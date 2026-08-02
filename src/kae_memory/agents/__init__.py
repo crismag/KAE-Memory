@@ -1,8 +1,8 @@
 """Bounded agent execution.
 
-Three roles are authorised (FR-009); two are implemented here. The provider sits
-behind :class:`ExtractionPort`, so no module above this package imports a
-provider SDK.
+All three authorised roles (FR-009) are implemented here. Providers sit behind
+:class:`ExtractionPort` and :class:`ReviewPort`, so no module above this package
+imports a provider SDK.
 """
 
 from .deterministic import DeterministicExtractionAdapter
@@ -33,7 +33,25 @@ from .extraction import (
     UnverifiableOutputError,
 )
 from .prompts import prompt_for
-from .roles import AgentOutcome, ArchitectureAgent, RequirementsAgent
+from .review import (
+    InvalidReviewOutputError,
+    ReviewedStatement,
+    ReviewError,
+    ReviewFinding,
+    ReviewFindingKind,
+    ReviewPort,
+    ReviewRequest,
+    ReviewResult,
+    UnverifiableReviewError,
+)
+from .review_adapter import DeterministicReviewAdapter, offline_review_fixture
+from .roles import (
+    AgentOutcome,
+    ArchitectureAgent,
+    RequirementsAgent,
+    ReviewAgent,
+    ReviewOutcome,
+)
 
 __all__ = [
     "EMBEDDING_DIMENSIONS",
@@ -45,6 +63,7 @@ __all__ = [
     "Confidence",
     "DeterministicEmbeddingAdapter",
     "DeterministicExtractionAdapter",
+    "DeterministicReviewAdapter",
     "EmbeddingError",
     "EmbeddingPort",
     "EmbeddingResult",
@@ -55,12 +74,24 @@ __all__ = [
     "ExtractionResult",
     "InvalidEmbeddingError",
     "InvalidOutputError",
+    "InvalidReviewOutputError",
     "OutputTruncatedError",
     "ProviderRefusedError",
     "ProviderTimeoutError",
     "ProviderUnavailableError",
     "RequirementsAgent",
+    "ReviewAgent",
+    "ReviewError",
+    "ReviewFinding",
+    "ReviewFindingKind",
+    "ReviewOutcome",
+    "ReviewPort",
+    "ReviewRequest",
+    "ReviewResult",
+    "ReviewedStatement",
     "UnverifiableOutputError",
+    "UnverifiableReviewError",
     "is_normalised",
+    "offline_review_fixture",
     "prompt_for",
 ]
