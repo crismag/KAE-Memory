@@ -71,6 +71,19 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _collapse_key(kind: str, content: str) -> tuple[str, str]:
+    """Return the identity two statements share when they are the same fact.
+
+    Whitespace and case are not meaning, so they are normalised away. Nothing
+    further: this key exists to collapse statements that are *identical*, and
+    deciding that two differently-worded statements mean the same thing is a
+    judgement, not a lookup. Near-duplicates are reported as findings for a
+    human to resolve instead.
+    """
+
+    return kind, " ".join(content.split()).casefold()
+
+
 def _payload_fingerprint(
     content: str,
     actor_type: ActorType,
@@ -470,7 +483,50 @@ class MemoryService:
             links = ProvenanceLinkRepository(db_session)
             written: list[KnowledgeItem] = []
 
+            # Collapse targets: statements the project already holds that a
+            # human has not ruled out. Rejected and superseded items are
+            # excluded deliberately — attaching a new run's provenance to
+            # something a person discarded would quietly revive their decision.
+            existing = {
+                _collapse_key(item.kind, item.current_version.content): item
+                for item in knowledge.list_for_project(run.project_id, None)
+                if item.lifecycle in {LifecycleState.PROPOSED, LifecycleState.VALIDATED}
+            }
+            collapsed: list[KnowledgeItemId] = []
+
             for request in requests:
+                # The same sentence reaching two runs is one fact with two
+                # sources, not two facts. Without this, splitting a document
+                # into chunks inflates every area it touches.
+                twin = existing.get(_collapse_key(request.kind, request.content))
+                if twin is not None:
+                    links.add(
+                        ProvenanceLink(
+                            id=ProvenanceLinkId(_new_id()),
+                            project_id=run.project_id,
+                            knowledge_item_id=twin.id,
+                            link_type=ProvenanceLinkType.PRODUCED_BY,
+                            created_at=moment,
+                            knowledge_version_number=twin.current_version.number,
+                            agent_run_id=run.id,
+                        )
+                    )
+                    if request.from_message_id is not None:
+                        links.add(
+                            ProvenanceLink(
+                                id=ProvenanceLinkId(_new_id()),
+                                project_id=run.project_id,
+                                knowledge_item_id=twin.id,
+                                link_type=ProvenanceLinkType.DERIVED_FROM_MESSAGE,
+                                created_at=moment,
+                                knowledge_version_number=twin.current_version.number,
+                                message_id=request.from_message_id,
+                            )
+                        )
+                    collapsed.append(twin.id)
+                    written.append(twin)
+                    continue
+
                 item = KnowledgeItem(
                     id=KnowledgeItemId(_new_id()),
                     project_id=run.project_id,
@@ -490,6 +546,7 @@ class MemoryService:
                     ),
                 )
                 knowledge.add(item)
+                existing[_collapse_key(item.kind, request.content)] = item
                 links.add(
                     ProvenanceLink(
                         id=ProvenanceLinkId(_new_id()),
@@ -515,13 +572,18 @@ class MemoryService:
                     )
                 written.append(item)
 
-            if written:
+            if len(written) > len(collapsed):
                 # Writing knowledge is an authoritative change, so any readiness
                 # snapshot taken before this transaction is now stale (ADR-0012).
+                # A run that only collapsed into existing items changed no
+                # statement, so it must not invalidate a valid snapshot.
                 bump_knowledge_revision(db_session, run.project_id)
 
             if complete_run:
-                runs.save(run.succeed(moment, output_summary), moment)
+                summary = dict(output_summary or {})
+                if collapsed:
+                    summary["collapsed_duplicates"] = len(collapsed)
+                runs.save(run.succeed(moment, summary or None), moment)
 
             return tuple(written)
 

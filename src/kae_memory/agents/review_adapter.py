@@ -11,10 +11,10 @@ enough to walk the chain, and any demonstration leaning on it should say which
 adapter ran.
 """
 
-import re
 from collections.abc import Callable, Sequence
 
 from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.lexical import content_words, is_negated, similarity
 from kae_memory.domain.models import KnowledgeKind
 
 from .extraction import Confidence
@@ -46,11 +46,12 @@ precisely why these are proposals a human confirms rather than assignments.
 ``unknown`` is absent: an open question belongs to no area until it is answered.
 """
 
-_NEGATIONS = ("cannot", "must not", "never", "may not", "not")
-_WORD = re.compile(r"[a-z0-9]+")
-_STOP = frozenset(
-    {"a", "an", "and", "be", "by", "for", "in", "is", "it", "of", "on", "or", "the", "to"}
-)
+_OPPOSED_SIMILARITY = 0.6
+"""How alike two statements must be before a polarity difference reads as conflict.
+
+Lower than the near-duplicate bar: a contradiction is worth surfacing on weaker
+evidence than a housekeeping duplicate, because missing one is expensive.
+"""
 
 
 def offline_review_fixture(request: ReviewRequest) -> object:
@@ -94,26 +95,11 @@ def offline_review_fixture(request: ReviewRequest) -> object:
 def _opposed(first: str, second: str) -> bool:
     """Return whether two statements say the same thing with opposite polarity."""
 
-    first_words = _content_words(first)
-    second_words = _content_words(second)
-    if not first_words or not second_words:
+    if is_negated(first) == is_negated(second):
         return False
-    if _negated(first) == _negated(second):
+    if not content_words(first) or not content_words(second):
         return False
-    shared = first_words & second_words
-    union = first_words | second_words
-    return len(shared) / len(union) >= 0.6
-
-
-def _content_words(text: str) -> frozenset[str]:
-    return frozenset(
-        word for word in _WORD.findall(text.lower()) if word not in _STOP and word not in _NEGATIONS
-    )
-
-
-def _negated(text: str) -> bool:
-    lowered = f" {text.lower()} "
-    return any(f" {token} " in lowered for token in _NEGATIONS)
+    return similarity(first, second) >= _OPPOSED_SIMILARITY
 
 
 class DeterministicReviewAdapter:

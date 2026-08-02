@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
+from kae_memory.domain.lexical import is_near_duplicate
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeItem, KnowledgeKind, RelationshipType
 from kae_memory.domain.readiness import (
@@ -49,6 +50,7 @@ class FindingKind(StrEnum):
     UNCONFIRMED_KNOWLEDGE = "unconfirmed_knowledge"
     OPEN_QUESTION = "open_question"
     UNRESOLVED_CONTRADICTION = "unresolved_contradiction"
+    DUPLICATE_KNOWLEDGE = "duplicate_knowledge"
     OPEN_BLOCKER = "open_blocker"
 
 
@@ -160,6 +162,26 @@ class ReviewService:
                             "Supersede one item, or resolve the contradiction with a note."
                         ),
                         knowledge_item_ids=(relationship.source_id, relationship.target_id),
+                    )
+                )
+
+            for first, second in _near_duplicates(items):
+                found.append(
+                    Finding(
+                        kind=FindingKind.DUPLICATE_KNOWLEDGE,
+                        # Major, not critical. A duplicate overstates coverage,
+                        # which misleads; it does not make the project
+                        # undeliverable the way an empty mandatory area does.
+                        severity=Severity.MAJOR,
+                        summary=(
+                            "Two statements say the same thing, so the area counts them twice."
+                        ),
+                        recommended_action=(
+                            "Keep one and reject or supersede the other. Merging the "
+                            "wording is a judgement about meaning, so it is not done "
+                            "automatically."
+                        ),
+                        knowledge_item_ids=(first.id, second.id),
                     )
                 )
 
@@ -282,3 +304,28 @@ __all__ = [
     "classify_offline",
     "unambiguous_area_for",
 ]
+
+
+def _near_duplicates(
+    items: Sequence[KnowledgeItem],
+) -> tuple[tuple[KnowledgeItem, KnowledgeItem], ...]:
+    """Return statement pairs that say the same thing.
+
+    Only among knowledge a human has confirmed. Two unconfirmed candidates
+    overlapping is the extractor doing its job on overlapping input, and the
+    review queue already shows them side by side; a duplicate matters once it is
+    confirmed, because that is when it starts counting toward an area twice.
+
+    Identical statements never reach here — those collapse on write. What is
+    left is genuine near-duplication, which needs a person.
+    """
+
+    confirmed = [item for item in items if item.lifecycle is LifecycleState.VALIDATED]
+    pairs: list[tuple[KnowledgeItem, KnowledgeItem]] = []
+    for index, first in enumerate(confirmed):
+        for second in confirmed[index + 1 :]:
+            if first.kind != second.kind:
+                continue
+            if is_near_duplicate(first.current_version.content, second.current_version.content):
+                pairs.append((first, second))
+    return tuple(pairs)

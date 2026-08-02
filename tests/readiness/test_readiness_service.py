@@ -44,11 +44,18 @@ def _write(
     key: str,
     confirm: bool = True,
 ) -> KnowledgeItem:
-    """Write one knowledge item through a run, confirming it by default."""
+    """Write one knowledge item through a run, confirming it by default.
+
+    Content varies by ``key``. Identical statements now collapse into one item
+    on write, so a helper that wrote the same sentence for every area would
+    silently cover one area instead of several — which is the inflation the
+    collapse exists to prevent, seen from the other side.
+    """
 
     run = memory.start_run(project_id, AgentRole.REQUIREMENTS, key)
     item = memory.write_knowledge(
-        run.id, [WriteKnowledgeRequest(kind=kind, content=f"A {kind}.", source="test")]
+        run.id,
+        [WriteKnowledgeRequest(kind=kind, content=f"A {kind} for {key}.", source="test")],
     )[0]
     return memory.confirm_knowledge(item.id) if confirm else item
 
