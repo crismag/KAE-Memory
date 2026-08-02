@@ -85,6 +85,9 @@ frontend framework or authorise implementation by themselves.
 
 ## Architecture context
 
+- `docs/09_development/LOCAL_DEVELOPMENT.md` is how to run the whole system on one
+  machine, and `operations/runbooks/enablement-sequence.md` is the ordered path
+  from local to deployed, with a verification gate per stage.
 - `deploy/`, `config/`, and `operations/` hold deployment assets, committed
   non-secret configuration, and runbooks. Each is intentionally minimal; see
   `deploy/README.md` for the boundary and for what is deliberately deferred.

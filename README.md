@@ -170,7 +170,19 @@ current AWS identity lacks. Check
 ## Getting started
 
 ```bash
-make install     # uv sync --extra dev
+make install     # uv sync --extra dev --extra api
+make dev         # database, migrations, API, worker, and workspace
+```
+
+Then open <http://localhost:5173>. Nothing needs AWS and no credentials are
+required — extraction runs offline against a fixture. Full walkthrough:
+[`docs/09_development/LOCAL_DEVELOPMENT.md`](docs/09_development/LOCAL_DEVELOPMENT.md).
+
+To enable live models and deploy, follow
+[`operations/runbooks/enablement-sequence.md`](operations/runbooks/enablement-sequence.md)
+in order — each stage has a verification gate.
+
+```bash
 make check       # lint, format check, mypy strict, pytest
 ```
 
@@ -180,9 +192,6 @@ CockroachDB. No test contacts a model provider.
 `make worker` runs the durable worker as a **separate process** from the API — it
 claims queued runs and executes them, so an enqueued run actually completes. It
 uses the offline extractor by default and needs no credentials.
-
-`make frontend` serves the workspace at <http://127.0.0.1:5173>, proxying the API.
-Run `make api` and `make worker` alongside it.
 
 `make api` serves the HTTP contract at <http://127.0.0.1:8000>, with interactive
 documentation at `/docs` and the OpenAPI document at `/openapi.json`. **It has no

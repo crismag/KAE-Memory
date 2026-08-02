@@ -1,8 +1,10 @@
 TEST_DB_CONTAINER ?= kae-crdb-test
 TEST_DB_VERSION   ?= v26.2.1
 TEST_DB_PORT      ?= 26258
+DEV_DB_CONTAINER  ?= kae-crdb-dev
+DEV_DB_VOLUME     ?= kae-crdb-dev-data
 
-.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker frontend frontend-install openapi
+.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker frontend frontend-install openapi dev dev-db-up dev-db-down dev-db-reset
 
 install:
 	uv sync --extra dev --extra api
@@ -69,3 +71,23 @@ frontend:
 openapi:
 	uv run python scripts/development/dump-openapi.py
 	npm --prefix frontend run generate-client
+
+# --- Local development -------------------------------------------------------
+# One command: database, migrations, API, worker, and workspace. Ctrl-C stops
+# the processes and leaves the database running.
+dev:
+	@./scripts/development/run-local.sh
+
+dev-db-up:
+	@docker inspect -f '{{.State.Running}}' $(DEV_DB_CONTAINER) 2>/dev/null | grep -q true \
+		&& echo "already running" \
+		|| echo "run 'make dev' — it starts the database as its first step"
+
+dev-db-down:
+	@docker rm -f $(DEV_DB_CONTAINER) >/dev/null 2>&1 && echo "stopped" || echo "not running"
+
+# Destroys the development data. The volume is the only thing holding your
+# projects, so this is not undoable.
+dev-db-reset:
+	@docker rm -f $(DEV_DB_CONTAINER) >/dev/null 2>&1 || true
+	@docker volume rm $(DEV_DB_VOLUME) >/dev/null 2>&1 && echo "volume removed" || echo "no volume"

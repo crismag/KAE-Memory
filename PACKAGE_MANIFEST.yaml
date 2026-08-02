@@ -73,6 +73,9 @@ package:
       - operations/runbooks/worker-recovery-demo.md
       - operations/runbooks/deploy-first-demo.md
       - operations/runbooks/restart-services.md
+      - operations/runbooks/enablement-sequence.md
+      - docs/09_development/LOCAL_DEVELOPMENT.md
+      - scripts/development/run-local.sh
       - deploy/static-site/README.md
       - deploy/aws/ec2/README.md
       - deploy/server/install.sh
