@@ -12,8 +12,15 @@ from datetime import datetime
 from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session as DbSession
 
-from kae_memory.domain.chunks import EMBEDDING_VERSION, EmbeddingState, KnowledgeChunk
+from kae_memory.domain.chunks import (
+    EMBEDDING_VERSION,
+    MAX_DISTANCE,
+    EmbeddingState,
+    KnowledgeChunk,
+    strip_metadata_prefix,
+)
 from kae_memory.domain.identifiers import ChunkId, KnowledgeItemId, ProjectId
+from kae_memory.domain.lexical import MIN_COVERAGE, LexicalMatch, match
 from kae_memory.domain.models import KnowledgeKind
 
 from .tables import KnowledgeChunkRow
@@ -32,6 +39,14 @@ class RetrievedChunk:
         """Cosine similarity, for reporting. Lower distance means more similar."""
 
         return 1.0 - self.distance
+
+
+@dataclass(frozen=True, slots=True)
+class LexicalChunk:
+    """One lexical hit. Carries no distance: no vector was consulted."""
+
+    chunk: KnowledgeChunk
+    match: LexicalMatch
 
 
 class ChunkRepository:
@@ -142,12 +157,19 @@ class ChunkRepository:
         limit: int = 8,
         kinds: Sequence[KnowledgeKind] | None = None,
         embedding_version: int = EMBEDDING_VERSION,
+        max_distance: float | None = MAX_DISTANCE,
     ) -> tuple[RetrievedChunk, ...]:
-        """Return the nearest chunks by cosine distance.
+        """Return the nearest chunks by cosine distance, within ``max_distance``.
 
         Scoped to one project, and to one embedding version: vectors produced by
         different models occupy different spaces, so mixing them in a single
         ranking would return confident nonsense.
+
+        The cutoff is what makes this a search rather than a listing. Nearest-
+        neighbour with only a ``LIMIT`` returns ``limit`` rows whatever the
+        query, so on a small corpus every query returns the entire corpus in some
+        order. Passing ``max_distance=None`` restores that behaviour, which is
+        useful for testing the plumbing and misleading for anything else.
         """
 
         literal = "[" + ",".join(repr(float(value)) for value in query_vector) + "]"
@@ -169,6 +191,9 @@ class ChunkRepository:
             placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
             sql += f"  AND knowledge_kind IN ({placeholders}) "
             params.update({f"kind_{index}": name for index, name in enumerate(names)})
+        if max_distance is not None:
+            sql += "  AND embedding <=> :vector <= :max_distance "
+            params["max_distance"] = float(max_distance)
         sql += "ORDER BY distance LIMIT :limit"
 
         hits = self._session.execute(text(sql), params).all()
@@ -178,6 +203,67 @@ class ChunkRepository:
             if row is not None:
                 results.append(RetrievedChunk(chunk=_to_domain(row), distance=float(distance)))
         return tuple(results)
+
+    def search_lexical(
+        self,
+        project_id: ProjectId,
+        query_terms: Sequence[str],
+        limit: int = 8,
+        kinds: Sequence[KnowledgeKind] | None = None,
+        min_coverage: float = MIN_COVERAGE,
+    ) -> tuple[LexicalChunk, ...]:
+        """Return chunks whose text contains the query's word families.
+
+        Two deliberate differences from :meth:`search`. It does not require an
+        embedding, because a chunk's words are readable the moment it is stored —
+        knowledge is findable while a re-embed is still pending. And it never
+        returns a weakly-matched row: coverage below ``min_coverage`` is an
+        exclusion, not a low rank, so one incidental shared word cannot carry a
+        result into the response.
+
+        The stems narrow candidates in SQL; scoring happens in Python against the
+        chunk body so that the metadata prefix cannot match. Ordering is by
+        coverage, then by knowledge and chunk index so equal scores are stable.
+        """
+
+        if not query_terms:
+            return ()
+
+        conditions = " OR ".join(
+            f"chunk_text ILIKE :term_{index}" for index in range(len(query_terms))
+        )
+        sql = (
+            "SELECT chunk_id FROM knowledge_chunks "
+            "WHERE project_id = :project_id "
+            f"  AND ({conditions}) "
+        )
+        params: dict[str, object] = {"project_id": str(project_id)}
+        params.update({f"term_{index}": f"%{term}%" for index, term in enumerate(query_terms)})
+        if kinds:
+            names = [kind.value for kind in kinds]
+            placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
+            sql += f"  AND knowledge_kind IN ({placeholders}) "
+            params.update({f"kind_{index}": name for index, name in enumerate(names)})
+
+        stems = tuple(query_terms)
+        scored: list[LexicalChunk] = []
+        for (chunk_id,) in self._session.execute(text(sql), params).all():
+            row = self._session.get(KnowledgeChunkRow, chunk_id)
+            if row is None:
+                continue
+            chunk = _to_domain(row)
+            result = match(stems, strip_metadata_prefix(chunk.text))
+            if result.matched and result.score >= min_coverage:
+                scored.append(LexicalChunk(chunk=chunk, match=result))
+
+        scored.sort(
+            key=lambda hit: (
+                -hit.match.score,
+                str(hit.chunk.knowledge_id),
+                hit.chunk.chunk_index,
+            )
+        )
+        return tuple(scored[:limit])
 
 
 def _to_domain(row: KnowledgeChunkRow) -> KnowledgeChunk:

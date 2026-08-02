@@ -34,6 +34,17 @@ from kae_memory.domain.identifiers import ProjectId
 TOP_K = 8
 """ADR-0008's approved default retrieval limit."""
 
+EVAL_MAX_DISTANCE = None
+"""No relevance cutoff while measuring ranking.
+
+The fixture asks "does the expected item rank inside the top-k", which is a
+question about ordering. Production search also applies
+:data:`~kae_memory.domain.chunks.MAX_DISTANCE` and drops anything beyond it —
+correct there, and here it would empty every result set under the deterministic
+embedder, turning these assertions vacuous rather than failing them. The cutoff
+has its own coverage in ``test_lexical_retrieval.py``.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class EvalCase:
@@ -163,7 +174,7 @@ def test_every_case_returns_results_within_the_top_k(
     retrieval, project_id = evaluated
 
     for case in CASES:
-        hits = retrieval.search(project_id, case.query, limit=TOP_K)
+        hits = retrieval.search(project_id, case.query, limit=TOP_K, max_distance=EVAL_MAX_DISTANCE)
         assert hits, f"no results at all for {case.query!r}"
         assert len(hits) <= TOP_K
         assert all(hit.why for hit in hits), "every hit must explain itself"
@@ -176,8 +187,9 @@ def test_results_are_ranked_by_ascending_distance(
 
     retrieval, project_id = evaluated
 
-    hits = retrieval.search(project_id, CASES[0].query, limit=TOP_K)
+    hits = retrieval.search(project_id, CASES[0].query, limit=TOP_K, max_distance=EVAL_MAX_DISTANCE)
 
+    assert hits, "an empty result would make this assertion vacuous"
     distances = [hit.distance for hit in hits]
     assert distances == sorted(distances)
 
@@ -197,7 +209,7 @@ def test_scoring_reports_recall_at_k(evaluated: tuple[RetrievalService, ProjectI
     matched: list[str] = []
     missed: list[str] = []
     for case in CASES:
-        hits = retrieval.search(project_id, case.query, limit=TOP_K)
+        hits = retrieval.search(project_id, case.query, limit=TOP_K, max_distance=EVAL_MAX_DISTANCE)
         found = any(case.expected_contains.lower() in hit.text.lower() for hit in hits)
         (matched if found else missed).append(case.query)
 
