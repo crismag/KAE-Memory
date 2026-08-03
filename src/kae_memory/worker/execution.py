@@ -20,13 +20,23 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
-from kae_memory.agents.extraction import ExtractionPort, ExtractionRequest
+from kae_memory.agents.extraction import ExtractionError, ExtractionPort, ExtractionRequest
+from kae_memory.agents.review import (
+    ReviewedStatement,
+    ReviewFindingKind,
+    ReviewPort,
+    ReviewRequest,
+)
+from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application.memory_service import MemoryService, WriteKnowledgeRequest
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.review_service import ReviewService, Severity, classify_offline
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.execution import AgentRole, AgentRun
-from kae_memory.domain.identifiers import MessageId
+from kae_memory.domain.identifiers import KnowledgeItemId, MessageId
 from kae_memory.domain.lifecycle import LifecycleState
+from kae_memory.domain.models import KnowledgeItem
+from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
 
 from .runner import StepResult
 
@@ -61,6 +71,13 @@ class AgentStepExecutor:
 
     session_factory: sessionmaker[DbSession]
     extractor: ExtractionPort
+    reviewer: ReviewPort | None = None
+    """The review engine, or ``None`` for offline unambiguous-only classification.
+
+    Optional on purpose. A deployment without a review provider still runs
+    review runs; it simply classifies less, which is the honest outcome rather
+    than a failed run.
+    """
 
     def __call__(self, run: AgentRun, checkpoint: dict[str, Any]) -> StepResult:
         memory = MemoryService(self.session_factory)
@@ -180,16 +197,23 @@ class AgentStepExecutor:
     def _review(self, run: AgentRun) -> StepResult:
         """Classify what can be classified, and report what is wrong.
 
+        One review path, two engines. Without a review adapter the run
+        classifies only kinds accepted by exactly one area — no judgement, no
+        invented coverage. With one configured, the same step asks a model for
+        the ambiguous cases, which is the discrimination a model is actually
+        for. The worker owns the run either way, so a review keeps its lease,
+        its checkpoint, and its recovery.
+
         The one authoritative write a review run performs is an area link,
         stamped with the run that proposed it — reversible, attributable, and
         unable to invent coverage, because an area still needs *confirmed*
         knowledge of an accepted kind to become sufficient.
 
-        It does **not** record contradictions. It reports candidates and a human
-        records one, because an unresolved contradiction on a mandatory area
-        blocks readiness: a false positive would stall a project on a model's
-        say-so. Flagging costs a reader a moment; recording costs the project
-        its gate (ADR-0015).
+        Neither engine records contradictions. They report candidates and a
+        human records one, because an unresolved contradiction on a mandatory
+        area blocks readiness: a false positive would stall a project on a
+        model's say-so. Flagging costs a reader a moment; recording costs the
+        project its gate (ADR-0015).
         """
 
         readiness = ReadinessService(self.session_factory)
@@ -203,22 +227,91 @@ class AgentStepExecutor:
             if str(item.id) not in existing
         ]
 
+        proposals, engine, provenance = self._classify(candidates)
+
         assigned = 0
-        for item_id, area_key in classify_offline(candidates):
-            readiness.assign_area(run.project_id, item_id, area_key, run.id)
+        rejected: list[dict[str, str]] = []
+        for item_id, area_key in proposals:
+            try:
+                readiness.assign_area(run.project_id, item_id, area_key, run.id)
+            except (DomainInvariantError, LookupError) as error:
+                # An area only counts kinds it declares. One impossible pairing
+                # is a bad call, not an invalid review, and failing here would
+                # discard every sound assignment made before it.
+                rejected.append(
+                    {"knowledge_id": str(item_id), "area_key": area_key, "reason": str(error)}
+                )
+                continue
             assigned += 1
 
         found = review.findings(run.project_id)
+        summary: dict[str, Any] = {
+            "areas_assigned": assigned,
+            "rejected_assignments": rejected,
+            "findings": len(found),
+            "critical_findings": sum(1 for f in found if f.severity is Severity.CRITICAL),
+            # Findings are derived, so the run records how many it saw rather
+            # than a copy that could disagree with the state later.
+            "classification": engine,
+        }
+        summary.update(provenance)
         return StepResult(
             checkpoint={"phase": "reviewed", "assigned": assigned},
             done=True,
-            output_summary={
-                "areas_assigned": assigned,
-                "findings": len(found),
-                "critical_findings": sum(1 for f in found if f.severity is Severity.CRITICAL),
-                # Findings are derived, so the run records how many it saw rather
-                # than a copy that could disagree with the state later.
-                "classification": "offline_by_kind",
+            output_summary=summary,
+        )
+
+    def _classify(
+        self, candidates: Sequence[KnowledgeItem]
+    ) -> tuple[tuple[tuple[KnowledgeItemId, str], ...], str, dict[str, Any]]:
+        """Return area proposals, which engine produced them, and its provenance.
+
+        A reviewer failure falls back to the offline classifier rather than
+        failing the run. Losing the ambiguous cases costs coverage a human can
+        still supply; losing the run costs the unambiguous ones too.
+        """
+
+        if self.reviewer is None or not candidates:
+            return classify_offline(candidates), "offline_by_kind", {}
+
+        request = ReviewRequest(
+            statements=tuple(
+                ReviewedStatement(
+                    knowledge_id=item.id, kind=item.kind, text=item.current_version.content
+                )
+                for item in candidates
+            ),
+            area_keys=tuple(area.key for area in SOFTWARE_TEMPLATE.areas),
+        )
+        try:
+            result = self.reviewer.review(request)
+        except ExtractionError as error:
+            return (
+                classify_offline(candidates),
+                "offline_by_kind_after_reviewer_error",
+                {"reviewer_error": error.error_code},
+            )
+
+        proposals = tuple(
+            (finding.subject_id, finding.area_key)
+            for finding in result.findings
+            if finding.kind is ReviewFindingKind.AREA_CLASSIFICATION and finding.area_key
+        )
+        contradictions = [
+            finding
+            for finding in result.findings
+            if finding.kind is ReviewFindingKind.CONTRADICTION
+        ]
+        return (
+            proposals,
+            "reviewed_by_model",
+            {
+                # Reported, never recorded. A human decides whether a proposed
+                # conflict becomes a gate (ADR-0015).
+                "proposed_contradictions": len(contradictions),
+                "prompt_version": result.prompt_version,
+                "schema_version": result.schema_version,
+                "model": result.model,
             },
         )
 
@@ -242,6 +335,21 @@ class AgentStepExecutor:
             done=True,
             output_summary=summary,
         )
+
+
+def default_reviewer() -> ReviewPort | None:
+    """Return the review engine named by the environment.
+
+    ``KAE_REVIEW=deterministic`` gives the offline fixture, which classifies
+    only where a kind leaves no choice. ``KAE_REVIEW=off`` disables the engine
+    entirely and falls back to the same unambiguous classifier without a review
+    call. Anything else is reserved for a live adapter.
+    """
+
+    setting = os.environ.get("KAE_REVIEW", "deterministic").strip().lower()
+    if setting in {"off", "none", ""}:
+        return None
+    return DeterministicReviewAdapter()
 
 
 def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None) -> ExtractionPort:
