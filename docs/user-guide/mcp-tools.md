@@ -209,7 +209,11 @@ Two things follow. Nothing can leak between projects — no tool returns knowled
 from a project you did not name. But a client *can* ask about the wrong one, and
 the only signal is the project named in the answer, so read it.
 
-A default-scope design is recorded as **T25** and is not built.
+**Project Focus Lock** is an accepted product principle: once a project is
+selected, searches, observations, recommendations, and context assembly default
+to it, and leaving it takes explicit intent. Studio will apply it first, since it
+already knows which project is open. The MCP side is **T25** and is not built —
+today every call names its own project.
 
 ## Things that will surprise you
 

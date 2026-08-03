@@ -325,9 +325,11 @@ loss at all** — every value survives in `findings` or `explanation.missing`.
 ## 9. Risks and unresolved questions
 
 - **The token estimates are approximations.** Both are deterministic and
-  comparable across runs, but neither is a real tokenizer count. If T5 needs to
-  claim a specific reduction percentage, use the same estimator before and after
-  and say which; do not mix them.
+  comparable across runs, but neither is a real tokenizer count.
+  **Decided 2026-08-03:** adopt one tokenizer implementation before making any
+  quantitative reduction claim. Until then every token figure in this document
+  is an estimate and must be described as one. If T5 reports a percentage
+  before standardisation, it must name the estimator and use it on both sides.
 - **~~Two projects is a small sample~~** — partially resolved. A third project
   with partial areas was measured (§5.4) and confirmed 26% was a floor, at
   30%. Still unmeasured: an open blocker, a recorded contradiction, and any
@@ -336,9 +338,10 @@ loss at all** — every value survives in `findings` or `explanation.missing`.
   that grows with the corpus; on a project with 200 confirmed statements it
   would dominate, and the ranking in §7 would change. Worth re-measuring against
   a large project before T3 concludes.
-- **Removing `recommended_next_steps` is a contract change** for any consumer
-  reading it. It was added on 2026-08-02 and has no external consumers yet, but
-  T2 should confirm that before removing rather than assume it.
+- **~~Removing `recommended_next_steps` is a contract change~~** — resolved
+  2026-08-03. A repository search found it produced only by `mcp/tools.py` and
+  consumed only by its own tests; absent from the frontend, `openapi.json`, and
+  the HTTP API. **No external consumers: T3 may remove it.**
 - **`module_scope_available`, `scope_note`, and the capability-gap fields look
   like overhead to a size pass.** They are the opposite: they exist so a caller
   cannot mistake a project figure for a module answer. Any compression that

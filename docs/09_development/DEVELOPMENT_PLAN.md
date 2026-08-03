@@ -11,6 +11,10 @@ agents to invent product or architecture decisions.
 Build vertical, independently verifiable slices. Each milestone below maps to a
 status entry in [`../00_project/CURRENT_PROJECT_STATE.md`](../00_project/CURRENT_PROJECT_STATE.md)
 and to a slice in [`CODEX_CLAUDE_EXECUTION_ROADMAP.md`](CODEX_CLAUDE_EXECUTION_ROADMAP.md).
+This table is the authoritative milestone state, and agrees with
+`../00_project/CURRENT_PROJECT_STATE.md`. The two disagreed until 2026-08-03,
+when M8 was recorded complete in one and open in the other.
+
 A milestone is complete when its exit condition is demonstrable, `make check` is
 green, and the project model is updated.
 
@@ -22,10 +26,10 @@ green, and the project model is updated.
 | M3 | Product Experience | ✔ |
 | M4 | Repository Realignment | ✔ |
 | M5 | Persistent Memory Proof | ✔ |
-| M6 | Agent Collaboration | ► current |
-| M7 | Resilience and Recovery | open |
-| M8 | Semantic Retrieval | open |
-| M9 | Workspace and Reporting | open |
+| M6 | Agent Collaboration | ✔ |
+| M7 | Resilience and Recovery | ✔ |
+| M8 | Semantic Retrieval | ✔ |
+| M9 | Workspace and Reporting | ► current |
 | M10 | AWS Demonstration | open |
 | M11 | Demo Ready and Release | open |
 

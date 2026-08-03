@@ -1,10 +1,16 @@
 # Project Focus and Default Scope
 
-Status: **proposed design**, 2026-08-03. **No implementation is authorised.**
+Status: **accepted principle**, 2026-08-03. Implementation incremental, **not
+yet authorised**.
 Owning target: **T25**, deferred (`../09_development/MCP_TARGET_CHECKLIST.md`).
 
-How a selected project becomes the default scope for KAE operations, without
-redesigning the architecture, the schema, or the MCP contract.
+> **Project Focus Lock** — the active project defines the default retrieval,
+> recommendation, observation, and context boundary. Leaving it requires
+> explicit user intent.
+
+Accepted as a product principle on 2026-08-03. What remains is sequencing, not
+design. This document records how it is realised without redesigning the
+architecture, the schema, or the MCP contract.
 
 ---
 
@@ -186,13 +192,15 @@ B and C are separable, and B is worth doing whether or not C is ever built.
 
 ---
 
-## 9. Open questions
+## 9. Remaining questions
 
-1. **Is B enough?** A key removes the lookup hop but still needs naming once per
-   call. That may be entirely acceptable.
+The principle is settled. These are implementation details, not blockers.
+
+1. **Is a project key enough on its own?** It removes the lookup hop but still
+   needs naming once per call, which may be entirely acceptable. T25.2 answers
+   this in practice.
 2. **Where would focus live for a non-stdio transport?** HTTP/SSE has no
-   one-process-per-client guarantee, so C would need real session identity.
-3. **Should `kae_list_projects` be scoped by permission later?** It is the only
-   read that sees every project.
-4. **Does a scope echo belong on every response, or only when focus resolved
-   it?** Always is more honest; only-when-implicit is cheaper.
+   one-process-per-client guarantee, so server-side focus would need real
+   session identity. Only relevant if T25.3 is reached.
+3. **Should `kae_list_projects` be permission-scoped later?** It is the only
+   read that sees every project. Belongs with access control, not here.
