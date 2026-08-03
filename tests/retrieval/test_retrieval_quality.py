@@ -83,9 +83,7 @@ class GeometryEmbedder:
                 QUERY_ANGLE if text in self._angles else math.pi / 2,
             )
             vectors.append(_unit(angle))
-        return EmbeddingResult(
-            vectors=tuple(vectors), model=self.model, dimensions=self.dimensions
-        )
+        return EmbeddingResult(vectors=tuple(vectors), model=self.model, dimensions=self.dimensions)
 
 
 def _has(hits, statement: str) -> bool:

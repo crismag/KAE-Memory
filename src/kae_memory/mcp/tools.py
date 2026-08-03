@@ -31,6 +31,7 @@ from kae_memory.domain.chunks import strip_metadata_prefix
 from kae_memory.domain.errors import InvalidLifecycleTransitionError, StaleVersionError
 from kae_memory.domain.errors import KnowledgeNotFoundError as DomainKnowledgeNotFound
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SessionId
+from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
@@ -411,6 +412,8 @@ def _project_knowledge_named(context: ToolContext, project: Any, module: str) ->
             "knowledge_id": str(hit.knowledge_id),
             "kind": hit.kind.value,
             "text": strip_metadata_prefix(hit.text),
+            "state": hit.lifecycle.value,
+            "authoritative": hit.authoritative,
             "matched_terms": list(hit.matched_terms),
         }
         for hit in hits
@@ -591,6 +594,8 @@ def kae_search_knowledge(
                 "knowledge_id": str(hit.knowledge_id),
                 "kind": hit.kind.value,
                 "text": strip_metadata_prefix(hit.text),
+                "state": hit.lifecycle.value,
+                "authoritative": hit.authoritative,
                 "relevance": _relevance(hit),
                 "matched_terms": list(hit.matched_terms),
                 "why": hit.why,
@@ -807,17 +812,7 @@ def kae_confirm_knowledge(
             "reviewer is required: confirmation is a human act, and the record "
             "must name the person who made it rather than the agent relaying it"
         )
-    if expected_version is None:
-        raise InvalidArgumentError(
-            "expected_version is required so a decision cannot be applied to "
-            "wording that has changed since it was read"
-        )
-    try:
-        version = int(expected_version)
-    except (TypeError, ValueError):
-        raise InvalidArgumentError("expected_version must be an integer") from None
-    if version < 1:
-        raise InvalidArgumentError("expected_version must be 1 or greater")
+    version = _require_version(expected_version)
 
     try:
         outcome = context.memory.review_confirm(
@@ -845,3 +840,107 @@ def kae_confirm_knowledge(
         "knowledge_revision": context.readiness.knowledge_revision(project.id),
         "readiness_changed": not outcome.replayed,
     }
+
+
+def kae_reject_knowledge(
+    context: ToolContext,
+    project_id: str,
+    knowledge_id: str,
+    expected_version: Any = None,
+    reason_code: str | None = None,
+    note: str | None = None,
+    reviewer: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Relay a person's decision that proposed knowledge must not become authoritative.
+
+    Not deletion. The statement and its provenance stay readable; it stops
+    counting toward readiness and stops appearing in search. Someone reading the
+    project later can still see what was considered and turned down, which is
+    most of the value of having rejected it explicitly rather than ignoring it.
+
+    ``reviewer`` is required for the same reason as confirmation: this records a
+    human decision, and the record names which human.
+    """
+
+    project = _require_project(context, project_id)
+    if not knowledge_id or not knowledge_id.strip():
+        raise InvalidArgumentError("knowledge_id is required")
+    if not reviewer or not reviewer.strip():
+        raise InvalidArgumentError(
+            "reviewer is required: rejection is a human decision, and the record "
+            "must name the person who made it rather than the agent relaying it"
+        )
+    version = _require_version(expected_version)
+    reason = _require_reason(reason_code, note)
+
+    try:
+        outcome = context.memory.review_reject(
+            project.id,
+            KnowledgeItemId(knowledge_id),
+            expected_version=version,
+            reason_code=reason,
+            actor_type=ActorType.USER,
+            actor_id=reviewer.strip(),
+            note=note,
+            idempotency_key=idempotency_key,
+        )
+    except DomainKnowledgeNotFound as error:
+        raise KnowledgeNotFoundError(str(error)) from None
+    except StaleVersionError as error:
+        raise VersionConflictError(str(error)) from None
+    except InvalidLifecycleTransitionError as error:
+        raise InvalidStateTransitionError(str(error)) from None
+
+    return {
+        "knowledge_id": knowledge_id,
+        "state": outcome.item.lifecycle.value,
+        "version": outcome.item.current_version.number,
+        "authoritative": False,
+        "already_applied": outcome.replayed,
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "readiness_changed": not outcome.replayed,
+        "retrievable": False,
+    }
+
+
+def _require_version(expected_version: Any) -> int:
+    """Validate the optimistic-concurrency token shared by the review tools."""
+
+    if expected_version is None:
+        raise InvalidArgumentError(
+            "expected_version is required so a decision cannot be applied to "
+            "wording that has changed since it was read"
+        )
+    try:
+        version = int(expected_version)
+    except (TypeError, ValueError):
+        raise InvalidArgumentError("expected_version must be an integer") from None
+    if version < 1:
+        raise InvalidArgumentError("expected_version must be 1 or greater")
+    return version
+
+
+def _require_reason(reason_code: str | None, note: str | None) -> RejectionReason:
+    """Resolve the rejection reason, insisting that 'other' says something.
+
+    A reason of "other" with no note records that someone declined to say why,
+    which is less useful than no category at all — the next reader cannot tell a
+    factual error from a scope decision.
+    """
+
+    if not reason_code or not reason_code.strip():
+        raise InvalidArgumentError(
+            "reason_code is required: "
+            + ", ".join(sorted(reason.value for reason in RejectionReason))
+        )
+    try:
+        reason = RejectionReason(reason_code.strip())
+    except ValueError:
+        raise InvalidArgumentError(
+            f"unknown reason_code {reason_code!r}; expected one of "
+            + ", ".join(sorted(r.value for r in RejectionReason))
+        ) from None
+    if reason is RejectionReason.OTHER and not (note or "").strip():
+        raise InvalidArgumentError("a reason_code of 'other' requires a note explaining why")
+    return reason

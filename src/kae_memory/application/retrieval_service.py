@@ -25,6 +25,7 @@ from kae_memory.domain.chunks import (
 )
 from kae_memory.domain.identifiers import ChunkId, KnowledgeItemId, ProjectId
 from kae_memory.domain.lexical import terms
+from kae_memory.domain.lifecycle import RETRIEVABLE, LifecycleState
 from kae_memory.domain.models import KnowledgeItem, KnowledgeKind
 from kae_memory.persistence.chunk_repository import (
     ChunkRepository,
@@ -94,6 +95,20 @@ class SearchHit:
     mode: SearchMode = SearchMode.SEMANTIC
     matched_terms: tuple[str, ...] = ()
     coverage: float | None = None
+    lifecycle: LifecycleState = LifecycleState.PROPOSED
+    """Whether a person has ruled on this statement.
+
+    Present on every hit because searchable and authoritative are different
+    questions. Proposed knowledge is returned so it can be reviewed; a caller
+    that treats it as established fact without reading this is the failure the
+    field exists to prevent.
+    """
+
+    @property
+    def authoritative(self) -> bool:
+        """Whether a person confirmed this statement."""
+
+        return self.lifecycle is LifecycleState.VALIDATED
 
 
 class RetrievalService:
@@ -219,6 +234,7 @@ class RetrievalService:
         limit: int = 8,
         kinds: Sequence[KnowledgeKind] | None = None,
         max_distance: float | None = MAX_DISTANCE,
+        lifecycle: frozenset[LifecycleState] = RETRIEVABLE,
     ) -> tuple[SearchHit, ...]:
         """Find knowledge semantically related to ``query``.
 
@@ -237,7 +253,12 @@ class RetrievalService:
 
         hits = self._run(
             lambda session: ChunkRepository(session).search(
-                project_id, vector, limit=limit, kinds=kinds, max_distance=max_distance
+                project_id,
+                vector,
+                limit=limit,
+                kinds=kinds,
+                max_distance=max_distance,
+                lifecycle=lifecycle,
             )
         )
         return tuple(_to_hit(hit, query) for hit in hits)
@@ -248,6 +269,7 @@ class RetrievalService:
         query: str,
         limit: int = 8,
         kinds: Sequence[KnowledgeKind] | None = None,
+        lifecycle: frozenset[LifecycleState] = RETRIEVABLE,
     ) -> tuple[SearchHit, ...]:
         """Find knowledge containing the query's terms, without an embedder.
 
@@ -267,7 +289,7 @@ class RetrievalService:
 
         hits = self._run(
             lambda session: ChunkRepository(session).search_lexical(
-                project_id, query_terms, limit=limit, kinds=kinds
+                project_id, query_terms, limit=limit, kinds=kinds, lifecycle=lifecycle
             )
         )
         return tuple(_to_lexical_hit(hit, query_terms) for hit in hits)
@@ -281,6 +303,7 @@ def _to_hit(hit: RetrievedChunk, query: str) -> SearchHit:
         kind=chunk.knowledge_kind,
         text=chunk.text,
         distance=hit.distance,
+        lifecycle=hit.lifecycle,
         mode=SearchMode.SEMANTIC,
         why=(
             f"cosine distance {hit.distance:.4f} to {query!r}; "
@@ -299,6 +322,7 @@ def _to_lexical_hit(hit: LexicalChunk, query_terms: tuple[str, ...]) -> SearchHi
         kind=chunk.knowledge_kind,
         text=chunk.text,
         distance=None,
+        lifecycle=hit.lifecycle,
         mode=SearchMode.LEXICAL,
         matched_terms=hit.match.matched_terms,
         coverage=hit.match.score,

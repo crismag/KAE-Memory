@@ -112,6 +112,20 @@ Residual risk, stated plainly: an agent that fabricates a reviewer name records
 a human decision that no human made. Nothing in this layer detects that. Closing
 it needs identity that MCP does not currently carry.
 
+## Observed during T13
+
+**The embedded metadata prefix goes stale on confirmation.** A chunk's body
+carries `Status: proposed` from when it was written, and nothing rewrites it
+when a person confirms the statement. Result labels are therefore read live from
+the knowledge item, never parsed from the text.
+
+Rewriting the prefix on every lifecycle change would mark the chunk stale and
+require a re-embed per confirmation, which is a large cost for a label the
+response already reports correctly. Recorded as a follow-up rather than fixed
+here. It does mean the *embedded* text a semantic query matches against carries
+a status that may be out of date — a second reason, after the T11 separation
+measurement, to revisit whether the prefix earns its place.
+
 ## Deviations recorded during T12
 
 **Cross-project mismatch returns `knowledge_not_found`.** The direction asked

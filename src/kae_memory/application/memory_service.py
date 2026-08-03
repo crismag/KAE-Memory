@@ -851,6 +851,43 @@ class MemoryService:
             idempotency_key=idempotency_key,
         )
 
+    def review_reject(
+        self,
+        project_id: ProjectId,
+        item_id: KnowledgeItemId,
+        expected_version: int,
+        reason_code: RejectionReason,
+        actor_type: ActorType = ActorType.USER,
+        actor_id: str | None = None,
+        note: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ReviewOutcome:
+        """Rule out proposed knowledge, keeping the proposal and the reason.
+
+        Rejection is not deletion. The statement stays, its versions stay, its
+        provenance stays; what changes is that it stops counting toward
+        readiness and stops being returned by search. A record of what was
+        considered and turned down is part of the audit trail.
+
+        ``reason_code`` is required, unlike the note on :meth:`reject_knowledge`,
+        which was accepted and silently discarded. A rejection whose reason went
+        nowhere leaves the next reader unable to tell a factual error from a
+        scope decision, and they are not the same thing at all.
+        """
+
+        return self._review(
+            project_id,
+            item_id,
+            expected_version,
+            action=ReviewAction.REJECTED,
+            target=LifecycleState.REJECTED,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            note=note,
+            idempotency_key=idempotency_key,
+            reason_code=reason_code,
+        )
+
     def _review(
         self,
         project_id: ProjectId,
@@ -980,14 +1017,27 @@ class MemoryService:
 
         return self._run(operation)
 
-    def reject_knowledge(self, item_id: KnowledgeItemId, note: str | None = None) -> KnowledgeItem:
+    def reject_knowledge(
+        self,
+        item_id: KnowledgeItemId,
+        note: str | None = None,
+        reason_code: RejectionReason = RejectionReason.OTHER,
+    ) -> KnowledgeItem:
         """Reject a candidate. The counterpart to confirmation, and also human.
 
         Rejection is not deletion. The item stays, its versions stay, and its
         provenance stays — what changes is that it stops counting toward
-        readiness and stops being offered as a collapse target. A record of what
-        was considered and turned down is part of the audit trail, not clutter.
+        readiness and stops being returned by search. A record of what was
+        considered and turned down is part of the audit trail, not clutter.
+
+        ``note`` was previously accepted and then dropped on the floor. It is now
+        recorded, which is the whole point of having asked for it. Prefer
+        :meth:`review_reject`, which also proves ownership and the version being
+        ruled on; this remains for callers holding an item they have already
+        resolved.
         """
+
+        moment = self._clock()
 
         def operation(db_session: DbSession) -> KnowledgeItem:
             repository = SqlAlchemyKnowledgeRepository(db_session)
@@ -996,6 +1046,21 @@ class MemoryService:
                 raise LookupError(f"unknown knowledge item: {item_id}")
             rejected = item.transition_to(LifecycleState.REJECTED)
             repository.save(rejected)
+            ReviewEventRepository(db_session).add(
+                KnowledgeReviewEvent(
+                    id=ReviewEventId(_new_id()),
+                    project_id=item.project_id,
+                    knowledge_item_id=item.id,
+                    version_number=item.current_version.number,
+                    action=ReviewAction.REJECTED,
+                    from_lifecycle=item.lifecycle,
+                    to_lifecycle=LifecycleState.REJECTED,
+                    actor_type=ActorType.USER,
+                    created_at=moment,
+                    reason_code=reason_code,
+                    note=note or "Rejected without a recorded reason.",
+                )
+            )
             bump_knowledge_revision(db_session, item.project_id)
             return rejected
 

@@ -96,6 +96,12 @@ INTEGRITY_FIELDS: frozenset[str] = frozenset(
         "scope",
         "scope_note",
         "module_scope_available",
+        # Whether a person has ruled on a statement (T13). Stripping these to
+        # save tokens would leave a caller reading unreviewed proposals as
+        # established fact — the single most expensive thing a compaction here
+        # could get wrong.
+        "state",
+        "authoritative",
         # What a package would carry (T21)
         "confirmation_state",
         "unresolved_critical_gaps",

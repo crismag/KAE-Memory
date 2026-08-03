@@ -137,8 +137,75 @@ which is the one claim the trail exists to keep honest.
 Agent-submitted observations are recorded as agent activity and stay proposed.
 Nothing an agent does moves knowledge into `validated`.
 
+## `kae_reject_knowledge`
+
+Rules out one proposed item. **Not deletion** — the statement, its versions, and
+its provenance all stay readable. What changes is that it stops counting toward
+readiness and stops appearing in search.
+
+```json
+{
+  "project_id": "…",
+  "knowledge_id": "…",
+  "expected_version": 1,
+  "reason_code": "incorrect",
+  "reviewer": "cris",
+  "note": "The repository uses SQS, not SNS."
+}
+```
+
+`reason_code`, `reviewer`, and `expected_version` are all required.
+
+### Reason codes
+
+| Code | Use when |
+|---|---|
+| `incorrect` | The statement is factually wrong |
+| `irrelevant` | True, but not about this project |
+| `duplicate` | Already recorded elsewhere |
+| `obsolete` | Was true; no longer is |
+| `unsupported` | An inference the evidence does not carry |
+| `out_of_scope` | Outside what this project covers |
+| `other` | **Requires a note** |
+
+`other` without a note is refused. A rejected statement stays readable forever,
+and a reader who cannot tell a factual error from a scope decision has the
+record without the meaning.
+
+### Valid transitions
+
+```
+proposed → rejected
+```
+
+Confirmed knowledge cannot be rejected. Retiring something already authoritative
+is supersession — a different act, recording what replaced it.
+
+## What search returns
+
+Search is scoped by lifecycle, and this is enforced in the query rather than
+afterwards:
+
+| Context | States returned |
+|---|---|
+| Normal search and briefing | `validated` + `proposed` |
+| Authoritative (generating output) | `validated` only |
+| Historical and diagnostic | everything, on explicit request |
+
+Rejected and superseded knowledge is **excluded from normal search**, not ranked
+lower. Until T13 it was returned like any other result, because lifecycle
+existed only inside the embedded text where no query could reach it.
+
+Every result carries `state` and `authoritative`, and no response profile can
+strip them — a caller reading unreviewed proposals as established fact is the
+most expensive mistake compaction could cause.
+
+Those labels are read live from the knowledge item, not from the result text.
+The embedded body still carries the status it had when written, so a confirmed
+statement's text may read `Status: proposed` while its `state` correctly reads
+`validated`.
+
 ## Not yet available
 
-`kae_reject_knowledge` and `kae_correct_knowledge` are in progress. Until they
-land, rejection and correction are available through the application service but
-not through MCP.
+`kae_correct_knowledge` is in progress. Until it lands, correction is available
+through the application service but not through MCP.
