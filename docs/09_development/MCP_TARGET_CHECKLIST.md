@@ -43,8 +43,16 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   `scripts/development/reembed-knowledge.py`, 2026-08-03. `EMBEDDING_VERSION`
   bumped to 2; selection is version-aware; claiming is compare-and-set; failures
   are isolated and retryable; the old vector survives a failed request
-- [ ] **T10** — Re-embed existing knowledge
-- [ ] **T11** — Validate semantic retrieval quality
+- [x] **T10** — Re-embed existing knowledge — 2026-08-03. All 32 chunks migrated
+  to Titan V2 at version 2; 12 post-migration checks pass; rerun is a no-op;
+  lexical retrieval unaffected throughout
+- [x] **T11** — Validate semantic retrieval quality — 2026-08-03,
+  [RETRIEVAL_QUALITY_T11.md](RETRIEVAL_QUALITY_T11.md). **Accepted with
+  documented limitations.** Semantic top-3 100%, MRR 0.91, paraphrase 100%
+  against lexical 0%. Required raising `MAX_DISTANCE` 0.75 → 0.85 on measured
+  distances. The limitation: the usable window for a global cutoff is 0.005
+  wide, one weak query now leaks, and hybrid ranking — not a better constant —
+  is the follow-up
 
 ## Phase C — Knowledge review surfaces
 
