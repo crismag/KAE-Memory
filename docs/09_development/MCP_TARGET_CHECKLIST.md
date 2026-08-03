@@ -39,7 +39,10 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   2026-08-03. `KAE_EMBEDDING` selects; region resolves through AWS_REGION,
   AWS_DEFAULT_REGION, then the active profile; selection raises rather than
   falling back to hash-derived vectors
-- [ ] **T9** — Build restartable re-embedding workflow
+- [x] **T9** — Restartable re-embedding workflow — `ReembeddingService` +
+  `scripts/development/reembed-knowledge.py`, 2026-08-03. `EMBEDDING_VERSION`
+  bumped to 2; selection is version-aware; claiming is compare-and-set; failures
+  are isolated and retryable; the old vector survives a failed request
 - [ ] **T10** — Re-embed existing knowledge
 - [ ] **T11** — Validate semantic retrieval quality
 

@@ -20,11 +20,18 @@ from .errors import DomainInvariantError
 from .identifiers import ChunkId, KnowledgeItemId, ProjectId
 from .models import KnowledgeKind
 
-EMBEDDING_VERSION = 1
+EMBEDDING_VERSION = 2
 """The current embedding space.
 
 Changing the model, its dimensions, or the prefix convention means a new version
 and a full re-embed — never a silent mix of old and new vectors.
+
+Version 1 was the hash-derived deterministic adapter. Version 2 is Titan Text
+Embeddings V2. Bumped 2026-08-03: without it, Titan vectors would have been
+written at version 1 and ranked against hash-derived ones in the same cosine
+query, which returns confident nonsense rather than failing. Version-1 chunks
+are excluded from semantic search until re-embedded, so retrieval degrades to
+lexical rather than becoming quietly wrong.
 """
 
 MAX_DISTANCE = 0.75
@@ -67,6 +74,18 @@ class EmbeddingState(StrEnum):
     EMBEDDED = "embedded"
     STALE = "stale"
     FAILED = "failed"
+    CLAIMED = "claimed"
+    """Held by a migration runner that has not yet written a result.
+
+    A claim, not a lifecycle state. It exists because embedding is an external
+    call and the application never holds a transaction open across one, so two
+    runners cannot be separated by a row lock. Claiming is a compare-and-set:
+    exactly one runner wins.
+
+    A crashed runner leaves chunks claimed. They are deliberately *not* eligible
+    for ordinary selection — a second runner picking them up is the race this
+    prevents — so recovery is explicit, via ``release_claims``.
+    """
 
 
 def estimate_tokens(text: str) -> int:

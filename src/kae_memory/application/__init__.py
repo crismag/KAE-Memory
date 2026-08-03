@@ -26,6 +26,7 @@ from .ingestion_service import (
 )
 from .memory_service import MemoryService, WriteKnowledgeRequest
 from .readiness_service import ReadinessService
+from .reembedding_service import ChunkFailure, MigrationReport, ReembeddingService
 from .retrieval_service import RetrievalService, SearchHit
 from .review_service import Finding, FindingKind, ReviewService, Severity
 
@@ -36,6 +37,7 @@ __all__ = [
     "AssemblyService",
     "Blueprint",
     "BlueprintService",
+    "ChunkFailure",
     "Clarification",
     "ClarificationService",
     "ContextAssembly",
@@ -47,7 +49,9 @@ __all__ = [
     "IngestionService",
     "KnowledgeTrace",
     "MemoryService",
+    "MigrationReport",
     "ReadinessService",
+    "ReembeddingService",
     "RetrievalService",
     "ReviewService",
     "SearchHit",

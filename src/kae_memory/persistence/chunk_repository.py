@@ -8,8 +8,10 @@ everything derived within it.
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, cast
 
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, func, or_, select, text, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session as DbSession
 
 from kae_memory.domain.chunks import (
@@ -155,30 +157,95 @@ class ChunkRepository:
         return int(total or 0), int(embedded or 0)
 
     def list_needing_embedding(
-        self, project_id: ProjectId, limit: int = 100
+        self,
+        project_id: ProjectId | None = None,
+        limit: int = 100,
+        embedding_version: int = EMBEDDING_VERSION,
     ) -> tuple[KnowledgeChunk, ...]:
-        """Return chunks awaiting an embedding, oldest first.
+        """Return chunks needing an embedding in the current space, oldest first.
 
-        Includes failed chunks: an unembedded chunk costs recall, never
-        correctness, so retrying is always safe.
+        Eligible on **either** count, not state alone:
+
+        * the state is pending, stale, or failed; or
+        * the vector belongs to a different embedding version.
+
+        The second is what makes a migration possible. A chunk embedded at
+        version 1 is marked ``embedded`` and is entirely correct about itself —
+        it simply holds a vector from a space the current search no longer
+        queries. Selecting on state alone would leave it behind forever.
+
+        Claimed chunks are excluded: a second runner picking one up is the race
+        this design prevents. Recovery from a crashed runner is explicit, via
+        :meth:`release_claims`.
+
+        Ordering is by creation then identifier, so two runners walking the same
+        corpus see the same sequence and a resumed run continues where it left
+        off rather than re-deriving a different order.
         """
+
+        needs_work = KnowledgeChunkRow.embedding_state.in_(
+            [
+                EmbeddingState.PENDING.value,
+                EmbeddingState.STALE.value,
+                EmbeddingState.FAILED.value,
+            ]
+        )
+        wrong_version = or_(
+            KnowledgeChunkRow.embedding_version != embedding_version,
+            KnowledgeChunkRow.embedding_version.is_(None),
+        )
+        conditions = [
+            or_(needs_work, wrong_version),
+            KnowledgeChunkRow.embedding_state != EmbeddingState.CLAIMED.value,
+        ]
+        if project_id is not None:
+            conditions.append(KnowledgeChunkRow.project_id == str(project_id))
 
         rows = self._session.scalars(
             select(KnowledgeChunkRow)
-            .where(
-                KnowledgeChunkRow.project_id == str(project_id),
-                KnowledgeChunkRow.embedding_state.in_(
-                    [
-                        EmbeddingState.PENDING.value,
-                        EmbeddingState.STALE.value,
-                        EmbeddingState.FAILED.value,
-                    ]
-                ),
-            )
-            .order_by(KnowledgeChunkRow.created_at)
+            .where(*conditions)
+            .order_by(KnowledgeChunkRow.created_at, KnowledgeChunkRow.chunk_id)
             .limit(limit)
         ).all()
         return tuple(_to_domain(row) for row in rows)
+
+    def claim(self, chunk_id: ChunkId, expected_state: EmbeddingState) -> bool:
+        """Take exclusive ownership of a chunk. Returns whether this caller won.
+
+        A compare-and-set rather than a row lock, because embedding is an
+        external call and the application never holds a transaction open across
+        one (ADR-0004). Two runners reaching the same chunk both attempt the
+        transition; the ``WHERE`` clause means exactly one row is updated.
+        """
+
+        result = self._session.execute(
+            update(KnowledgeChunkRow)
+            .where(
+                KnowledgeChunkRow.chunk_id == str(chunk_id),
+                KnowledgeChunkRow.embedding_state == expected_state.value,
+            )
+            .values(embedding_state=EmbeddingState.CLAIMED.value)
+        )
+        return bool(cast("CursorResult[Any]", result).rowcount)
+
+    def release_claims(self, project_id: ProjectId | None = None) -> int:
+        """Return claimed chunks to pending. Returns how many were released.
+
+        For recovering from a runner that died mid-flight. Deliberately manual:
+        an automatic timeout would race with a slow-but-alive runner and embed
+        the same chunk twice.
+        """
+
+        conditions = [KnowledgeChunkRow.embedding_state == EmbeddingState.CLAIMED.value]
+        if project_id is not None:
+            conditions.append(KnowledgeChunkRow.project_id == str(project_id))
+        stranded = self._session.scalars(select(KnowledgeChunkRow).where(*conditions)).all()
+        self._session.execute(
+            update(KnowledgeChunkRow)
+            .where(*conditions)
+            .values(embedding_state=EmbeddingState.PENDING.value)
+        )
+        return len(stranded)
 
     def store_embedding(
         self,
@@ -187,8 +254,19 @@ class ChunkRepository:
         model: str,
         dimensions: int,
         moment: datetime,
+        embedding_version: int = EMBEDDING_VERSION,
     ) -> None:
-        """Attach a vector to a chunk and mark it embedded."""
+        """Attach a vector to a chunk and mark it embedded, in one statement.
+
+        Vector, version, model, dimensions, and state move together. A vector
+        written without its version would sit in the current search space
+        claiming to be something it is not, which is the failure the version
+        exists to prevent.
+
+        Called only after the provider has returned. The previous vector is
+        still in place until this runs, so a failed request costs recall for one
+        chunk and destroys nothing.
+        """
 
         self._session.execute(
             update(KnowledgeChunkRow)
@@ -198,6 +276,7 @@ class ChunkRepository:
                 embedding_state=EmbeddingState.EMBEDDED.value,
                 embedding_model=model,
                 embedding_dimensions=dimensions,
+                embedding_version=embedding_version,
                 embedded_at=moment,
             )
         )
