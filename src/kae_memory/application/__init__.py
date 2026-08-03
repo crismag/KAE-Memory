@@ -4,6 +4,12 @@ All domain writes pass through this layer. Agents never hold raw database
 credentials and never issue SQL against domain tables (ADR-0004).
 """
 
+from .assembly_service import (
+    AssemblyManifest,
+    AssemblyPurpose,
+    AssemblyService,
+    ContextAssembly,
+)
 from .blueprint_service import Blueprint, BlueprintService, KnowledgeTrace, StatementLabel
 from .clarification_service import (
     AnsweredClarification,
@@ -25,10 +31,14 @@ from .review_service import Finding, FindingKind, ReviewService, Severity
 
 __all__ = [
     "AnsweredClarification",
+    "AssemblyManifest",
+    "AssemblyPurpose",
+    "AssemblyService",
     "Blueprint",
     "BlueprintService",
     "Clarification",
     "ClarificationService",
+    "ContextAssembly",
     "Finding",
     "FindingKind",
     "IngestedChunk",
