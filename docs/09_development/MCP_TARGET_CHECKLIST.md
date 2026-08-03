@@ -20,7 +20,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [x] **T1B** — Define MCP response profiles and consumption controls — [`MCP_RESPONSE_POLICY.md`](../06_architecture/MCP_RESPONSE_POLICY.md), 2026-08-03
 - [x] **T2** — Define compact MCP response conventions — `mcp/response_policy.py`, 2026-08-03
 - [x] **T3** — Trim `kae_get_project_briefing` — 12,199 → 3,634 chars (71%), 2026-08-03
-- [ ] **T4** — Apply pagination, limits, and detail levels to read tools
+- [x] **T2B** — Compact response conventions (style) —
+  [`ADR-0021`](../06_architecture/ADR-0021-COMPACT-RESPONSE-CONVENTIONS.md),
+  2026-08-03. T2 shipped the mechanism; this is the naming, nulls, ordering, and
+  references half. Audit: 6 of 8 tools partially compliant, none non-compliant
+- [ ] **T4** — Apply pagination, limits, and detail levels to read tools. Must
+  honour ADR-0021 §Coordination: wrapper shape, the `count` split, per-area
+  counts at `diagnostic`, and the prose treatment of `why` and `note`
 - [ ] **T5** — Verify token reduction without losing essential context
 
 ## Phase B — Embedding replacement
