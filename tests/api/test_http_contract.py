@@ -55,6 +55,25 @@ def test_a_project_round_trips(client: TestClient) -> None:
     assert [entry["id"] for entry in listed] == [project_id]
 
 
+def test_creating_the_same_project_twice_returns_the_existing_one(
+    client: TestClient,
+) -> None:
+    """The same request must not mean two different things per surface.
+
+    This endpoint used to create a second project keyed `name-2` while
+    `kae_create_project` resolved to the existing one. A caller should not have
+    to know which door they came through.
+    """
+
+    first = client.post("/v1/projects", json={"name": "KAE-Memory"})
+    second = client.post("/v1/projects", json={"name": "KAE-Memory"})
+
+    assert first.status_code == 201, "a new project is created"
+    assert second.status_code == 200, "an existing project is returned, not created"
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["key"] == "kae-memory"
+
+
 def test_an_unknown_project_is_404_with_a_machine_readable_code(client: TestClient) -> None:
     response = client.get("/v1/projects/11111111-1111-1111-1111-111111111111")
 

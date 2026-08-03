@@ -181,6 +181,47 @@ nothing. Phase B is what changes that.
 
 ---
 
+## Architectural blockers
+
+Reviewed 2026-08-03. Everything else previously listed is now resolved,
+deferred, implementation work, operational, or project-specific.
+
+**These four remain, and they are one problem in four parts:**
+
+1. **Relationship vocabulary** — four competing lists; only `depends_on` appears
+   in three. Names are hard to change once graph data exists, so this must be
+   settled *before* any relationship is written.
+2. **Module relationship model** — how a module owns, depends on, and exposes.
+3. **Module graph traversal** — dependents, dependencies, build order.
+4. **Module-scoped context assembly** — the bounded package `KAE_PACKAGE_MODEL.md`
+   §4 specifies and `kae_get_module_context` reports as unavailable.
+
+(1) gates the rest. Nothing else on this register is blocked by them.
+
+### Settled 2026-08-03
+
+| Question | Resolution |
+| --- | --- |
+| Module readiness — one figure or a profile | **Profile.** Multiple dimensions, as with project readiness. A single percentage may be a derived visualisation, never a replacement |
+| Detail-level naming | **Three:** `summary` / `standard` / `diagnostic` |
+| Integrity floor vs budget | **Integrity wins.** Return the smallest context satisfying the floor; report any overage; never truncate silently |
+| `recommended_next_steps` | **Remove.** No consumer outside its own tests |
+| Project focus | **Accepted principle** — the active project is the default boundary; leaving it needs explicit intent |
+| Duplicate project names | **Idempotent everywhere.** HTTP now matches MCP |
+| M8 / M9 milestone status | **Aligned.** The plan table is authoritative |
+
+### Deferred — not blockers
+
+Project and Session configuration tiers · per-tool vs per-call detail · draft vs
+registered context · `classification_hint` · observation classification (T24) ·
+project-focus implementation (T25).
+
+### Not architecture
+
+MCP reconnection after a merge, `boto3` for Bedrock, and tokenizer
+standardisation are operational. Ministry Reporting's and Local test's open
+questions are project-specific and do not affect the platform.
+
 ## Constraints that apply throughout
 
 Carried from decisions already recorded elsewhere in this repository, so that

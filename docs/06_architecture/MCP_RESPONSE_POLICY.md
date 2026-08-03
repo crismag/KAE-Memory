@@ -132,12 +132,15 @@ is legitimate for a human-facing preview.
 
 Controls **factual coverage**. Each level is a superset of the one above.
 
+**Settled 2026-08-03: three levels, `summary` / `standard` / `diagnostic`.**
+The earlier four-level proposal is withdrawn; do not reintroduce competing
+names.
+
 | Level | Intent | Consumer | Briefing carries |
 | --- | --- | --- | --- |
-| `minimal` | Orientation only. "What is this and can I proceed?" | Agent deciding whether to engage; multi-project sweeps | `project`, `readiness.percentage`/`status`/`ready_for`, `knowledge_health`, `knowledge_revision`, counts |
-| `summary` | **Default.** Answers the six briefing questions | Agent about to plan work | Above, plus `findings` (severity, summary, action, area, ids), `missing_mandatory_areas`, `open_questions` |
-| `detailed` | Adds the knowledge itself | Agent about to write or review | Above, plus `sections` |
-| `full` | Adds justification and arithmetic | Auditing a score; debugging a package | Above, plus `readiness.explanation`, `readiness.projection` |
+| `summary` | **Default.** Answers the six briefing questions | Agent about to plan work | `project`, readiness figures, `knowledge_health`, `findings`, `missing_mandatory_areas`, `open_questions`, counts |
+| `standard` | Adds the knowledge itself | Agent about to write or review | Above, plus `sections` |
+| `diagnostic` | Adds justification and arithmetic | Auditing a score; debugging a package | Above, plus `readiness.explanation`, `readiness.projection` |
 
 Derived from T1's classification. `summary` is the default because it answers
 all six questions — what project, what state, what is blocking, what is
@@ -221,9 +224,12 @@ Drop order, first dropped first:
 6. `findings` tail beyond severity order, keeping a count
 
 **Never dropped**, at any budget: everything in §2, plus `project`,
-`readiness.percentage`/`status`, and `knowledge_revision`. If the integrity floor
-alone exceeds the requested budget, **return it anyway and report the overage**.
-A budget is a request; honesty is not.
+`readiness.percentage`/`status`, and `knowledge_revision`.
+
+> **Settled 2026-08-03.** Integrity takes precedence over a requested budget.
+> Return the smallest context satisfying the floor; if that exceeds the
+> budget, report the overage and explain why. Never truncate silently to fit.
+> A budget is a request; honesty is not.
 
 Every degraded response carries:
 
@@ -254,7 +260,7 @@ response so a caller can see what it got.
 
 | | `economy` | `regular` (default) | `detailed` | `custom` |
 | --- | --- | --- | --- | --- |
-| `detail` | `minimal` | `summary` | `detailed` | explicit |
+| `detail` | `summary` | `summary` | `standard` | explicit |
 | `prose` | `none` | `concise` | `standard` | explicit |
 | `max_output_tokens` | 800 | 2,500 | 8,000 | explicit |
 | `max_entities` | 10 | 25 | 100 | explicit |
@@ -442,29 +448,30 @@ review, T3's first half can still proceed.
 
 ## 14. Open questions
 
-1. **Does `regular` land near 70%?** §7's per-profile estimates are projections
-   from T1 field shares, not measurements. T5 decides.
-2. **Are the detail-level names right?** §4 uses
-   `minimal` / `summary` / `detailed` / `full`. A review on 2026-08-03 proposed
-   `summary` / `standard` / `diagnostic` instead, which is three levels rather
-   than four and names the top one after its purpose. Worth settling in T2 —
-   the names appear in every tool schema and are expensive to change later.
-3. **Should `detail` be per-tool or per-call?** A caller wanting a cheap briefing
-   and a full search must currently send two different values. Per-call is
-   assumed; a per-tool map is more expressive and more to validate.
-4. **Do Project and Session tiers earn their migration?** §9 recommends deferring.
-   Reversing that is a schema change, so decide before T2 rather than during T4.
-5. **Is `recommended_next_steps` consumed anywhere?** Removing it is a contract
-   change. It shipped 2026-08-02 and appears to have no consumers; confirm rather
-   than assume.
-6. **What happens when the integrity floor alone exceeds the budget?** §6.2 says
-   return it and report the overage. That is a deliberate refusal to honour a
-   budget, and it should be an accepted decision rather than discovered
-   behaviour.
-7. **Should profiles be nameable per project later?** Related to (4), and the
-   likeliest reason the Project tier would earn its place.
+Reviewed 2026-08-03. Most are closed; what remains is listed as such.
 
----
+**Settled**
+
+- **Detail-level names** — three levels, `summary` / `standard` / `diagnostic` (§4).
+- **Integrity floor vs budget** — integrity wins; report the overage (§6.2).
+
+**Deferred — not blockers**
+
+- **Project and Session configuration tiers.** Current usage does not justify a
+  migration. Retain System and Per-request only; revisit when Studio produces a
+  real requirement.
+- **Per-tool vs per-call detail.** One consistent model is sufficient. Optimise
+  later only if justified.
+- **Profiles nameable per project.** Follows the tier decision above.
+
+**Open**
+
+1. **Does the default profile land near its projected reduction?** §7's
+   per-profile figures are projections from T1 field shares, not measurements.
+   T5 decides, using one estimator consistently.
+2. **`recommended_next_steps`** — **closed 2026-08-03: remove.** A repository
+   search found it produced only by `mcp/tools.py` and consumed only by its own
+   tests. Not in the frontend, `openapi.json`, or the HTTP API. T3 may drop it.
 
 ## 15. Risks
 

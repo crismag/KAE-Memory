@@ -1,7 +1,13 @@
 # Observation Classification and Routing
 
-Status: **proposed design**, 2026-08-03. **No implementation is authorised.**
-Owning target: **T24**, deferred (`../09_development/MCP_TARGET_CHECKLIST.md`).
+Status: **future implementation**, 2026-08-03. **Not authorised, and not an
+architectural blocker.** Owning target: **T24**
+(`../09_development/MCP_TARGET_CHECKLIST.md`).
+
+Reviewed 2026-08-03 and moved out of active architecture. The current behaviour —
+preserve submitted evidence, maintain provenance, require human confirmation —
+is sufficient and correct. This document is design detail held for whenever T24
+is scheduled, and **must not block T2 or T3**.
 
 Design authority for how a submitted observation becomes — or deliberately does
 not become — durable project knowledge.
@@ -296,9 +302,10 @@ Phase 1 is complete with this document. Phases 2–6 await activation of T24.
 
 ## 15. Open questions
 
-1. **Does `classification_hint` stay?** It currently implies a capability that
-   does not exist. Honour it as a caller-supplied prior, or remove it — leaving
-   it cosmetic is the worst of the three.
+1. **Does `classification_hint` stay?** **Deferred 2026-08-03** — do not
+   optimise an interface with no runtime behaviour. Revisit when classifier
+   work begins (T24.5). It currently implies a capability that does not exist,
+   which is why it is recorded rather than left unnoticed.
 2. **Do `observation_classifications` and `operational_updates` earn their
    tables?** Two new tables and a migration, against a demo that may not need
    operational state yet.

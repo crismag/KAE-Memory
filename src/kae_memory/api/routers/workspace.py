@@ -1,6 +1,6 @@
 """Projects, sessions, messages, knowledge, and runs."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Response, status
 from fastapi.responses import StreamingResponse
 
 from kae_memory.domain.execution import AgentRole, RunStatus
@@ -28,10 +28,24 @@ router = APIRouter(prefix="/v1", tags=["workspace"])
 
 
 @router.post("/projects", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
-def create_project(body: CreateProjectRequest, memory: Memory) -> ProjectResponse:
-    """Create a durable project."""
+def create_project(
+    body: CreateProjectRequest, memory: Memory, response: Response
+) -> ProjectResponse:
+    """Create a durable project, or return the one that already holds this key.
 
-    return ProjectResponse.of(memory.create_project(body.name, body.key, body.description))
+    Idempotent, matching `kae_create_project`. The two surfaces previously
+    disagreed: this endpoint created a second project keyed `name-2` while the
+    MCP tool resolved to the existing one. The same request should not mean two
+    different things depending on which door it arrived through.
+
+    ``201`` when a project was created, ``200`` when an existing one was
+    returned, so a caller can tell without comparing identifiers.
+    """
+
+    project, created = memory.ensure_project(body.name, body.key, body.description)
+    if not created:
+        response.status_code = status.HTTP_200_OK
+    return ProjectResponse.of(project)
 
 
 @router.get("/projects", response_model=list[ProjectResponse])
