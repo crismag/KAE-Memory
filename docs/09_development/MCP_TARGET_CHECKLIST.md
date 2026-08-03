@@ -19,7 +19,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [x] **T1** — Measure current MCP response size and duplication — [`MCP_RESPONSE_BASELINE.md`](MCP_RESPONSE_BASELINE.md), 2026-08-03
 - [x] **T1B** — Define MCP response profiles and consumption controls — [`MCP_RESPONSE_POLICY.md`](../06_architecture/MCP_RESPONSE_POLICY.md), 2026-08-03
 - [x] **T2** — Define compact MCP response conventions — `mcp/response_policy.py`, 2026-08-03
-- [ ] **T3** — Trim `kae_get_project_briefing`
+- [x] **T3** — Trim `kae_get_project_briefing` — 12,199 → 3,634 chars (71%), 2026-08-03
 - [ ] **T4** — Apply pagination, limits, and detail levels to read tools
 - [ ] **T5** — Verify token reduction without losing essential context
 

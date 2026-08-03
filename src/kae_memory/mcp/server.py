@@ -25,7 +25,7 @@ from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
-from kae_memory.mcp import tools
+from kae_memory.mcp import response_policy, tools
 from kae_memory.mcp.errors import safe_error
 
 LOGGER = logging.getLogger("kae_memory.mcp")
@@ -85,6 +85,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         review=ReviewService(factory),
         retrieval=RetrievalService(factory, embedder),
         embedder_name="deterministic",
+        response_policy=response_policy.from_environment(os.environ),
     )
 
 
@@ -126,7 +127,20 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         ),
         "inputSchema": {
             "type": "object",
-            "properties": {"project_id": {"type": "string"}},
+            "properties": {
+                "project_id": {"type": "string"},
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {
+                    "type": "string",
+                    "enum": ["summary", "standard", "diagnostic"],
+                    "description": (
+                        "summary omits statements and arithmetic; standard adds "
+                        "statements; diagnostic adds the readiness explanation."
+                    ),
+                },
+                "prose": {"type": "string", "enum": ["none", "minimal", "concise", "standard"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
             "required": ["project_id"],
             "additionalProperties": False,
         },
@@ -278,6 +292,26 @@ Do not invent missing requirements. An unknown is a finding, not a gap to fill.
 """
 
 
+BRIEFING_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
+    "sections": response_policy.DetailLevel.STANDARD,
+    "readiness.explanation": response_policy.DetailLevel.DIAGNOSTIC,
+    "readiness.projection": response_policy.DetailLevel.DIAGNOSTIC,
+}
+"""Which briefing fields a detail level withholds.
+
+Derived from the T1 measurements. `readiness.explanation` was 32% of the whole
+response and justifies a number rather than answering "what state is this in";
+`sections` was 21% and is the only field that grows with the corpus. Everything
+else answers one of the six questions a briefing exists to answer, so it stays
+at every level.
+"""
+
+TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
+    "kae_get_project_briefing": BRIEFING_FIELD_LEVELS,
+}
+"""Per-tool field maps. A tool absent from here is returned whole."""
+
+
 def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Route one tool call, returning a structured payload either way.
 
@@ -327,10 +361,21 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
     if handler is None:
         return {"error": "unknown_tool", "message": f"no tool named {name!r}"}
     try:
-        return handler()
+        payload = handler()
     except Exception as exception:
         LOGGER.warning("tool %s failed: %s", name, type(exception).__name__)
         return safe_error(exception)
+
+    field_levels = TOOL_FIELD_LEVELS.get(name)
+    if field_levels is None or payload.get("error"):
+        # An error payload is entirely integrity fields; projecting it would
+        # only add a policy echo to a response about something that failed.
+        return payload
+    try:
+        policy = response_policy.from_arguments(arguments, context.response_policy)
+    except response_policy.InvalidPolicyError as error:
+        return {"error": "invalid_argument", "message": str(error)}
+    return response_policy.project(payload, policy, field_levels)
 
 
 def read_resource(context: tools.ToolContext, uri: str) -> dict[str, Any]:
@@ -396,8 +441,24 @@ def build_server(context: tools.ToolContext) -> Any:
             {"name": name, "key": key, "description": description},
         )
 
-    def kae_get_project_briefing(project_id: str) -> dict[str, Any]:
-        return dispatch(context, "kae_get_project_briefing", {"project_id": project_id})
+    def kae_get_project_briefing(
+        project_id: str,
+        profile: str | None = None,
+        detail: str | None = None,
+        prose: str | None = None,
+        max_output_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_project_briefing",
+            {
+                "project_id": project_id,
+                "profile": profile,
+                "detail": detail,
+                "prose": prose,
+                "max_output_tokens": max_output_tokens,
+            },
+        )
 
     def kae_get_module_context(project_id: str, module: str) -> dict[str, Any]:
         return dispatch(

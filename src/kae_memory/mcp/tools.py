@@ -36,6 +36,7 @@ from kae_memory.mcp.errors import (
     InvalidArgumentError,
     ProjectNotFoundError,
 )
+from kae_memory.mcp.response_policy import PROFILES, ResponsePolicy, ResponseProfile
 
 
 class ToolContext:
@@ -54,6 +55,7 @@ class ToolContext:
         review: ReviewService,
         retrieval: RetrievalService | None = None,
         embedder_name: str = "deterministic",
+        response_policy: ResponsePolicy | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -61,6 +63,9 @@ class ToolContext:
         self.review = review
         self.retrieval = retrieval
         self.embedder_name = embedder_name
+        # The deployment default. A per-call override resolves against it in
+        # `dispatch`, so a tool never reads configuration itself.
+        self.response_policy = response_policy or PROFILES[ResponseProfile.REGULAR]
 
     @property
     def semantic_ranking(self) -> bool:
@@ -195,12 +200,11 @@ def _readiness_explanation(snapshot: ReadinessSnapshot) -> dict[str, Any]:
         ),
         "earned_weight": round(earned, 2),
         "applicable_weight": round(total, 2),
-        # Split by whether an area contributes anything, not by whether it is
-        # finished. A partial area appears under ``contributing`` and still
-        # reports the weight it owes.
-        "contributing": [described(a) for a in applicable if a.credit > 0],
-        "missing": [described(a) for a in applicable if a.credit == 0],
-        "incomplete": [described(a) for a in applicable if a.credit < 1.0],
+        # One list, keyed on ``state``. This previously rendered fifteen area
+        # objects for ten areas across three lists — contributing, missing, and
+        # incomplete — where incomplete duplicated missing entirely unless an
+        # area was partial. Every row survives; the repetition does not.
+        "areas": [described(a) for a in applicable],
     }
 
 
@@ -299,8 +303,7 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
                 "Requirements draft": snapshot.draft_eligible,
                 "Implementation": snapshot.implementation_eligible,
             },
-            "missing_mandatory_areas": list(snapshot.missing_mandatory_areas),
-            "missing_information": [
+            "missing_mandatory_areas": [
                 {"area": key, "name": by_area.get(key, key)}
                 for key in snapshot.missing_mandatory_areas
             ],
@@ -327,9 +330,9 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
         ],
         "statement_count": blueprint.statement_count,
         "open_questions": list(blueprint.open_questions),
-        # Every finding, at its own severity. Filtering to open questions hid the
-        # critical ones — the areas with no confirmed knowledge at all — behind
-        # the least urgent thing the reviewer had to say.
+        # Every finding, at its own severity, ordered most severe first. The
+        # single authoritative rendering: severity, summary, and the recommended
+        # action all live here and are not repeated elsewhere.
         "findings": [
             {
                 "kind": f.kind.value,
@@ -341,20 +344,9 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
             }
             for f in findings
         ],
-        "findings_by_severity": {
-            severity: [f.summary for f in findings if f.severity.value == severity]
-            for severity in ("critical", "major", "minor")
-        },
-        "recommended_next_steps": [
-            {
-                "action": f.recommended_action,
-                "severity": f.severity.value,
-                "because": f.summary,
-            }
-            for f in sorted(
-                findings, key=lambda f: ("critical", "major", "minor").index(f.severity.value)
-            )
-        ],
+        # findings_by_severity and recommended_next_steps are gone. Both
+        # restated values already carried by ``findings``, which is severity
+        # ordered and holds both the summary and the recommended action.
         "complete": blueprint.complete,
         "unassigned_confirmed_count": blueprint.unassigned_confirmed_count,
     }

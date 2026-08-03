@@ -143,7 +143,17 @@ def project_id(context: tools.ToolContext) -> str:
 
 
 def _briefing(context: tools.ToolContext, project_id: str) -> dict[str, Any]:
+    """The default briefing, at whatever the deployment profile resolves to."""
+
     return dispatch(context, "kae_get_project_briefing", {"project_id": project_id})
+
+
+def _diagnostic(context: tools.ToolContext, project_id: str) -> dict[str, Any]:
+    """Everything the briefing can render."""
+
+    return dispatch(
+        context, "kae_get_project_briefing", {"project_id": project_id, "detail": "diagnostic"}
+    )
 
 
 class TestEveryReadToolIsMeasurable:
@@ -174,69 +184,93 @@ class TestEveryReadToolIsMeasurable:
 
 
 class TestBriefingComposition:
-    def test_the_largest_field_is_readiness(
+    def test_the_default_briefing_is_dominated_by_findings(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
-        """Recorded so a later target can show it changed."""
+        """Readiness was 40% and its explanation 32%. Both now need asking for."""
 
         rows = measurement.section_sizes(_briefing(context, project_id))
 
-        assert rows[0][0] == "readiness"
+        assert rows[0][0] == "findings"
 
-    def test_readiness_is_dominated_by_its_explanation(
+    def test_the_default_omits_the_arithmetic_and_the_statements(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
         briefing = _briefing(context, project_id)
-        rows = measurement.section_sizes(briefing["readiness"])
 
-        assert rows[0][0] == "explanation"
+        assert "sections" not in briefing
+        assert "explanation" not in briefing["readiness"]
+        assert briefing["truncation"]["dropped"]
 
-
-class TestKnownDuplication:
-    """Asserts the duplication T1 found, so removing it is a deliberate act."""
-
-    def test_incomplete_repeats_missing_when_no_area_is_partial(
+    def test_diagnostic_restores_everything(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
-        explanation = _briefing(context, project_id)["readiness"]["explanation"]
+        briefing = _diagnostic(context, project_id)
 
-        partial = [a for a in explanation["contributing"] if a["state"] == "partial"]
-        if partial:  # pragma: no cover - the seed leaves no area partial
-            pytest.skip("a partial area makes the two lists legitimately differ")
-        assert {a["area"] for a in explanation["missing"]} == {
-            a["area"] for a in explanation["incomplete"]
-        }
+        assert "sections" in briefing
+        assert "explanation" in briefing["readiness"]
+        assert "projection" in briefing["readiness"]
 
-    def test_every_finding_summary_is_rendered_at_least_twice(
+
+class TestDuplicationIsGone:
+    """T3 removed the duplication T1 measured. These hold it removed.
+
+    They previously asserted the duplication *existed*, so that removing it
+    required coming here and saying so. This is that.
+    """
+
+    def test_areas_are_rendered_once(self, context: tools.ToolContext, project_id: str) -> None:
+        """Fifteen objects for ten areas became ten for ten."""
+
+        explanation = _diagnostic(context, project_id)["readiness"]["explanation"]
+
+        keys = [area["area"] for area in explanation["areas"]]
+        assert len(keys) == len(set(keys))
+        for gone in ("contributing", "missing", "incomplete"):
+            assert gone not in explanation
+
+    def test_a_finding_summary_appears_exactly_once(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
         briefing = _briefing(context, project_id)
-        by_severity = {s for group in briefing["findings_by_severity"].values() for s in group}
-        because = {step["because"] for step in briefing["recommended_next_steps"]}
+        serialised = json.dumps(briefing, ensure_ascii=False)
 
         for finding in briefing["findings"]:
-            renderings = 1 + (finding["summary"] in by_severity) + (finding["summary"] in because)
-            assert renderings >= 2, f"expected repetition of {finding['summary']!r}"
+            assert serialised.count(finding["summary"]) == 1
 
-    def test_a_missing_area_is_named_in_several_places(
+    def test_the_regrouped_renderings_are_gone(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
-        """The headline duplication: one gap, many renderings."""
+        """`findings` is severity ordered and carries the action already."""
 
         briefing = _briefing(context, project_id)
+
+        assert "findings_by_severity" not in briefing
+        assert "recommended_next_steps" not in briefing
+        assert all(f["severity"] and f["recommended_action"] for f in briefing["findings"])
+
+    def test_a_missing_area_is_named_far_less_often(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """The headline duplication was one gap in nine places.
+
+        Three renderings remain and each answers a different question: what is
+        wrong, which areas block, and what the arithmetic was.
+        """
+
+        briefing = _diagnostic(context, project_id)
         readiness = briefing["readiness"]
-        area = readiness["missing_mandatory_areas"][0]
+        area = readiness["missing_mandatory_areas"][0]["area"]
 
         places = [
             any(f["area"] == area for f in briefing["findings"]),
-            any(a["area"] == area for a in readiness["explanation"]["missing"]),
-            any(a["area"] == area for a in readiness["explanation"]["incomplete"]),
-            area in readiness["missing_mandatory_areas"],
-            any(a["area"] == area for a in readiness["missing_information"]),
+            any(a["area"] == area for a in readiness["explanation"]["areas"]),
+            any(a["area"] == area for a in readiness["missing_mandatory_areas"]),
             any(a["area"] == area for a in readiness["projection"]["requires"]),
         ]
 
-        assert sum(places) >= 5, f"{area} was expected in most renderings, found {sum(places)}"
+        assert sum(places) <= 4
+        assert "missing_information" not in readiness
 
     def test_no_knowledge_body_is_repeated(
         self, context: tools.ToolContext, project_id: str
@@ -248,7 +282,7 @@ class TestKnownDuplication:
         template.
         """
 
-        briefing = _briefing(context, project_id)
+        briefing = _diagnostic(context, project_id)
         statements = [s["text"] for section in briefing["sections"] for s in section["statements"]]
         serialised = json.dumps(briefing, ensure_ascii=False)
 
