@@ -7,7 +7,7 @@ layer, not in the schema.
 """
 
 import hashlib
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -244,6 +244,7 @@ class MemoryService:
         actor_id: str | None = None,
         agent_run_id: AgentRunId | None = None,
         idempotency_key: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
     ) -> MessageRecord:
         """Persist a submission verbatim as source evidence.
 
@@ -283,6 +284,7 @@ class MemoryService:
                 actor_id=actor_id,
                 agent_run_id=agent_run_id,
                 idempotency_key=idempotency_key,
+                metadata=dict(metadata or {}),
             )
             repository.add(message, fingerprint)
             db_session.flush()

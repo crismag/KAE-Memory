@@ -5,9 +5,11 @@ interaction evidence: a correction creates a new message and possibly a new
 knowledge version, and never edits history.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from .errors import DomainInvariantError
 from .identifiers import AgentRunId, MessageId, ProjectId, SessionId
@@ -81,6 +83,11 @@ class Message:
 
     ``content`` is stored verbatim. Extraction never rewrites it, so the original
     wording remains available as the source of any knowledge derived from it.
+
+    ``metadata`` carries structure *about* the message — which finding a question
+    concerns, which question an answer replies to — and never anything that
+    belongs in the content. Keeping the two apart is what lets the verbatim text
+    stay verbatim while a clarification still knows what it is about.
     """
 
     id: MessageId
@@ -94,6 +101,7 @@ class Message:
     actor_id: str | None = None
     agent_run_id: AgentRunId | None = None
     idempotency_key: str | None = None
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.sequence_number < 1:
