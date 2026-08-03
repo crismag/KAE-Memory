@@ -23,6 +23,7 @@ from kae_memory.domain.chunks import (
 )
 from kae_memory.domain.identifiers import ChunkId, KnowledgeItemId, ProjectId
 from kae_memory.domain.lexical import MIN_COVERAGE, LexicalMatch, match
+from kae_memory.domain.lifecycle import RETRIEVABLE, LifecycleState
 from kae_memory.domain.models import KnowledgeKind
 
 from .tables import KnowledgeChunkRow
@@ -35,6 +36,14 @@ class RetrievedChunk:
 
     chunk: KnowledgeChunk
     distance: float
+    lifecycle: LifecycleState = LifecycleState.PROPOSED
+    """The owning item's state, read live rather than from the embedded text.
+
+    The chunk body carries a metadata prefix naming the status at the time it
+    was written, and nothing rewrites it when a person confirms the statement.
+    Labelling a result from that text would report a confirmed statement as
+    proposed.
+    """
 
     @property
     def similarity(self) -> float:
@@ -49,6 +58,8 @@ class LexicalChunk:
 
     chunk: KnowledgeChunk
     match: LexicalMatch
+    lifecycle: LifecycleState = LifecycleState.PROPOSED
+    """The owning item's state, read live. See :class:`RetrievedChunk`."""
 
 
 class ChunkRepository:
@@ -298,12 +309,20 @@ class ChunkRepository:
         kinds: Sequence[KnowledgeKind] | None = None,
         embedding_version: int = EMBEDDING_VERSION,
         max_distance: float | None = MAX_DISTANCE,
+        lifecycle: frozenset[LifecycleState] = RETRIEVABLE,
     ) -> tuple[RetrievedChunk, ...]:
         """Return the nearest chunks by cosine distance, within ``max_distance``.
 
         Scoped to one project, and to one embedding version: vectors produced by
         different models occupy different spaces, so mixing them in a single
         ranking would return confident nonsense.
+
+        Scoped to ``lifecycle`` in SQL rather than afterwards. Rejected knowledge
+        was ranked and returned for as long as the only mention of lifecycle was
+        inside the embedded text, where no query could reach it — a statement a
+        person had ruled out came back as a result like any other. Filtering
+        after the fact would not fix it either: a rejected chunk that displaces a
+        good one inside ``LIMIT`` is already lost by the time the caller sees it.
 
         The cutoff is what makes this a search rather than a listing. Nearest-
         neighbour with only a ``LIMIT`` returns ``limit`` rows whatever the
@@ -313,12 +332,16 @@ class ChunkRepository:
         """
 
         literal = "[" + ",".join(repr(float(value)) for value in query_vector) + "]"
+        states = sorted(state.value for state in lifecycle)
+        placeholders = ", ".join(f":life_{index}" for index in range(len(states)))
         sql = (
-            "SELECT chunk_id, embedding <=> :vector AS distance "
-            "FROM knowledge_chunks "
-            "WHERE project_id = :project_id "
-            "  AND embedding IS NOT NULL "
-            "  AND embedding_version = :embedding_version "
+            "SELECT c.chunk_id, c.embedding <=> :vector AS distance, k.lifecycle "
+            "FROM knowledge_chunks c "
+            "JOIN knowledge_items k ON k.id = c.knowledge_id "
+            "WHERE c.project_id = :project_id "
+            "  AND c.embedding IS NOT NULL "
+            "  AND c.embedding_version = :embedding_version "
+            f"  AND k.lifecycle IN ({placeholders}) "
         )
         params: dict[str, object] = {
             "vector": literal,
@@ -326,22 +349,29 @@ class ChunkRepository:
             "embedding_version": embedding_version,
             "limit": limit,
         }
+        params.update({f"life_{index}": state for index, state in enumerate(states)})
         if kinds:
             names = [kind.value for kind in kinds]
-            placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
-            sql += f"  AND knowledge_kind IN ({placeholders}) "
+            kind_placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
+            sql += f"  AND c.knowledge_kind IN ({kind_placeholders}) "
             params.update({f"kind_{index}": name for index, name in enumerate(names)})
         if max_distance is not None:
-            sql += "  AND embedding <=> :vector <= :max_distance "
+            sql += "  AND c.embedding <=> :vector <= :max_distance "
             params["max_distance"] = float(max_distance)
         sql += "ORDER BY distance LIMIT :limit"
 
         hits = self._session.execute(text(sql), params).all()
         results: list[RetrievedChunk] = []
-        for chunk_id, distance in hits:
+        for chunk_id, distance, lifecycle_value in hits:
             row = self._session.get(KnowledgeChunkRow, chunk_id)
             if row is not None:
-                results.append(RetrievedChunk(chunk=_to_domain(row), distance=float(distance)))
+                results.append(
+                    RetrievedChunk(
+                        chunk=_to_domain(row),
+                        distance=float(distance),
+                        lifecycle=LifecycleState(lifecycle_value),
+                    )
+                )
         return tuple(results)
 
     def search_lexical(
@@ -351,6 +381,7 @@ class ChunkRepository:
         limit: int = 8,
         kinds: Sequence[KnowledgeKind] | None = None,
         min_coverage: float = MIN_COVERAGE,
+        lifecycle: frozenset[LifecycleState] = RETRIEVABLE,
     ) -> tuple[LexicalChunk, ...]:
         """Return chunks whose text contains the query's word families.
 
@@ -370,31 +401,42 @@ class ChunkRepository:
             return ()
 
         conditions = " OR ".join(
-            f"chunk_text ILIKE :term_{index}" for index in range(len(query_terms))
+            f"c.chunk_text ILIKE :term_{index}" for index in range(len(query_terms))
         )
+        states = sorted(state.value for state in lifecycle)
+        life_placeholders = ", ".join(f":life_{index}" for index in range(len(states)))
         sql = (
-            "SELECT chunk_id FROM knowledge_chunks "
-            "WHERE project_id = :project_id "
+            "SELECT c.chunk_id, k.lifecycle FROM knowledge_chunks c "
+            "JOIN knowledge_items k ON k.id = c.knowledge_id "
+            "WHERE c.project_id = :project_id "
             f"  AND ({conditions}) "
+            f"  AND k.lifecycle IN ({life_placeholders}) "
         )
         params: dict[str, object] = {"project_id": str(project_id)}
         params.update({f"term_{index}": f"%{term}%" for index, term in enumerate(query_terms)})
+        params.update({f"life_{index}": state for index, state in enumerate(states)})
         if kinds:
             names = [kind.value for kind in kinds]
-            placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
-            sql += f"  AND knowledge_kind IN ({placeholders}) "
+            kind_placeholders = ", ".join(f":kind_{index}" for index in range(len(names)))
+            sql += f"  AND c.knowledge_kind IN ({kind_placeholders}) "
             params.update({f"kind_{index}": name for index, name in enumerate(names)})
 
         stems = tuple(query_terms)
         scored: list[LexicalChunk] = []
-        for (chunk_id,) in self._session.execute(text(sql), params).all():
+        for chunk_id, lifecycle_value in self._session.execute(text(sql), params).all():
             row = self._session.get(KnowledgeChunkRow, chunk_id)
             if row is None:
                 continue
             chunk = _to_domain(row)
             result = match(stems, strip_metadata_prefix(chunk.text))
             if result.matched and result.score >= min_coverage:
-                scored.append(LexicalChunk(chunk=chunk, match=result))
+                scored.append(
+                    LexicalChunk(
+                        chunk=chunk,
+                        match=result,
+                        lifecycle=LifecycleState(lifecycle_value),
+                    )
+                )
 
         scored.sort(
             key=lambda hit: (

@@ -70,7 +70,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   `version_conflict`, `invalid_state_transition`. Also fixes
   `kae_submit_observation` recording agent output as `ActorType.USER`.
   Decisions and amended checks in [PHASE_C_DECISIONS.md](PHASE_C_DECISIONS.md).
-- [ ] **T13** — Implement `kae_reject_knowledge`
+- [x] **T13** — Implement `kae_reject_knowledge` — 2026-08-03. Closes the live
+  defect: lifecycle existed only inside the embedded metadata prefix, so
+  rejected knowledge was ranked and returned by search. Now filtered in SQL on
+  both the semantic and lexical paths, with `RETRIEVABLE` / `AUTHORITATIVE` /
+  `HISTORICAL` scopes per the B1 decision. Every result carries `state` and
+  `authoritative`, read live from the item and protected as integrity fields.
+  Also fixes `reject_knowledge` accepting a `note` and discarding it.
 - [ ] **T14** — Implement `kae_correct_knowledge`
 - [ ] **T15** — Verify audit trail and readiness recalculation
 

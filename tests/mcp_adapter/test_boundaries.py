@@ -165,13 +165,14 @@ def test_doctor_fails_without_a_database_url() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Nine tools. `kae_create_project` was added because an agent could submit an
+    Ten tools. `kae_create_project` was added because an agent could submit an
     observation about a project but could not bring one into being, which made
-    the surface unusable without a second channel. `kae_confirm_knowledge` was
-    added in T12 — see the write-surface test below for what that cost.
+    the surface unusable without a second channel. `kae_confirm_knowledge` and
+    `kae_reject_knowledge` were added in T12 and T13 — see the write-surface
+    test below for what that cost.
     """
 
-    assert len(TOOL_DEFINITIONS) == 9
+    assert len(TOOL_DEFINITIONS) == 10
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -183,11 +184,12 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_get_readiness",
         "kae_submit_observation",
         "kae_confirm_knowledge",
+        "kae_reject_knowledge",
     }
 
 
 def test_the_write_surface_is_named_and_small() -> None:
-    """Three writes. One of them confirms, and that is a deliberate weakening.
+    """Four writes. Two of them decide, and that is a deliberate weakening.
 
     This test previously asserted that *no* tool here could confirm anything:
     with confirmation absent from the surface, FR-005 held structurally and an
@@ -198,7 +200,12 @@ def test_the_write_surface_is_named_and_small() -> None:
     human decision but may never originate one anonymously.
     """
 
-    writers = {"kae_create_project", "kae_submit_observation", "kae_confirm_knowledge"}
+    writers = {
+        "kae_create_project",
+        "kae_submit_observation",
+        "kae_confirm_knowledge",
+        "kae_reject_knowledge",
+    }
     names = {d["name"] for d in TOOL_DEFINITIONS}
 
     assert writers == {d["name"] for d in TOOL_DEFINITIONS if _is_write(d)}
@@ -213,9 +220,9 @@ def test_a_confirmation_must_name_the_person_who_made_it() -> None:
     audit trail never carries an unattributed human decision.
     """
 
-    confirming = [d for d in TOOL_DEFINITIONS if "confirm" in d["name"]]
-    assert confirming, "the confirmation tool is expected to exist from T12 onward"
-    for definition in confirming:
+    deciding = [d for d in TOOL_DEFINITIONS if "confirm" in d["name"] or "reject" in d["name"]]
+    assert deciding, "the review tools are expected to exist from T12 onward"
+    for definition in deciding:
         required = definition["inputSchema"]["required"]
         assert "reviewer" in required, definition["name"]
         assert "expected_version" in required, definition["name"]
@@ -233,7 +240,7 @@ def test_no_tool_approves_or_confirms_without_review() -> None:
         name = definition["name"]
         assert "approve" not in name, name
         assert not name.endswith("_all"), name
-        if "confirm" in name:
+        if "confirm" in name or "reject" in name:
             properties = definition["inputSchema"]["properties"]
             assert "knowledge_id" in properties, name
             assert "knowledge_ids" not in properties, name
@@ -310,3 +317,17 @@ def test_every_declared_tool_is_actually_registered(factory: sessionmaker[Sessio
     registered = {tool.name for tool in server._tool_manager.list_tools()}
     declared = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert registered == declared
+
+
+def test_a_rejection_must_record_why() -> None:
+    """A rejected statement stays readable forever.
+
+    Without the reason, a later reader has the record and not the meaning: they
+    cannot tell a factual error from a scope decision, and those call for
+    entirely different follow-ups.
+    """
+
+    rejecting = [d for d in TOOL_DEFINITIONS if "reject" in d["name"]]
+    assert rejecting, "the rejection tool is expected to exist from T13 onward"
+    for definition in rejecting:
+        assert "reason_code" in definition["inputSchema"]["required"], definition["name"]

@@ -268,6 +268,57 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "kae_reject_knowledge",
+        "description": (
+            "Record a person's decision that one proposed knowledge item must "
+            "not become authoritative. Not deletion: the statement stays "
+            "readable as history, stops counting toward readiness, and stops "
+            "appearing in search. Requires a reason_code and, like confirmation, "
+            "the name of the person whose decision this is."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "knowledge_id": {"type": "string"},
+                "expected_version": {"type": "integer", "minimum": 1},
+                "reason_code": {
+                    "type": "string",
+                    "enum": [
+                        "incorrect",
+                        "irrelevant",
+                        "duplicate",
+                        "obsolete",
+                        "unsupported",
+                        "out_of_scope",
+                        "other",
+                    ],
+                },
+                "note": {
+                    "type": "string",
+                    "description": "Required when reason_code is 'other'.",
+                },
+                "reviewer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": (
+                        "The person whose decision this is. Required: you are "
+                        "relaying their decision, not making one."
+                    ),
+                },
+                "idempotency_key": {"type": "string", "maxLength": 200},
+            },
+            "required": [
+                "project_id",
+                "knowledge_id",
+                "expected_version",
+                "reason_code",
+                "reviewer",
+            ],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 RESOURCE_DEFINITIONS: list[dict[str, str]] = [
@@ -386,6 +437,16 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+        ),
+        "kae_reject_knowledge": lambda: tools.kae_reject_knowledge(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("knowledge_id", ""),
+            arguments.get("expected_version"),
+            arguments.get("reason_code"),
+            arguments.get("note"),
+            arguments.get("reviewer"),
+            arguments.get("idempotency_key"),
         ),
         "kae_confirm_knowledge": lambda: tools.kae_confirm_knowledge(
             context,
@@ -572,6 +633,29 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_reject_knowledge(
+        project_id: str,
+        knowledge_id: str,
+        expected_version: int,
+        reason_code: str,
+        reviewer: str,
+        note: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_reject_knowledge",
+            {
+                "project_id": project_id,
+                "knowledge_id": knowledge_id,
+                "expected_version": expected_version,
+                "reason_code": reason_code,
+                "note": note,
+                "reviewer": reviewer,
+                "idempotency_key": idempotency_key,
+            },
+        )
+
     wrappers = {
         handler.__name__: handler
         for handler in (
@@ -584,6 +668,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_get_readiness,
             kae_submit_observation,
             kae_confirm_knowledge,
+            kae_reject_knowledge,
         )
     }
 
