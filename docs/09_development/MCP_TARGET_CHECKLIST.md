@@ -58,6 +58,42 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [ ] **T22** — Generate compact manifests and external artifacts
 - [ ] **T23** — Complete end-to-end MCP workflow test
 
+## Phase F — Observation classification
+
+**T24 — Classify and route submitted observations.** High priority, **deferred,
+awaiting scheduling. Implementation not authorised.** Design:
+[`OBSERVATION_CLASSIFICATION.md`](../06_architecture/OBSERVATION_CLASSIFICATION.md).
+
+No existing target owned this. T19/T20 cover ingesting *documents* into proposed
+knowledge; neither classifies a submitted observation, separates retention
+tiers, records operational state, or filters briefings by tier.
+
+- [ ] **T24.1** — Deterministic extraction: dates, milestone and target IDs,
+  status words, action verbs
+- [ ] **T24.2** — Semantic classification into the §4 taxonomy, with confidence
+  and mixed-span support
+- [ ] **T24.3** — Operational records: milestone transitions, check-ins, tasks,
+  defects, test results
+- [ ] **T24.4** — Briefing filters by retention tier
+- [ ] **T24.5** — Resolve `classification_hint`: honour it or remove it
+
+**Acceptance criteria**
+
+- One observation may produce several classified spans, each tracing to a real
+  span of the stored text.
+- The original observation is never rewritten or replaced.
+- A reported milestone completion creates a *proposed transition*, never a
+  status change.
+- Check-ins extract subject, date, timezone, and **date role**.
+- Personal commentary is preserved as evidence and excluded from standard
+  briefings.
+- Low-confidence text stays unclassified rather than being routed.
+- Classifier replay creates no duplicates; a version upgrade preserves prior
+  results and review history.
+- Observation submission succeeds when classification fails.
+- Contradictions and ordinary operational transitions are treated differently.
+- Classification never confirms durable knowledge (FR-005).
+
 ---
 
 ## Starting position
