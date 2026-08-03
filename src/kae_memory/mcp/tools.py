@@ -100,6 +100,54 @@ def kae_list_projects(context: ToolContext) -> dict[str, Any]:
     }
 
 
+def kae_create_project(
+    context: ToolContext,
+    name: str,
+    key: str | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Create a project, or return the one that already has this key.
+
+    ``name`` is the only thing a caller must supply. The key is derived from it
+    — "KAE-Memory" becomes "kae-memory" — because a generated suffix is not
+    something anyone can read back later.
+
+    Idempotent by key. Creating twice returns the same project with
+    ``created: false`` rather than an error, so an agent that loses its response
+    can retry without first checking whether it succeeded.
+
+    This is the one write that brings a subject into being rather than adding
+    evidence about one, so it says plainly that the project starts empty. A
+    caller that reads ``created: true`` and assumes knowledge is present would
+    be planning against nothing.
+    """
+
+    if not name or not name.strip():
+        raise InvalidArgumentError("name is required")
+    if key is not None and not key.strip():
+        raise InvalidArgumentError("key must not be blank; omit it to derive one from the name")
+
+    project, created = context.memory.ensure_project(
+        name.strip(), key.strip() if key else None, description
+    )
+    return {
+        "project_id": str(project.id),
+        "name": project.name,
+        "key": project.key,
+        "description": project.description,
+        "status": project.status.value,
+        "created": created,
+        "knowledge_statements": 0 if created else None,
+        "next_steps": [
+            "Record what the project knows: kae_submit_observation.",
+            "Confirmation is a human act, so submitted observations stay proposed "
+            "until a person accepts them.",
+        ]
+        if created
+        else ["This project already existed; nothing was changed."],
+    }
+
+
 _STATUS_LABELS = {
     "not_started": "Not started",
     "discovering": "In discovery",

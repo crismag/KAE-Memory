@@ -163,11 +163,17 @@ def test_doctor_fails_without_a_database_url() -> None:
 
 
 def test_the_tool_surface_stays_small() -> None:
-    """Seven tools. A large surface degrades agent behaviour and couples clients."""
+    """A large surface degrades agent behaviour and couples clients.
 
-    assert len(TOOL_DEFINITIONS) == 7
+    Eight tools. `kae_create_project` was added because an agent could submit an
+    observation about a project but could not bring one into being, which made
+    the surface unusable without a second channel.
+    """
+
+    assert len(TOOL_DEFINITIONS) == 8
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
+        "kae_create_project",
         "kae_list_projects",
         "kae_get_project_briefing",
         "kae_get_module_context",
@@ -178,11 +184,18 @@ def test_the_tool_surface_stays_small() -> None:
     }
 
 
-def test_only_one_tool_writes() -> None:
-    """Exactly one controlled write operation in this milestone."""
+def test_the_write_surface_is_named_and_small() -> None:
+    """Two writes, and neither confirms anything.
 
-    writers = {d["name"] for d in TOOL_DEFINITIONS if "submit" in d["name"]}
-    assert writers == {"kae_submit_observation"}
+    One brings a subject into being, the other adds evidence about one.
+    Confirmation stays a human act (FR-005), so no tool here may perform it.
+    """
+
+    writers = {"kae_create_project", "kae_submit_observation"}
+    names = {d["name"] for d in TOOL_DEFINITIONS}
+
+    assert writers <= names
+    assert not {n for n in names if "confirm" in n or "approve" in n}
 
 
 def test_no_tool_exposes_storage_operations() -> None:

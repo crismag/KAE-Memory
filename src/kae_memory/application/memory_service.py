@@ -7,6 +7,7 @@ layer, not in the schema.
 """
 
 import hashlib
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -61,6 +62,31 @@ from kae_memory.persistence.workspace_repositories import (
     ProvenanceLinkRepository,
     SessionRepository,
 )
+
+_KEY_SEPARATORS = re.compile(r"[^a-z0-9]+")
+
+_KEY_ATTEMPTS = 5
+"""How many readable keys to try before falling back to a generated suffix.
+
+Bounded because the loop resolves a race by retrying: two callers deriving the
+same key can both lose, and an unbounded retry would spin rather than fail.
+"""
+
+
+def project_key_from_name(name: str) -> str:
+    """Return a readable key derived from a project name.
+
+    "KAE-Memory" becomes "kae-memory". A generated key is what a person types
+    and reads in a URL, so deriving it from the name they chose beats a random
+    suffix — `project-a8c38ed7` tells nobody which project it is.
+
+    Falls back to a generated key only when a name has no usable characters,
+    which a non-Latin name can produce.
+    """
+
+    slug = _KEY_SEPARATORS.sub("-", name.strip().casefold()).strip("-")
+    return slug[:120] or f"project-{_new_id()[:8]}"
+
 
 HUMAN_EXECUTION = "human"
 """Execution identifier for a change a person made directly.
@@ -186,21 +212,79 @@ class MemoryService:
     def create_project(
         self, name: str, key: str | None = None, description: str | None = None
     ) -> Project:
-        """Create a durable project."""
+        """Create a durable project.
 
-        project = Project(
-            id=ProjectId(_new_id()),
-            name=name,
-            key=key or f"project-{_new_id()[:8]}",
-            description=description,
-        )
+        An omitted key is derived from the name rather than generated, so a
+        project is identifiable by the key alone.
+
+        The two cases differ on collision, deliberately. An **explicit** key is
+        a request for that exact key, so a clash raises — silently returning
+        something else would break :meth:`ensure_project`, which relies on the
+        clash to resolve a repeat. A **derived** key is a convenience, so a
+        clash is disambiguated and creation still succeeds: naming two projects
+        the same is allowed, and this method has always returned a new project.
+        """
+
         moment = self._clock()
 
-        def operation(session: DbSession) -> Project:
-            ProjectRepository(session).add(project, moment)
-            return project
+        def insert(candidate: str) -> Project:
+            project = Project(
+                id=ProjectId(_new_id()),
+                name=name,
+                key=candidate,
+                description=description,
+            )
 
-        return self._run(operation)
+            def operation(session: DbSession) -> Project:
+                ProjectRepository(session).add(project, moment)
+                return project
+
+            return self._run(operation)
+
+        if key:
+            return insert(key)
+
+        derived = project_key_from_name(name)
+        for attempt in range(1, _KEY_ATTEMPTS + 1):
+            candidate = derived if attempt == 1 else f"{derived}-{attempt}"
+            try:
+                return insert(candidate)
+            except IntegrityError:
+                continue
+        # Every readable candidate was taken. A generated key is worse to read
+        # and better than refusing to create the project.
+        return insert(f"{derived}-{_new_id()[:8]}")
+
+    def find_project_by_key(self, key: str) -> Project | None:
+        """Return a project by its human-facing key."""
+
+        return self._run(lambda session: ProjectRepository(session).find_by_key(key))
+
+    def ensure_project(
+        self, name: str, key: str | None = None, description: str | None = None
+    ) -> tuple[Project, bool]:
+        """Return the project with this key, creating it if absent.
+
+        Returns ``(project, created)``. Idempotent by key, so a retried request
+        resolves to the project it already made rather than failing on the
+        unique constraint — the same guarantee :meth:`enqueue_run` gives, and
+        the reason a caller can retry a create without checking first.
+
+        The race is resolved by the constraint, not by the lookup: two callers
+        can both see nothing and both insert, and exactly one wins.
+        """
+
+        resolved = key or project_key_from_name(name)
+        existing = self.find_project_by_key(resolved)
+        if existing is not None:
+            return existing, False
+        try:
+            return self.create_project(name, resolved, description), True
+        except IntegrityError:
+            winner = self.find_project_by_key(resolved)
+            if winner is None:  # pragma: no cover - the constraint fired, so a row exists
+                raise
+            return winner, False
 
     def get_project(self, project_id: ProjectId) -> Project | None:
         """Return a project by identifier."""
