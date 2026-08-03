@@ -58,7 +58,38 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [ ] **T22** — Generate compact manifests and external artifacts
 - [ ] **T23** — Complete end-to-end MCP workflow test
 
-## Phase F — Observation classification
+## Phase F — Project focus and default scope
+
+**T25 — Make the selected project the default scope.** Deferred, **implementation
+not authorised.** Design: [`PROJECT_FOCUS.md`](../06_architecture/PROJECT_FOCUS.md).
+
+Scoped down after review: cross-project isolation is **already enforced** — six
+of eight tools require a `project_id`, every service call is single-project, and
+no tool can return knowledge from a project the caller did not name. The gap is
+ergonomics and disambiguation, not leakage.
+
+- [ ] **T25.1** — Studio injects the active `project_id`. **Zero KAE change**;
+  solves the Studio case entirely
+- [ ] **T25.2** — Accept `project_key` alongside `project_id` on every
+  project-scoped tool. Stateless, no schema change, removes the
+  list → pick → call hop that suppresses routing
+- [ ] **T25.3** — *Only if T25.2 proves insufficient:* server-side active
+  project, with a mandatory `scope` echo naming the project and how it resolved
+- [ ] **T25.4** — Cross-project comparison as a separate tool, never a wider
+  setting on an existing one
+
+**Acceptance criteria**
+
+- Explicit project arguments always override any default.
+- No project and no default is an `invalid_argument` error, never an inferred
+  project.
+- Any response answered from an implicit focus states the project and
+  `resolved_from`.
+- Every tool remains callable statelessly with an explicit project.
+- Focus is never an authorisation boundary.
+- No schema change, no migration, no new mandatory concept.
+
+## Phase G — Observation classification
 
 **T24 — Classify and route submitted observations.** High priority, **deferred,
 awaiting scheduling. Implementation not authorised.** Design:
