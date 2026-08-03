@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
-from kae_memory.domain.errors import IdempotencyConflictError
+from kae_memory.domain.errors import DomainInvariantError, IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import (
     AgentId,
@@ -27,6 +27,7 @@ from kae_memory.domain.identifiers import (
     MessageId,
     ProjectId,
     ProvenanceLinkId,
+    RelationshipId,
     SessionId,
 )
 from kae_memory.domain.lifecycle import LifecycleState
@@ -37,6 +38,8 @@ from kae_memory.domain.models import (
     Provenance,
     ProvenanceLink,
     ProvenanceLinkType,
+    Relationship,
+    RelationshipType,
 )
 from kae_memory.domain.workspace import (
     ActorType,
@@ -45,7 +48,10 @@ from kae_memory.domain.workspace import (
     Session,
     SessionType,
 )
-from kae_memory.persistence.readiness_repositories import bump_knowledge_revision
+from kae_memory.persistence.readiness_repositories import (
+    RelationshipRepository,
+    bump_knowledge_revision,
+)
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
 from kae_memory.persistence.workspace_repositories import (
@@ -55,6 +61,15 @@ from kae_memory.persistence.workspace_repositories import (
     ProvenanceLinkRepository,
     SessionRepository,
 )
+
+HUMAN_EXECUTION = "human"
+"""Execution identifier for a change a person made directly.
+
+Every knowledge version records the execution that produced it, and a human
+correction has no agent run behind it. A named sentinel keeps that visible;
+borrowing a real run identifier would make a person's edit indistinguishable
+from a model's output in the audit trail.
+"""
 
 
 def _new_id() -> str:
@@ -603,6 +618,138 @@ class MemoryService:
             repository.save(confirmed)
             bump_knowledge_revision(db_session, item.project_id)
             return confirmed
+
+        return self._run(operation)
+
+    def reject_knowledge(self, item_id: KnowledgeItemId, note: str | None = None) -> KnowledgeItem:
+        """Reject a candidate. The counterpart to confirmation, and also human.
+
+        Rejection is not deletion. The item stays, its versions stay, and its
+        provenance stays — what changes is that it stops counting toward
+        readiness and stops being offered as a collapse target. A record of what
+        was considered and turned down is part of the audit trail, not clutter.
+        """
+
+        def operation(db_session: DbSession) -> KnowledgeItem:
+            repository = SqlAlchemyKnowledgeRepository(db_session)
+            item = repository.get(item_id)
+            if item is None:
+                raise LookupError(f"unknown knowledge item: {item_id}")
+            rejected = item.transition_to(LifecycleState.REJECTED)
+            repository.save(rejected)
+            bump_knowledge_revision(db_session, item.project_id)
+            return rejected
+
+        return self._run(operation)
+
+    def correct_knowledge(
+        self,
+        item_id: KnowledgeItemId,
+        content: str,
+        source: str,
+        actor_id: str | None = None,
+        from_message_id: MessageId | None = None,
+    ) -> KnowledgeItem:
+        """Record a corrected wording as a new version of the same statement.
+
+        Versions are append-only: the prior wording is retained and remains the
+        provenance of anything derived from it while it stood. Editing in place
+        would rewrite history that other records point at.
+
+        A corrected item returns to ``PROPOSED``. It was confirmed on the old
+        wording, and treating that confirmation as covering text a person has
+        not read would be the single easiest way to slip an unreviewed claim
+        into the confirmed set.
+        """
+
+        if not content.strip():
+            raise ValueError("a correction must not be empty")
+
+        moment = self._clock()
+
+        def operation(db_session: DbSession) -> KnowledgeItem:
+            repository = SqlAlchemyKnowledgeRepository(db_session)
+            item = repository.get(item_id)
+            if item is None:
+                raise LookupError(f"unknown knowledge item: {item_id}")
+            if item.lifecycle in {LifecycleState.REJECTED, LifecycleState.SUPERSEDED}:
+                raise DomainInvariantError(
+                    f"cannot correct {item.lifecycle.value} knowledge; record a new statement"
+                )
+            corrected = item.append_version(
+                content,
+                Provenance(
+                    source=source,
+                    actor_id=AgentId(actor_id or "human"),
+                    # No agent run produced this. A synthetic identifier is
+                    # clearer than borrowing one that would make a person's
+                    # correction look like a model's output.
+                    execution_id=ExecutionId(HUMAN_EXECUTION),
+                    recorded_at=moment,
+                ),
+                moment,
+            )
+            repository.save(corrected)
+            links = ProvenanceLinkRepository(db_session)
+            if from_message_id is not None:
+                links.add(
+                    ProvenanceLink(
+                        id=ProvenanceLinkId(_new_id()),
+                        project_id=item.project_id,
+                        knowledge_item_id=item.id,
+                        link_type=ProvenanceLinkType.DERIVED_FROM_MESSAGE,
+                        created_at=moment,
+                        knowledge_version_number=corrected.current_version.number,
+                        message_id=from_message_id,
+                    )
+                )
+            bump_knowledge_revision(db_session, item.project_id)
+            return corrected
+
+        return self._run(operation)
+
+    def supersede_knowledge(
+        self, superseded_id: KnowledgeItemId, superseding_id: KnowledgeItemId
+    ) -> KnowledgeItem:
+        """Retire one statement in favour of another, keeping both readable.
+
+        For when a correction is a different statement rather than better
+        wording of the same one. The retired item stops counting toward
+        readiness; the edge records what replaced it, so a reader who follows an
+        old reference arrives somewhere rather than nowhere.
+        """
+
+        if superseded_id == superseding_id:
+            raise ValueError("a statement cannot supersede itself")
+
+        moment = self._clock()
+
+        def operation(db_session: DbSession) -> KnowledgeItem:
+            repository = SqlAlchemyKnowledgeRepository(db_session)
+            old = repository.get(superseded_id)
+            new = repository.get(superseding_id)
+            if old is None:
+                raise LookupError(f"unknown knowledge item: {superseded_id}")
+            if new is None:
+                raise LookupError(f"unknown knowledge item: {superseding_id}")
+            if old.project_id != new.project_id:
+                raise DomainInvariantError("supersession cannot cross projects")
+
+            retired = old.transition_to(LifecycleState.SUPERSEDED)
+            repository.save(retired)
+            RelationshipRepository(db_session).add(
+                Relationship(
+                    id=RelationshipId(_new_id()),
+                    project_id=old.project_id,
+                    source_id=superseding_id,
+                    target_id=superseded_id,
+                    type=RelationshipType.SUPERSEDES,
+                ),
+                moment,
+                None,
+            )
+            bump_knowledge_revision(db_session, old.project_id)
+            return retired
 
         return self._run(operation)
 
