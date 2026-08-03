@@ -10,11 +10,27 @@ revisions actually produce it, so a mapping change without a migration is caught
 here rather than in production.
 """
 
+import os
+
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
+from tests.conftest import require_disposable_target
 
 from kae_memory.persistence.tables import Base
+
+
+def _effective_url(config_url: str) -> str:
+    """Return the URL Alembic will actually migrate.
+
+    ``migrations/env.py`` reads ``KAE_DATABASE_URL`` ahead of the Alembic
+    config, so the config URL is not on its own evidence of the target. The
+    guard has to check what will really be migrated.
+    """
+
+    return os.environ.get("KAE_DATABASE_URL") or config_url
+
 
 EXPECTED_TABLES = {
     "agent_runs",
@@ -45,6 +61,9 @@ def test_upgrade_creates_every_mapped_table(alembic_config: tuple[Config, str]) 
 
 def test_downgrade_removes_every_table(alembic_config: tuple[Config, str]) -> None:
     config, url = alembic_config
+    # Checked here, not only in the fixture: the fixture resolving the wrong
+    # target is the failure being guarded against.
+    require_disposable_target(_effective_url(url))
 
     command.upgrade(config, "head")
     engine = create_engine(url)
@@ -155,3 +174,37 @@ def test_revision_0003_backfills_existing_runs(alembic_config: tuple[Config, str
 
     assert row[0] == 0, "pre-existing runs start with no lease"
     assert row[1] is not None, "pre-existing runs are immediately claimable"
+
+
+class TestDestructiveTargetGuard:
+    """The guard that must hold when the fixture does not.
+
+    Every case here is a URL that was reachable in practice: a cloud cluster
+    from a loaded ``.env``, and a local database holding real development data.
+    """
+
+    def test_a_remote_host_is_refused(self) -> None:
+        with pytest.raises(RuntimeError, match="remote host"):
+            require_disposable_target(
+                "cockroachdb+psycopg://root@mighty-seeker-28528.j77.aws-us-east-1"
+                ".cockroachlabs.cloud:26257/kae_mig_abc?sslmode=verify-full"
+            )
+
+    def test_a_local_but_non_disposable_database_is_refused(self) -> None:
+        """A local host is not enough. `kae_dev` holds the real corpus."""
+
+        with pytest.raises(RuntimeError, match="did not create"):
+            require_disposable_target(
+                "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
+            )
+
+    def test_an_unparseable_url_is_refused(self) -> None:
+        """Fails closed: an unrecognised target is refused, not allowed."""
+
+        with pytest.raises(RuntimeError):
+            require_disposable_target("not a url at all")
+
+    def test_the_fixture_target_is_accepted(self) -> None:
+        require_disposable_target(
+            "cockroachdb+psycopg://root@localhost:26258/kae_mig_deadbeef?sslmode=disable"
+        )
