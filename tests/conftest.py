@@ -105,11 +105,19 @@ def _truncate(engine: Engine) -> None:
 
 
 @pytest.fixture
-def alembic_config() -> Iterator[tuple[Config, str]]:
+def alembic_config(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Config, str]]:
     """Return an Alembic config pointed at a database created for this test.
 
     Each migration test gets its own database: they upgrade and downgrade the
     whole schema, so they cannot share the session-scoped one.
+
+    ``KAE_DATABASE_URL`` is repointed at that throwaway database for the
+    duration, and this is not belt-and-braces. ``migrations/env.py`` resolves
+    the environment variable *before* the config, so with a developer's normal
+    environment loaded these tests would run ``downgrade base`` against whatever
+    that variable names — the real database. The assertions inspect the
+    throwaway database, find no tables because none were ever created there,
+    and the run reports green while the actual schema is gone.
     """
 
     base = admin_url()
@@ -123,6 +131,7 @@ def alembic_config() -> Iterator[tuple[Config, str]]:
     config.set_main_option("script_location", str(root / "migrations"))
     url = database_url(base, name)
     config.set_main_option("sqlalchemy.url", url)
+    monkeypatch.setenv("KAE_DATABASE_URL", url)
 
     yield config, url
 
