@@ -24,7 +24,7 @@ from .ingestion_service import (
     IngestionService,
     policy_from_environment,
 )
-from .memory_service import MemoryService, WriteKnowledgeRequest
+from .memory_service import MemoryService, ReviewOutcome, WriteKnowledgeRequest
 from .readiness_service import ReadinessService
 from .reembedding_service import ChunkFailure, MigrationReport, ReembeddingService
 from .retrieval_service import RetrievalService, SearchHit
@@ -53,6 +53,7 @@ __all__ = [
     "ReadinessService",
     "ReembeddingService",
     "RetrievalService",
+    "ReviewOutcome",
     "ReviewService",
     "SearchHit",
     "Severity",

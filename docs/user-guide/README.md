@@ -11,6 +11,7 @@ decisions, milestones, and measurements. This folder is the other audience.
 | [MCP tools](mcp-tools.md) | Working with KAE from Claude, Cursor, or any MCP client |
 | [Getting started](getting-started.md) | Connecting a client and creating your first project |
 | [Submitting observations](submitting-observations.md) | Recording what you notice, and what KAE does with it |
+| [Reviewing knowledge](reviewing-knowledge.md) | Deciding what becomes authoritative project memory |
 
 ## What KAE is, in one paragraph
 

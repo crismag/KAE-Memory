@@ -28,3 +28,24 @@ class IdempotencyConflictError(DomainError):
     content; writing a second record would break the guarantee the key exists
     to provide. Neither is safe, so the conflict is reported.
     """
+
+
+class KnowledgeNotFoundError(DomainError):
+    """The knowledge item does not exist, or does not belong to this project.
+
+    Deliberately one error for both. A distinct "wrong project" code would
+    confirm to a caller that an item they cannot touch exists somewhere else,
+    which is the one fact the ownership check is there to withhold. Which case
+    occurred is recorded server-side.
+    """
+
+
+class StaleVersionError(DomainError):
+    """The item changed since the caller read it.
+
+    Review decisions are made about specific wording, so a decision carrying a
+    version number that is no longer current is a decision about text the
+    reviewer has not seen. Applying it anyway is last-write-wins, which for
+    authority decisions means the slower reviewer silently overrules the faster
+    one.
+    """

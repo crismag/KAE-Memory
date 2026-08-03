@@ -19,7 +19,12 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.chunks import KnowledgeChunk, metadata_prefix, split_text
-from kae_memory.domain.errors import DomainInvariantError, IdempotencyConflictError
+from kae_memory.domain.errors import (
+    DomainInvariantError,
+    IdempotencyConflictError,
+    KnowledgeNotFoundError,
+    StaleVersionError,
+)
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import (
     AgentId,
@@ -31,7 +36,13 @@ from kae_memory.domain.identifiers import (
     ProjectId,
     ProvenanceLinkId,
     RelationshipId,
+    ReviewEventId,
     SessionId,
+)
+from kae_memory.domain.knowledge_review import (
+    KnowledgeReviewEvent,
+    RejectionReason,
+    ReviewAction,
 )
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import (
@@ -58,6 +69,7 @@ from kae_memory.persistence.readiness_repositories import (
     bump_knowledge_revision,
 )
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
+from kae_memory.persistence.review_event_repository import ReviewEventRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
 from kae_memory.persistence.workspace_repositories import (
     AgentRunRepository,
@@ -150,6 +162,45 @@ correction has no agent run behind it. A named sentinel keeps that visible;
 borrowing a real run identifier would make a person's edit indistinguishable
 from a model's output in the audit trail.
 """
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewOutcome:
+    """The result of a reviewed lifecycle decision.
+
+    ``replayed`` distinguishes "your decision was applied" from "your decision
+    already held". Both are successes and both return the same state, but a
+    caller retrying after a timeout needs to know which one happened before it
+    reports to a person that they confirmed something.
+
+    ``event`` is ``None`` only when the item was already in the target state and
+    no decision was ever recorded against it — a lifecycle set before this audit
+    log existed.
+    """
+
+    item: KnowledgeItem
+    event: KnowledgeReviewEvent | None
+    replayed: bool
+
+
+def _require_owned(
+    db_session: DbSession, project_id: ProjectId, item_id: KnowledgeItemId
+) -> KnowledgeItem:
+    """Return the item, or refuse if it is missing or belongs elsewhere.
+
+    Enforced here rather than in each caller because the callers are the
+    problem: a check in the MCP handler leaves the HTTP route unprotected, and a
+    check in both leaves the next caller unprotected. This is the boundary every
+    write already passes through.
+
+    Missing and foreign resolve to the same error on purpose — see
+    :class:`KnowledgeNotFoundError`.
+    """
+
+    item = SqlAlchemyKnowledgeRepository(db_session).get(item_id)
+    if item is None or item.project_id != project_id:
+        raise KnowledgeNotFoundError(f"unknown knowledge item in this project: {item_id}")
+    return item
 
 
 def _new_id() -> str:
@@ -759,6 +810,158 @@ class MemoryService:
                 runs.save(run.succeed(moment, summary or None), moment)
 
             return tuple(written)
+
+        return self._run(operation)
+
+    def review_confirm(
+        self,
+        project_id: ProjectId,
+        item_id: KnowledgeItemId,
+        expected_version: int,
+        actor_type: ActorType = ActorType.USER,
+        actor_id: str | None = None,
+        note: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ReviewOutcome:
+        """Accept proposed knowledge as authoritative, and record who decided.
+
+        The reviewed surface, as distinct from :meth:`confirm_knowledge`, which
+        stays as it was for callers that already hold a verified item. This one
+        assumes the caller is holding a knowledge id from somewhere untrusted,
+        so it proves ownership, proves the wording has not moved, and leaves a
+        record — three things a bare lifecycle flip cannot do.
+
+        Idempotent on ``idempotency_key``: a replayed confirmation returns the
+        decision already recorded rather than making a second one. A request
+        carrying a *stale* version is not a replay and is refused, because those
+        are different situations that happen to look alike from the client side
+        — one is a retry, the other is a reviewer acting on text someone else
+        has since changed.
+        """
+
+        return self._review(
+            project_id,
+            item_id,
+            expected_version,
+            action=ReviewAction.VALIDATED,
+            target=LifecycleState.VALIDATED,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            note=note,
+            idempotency_key=idempotency_key,
+        )
+
+    def _review(
+        self,
+        project_id: ProjectId,
+        item_id: KnowledgeItemId,
+        expected_version: int,
+        action: ReviewAction,
+        target: LifecycleState,
+        actor_type: ActorType,
+        actor_id: str | None,
+        note: str | None,
+        idempotency_key: str | None,
+        reason_code: RejectionReason | None = None,
+    ) -> "ReviewOutcome":
+        """Apply one reviewed lifecycle decision atomically.
+
+        The state change, the audit event, and the project's knowledge revision
+        commit together. A decision whose audit write failed would leave the
+        system asserting something is confirmed with no record of anyone having
+        confirmed it, which is worse than the decision not landing at all.
+        """
+
+        moment = self._clock()
+
+        def operation(db_session: DbSession) -> ReviewOutcome:
+            events = ReviewEventRepository(db_session)
+            if idempotency_key is not None:
+                replayed = events.find_by_idempotency_key(item_id, idempotency_key)
+                if replayed is not None:
+                    item = _require_owned(db_session, project_id, item_id)
+                    return ReviewOutcome(item=item, event=replayed, replayed=True)
+
+            item = _require_owned(db_session, project_id, item_id)
+            current = item.current_version.number
+            if current != expected_version:
+                raise StaleVersionError(
+                    f"knowledge has moved to version {current}; "
+                    f"the decision was made about version {expected_version}"
+                )
+
+            if item.lifecycle is target:
+                # Already there, and no key was supplied to recognise this as a
+                # replay. Returning the current state is the honest answer: the
+                # caller's intent already holds, and a second identical event
+                # would inflate the audit trail with a decision nobody made.
+                existing = events.history_for(item_id)
+                return ReviewOutcome(
+                    item=item,
+                    event=existing[-1] if existing else None,
+                    replayed=True,
+                )
+
+            decided = item.transition_to(target)
+            SqlAlchemyKnowledgeRepository(db_session).save(decided)
+
+            event = KnowledgeReviewEvent(
+                id=ReviewEventId(_new_id()),
+                project_id=project_id,
+                knowledge_item_id=item_id,
+                version_number=current,
+                action=action,
+                from_lifecycle=item.lifecycle,
+                to_lifecycle=target,
+                actor_type=actor_type,
+                created_at=moment,
+                actor_id=actor_id,
+                reason_code=reason_code,
+                note=note,
+                idempotency_key=idempotency_key,
+            )
+            events.add(event)
+            bump_knowledge_revision(db_session, project_id)
+            return ReviewOutcome(item=decided, event=event, replayed=False)
+
+        try:
+            return self._run(operation)
+        except IntegrityError as error:
+            # Two retries of one decision raced past the lookup above and both
+            # reached the insert. The unique index is what makes "exactly one
+            # decision" true; this turns losing that race into the replay it is.
+            if idempotency_key is None:
+                raise
+            return self._replayed_outcome(project_id, item_id, idempotency_key, error)
+
+    def _replayed_outcome(
+        self,
+        project_id: ProjectId,
+        item_id: KnowledgeItemId,
+        idempotency_key: str,
+        error: Exception,
+    ) -> "ReviewOutcome":
+        def operation(db_session: DbSession) -> ReviewOutcome:
+            events = ReviewEventRepository(db_session)
+            recorded = events.find_by_idempotency_key(item_id, idempotency_key)
+            if recorded is None:
+                raise error
+            return ReviewOutcome(
+                item=_require_owned(db_session, project_id, item_id),
+                event=recorded,
+                replayed=True,
+            )
+
+        return self._run(operation)
+
+    def review_history(
+        self, project_id: ProjectId, item_id: KnowledgeItemId
+    ) -> tuple[KnowledgeReviewEvent, ...]:
+        """Return one item's review decisions, oldest first."""
+
+        def operation(db_session: DbSession) -> tuple[KnowledgeReviewEvent, ...]:
+            _require_owned(db_session, project_id, item_id)
+            return ReviewEventRepository(db_session).history_for(item_id)
 
         return self._run(operation)
 

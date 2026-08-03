@@ -225,7 +225,7 @@ class TestScoping:
     def test_search_never_crosses_a_project_boundary(
         self, factory: sessionmaker[Session], corpus: tuple
     ) -> None:
-        _, ministry, other = corpus
+        _, _ministry, other = corpus
         retrieval = RetrievalService(factory, _QueryAt(QUERY_ANGLE))
 
         hits = retrieval.search(other, "who approves", limit=10)

@@ -61,7 +61,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   being, so the surface was unusable without a second channel. Settles the open
   question of whether project creation is human-only — it is not.
 
-- [ ] **T12** — Implement `kae_confirm_knowledge`
+- [x] **T12** — Implement `kae_confirm_knowledge` — 2026-08-03. Carries the
+  Phase C foundation: migration `0007` adds the append-only
+  `knowledge_review_events` log; ownership is enforced in `MemoryService`, which
+  also closes the same hole in the HTTP confirm route; `expected_version` gives
+  item-level optimistic concurrency using the existing `KnowledgeVersion` number
+  rather than a second revision field; new error codes `knowledge_not_found`,
+  `version_conflict`, `invalid_state_transition`. Also fixes
+  `kae_submit_observation` recording agent output as `ActorType.USER`.
+  Decisions and amended checks in [PHASE_C_DECISIONS.md](PHASE_C_DECISIONS.md).
 - [ ] **T13** — Implement `kae_reject_knowledge`
 - [ ] **T14** — Implement `kae_correct_knowledge`
 - [ ] **T15** — Verify audit trail and readiness recalculation
