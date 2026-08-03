@@ -234,3 +234,29 @@ def test_the_server_binds_to_the_sdk(factory: sessionmaker[Session], attribute: 
     server = build_server(context)
 
     assert hasattr(server, attribute)
+
+
+def test_every_declared_tool_is_actually_registered(factory: sessionmaker[Session]) -> None:
+    """Declaring a tool is not the same as serving it.
+
+    `kae_create_project` was declared in TOOL_DEFINITIONS, given a wrapper, and
+    routed in `dispatch` — and never reached a client, because the registration
+    list was maintained by hand and did not include it. Every other test reaches
+    the handlers through `dispatch`, which does not come through `build_server`,
+    so nothing caught it.
+    """
+
+    readiness = ReadinessService(factory)
+    readiness.install_template()
+    context = tools.ToolContext(
+        memory=MemoryService(factory),
+        blueprint=BlueprintService(factory),
+        readiness=readiness,
+        review=ReviewService(factory),
+    )
+
+    server = build_server(context)
+
+    registered = {tool.name for tool in server._tool_manager.list_tools()}
+    declared = {definition["name"] for definition in TOOL_DEFINITIONS}
+    assert registered == declared

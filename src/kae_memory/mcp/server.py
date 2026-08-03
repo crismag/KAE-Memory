@@ -450,19 +450,39 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
-    for handler in (
-        kae_list_projects,
-        kae_get_project_briefing,
-        kae_get_module_context,
-        kae_search_knowledge,
-        kae_get_open_decisions,
-        kae_get_readiness,
-        kae_submit_observation,
-    ):
+    wrappers = {
+        handler.__name__: handler
+        for handler in (
+            kae_list_projects,
+            kae_create_project,
+            kae_get_project_briefing,
+            kae_get_module_context,
+            kae_search_knowledge,
+            kae_get_open_decisions,
+            kae_get_readiness,
+            kae_submit_observation,
+        )
+    }
+
+    # Registration is driven by TOOL_DEFINITIONS rather than by the tuple above,
+    # so a declared tool without a wrapper fails at startup instead of being
+    # silently absent from the client's tool list. A missing wrapper used to be
+    # invisible: every test reaches the handlers through `dispatch`, which does
+    # not come through here.
+    undeclared = set(wrappers) - {definition["name"] for definition in TOOL_DEFINITIONS}
+    missing = {definition["name"] for definition in TOOL_DEFINITIONS} - set(wrappers)
+    if missing or undeclared:
+        raise RuntimeError(
+            f"tool registration is inconsistent: declared without a wrapper "
+            f"{sorted(missing)}, wrapped without a declaration {sorted(undeclared)}"
+        )
+
+    for definition in TOOL_DEFINITIONS:
+        name = definition["name"]
         server.add_tool(
-            handler,
-            name=handler.__name__,
-            description=described[handler.__name__],
+            wrappers[name],
+            name=name,
+            description=described[name],
             structured_output=True,
         )
 
