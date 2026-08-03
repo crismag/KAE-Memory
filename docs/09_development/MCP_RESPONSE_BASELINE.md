@@ -143,6 +143,11 @@ There is no generated prose. `status_label`, `explanation.method`, and
 5 in `incomplete` — because `incomplete` is `contributing ∪ missing` filtered to
 credit < 1.0, which on a project with no partial area equals `missing` exactly.
 
+> **Revised 2026-08-03.** That equality holds only where no area is partial.
+> See §5.4: on a project with partial areas, `incomplete` carries rows that
+> appear nowhere else, and is not the pure duplicate this section first
+> called it.
+
 Each area object is 232 characters across 10 fields: `area`, `name`, `state`,
 `weight`, `credit`, `weight_outstanding`, `mandatory`, `confirmed_statements`,
 `awaiting_review`, `confirmed_needed`.
@@ -203,6 +208,37 @@ than with the template — a far worse scaling property than today's.
 counts only exact duplicates; it excludes the deeper question of whether
 `explanation` needs ten-field objects for every area.
 
+### 5.4 Revision — measured against a project with partial areas
+
+T1 recorded that 26% was a floor because neither measured project had a partial
+area. **KAE-Memory**, registered 2026-08-03, has six. Re-measuring changed two
+conclusions, one in each direction.
+
+| | Ministry Reporting | Local test | **KAE-Memory** |
+| --- | ---: | ---: | ---: |
+| Partial areas | 0 | 0 | **6** |
+| Confirmed statements | 10 | 0 | **0** |
+| Briefing chars | 12,199 | 14,108 | **13,535** |
+| `missing` / `incomplete` rows | 5 / 5 | 10 / 10 | **4 / 10** |
+| Identical? | yes | yes | **no** |
+| Measured redundancy | 26% | — | **30%** |
+
+**`explanation.incomplete` is not pure duplication.** Six of its ten rows —
+every partial area — appear in neither `contributing` as complete nor in
+`missing`. Only four repeat `missing`, costing 967 characters (7%) rather than
+the 1,199 (9%) measured before. The §7 recommendation to drop the field outright
+was wrong; it should be **merged into a single `areas` list keyed on `state`**,
+which removes the repetition without losing the partial rows.
+
+**Total redundancy rose rather than fell.** 26% → **30%**, for a reason T1 did
+not anticipate: partial areas generate *more findings*, and
+`recommended_next_steps` scales with them — 1,855 characters here (13%) against
+1,347 (11%). The floor claim was right; the mechanism was not the one predicted.
+
+**The scaling result is now firmer.** 13,535 characters — about 3,383 tokens —
+for a project holding **zero confirmed statements**. `sections` is empty. The
+entire payload describes what is absent.
+
 ## 6. Field classification
 
 Against the six questions a default briefing should answer: what project, what
@@ -254,8 +290,11 @@ Ranked by chars removable per unit of meaning lost:
    comes close.
 2. **`recommended_next_steps` → drop** — 1,347 chars, 11%. Both fields already
    exist in `findings`, which is already severity-ordered.
-3. **`explanation.incomplete` → drop, flag on the area** — 1,199 chars, 9%.
-   Replaceable by the `state` field already on each area object.
+3. **`explanation.incomplete` → merge into one `areas` list** — 967 chars, 7%
+   of the repetition on a project with partial areas (§5.4). **Not a drop:** it
+   carries partial areas that appear in no other list. Collapsing
+   `contributing` / `missing` / `incomplete` into one list keyed on `state`
+   removes the overlap and keeps every row.
 4. **`sections` → on request or summarise** — 2,595 chars, 21%. The only field
    that grows with the corpus, so it matters most as projects get real.
 5. **`findings_by_severity` → drop** — 479 chars, 3%. `findings` carries
@@ -289,9 +328,10 @@ loss at all** — every value survives in `findings` or `explanation.missing`.
   comparable across runs, but neither is a real tokenizer count. If T5 needs to
   claim a specific reduction percentage, use the same estimator before and after
   and say which; do not mix them.
-- **Two projects is a small sample**, and neither has a partial area, an open
-  blocker, or a recorded contradiction. Each of those adds findings and would
-  raise the duplication factor — the 26% figure is a **floor**, not a ceiling.
+- **~~Two projects is a small sample~~** — partially resolved. A third project
+  with partial areas was measured (§5.4) and confirmed 26% was a floor, at
+  30%. Still unmeasured: an open blocker, a recorded contradiction, and any
+  project above 10 statements.
 - **No project here has more than 10 statements.** `sections` is the only field
   that grows with the corpus; on a project with 200 confirmed statements it
   would dominate, and the ranking in §7 would change. Worth re-measuring against

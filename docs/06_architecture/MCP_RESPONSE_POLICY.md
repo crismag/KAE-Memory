@@ -444,19 +444,24 @@ review, T3's first half can still proceed.
 
 1. **Does `regular` land near 70%?** §7's per-profile estimates are projections
    from T1 field shares, not measurements. T5 decides.
-2. **Should `detail` be per-tool or per-call?** A caller wanting a cheap briefing
+2. **Are the detail-level names right?** §4 uses
+   `minimal` / `summary` / `detailed` / `full`. A review on 2026-08-03 proposed
+   `summary` / `standard` / `diagnostic` instead, which is three levels rather
+   than four and names the top one after its purpose. Worth settling in T2 —
+   the names appear in every tool schema and are expensive to change later.
+3. **Should `detail` be per-tool or per-call?** A caller wanting a cheap briefing
    and a full search must currently send two different values. Per-call is
    assumed; a per-tool map is more expressive and more to validate.
-3. **Do Project and Session tiers earn their migration?** §9 recommends deferring.
+4. **Do Project and Session tiers earn their migration?** §9 recommends deferring.
    Reversing that is a schema change, so decide before T2 rather than during T4.
-4. **Is `recommended_next_steps` consumed anywhere?** Removing it is a contract
+5. **Is `recommended_next_steps` consumed anywhere?** Removing it is a contract
    change. It shipped 2026-08-02 and appears to have no consumers; confirm rather
    than assume.
-5. **What happens when the integrity floor alone exceeds the budget?** §6.2 says
+6. **What happens when the integrity floor alone exceeds the budget?** §6.2 says
    return it and report the overage. That is a deliberate refusal to honour a
    budget, and it should be an accepted decision rather than discovered
    behaviour.
-6. **Should profiles be nameable per project later?** Related to (3), and the
+7. **Should profiles be nameable per project later?** Related to (4), and the
    likeliest reason the Project tier would earn its place.
 
 ---
