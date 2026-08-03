@@ -34,8 +34,17 @@ are excluded from semantic search until re-embedded, so retrieval degrades to
 lexical rather than becoming quietly wrong.
 """
 
-MAX_DISTANCE = 0.75
+MAX_DISTANCE = 0.85
 """How far a vector may sit from the query and still count as a result.
+
+Raised from 0.75 to 0.85 on 2026-08-03, from measurement rather than by feel.
+Against Titan V2 on this corpus, relevant paraphrase matches land between 0.72
+and 0.842 while unrelated queries start at 0.855 — 0.75 was cutting off genuine
+answers, which is why five paraphrase queries returned nothing at all.
+
+The margin is **0.013**, and that is thin. It is fitted to a twenty-query
+evaluation on thirty-two chunks, so it will need re-tuning as the corpus grows;
+hybrid ranking is the durable answer rather than a better constant.
 
 Cosine distance over unit vectors runs 0 to 2, with 1.0 meaning orthogonal —
 no relationship at all. A cutoff below 1.0 is therefore the line between "this
