@@ -170,7 +170,7 @@ class MessageRepository:
                 actor_id=message.actor_id,
                 message_type=message.message_type.value,
                 content=message.content,
-                message_metadata={},
+                message_metadata=dict(message.metadata),
                 created_at=message.created_at,
                 idempotency_key=message.idempotency_key,
                 payload_fingerprint=fingerprint,
@@ -580,6 +580,7 @@ def _message_to_domain(row: MessageRow) -> Message:
         actor_id=row.actor_id,
         agent_run_id=AgentRunId(row.agent_run_id) if row.agent_run_id else None,
         idempotency_key=row.idempotency_key,
+        metadata=dict(row.message_metadata or {}),
     )
 
 
