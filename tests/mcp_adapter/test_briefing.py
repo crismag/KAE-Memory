@@ -82,17 +82,25 @@ def briefed(briefing_context: tools.ToolContext) -> dict:
         memory.confirm_knowledge(item.id)
         briefing_context.readiness.assign_area(project.id, item.id, area)
 
-    return tools.kae_get_project_briefing(briefing_context, str(project.id))
+    from kae_memory.mcp.server import dispatch
+
+    # Diagnostic detail: these assert the whole rendering, and the default now
+    # withholds the statements and the arithmetic (T3).
+    return dispatch(
+        briefing_context,
+        "kae_get_project_briefing",
+        {"project_id": str(project.id), "detail": "diagnostic"},
+    )
 
 
 class TestFindings:
     def test_critical_findings_are_not_filtered_out(self, briefed: dict) -> None:
         """The regression. Areas with no confirmed knowledge are the worst news."""
 
-        criticals = briefed["findings_by_severity"]["critical"]
+        criticals = [f for f in briefed["findings"] if f["severity"] == "critical"]
 
         assert criticals, "a project with empty mandatory areas has critical findings"
-        assert any("no confirmed knowledge" in summary for summary in criticals)
+        assert any("no confirmed knowledge" in f["summary"] for f in criticals)
 
     def test_every_finding_reaches_the_response(self, briefed: dict) -> None:
         """Previously only three of seven finding kinds survived the filter."""
@@ -102,26 +110,26 @@ class TestFindings:
         assert "missing_area" in kinds, "missing areas were the filtered-out kind"
         assert "open_question" in kinds
 
-    def test_findings_are_grouped_by_severity(self, briefed: dict) -> None:
-        grouped = briefed["findings_by_severity"]
+    def test_findings_are_ordered_most_severe_first(self, briefed: dict) -> None:
+        """One rendering, ordered. The regrouped copies are gone (T3)."""
 
-        assert set(grouped) == {"critical", "major", "minor"}
-        total = sum(len(items) for items in grouped.values())
-        assert total == len(briefed["findings"])
+        order = ["critical", "major", "minor"]
+        positions = [order.index(f["severity"]) for f in briefed["findings"]]
+
+        assert positions == sorted(positions)
+        assert "findings_by_severity" not in briefed
 
     def test_a_finding_carries_its_recommended_action(self, briefed: dict) -> None:
         """The review service already computes one; the briefing used to drop it."""
 
         assert all(finding["recommended_action"] for finding in briefed["findings"])
 
-    def test_next_steps_lead_with_the_most_severe(self, briefed: dict) -> None:
-        steps = briefed["recommended_next_steps"]
+    def test_the_action_lives_with_its_finding(self, briefed: dict) -> None:
+        """recommended_next_steps restated both fields and is removed (T3)."""
 
-        assert steps
-        assert steps[0]["severity"] == "critical"
-        order = ["critical", "major", "minor"]
-        positions = [order.index(step["severity"]) for step in steps]
-        assert positions == sorted(positions)
+        assert "recommended_next_steps" not in briefed
+        assert briefed["findings"][0]["severity"] == "critical"
+        assert all(f["recommended_action"] for f in briefed["findings"])
 
 
 class TestReadinessExplanation:
@@ -134,20 +142,21 @@ class TestReadinessExplanation:
         computed = explanation["earned_weight"] / explanation["applicable_weight"] * 100
         assert round(computed) == readiness["percentage"]
 
-    def test_areas_are_split_into_contributing_and_missing(self, briefed: dict) -> None:
-        explanation = briefed["readiness"]["explanation"]
+    def test_every_area_is_rendered_once_with_its_state(self, briefed: dict) -> None:
+        """One list keyed on state, replacing three overlapping ones (T3)."""
 
-        assert explanation["contributing"], "some areas were covered by the seed"
-        assert explanation["missing"], "some areas were deliberately left empty"
-        contributing = {area["area"] for area in explanation["contributing"]}
-        missing = {area["area"] for area in explanation["missing"]}
-        assert contributing.isdisjoint(missing)
+        areas = briefed["readiness"]["explanation"]["areas"]
+
+        keys = [area["area"] for area in areas]
+        assert len(keys) == len(set(keys))
+        assert {a["state"] for a in areas} <= {"sufficient", "partial", "missing"}
 
     def test_a_missing_area_states_what_would_close_it(self, briefed: dict) -> None:
         """ "Missing" without a threshold is a complaint, not an instruction."""
 
-        missing = briefed["readiness"]["explanation"]["missing"]
+        missing = [a for a in briefed["readiness"]["explanation"]["areas"] if a["credit"] == 0]
 
+        assert missing
         assert all(area["confirmed_needed"] >= 1 for area in missing)
         assert all(area["confirmed_statements"] == 0 for area in missing)
 
@@ -159,12 +168,11 @@ class TestReadinessExplanation:
         """
 
         explanation = briefed["readiness"]["explanation"]
-        partial = [a for a in explanation["contributing"] if a["state"] == "partial"]
+        partial = [a for a in explanation["areas"] if a["state"] == "partial"]
 
         assert partial, "the seed leaves functional requirements short of its minimum"
         assert all(0 < a["credit"] < 1.0 for a in partial)
         assert all(a["weight_outstanding"] > 0 for a in partial)
-        assert {a["area"] for a in partial} <= {a["area"] for a in explanation["incomplete"]}
 
     def test_projection_is_arithmetic_not_prediction(self, briefed: dict) -> None:
         """Resolving the mandatory areas must land exactly on the weighted score.
@@ -179,7 +187,9 @@ class TestReadinessExplanation:
 
         # Every mandatory area still short of full credit, partial ones included.
         outstanding = sum(
-            area["weight_outstanding"] for area in explanation["incomplete"] if area["mandatory"]
+            area["weight_outstanding"]
+            for area in explanation["areas"]
+            if area["mandatory"] and area["credit"] < 1.0
         )
         expected = (
             (explanation["earned_weight"] + outstanding) / explanation["applicable_weight"] * 100
@@ -189,8 +199,9 @@ class TestReadinessExplanation:
 
     def test_projection_names_the_areas_it_assumes_resolved(self, briefed: dict) -> None:
         required = {area["area"] for area in briefed["readiness"]["projection"]["requires"]}
+        missing = {area["area"] for area in briefed["readiness"]["missing_mandatory_areas"]}
 
-        assert required == set(briefed["readiness"]["missing_mandatory_areas"])
+        assert required == missing
 
 
 class TestKnowledgeHealth:
@@ -270,8 +281,7 @@ class TestGroundingAndTraceability:
         assert readiness["status_label"] == "In discovery"
         assert readiness["ready_for"]["Implementation"] is False
         assert readiness["implementation_eligible"] is False
-        # Machine keys survive unchanged; the readable area names sit beside them.
-        assert readiness["missing_mandatory_areas"] == [
-            a["area"] for a in readiness["missing_information"]
-        ]
-        assert "Scope and boundaries" in [a["name"] for a in readiness["missing_information"]]
+        # missing_information duplicated these keys and is removed (T3); the
+        # readable names now sit on missing_mandatory_areas itself.
+        assert "missing_information" not in readiness
+        assert "Scope and boundaries" in [a["name"] for a in readiness["missing_mandatory_areas"]]

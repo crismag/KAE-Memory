@@ -222,6 +222,9 @@ def from_arguments(arguments: Mapping[str, Any], base: ResponsePolicy) -> Respon
     dropping one lets a caller believe a budget applied when it did not.
     """
 
+    # Optional tool arguments arrive as None when unset; an absent control
+    # must mean "use the default", not "reset to it".
+    arguments = {k: v for k, v in arguments.items() if v is not None}
     profile_name = arguments.get("profile")
     policy = PROFILES[_profile(str(profile_name))] if profile_name else base
 
@@ -269,7 +272,9 @@ def project(
     """Return ``payload`` reduced to what ``policy`` allows.
 
     ``field_levels`` says the lowest detail level at which each field appears;
-    a field absent from the map is always included. Integrity fields are kept
+    a field absent from the map is always included. Keys may be dotted —
+    ``readiness.explanation`` prunes inside a nested object — because the fields
+    worth dropping are not all at the top level. Integrity fields are kept
     regardless of either.
 
     Dropped fields are reported rather than silently removed — a response that
@@ -277,18 +282,7 @@ def project(
     nothing to put there.
     """
 
-    kept: dict[str, Any] = {}
-    dropped: list[str] = []
-
-    for key, value in payload.items():
-        if key in INTEGRITY_FIELDS:
-            kept[key] = value
-            continue
-        required = field_levels.get(key)
-        if required is not None and not includes(policy.detail, required):
-            dropped.append(key)
-            continue
-        kept[key] = value
+    kept, dropped = _prune(payload, policy, field_levels, prefix="")
 
     if policy.prose is not ProseLevel.STANDARD:
         kept = _shorten(kept, policy.prose)
@@ -302,6 +296,36 @@ def project(
             "retrieve_with": f"the same call with detail={DetailLevel.DIAGNOSTIC.value}",
         }
     return kept
+
+
+def _prune(
+    payload: Mapping[str, Any],
+    policy: ResponsePolicy,
+    field_levels: Mapping[str, DetailLevel],
+    prefix: str,
+) -> tuple[dict[str, Any], list[str]]:
+    """Return ``payload`` without fields this detail level excludes."""
+
+    kept: dict[str, Any] = {}
+    dropped: list[str] = []
+
+    for key, value in payload.items():
+        path = f"{prefix}{key}"
+        if key in INTEGRITY_FIELDS:
+            kept[key] = value
+            continue
+        required = field_levels.get(path)
+        if required is not None and not includes(policy.detail, required):
+            dropped.append(path)
+            continue
+        if isinstance(value, dict) and any(k.startswith(f"{path}.") for k in field_levels):
+            nested, nested_dropped = _prune(value, policy, field_levels, prefix=f"{path}.")
+            kept[key] = nested
+            dropped.extend(nested_dropped)
+            continue
+        kept[key] = value
+
+    return kept, dropped
 
 
 def within_budget(payload: Mapping[str, Any], policy: ResponsePolicy) -> bool:
