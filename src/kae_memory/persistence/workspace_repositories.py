@@ -58,19 +58,22 @@ class ProjectRepository:
             )
         )
 
+    def find_by_key(self, key: str) -> Project | None:
+        """Return a project by its human-facing key, or ``None`` if unknown.
+
+        The key is unique, which is what lets creation be idempotent: a second
+        request naming a project that already exists resolves to it rather than
+        colliding on the constraint.
+        """
+
+        row = self._session.scalars(select(ProjectRow).where(ProjectRow.project_key == key)).first()
+        return None if row is None else _project_to_domain(row)
+
     def get(self, project_id: ProjectId) -> Project | None:
         """Return a project by identifier, or ``None`` if unknown."""
 
         row = self._session.get(ProjectRow, str(project_id))
-        if row is None:
-            return None
-        return Project(
-            id=ProjectId(row.project_id),
-            name=row.name,
-            key=row.project_key,
-            description=row.description,
-            status=ProjectStatus(row.status),
-        )
+        return None if row is None else _project_to_domain(row)
 
     def list_all(self) -> tuple[Project, ...]:
         """Return every project, newest first."""
@@ -553,6 +556,16 @@ def _fenced(run: AgentRun) -> Any:
         AgentRunRow.lease_owner == run.lease.owner,
         AgentRunRow.lease_token == run.lease.token,
         AgentRunRow.lease_expires_at > run.lease.heartbeat_at,
+    )
+
+
+def _project_to_domain(row: ProjectRow) -> Project:
+    return Project(
+        id=ProjectId(row.project_id),
+        name=row.name,
+        key=row.project_key,
+        description=row.description,
+        status=ProjectStatus(row.status),
     )
 
 

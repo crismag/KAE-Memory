@@ -3,6 +3,13 @@
 This repository uses layered, selective context. Load only the layers required
 for the current activity.
 
+## Using KAE rather than building it
+
+[`docs/user-guide/`](user-guide/) is written for people *using* KAE through an
+MCP client — the tool reference, and getting a project from empty to readable.
+Everything else in this index is contributor context. If you are here to use the
+system rather than change it, that folder is the whole of what you need.
+
 ## Load first — repository status, current phase, implementation kickoff
 
 [`docs/00_project/CURRENT_PROJECT_STATE.md`](00_project/CURRENT_PROJECT_STATE.md)

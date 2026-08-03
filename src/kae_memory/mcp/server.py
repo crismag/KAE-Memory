@@ -97,6 +97,27 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "kae_create_project",
+        "description": (
+            "Create a project. Only a name is required; the key is derived from "
+            "it. Idempotent by key — creating twice returns the existing project "
+            "with created=false rather than failing."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "key": {
+                    "type": "string",
+                    "description": "Optional. Derived from the name when omitted.",
+                },
+                "description": {"type": "string"},
+            },
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_get_project_briefing",
         "description": (
             "Current understanding of one project: confirmed statements by area, "
@@ -266,6 +287,12 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
 
     handlers = {
         "kae_list_projects": lambda: tools.kae_list_projects(context),
+        "kae_create_project": lambda: tools.kae_create_project(
+            context,
+            arguments.get("name", ""),
+            arguments.get("key"),
+            arguments.get("description"),
+        ),
         "kae_get_project_briefing": lambda: tools.kae_get_project_briefing(
             context, arguments.get("project_id", "")
         ),
@@ -359,6 +386,15 @@ def build_server(context: tools.ToolContext) -> Any:
 
     def kae_list_projects() -> dict[str, Any]:
         return dispatch(context, "kae_list_projects", {})
+
+    def kae_create_project(
+        name: str, key: str | None = None, description: str | None = None
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_create_project",
+            {"name": name, "key": key, "description": description},
+        )
 
     def kae_get_project_briefing(project_id: str) -> dict[str, Any]:
         return dispatch(context, "kae_get_project_briefing", {"project_id": project_id})

@@ -34,6 +34,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase C — Knowledge review surfaces
 
+- [x] **T11B** — Implement `kae_create_project` — 2026-08-03. Out of sequence: an
+  agent could submit an observation about a project but could not bring one into
+  being, so the surface was unusable without a second channel. Settles the open
+  question of whether project creation is human-only — it is not.
+
 - [ ] **T12** — Implement `kae_confirm_knowledge`
 - [ ] **T13** — Implement `kae_reject_knowledge`
 - [ ] **T14** — Implement `kae_correct_knowledge`
