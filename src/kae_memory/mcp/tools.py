@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from kae_memory.agents.provider import ranks_by_meaning
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
@@ -71,11 +72,12 @@ class ToolContext:
     def semantic_ranking(self) -> bool:
         """Whether the active embedder ranks by meaning.
 
-        The deterministic adapter is hash-derived. TASK-009 measured its recall
-        at chance, so a response ranked by it must not be presented as semantic.
+        Asks the provider registry rather than comparing to a string, so
+        adding a provider cannot accidentally advertise semantics it lacks: a
+        new name is non-semantic until it is listed as one.
         """
 
-        return self.embedder_name != "deterministic"
+        return ranks_by_meaning(self.embedder_name)
 
 
 def _require_project(context: ToolContext, project_id: str) -> Any:

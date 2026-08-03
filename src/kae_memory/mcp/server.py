@@ -19,7 +19,7 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from kae_memory.agents.embedding import DeterministicEmbeddingAdapter
+from kae_memory.agents import provider
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
@@ -77,14 +77,14 @@ def build_context(url: str | None = None) -> tools.ToolContext:
 
     engine = create_engine(url or database_url(), pool_pre_ping=True)
     factory = sessionmaker(engine)
-    embedder = DeterministicEmbeddingAdapter()
+    embedder, name = provider.build_embedder(os.environ)
     return tools.ToolContext(
         memory=MemoryService(factory),
         blueprint=BlueprintService(factory),
         readiness=ReadinessService(factory),
         review=ReviewService(factory),
         retrieval=RetrievalService(factory, embedder),
-        embedder_name="deterministic",
+        embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
 
