@@ -29,6 +29,13 @@ through persistent memory.
 M8 is complete: knowledge is chunked, embedded, and searchable by cosine distance
 over a real `VECTOR(1024)` index, with every hit explaining why it was returned.
 
+**Corrected 2026-08-03.** That claim was true of the retrieval machinery and
+false of the system. Nothing in `src/` called `chunk_knowledge`, so knowledge
+written through any production path committed without chunks and no search could
+reach it. The one project that looked healthy had been chunked by hand during
+fixture preparation. Writes now index in the same transaction; see
+`../09_development/DEFECT_KNOWLEDGE_INDEXING.md`.
+
 **One caveat carried forward.** The suite runs offline against a deterministic
 embedder, which verifies the retrieval *pipeline* but cannot rank meaning.
 Measured recall is chance-level by construction. Ranking quality needs the opt-in
