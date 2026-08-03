@@ -165,12 +165,13 @@ def test_doctor_fails_without_a_database_url() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Eight tools. `kae_create_project` was added because an agent could submit an
+    Nine tools. `kae_create_project` was added because an agent could submit an
     observation about a project but could not bring one into being, which made
-    the surface unusable without a second channel.
+    the surface unusable without a second channel. `kae_confirm_knowledge` was
+    added in T12 — see the write-surface test below for what that cost.
     """
 
-    assert len(TOOL_DEFINITIONS) == 8
+    assert len(TOOL_DEFINITIONS) == 9
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -181,21 +182,70 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_get_open_decisions",
         "kae_get_readiness",
         "kae_submit_observation",
+        "kae_confirm_knowledge",
     }
 
 
 def test_the_write_surface_is_named_and_small() -> None:
-    """Two writes, and neither confirms anything.
+    """Three writes. One of them confirms, and that is a deliberate weakening.
 
-    One brings a subject into being, the other adds evidence about one.
-    Confirmation stays a human act (FR-005), so no tool here may perform it.
+    This test previously asserted that *no* tool here could confirm anything:
+    with confirmation absent from the surface, FR-005 held structurally and an
+    agent could not violate it. Phase C required exposing confirmation to MCP,
+    so that guarantee is gone and cannot be recovered by wording.
+
+    What replaces it is attribution, checked below: the surface may relay a
+    human decision but may never originate one anonymously.
     """
 
-    writers = {"kae_create_project", "kae_submit_observation"}
+    writers = {"kae_create_project", "kae_submit_observation", "kae_confirm_knowledge"}
     names = {d["name"] for d in TOOL_DEFINITIONS}
 
+    assert writers == {d["name"] for d in TOOL_DEFINITIONS if _is_write(d)}
     assert writers <= names
-    assert not {n for n in names if "confirm" in n or "approve" in n}
+
+
+def test_a_confirmation_must_name_the_person_who_made_it() -> None:
+    """The residual protection after FR-005 stopped being structural.
+
+    An agent that has not been told who is confirming cannot supply `reviewer`,
+    so it cannot record "a person confirmed this" on its own initiative. The
+    audit trail never carries an unattributed human decision.
+    """
+
+    confirming = [d for d in TOOL_DEFINITIONS if "confirm" in d["name"]]
+    assert confirming, "the confirmation tool is expected to exist from T12 onward"
+    for definition in confirming:
+        required = definition["inputSchema"]["required"]
+        assert "reviewer" in required, definition["name"]
+        assert "expected_version" in required, definition["name"]
+
+
+def test_no_tool_approves_or_confirms_without_review() -> None:
+    """Bulk and blanket approval stay off the surface entirely.
+
+    One item, one named reviewer, one version. A tool that confirmed many items
+    at once would make the reviewer's attention unverifiable, which is the thing
+    the attribution requirement is protecting.
+    """
+
+    for definition in TOOL_DEFINITIONS:
+        name = definition["name"]
+        assert "approve" not in name, name
+        assert not name.endswith("_all"), name
+        if "confirm" in name:
+            properties = definition["inputSchema"]["properties"]
+            assert "knowledge_id" in properties, name
+            assert "knowledge_ids" not in properties, name
+
+
+def _is_write(definition: dict) -> bool:
+    """Whether a tool changes durable state."""
+
+    return any(
+        token in definition["name"]
+        for token in ("create", "submit", "confirm", "reject", "correct")
+    )
 
 
 def test_no_tool_exposes_storage_operations() -> None:

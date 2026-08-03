@@ -28,14 +28,20 @@ from kae_memory.application.retrieval_service import (
 )
 from kae_memory.application.review_service import Finding, ReviewService
 from kae_memory.domain.chunks import strip_metadata_prefix
-from kae_memory.domain.identifiers import ProjectId, SessionId
+from kae_memory.domain.errors import InvalidLifecycleTransitionError, StaleVersionError
+from kae_memory.domain.errors import KnowledgeNotFoundError as DomainKnowledgeNotFound
+from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SessionId
+from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp.errors import (
     CapabilityUnavailableError,
     InvalidArgumentError,
+    InvalidStateTransitionError,
+    KnowledgeNotFoundError,
     ProjectNotFoundError,
+    VersionConflictError,
 )
 from kae_memory.mcp.response_policy import PROFILES, ResponsePolicy, ResponseProfile
 
@@ -732,7 +738,11 @@ def kae_submit_observation(
         project.id,
         SessionId(str(open_session.id)),
         content,
-        actor_type=ActorType.USER,
+        # An agent submitted this, so it is recorded as an agent. Labelling it
+        # USER — as this did — put a model's output into the evidence log under
+        # the actor type reserved for a person, which is exactly the confusion
+        # the review surface exists to prevent.
+        actor_type=ActorType.AGENT,
         message_type=MessageType.PROPOSAL,
         actor_id="mcp-agent",
         idempotency_key=idempotency_key,
@@ -765,3 +775,73 @@ def _render_observation(
     if classification_hint:
         lines.append(f"Classification hint: {classification_hint}")
     return "\n".join(lines)
+
+
+def kae_confirm_knowledge(
+    context: ToolContext,
+    project_id: str,
+    knowledge_id: str,
+    expected_version: Any = None,
+    note: str | None = None,
+    reviewer: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Relay a person's decision to accept one proposed item as authoritative.
+
+    The tool *relays* a decision; it does not make one. FR-005 keeps
+    confirmation a human act, and this surface is reached by agents, so the
+    separation cannot rest on the capability being absent — it rests on the
+    decision being attributable.
+
+    ``reviewer`` is therefore required. An agent that has not been told who is
+    confirming cannot supply it, and the audit trail never says a person decided
+    without naming which person. That is weaker than not having the tool at all,
+    and it is the trade recorded in PHASE_C_DECISIONS.md.
+    """
+
+    project = _require_project(context, project_id)
+    if not knowledge_id or not knowledge_id.strip():
+        raise InvalidArgumentError("knowledge_id is required")
+    if not reviewer or not reviewer.strip():
+        raise InvalidArgumentError(
+            "reviewer is required: confirmation is a human act, and the record "
+            "must name the person who made it rather than the agent relaying it"
+        )
+    if expected_version is None:
+        raise InvalidArgumentError(
+            "expected_version is required so a decision cannot be applied to "
+            "wording that has changed since it was read"
+        )
+    try:
+        version = int(expected_version)
+    except (TypeError, ValueError):
+        raise InvalidArgumentError("expected_version must be an integer") from None
+    if version < 1:
+        raise InvalidArgumentError("expected_version must be 1 or greater")
+
+    try:
+        outcome = context.memory.review_confirm(
+            project.id,
+            KnowledgeItemId(knowledge_id),
+            expected_version=version,
+            actor_type=ActorType.USER,
+            actor_id=reviewer.strip(),
+            note=note,
+            idempotency_key=idempotency_key,
+        )
+    except DomainKnowledgeNotFound as error:
+        raise KnowledgeNotFoundError(str(error)) from None
+    except StaleVersionError as error:
+        raise VersionConflictError(str(error)) from None
+    except InvalidLifecycleTransitionError as error:
+        raise InvalidStateTransitionError(str(error)) from None
+
+    return {
+        "knowledge_id": knowledge_id,
+        "state": outcome.item.lifecycle.value,
+        "version": outcome.item.current_version.number,
+        "authoritative": outcome.item.lifecycle is LifecycleState.VALIDATED,
+        "already_applied": outcome.replayed,
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "readiness_changed": not outcome.replayed,
+    }

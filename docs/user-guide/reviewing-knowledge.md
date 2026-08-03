@@ -1,0 +1,144 @@
+# Reviewing knowledge
+
+KAE-Memory records what agents propose. It does not decide what is true. That
+decision is yours, and this is the surface where you make it.
+
+Everything an agent submits arrives as **proposed**. Proposed knowledge is
+visible, searchable, and marked as proposed everywhere it appears. It never
+becomes authoritative on its own, however many times an agent repeats it.
+
+## The states
+
+| State | Meaning |
+|---|---|
+| `proposed` | Recorded, not decided. Contributes partial readiness. |
+| `validated` | A person accepted it. Authoritative. |
+| `rejected` | A person turned it down. Kept as history; contributes nothing. |
+| `superseded` | Replaced by a different statement. Kept; contributes nothing. |
+
+`validated` is the repository's word for what some documents call "confirmed".
+There is one state, not two words for one state.
+
+## `kae_confirm_knowledge`
+
+Accepts one proposed item as authoritative, without changing its wording.
+
+```json
+{
+  "project_id": "…",
+  "knowledge_id": "…",
+  "expected_version": 1,
+  "reviewer": "cris",
+  "note": "Matches the approval policy.",
+  "idempotency_key": "review-2026-08-03-01"
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `project_id` | yes | The item must belong to it |
+| `knowledge_id` | yes | |
+| `expected_version` | yes | The version you read |
+| `note` | no | Why you accepted it |
+| `reviewer` | **yes** | The person whose decision this is |
+| `idempotency_key` | no | Supply it to make retries safe |
+
+Response:
+
+```json
+{
+  "knowledge_id": "…",
+  "state": "validated",
+  "version": 1,
+  "authoritative": true,
+  "already_applied": false,
+  "knowledge_revision": 42,
+  "readiness_changed": true
+}
+```
+
+### Why `reviewer` is required
+
+Confirmation is a human act (FR-005). Before Phase C, that held because the
+capability simply was not on the MCP surface — no agent could confirm anything
+because no tool could. Exposing this tool removes that guarantee, and no amount
+of wording in a tool description restores it.
+
+What replaces it is attribution. An agent that has not been told who is
+confirming cannot supply `reviewer`, and the record never says a person decided
+without naming which person. This is weaker than the tool not existing, and the
+trade is recorded in the Phase C decisions.
+
+You are relaying a decision, not making one. If nobody has told you who is
+confirming, do not call this tool.
+
+### Why `expected_version` is required
+
+A confirmation is about wording, not about an item in the abstract. If the text
+changed after you read it, your decision is about text you have not seen, so it
+is refused rather than applied. Re-read the item and decide on what it says now.
+
+### Retries
+
+With an `idempotency_key`, retrying a confirmation returns the decision already
+recorded and reports `already_applied: true`. One decision is stored, not two.
+
+Without a key, confirming an already-confirmed item is still safe — it reports
+the current state and records nothing new — but a retry cannot be distinguished
+from a fresh decision, so supply a key when the call might be repeated.
+
+A retry is not the same as a **stale** request. A retry replays a decision you
+already made; a stale request is a decision about wording someone has since
+changed. The first succeeds, the second is refused.
+
+### Valid transitions
+
+```
+proposed → validated
+```
+
+Rejected and superseded knowledge cannot be confirmed. Reopening a rejection is
+a different act with different consequences, and it is not this tool.
+
+### Errors
+
+| Code | Meaning |
+|---|---|
+| `project_not_found` | No such project |
+| `knowledge_not_found` | No such item **in this project** |
+| `version_conflict` | The wording moved; re-read and decide again |
+| `invalid_state_transition` | Not reachable from the current state |
+| `invalid_argument` | A missing or malformed argument |
+
+`knowledge_not_found` covers both "does not exist" and "belongs to another
+project", deliberately. A separate code would confirm that an item you may not
+touch exists somewhere else.
+
+### What it records
+
+Every confirmation appends one row to the review log: the item, the version
+reviewed, the states moved between, who decided, when, and any note. The log is
+append-only. Confirming does not alter the statement's content or provenance.
+
+### What it does to readiness
+
+Readiness counts confirmed knowledge, so a confirmation can move an area from
+partial to sufficient. Recalculation is not immediate: the project's knowledge
+revision advances, which marks earlier readiness snapshots stale, and the next
+calculation reflects the change. `readiness_changed` means "the revision
+advanced", not "a new percentage has been computed".
+
+## Who is the actor
+
+This tool records that **a person** decided. An agent calling it on its own
+initiative would be writing "a person confirmed this" into the audit trail,
+which is the one claim the trail exists to keep honest.
+
+Agent-submitted observations are recorded as agent activity and stay proposed.
+Nothing an agent does moves knowledge into `validated`.
+
+## Not yet available
+
+`kae_reject_knowledge` and `kae_correct_knowledge` are in progress. Until they
+land, rejection and correction are available through the application service but
+not through MCP.

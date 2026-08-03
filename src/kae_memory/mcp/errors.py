@@ -34,6 +34,38 @@ class InvalidArgumentError(McpError):
     code = "invalid_argument"
 
 
+class KnowledgeNotFoundError(McpError):
+    """The knowledge item does not exist in this project.
+
+    One code covers "no such item" and "belongs to another project". A separate
+    mismatch code would confirm that an item the caller may not touch exists
+    somewhere else, and that is the fact the ownership check withholds.
+    """
+
+    code = "knowledge_not_found"
+
+
+class VersionConflictError(McpError):
+    """The item changed since the caller read it.
+
+    Not a transient failure and not worth a blind retry: the wording the
+    decision was about is no longer the current wording. Re-read the item and
+    decide again on what it says now.
+    """
+
+    code = "version_conflict"
+
+
+class InvalidStateTransitionError(McpError):
+    """The requested decision is not available from the item's current state.
+
+    Rejected and superseded knowledge cannot be confirmed. Reopening is a
+    different act with different consequences, and it is not this tool.
+    """
+
+    code = "invalid_state_transition"
+
+
 @dataclass
 class CapabilityUnavailableError(McpError):
     """The capability is not implemented, and the gap is reported rather than faked.

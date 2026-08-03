@@ -110,5 +110,13 @@ class Message:
             raise DomainInvariantError("message content must not be empty")
         if self.created_at.tzinfo is None:
             raise DomainInvariantError("message created_at must be timezone-aware")
-        if self.actor_type is ActorType.AGENT and self.agent_run_id is None:
-            raise DomainInvariantError("agent messages must reference the run that produced them")
+        if self.actor_type is ActorType.AGENT and not (self.agent_run_id or self.actor_id):
+            # An agent's output must be attributable to something. Usually that
+            # is the run that produced it; for an agent working through MCP the
+            # run happened outside this system, so the named actor carries the
+            # accountability instead. What is refused is an agent message that
+            # names neither — the alternative to which was labelling it USER and
+            # putting model output under the actor type reserved for a person.
+            raise DomainInvariantError(
+                "agent messages must name the run that produced them, or the external actor"
+            )

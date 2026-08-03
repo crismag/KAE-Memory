@@ -237,6 +237,37 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "kae_confirm_knowledge",
+        "description": (
+            "Record a person's decision to accept one proposed knowledge item as "
+            "authoritative. Requires expected_version: the decision is about "
+            "specific wording, and a version that has moved is refused rather "
+            "than applied. Do not call this on your own initiative — confirmation "
+            "is a human act, and this tool records that a person made it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "knowledge_id": {"type": "string"},
+                "expected_version": {"type": "integer", "minimum": 1},
+                "note": {"type": "string"},
+                "reviewer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": (
+                        "The person whose decision this is. Required: you are "
+                        "relaying their decision, not making one. If you have "
+                        "not been told who is confirming, do not call this tool."
+                    ),
+                },
+                "idempotency_key": {"type": "string", "maxLength": 200},
+            },
+            "required": ["project_id", "knowledge_id", "expected_version", "reviewer"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 RESOURCE_DEFINITIONS: list[dict[str, str]] = [
@@ -355,6 +386,15 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+        ),
+        "kae_confirm_knowledge": lambda: tools.kae_confirm_knowledge(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("knowledge_id", ""),
+            arguments.get("expected_version"),
+            arguments.get("note"),
+            arguments.get("reviewer"),
+            arguments.get("idempotency_key"),
         ),
     }
     handler = handlers.get(name)
@@ -511,6 +551,27 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_confirm_knowledge(
+        project_id: str,
+        knowledge_id: str,
+        expected_version: int,
+        note: str | None = None,
+        reviewer: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_confirm_knowledge",
+            {
+                "project_id": project_id,
+                "knowledge_id": knowledge_id,
+                "expected_version": expected_version,
+                "note": note,
+                "reviewer": reviewer,
+                "idempotency_key": idempotency_key,
+            },
+        )
+
     wrappers = {
         handler.__name__: handler
         for handler in (
@@ -522,6 +583,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_get_open_decisions,
             kae_get_readiness,
             kae_submit_observation,
+            kae_confirm_knowledge,
         )
     }
 

@@ -440,3 +440,41 @@ class ReadinessSnapshotRow(Base):
     unresolved_contradiction_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     area_results: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeReviewEventRow(Base):
+    """Append-only record of a human decision about a knowledge item.
+
+    ``knowledge_item_id`` is ``String(64)`` to match ``knowledge_items.id``,
+    which revision 0001 created as a string rather than a UUID column.
+    """
+
+    __tablename__ = "knowledge_review_events"
+    __table_args__ = (
+        # Idempotency is enforced here rather than by a read-then-insert: a
+        # lookup before an insert races, and a replayed confirmation must not
+        # produce a second decision even if two clients retry at once.
+        UniqueConstraint(
+            "knowledge_item_id",
+            "idempotency_key",
+            name="uq_review_events_item_idempotency",
+        ),
+        Index("ix_review_events_item_created", "knowledge_item_id", "created_at"),
+        Index("ix_review_events_project_created", "project_id", "created_at"),
+    )
+
+    review_event_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    knowledge_item_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False
+    )
+    version_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    action: Mapped[str] = mapped_column(String(40), nullable=False)
+    from_lifecycle: Mapped[str] = mapped_column(String(32), nullable=False)
+    to_lifecycle: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_id: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    reason_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

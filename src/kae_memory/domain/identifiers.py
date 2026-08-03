@@ -88,3 +88,8 @@ class AreaLinkId(Identifier):
 @dataclass(frozen=True, slots=True)
 class SnapshotId(Identifier):
     """Stable readiness-snapshot identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewEventId(Identifier):
+    """Stable knowledge-review-event identifier."""
