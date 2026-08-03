@@ -888,6 +888,114 @@ class MemoryService:
             reason_code=reason_code,
         )
 
+    def review_correct(
+        self,
+        project_id: ProjectId,
+        item_id: KnowledgeItemId,
+        expected_version: int,
+        content: str,
+        source: str = "human review",
+        actor_type: ActorType = ActorType.USER,
+        actor_id: str | None = None,
+        note: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> ReviewOutcome:
+        """Replace a statement's wording and record who rewrote it.
+
+        The resulting lifecycle depends on what was corrected, and the split is
+        deliberate:
+
+        * A **proposed** item becomes ``VALIDATED``. The reviewer wrote the
+          words themselves, so requiring them to then confirm text they just
+          authored is ceremony, not review.
+        * A **validated** item returns to ``PROPOSED``. Its confirmation applied
+          to the previous wording, and carrying that forward onto text nobody
+          else has read is the easiest way to slip an unreviewed claim into the
+          confirmed set.
+
+        It keys on the actor as well as the prior state. Only a person's
+        correction may validate: an agent rewriting a proposal is proposing
+        again, and letting the worker take this path would put confirmation back
+        in a model's hands (FR-005) in the one place nobody would look for it.
+
+        The previous version is untouched — versions are append-only, and the
+        original AI wording remains readable as the provenance of anything
+        derived from it while it stood.
+        """
+
+        if not content.strip():
+            raise ValueError("a correction must not be empty")
+
+        moment = self._clock()
+
+        def operation(db_session: DbSession) -> ReviewOutcome:
+            events = ReviewEventRepository(db_session)
+            if idempotency_key is not None:
+                replayed = events.find_by_idempotency_key(item_id, idempotency_key)
+                if replayed is not None:
+                    return ReviewOutcome(
+                        item=_require_owned(db_session, project_id, item_id),
+                        event=replayed,
+                        replayed=True,
+                    )
+
+            item = _require_owned(db_session, project_id, item_id)
+            previous = item.current_version.number
+            if previous != expected_version:
+                raise StaleVersionError(
+                    f"knowledge has moved to version {previous}; "
+                    f"the correction was written against version {expected_version}"
+                )
+            if item.lifecycle in {LifecycleState.REJECTED, LifecycleState.SUPERSEDED}:
+                raise DomainInvariantError(
+                    f"cannot correct {item.lifecycle.value} knowledge; record a new statement"
+                )
+
+            was_proposed = item.lifecycle is LifecycleState.PROPOSED
+            corrected = item.append_version(
+                content,
+                Provenance(
+                    source=source,
+                    actor_id=AgentId(actor_id or "human"),
+                    execution_id=ExecutionId(HUMAN_EXECUTION),
+                    recorded_at=moment,
+                ),
+                moment,
+            )
+            # `append_version` returns to PROPOSED unconditionally. Only a human
+            # reviewer's correction of an unreviewed statement earns validation.
+            if was_proposed and actor_type is ActorType.USER:
+                corrected = corrected.transition_to(LifecycleState.VALIDATED)
+
+            SqlAlchemyKnowledgeRepository(db_session).save(corrected)
+            _reindex(db_session, corrected, moment)
+
+            event = KnowledgeReviewEvent(
+                id=ReviewEventId(_new_id()),
+                project_id=project_id,
+                knowledge_item_id=item_id,
+                version_number=corrected.current_version.number,
+                from_version_number=previous,
+                action=ReviewAction.CORRECTED,
+                from_lifecycle=item.lifecycle,
+                to_lifecycle=corrected.lifecycle,
+                actor_type=actor_type,
+                created_at=moment,
+                actor_id=actor_id,
+                note=note,
+                idempotency_key=idempotency_key,
+            )
+            events.add(event)
+            bump_knowledge_revision(db_session, project_id)
+            return ReviewOutcome(item=corrected, event=event, replayed=False)
+
+        try:
+            return self._run(operation)
+        except IntegrityError as error:
+            if idempotency_key is None:
+                raise
+            return self._replayed_outcome(project_id, item_id, idempotency_key, error)
+
     def _review(
         self,
         project_id: ProjectId,

@@ -205,7 +205,74 @@ The embedded body still carries the status it had when written, so a confirmed
 statement's text may read `Status: proposed` while its `state` correctly reads
 `validated`.
 
-## Not yet available
+## `kae_correct_knowledge`
 
-`kae_correct_knowledge` is in progress. Until it lands, correction is available
-through the application service but not through MCP.
+Replaces a statement's wording. The previous wording is **kept**, never
+overwritten — versions are append-only, and what the agent originally proposed
+stays readable alongside what you made of it.
+
+```json
+{
+  "project_id": "…",
+  "knowledge_id": "…",
+  "expected_version": 1,
+  "content": "The service publishes reports over SQS.",
+  "reviewer": "cris",
+  "note": "The repository uses SQS."
+}
+```
+
+### What it does to the state
+
+| You correct a… | It becomes | Why |
+|---|---|---|
+| `proposed` statement | `validated` | You wrote the words; confirming your own text is ceremony |
+| `validated` statement | `proposed` | The earlier confirmation covered the *previous* wording |
+
+An **agent** correcting a proposal never validates it. Only a person's
+correction can, or the worker could confirm knowledge and FR-005 would fall in a
+second place nobody would look.
+
+### Embedding
+
+Correction changes what the statement means, so its vector is out of date.
+Following ADR-0008:
+
+1. the corrected text is stored and searchable **immediately** by lexical match;
+2. the chunk is marked stale and queued for re-embedding;
+3. the previous vector keeps serving semantic hits until the new one lands, so
+   retrieval degrades rather than disappearing;
+4. once re-embedded, the old vector is gone.
+
+The response reports `"embedding": "pending"`. No embedding model is called
+inside the review transaction.
+
+### Response
+
+```json
+{
+  "knowledge_id": "…",
+  "state": "validated",
+  "version": 2,
+  "replaced_version": 1,
+  "authoritative": true,
+  "already_applied": false,
+  "embedding": "pending"
+}
+```
+
+### Retries
+
+With an `idempotency_key`, a retry returns the recorded correction rather than
+appending a second version. Without one, a repeated call is a **new** correction
+of the corrected text — and its `expected_version` will no longer match, so it
+is refused as a conflict rather than silently stacking.
+
+## Reading the history
+
+Every decision is on the record: the item, the version, the states moved
+between, who decided, when, and why. Corrections name both versions, so
+"what did we originally think, and what did we change it to" is answerable.
+
+A correction stays distinguishable from a plain confirmation even when both end
+`validated` — only one of them rewrote what the project says.

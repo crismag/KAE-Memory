@@ -469,6 +469,7 @@ class KnowledgeReviewEventRow(Base):
         ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False
     )
     version_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    from_version_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     action: Mapped[str] = mapped_column(String(40), nullable=False)
     from_lifecycle: Mapped[str] = mapped_column(String(32), nullable=False)
     to_lifecycle: Mapped[str] = mapped_column(String(32), nullable=False)
