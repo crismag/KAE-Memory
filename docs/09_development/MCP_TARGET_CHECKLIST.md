@@ -7,6 +7,9 @@ sequenced: Phase A reduces what every later response costs, Phase B fixes the
 one capability that currently reports itself unavailable, and Phases C to E add
 the surfaces for engine capability that already exists but cannot be reached.
 
+T1B was inserted between T1 and T2 to settle the response-policy architecture
+before any response is changed.
+
 Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ---
@@ -14,6 +17,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 ## Phase A — Token and response efficiency
 
 - [x] **T1** — Measure current MCP response size and duplication — [`MCP_RESPONSE_BASELINE.md`](MCP_RESPONSE_BASELINE.md), 2026-08-03
+- [x] **T1B** — Define MCP response profiles and consumption controls — [`MCP_RESPONSE_POLICY.md`](../06_architecture/MCP_RESPONSE_POLICY.md), 2026-08-03
 - [ ] **T2** — Define compact MCP response conventions
 - [ ] **T3** — Trim `kae_get_project_briefing`
 - [ ] **T4** — Apply pagination, limits, and detail levels to read tools
