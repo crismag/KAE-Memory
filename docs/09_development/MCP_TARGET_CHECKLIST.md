@@ -27,7 +27,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 - [ ] **T6** — Select the production/demo embedding model
 - [ ] **T7** — Add embedding model and version metadata
-- [ ] **T8** — Implement the real embedding provider
+- [ ] **T8** — Implement the real embedding provider. Verified 2026-08-03:
+  `TitanEmbeddingAdapter` invokes `amazon.titan-embed-text-v2:0` live and returns
+  1024 unit-normalised dimensions, matching ADR-0008 and the `VECTOR(1024)`
+  column. What remains is wiring plus one fix — `worker/execution.py:383` demands
+  `AWS_REGION` and should fall back through `AWS_DEFAULT_REGION` to
+  `boto3.Session().region_name` before raising, so a correctly configured profile
+  is enough on its own
 - [ ] **T9** — Build restartable re-embedding workflow
 - [ ] **T10** — Re-embed existing knowledge
 - [ ] **T11** — Validate semantic retrieval quality
