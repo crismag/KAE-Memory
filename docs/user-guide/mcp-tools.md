@@ -193,6 +193,24 @@ all; use the HTTP API.
 
 ---
 
+## Naming the project
+
+Every tool except `kae_list_projects` and `kae_create_project` needs a
+`project_id` — the UUID, not the name. There is **no current-project setting**:
+each call names its project, and nothing is remembered between calls.
+
+In practice your client infers it from the conversation. That works, and it is
+worth knowing it is an inference: if you have been discussing one project and
+ask "show blockers", the client picks that project because it read your last few
+messages, not because KAE has a notion of where you are. **Name the project
+whenever it matters.**
+
+Two things follow. Nothing can leak between projects — no tool returns knowledge
+from a project you did not name. But a client *can* ask about the wrong one, and
+the only signal is the project named in the answer, so read it.
+
+A default-scope design is recorded as **T25** and is not built.
+
 ## Things that will surprise you
 
 **An empty project produces a *bigger* briefing than a full one.** The response
