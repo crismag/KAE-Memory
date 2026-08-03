@@ -28,6 +28,7 @@ from kae_memory.agents.review import (
     ReviewRequest,
 )
 from kae_memory.agents.review_adapter import DeterministicReviewAdapter
+from kae_memory.application.ingestion_service import DEFAULT_MAX_ITEMS_PER_CHUNK
 from kae_memory.application.memory_service import MemoryService, WriteKnowledgeRequest
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.review_service import ReviewService, Severity, classify_offline
@@ -127,8 +128,16 @@ class AgentStepExecutor:
                 "a requirements run needs input_context.message_id or input_context.source_text"
             )
 
+        # A fan-out sets the breadth per chunk; a single message uses the
+        # default. Reading it from the run rather than from configuration keeps
+        # one document's policy attached to the runs it created.
+        max_items = int(context.get("max_items") or DEFAULT_MAX_ITEMS_PER_CHUNK)
         result = self.extractor.extract(
-            ExtractionRequest(role=AgentRole.REQUIREMENTS, source_text=str(source_text))
+            ExtractionRequest(
+                role=AgentRole.REQUIREMENTS,
+                source_text=str(source_text),
+                max_items=max_items,
+            )
         )
         return self._write(
             memory,

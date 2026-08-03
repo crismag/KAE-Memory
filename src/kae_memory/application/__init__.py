@@ -5,6 +5,13 @@ credentials and never issue SQL against domain tables (ADR-0004).
 """
 
 from .blueprint_service import Blueprint, BlueprintService, KnowledgeTrace, StatementLabel
+from .ingestion_service import (
+    IngestedChunk,
+    IngestionPolicy,
+    IngestionResult,
+    IngestionService,
+    policy_from_environment,
+)
 from .memory_service import MemoryService, WriteKnowledgeRequest
 from .readiness_service import ReadinessService
 from .retrieval_service import RetrievalService, SearchHit
@@ -15,6 +22,10 @@ __all__ = [
     "BlueprintService",
     "Finding",
     "FindingKind",
+    "IngestedChunk",
+    "IngestionPolicy",
+    "IngestionResult",
+    "IngestionService",
     "KnowledgeTrace",
     "MemoryService",
     "ReadinessService",
@@ -24,4 +35,5 @@ __all__ = [
     "Severity",
     "StatementLabel",
     "WriteKnowledgeRequest",
+    "policy_from_environment",
 ]
