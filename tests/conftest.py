@@ -37,6 +37,50 @@ def admin_url() -> str:
     return os.environ.get("KAE_TEST_DATABASE_URL", DEFAULT_TEST_URL)
 
 
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", ""})
+"""Hosts a test is allowed to drop a schema on."""
+
+DISPOSABLE_PREFIX = "kae_mig_"
+"""Database-name prefix the migration fixture creates and owns."""
+
+
+def require_disposable_target(url: str) -> None:
+    """Refuse to run a destructive migration against anything but a scratch database.
+
+    Called by the destructive tests themselves rather than only by the fixture
+    that builds their target. A fixture that resolves the wrong URL is exactly
+    the failure this guards against, so a guard that trusts the fixture guards
+    nothing — ``migrations/env.py`` reading ``KAE_DATABASE_URL`` ahead of the
+    Alembic config already turned ``downgrade base`` on a developer's real
+    database into a passing test once.
+
+    Fails closed: an unparseable or unrecognised target is refused, not allowed.
+    """
+
+    try:
+        parsed = sa.engine.url.make_url(url)
+    except Exception as error:
+        raise RuntimeError(
+            f"refusing a destructive migration against an unparseable URL: {error}"
+        ) from error
+
+    host = (parsed.host or "").strip()
+    database = (parsed.database or "").strip()
+
+    if host not in LOCAL_HOSTS:
+        raise RuntimeError(
+            f"refusing to run a destructive migration against remote host {host!r}. "
+            "These tests drop every table. Point KAE_TEST_DATABASE_URL at a local "
+            "cluster, or start one with `make test-db-up`."
+        )
+    if not database.startswith(DISPOSABLE_PREFIX):
+        raise RuntimeError(
+            f"refusing to run a destructive migration against database {database!r}, "
+            f"which the test fixture did not create (expected a {DISPOSABLE_PREFIX}* name). "
+            "This is what a leaked KAE_DATABASE_URL looks like."
+        )
+
+
 def database_url(base_url: str, database: str) -> str:
     """Return ``base_url`` pointed at a different database."""
 
@@ -132,6 +176,7 @@ def alembic_config(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Config, st
     url = database_url(base, name)
     config.set_main_option("sqlalchemy.url", url)
     monkeypatch.setenv("KAE_DATABASE_URL", url)
+    require_disposable_target(url)
 
     yield config, url
 
