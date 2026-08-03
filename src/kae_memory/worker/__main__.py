@@ -21,7 +21,7 @@ from types import FrameType
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from .execution import AgentStepExecutor, default_extractor
+from .execution import AgentStepExecutor, default_extractor, default_reviewer
 from .runner import Worker, WorkerConfig
 
 _LOGGER = logging.getLogger("kae_memory.worker")
@@ -114,7 +114,8 @@ def main() -> None:
     engine = create_engine(url, pool_pre_ping=True)
     factory = sessionmaker(engine)
     config = build_config()
-    worker = Worker(factory, AgentStepExecutor(factory, default_extractor()), config)
+    executor = AgentStepExecutor(factory, default_extractor(), default_reviewer())
+    worker = Worker(factory, executor, config)
 
     cancel_shutdown_deadline = install_signal_handlers(worker, config.graceful_shutdown_seconds)
     _LOGGER.info(

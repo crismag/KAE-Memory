@@ -45,13 +45,7 @@ from .review import (
     UnverifiableReviewError,
 )
 from .review_adapter import DeterministicReviewAdapter, offline_review_fixture
-from .roles import (
-    AgentOutcome,
-    ArchitectureAgent,
-    RequirementsAgent,
-    ReviewAgent,
-    ReviewOutcome,
-)
+from .roles import AgentOutcome, ArchitectureAgent, RequirementsAgent
 
 __all__ = [
     "EMBEDDING_DIMENSIONS",
@@ -80,11 +74,9 @@ __all__ = [
     "ProviderTimeoutError",
     "ProviderUnavailableError",
     "RequirementsAgent",
-    "ReviewAgent",
     "ReviewError",
     "ReviewFinding",
     "ReviewFindingKind",
-    "ReviewOutcome",
     "ReviewPort",
     "ReviewRequest",
     "ReviewResult",
