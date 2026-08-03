@@ -33,13 +33,14 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 - [ ] **T6** — Select the production/demo embedding model
 - [ ] **T7** — Add embedding model and version metadata
-- [ ] **T8** — Implement the real embedding provider. Verified 2026-08-03:
-  `TitanEmbeddingAdapter` invokes `amazon.titan-embed-text-v2:0` live and returns
-  1024 unit-normalised dimensions, matching ADR-0008 and the `VECTOR(1024)`
-  column. What remains is wiring plus one fix — `worker/execution.py:383` demands
-  `AWS_REGION` and should fall back through `AWS_DEFAULT_REGION` to
-  `boto3.Session().region_name` before raising, so a correctly configured profile
-  is enough on its own
+- [x] **T6** — Select the model — ADR-0008, `amazon.titan-embed-text-v2:0`,
+  availability verified in `ca-central-1` 2026-08-03
+- [x] **T7** — Model and version metadata — `embedding_model`,
+  `embedding_dimensions`, `embedding_version` recorded on every chunk
+- [x] **T8** — Implement the real embedding provider — `agents/provider.py`,
+  2026-08-03. `KAE_EMBEDDING` selects; region resolves through AWS_REGION,
+  AWS_DEFAULT_REGION, then the active profile; selection raises rather than
+  falling back to hash-derived vectors
 - [ ] **T9** — Build restartable re-embedding workflow
 - [ ] **T10** — Re-embed existing knowledge
 - [ ] **T11** — Validate semantic retrieval quality

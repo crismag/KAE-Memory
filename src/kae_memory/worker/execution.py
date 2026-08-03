@@ -21,6 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
 from kae_memory.agents.extraction import ExtractionError, ExtractionPort, ExtractionRequest
+from kae_memory.agents.provider import resolve_region
 from kae_memory.agents.review import (
     ReviewedStatement,
     ReviewFindingKind,
@@ -378,7 +379,13 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
 
     from kae_memory.agents.bedrock import BedrockExtractionAdapter
 
-    region = os.environ.get("AWS_REGION", "").strip()
+    # A correctly configured AWS profile is enough on its own. Demanding
+    # AWS_REGION when ~/.aws/config already carries one makes a valid
+    # configuration look broken, which is the defect this resolves.
+    region = resolve_region()
     if not region:
-        raise RuntimeError("KAE_EXTRACTION=bedrock requires AWS_REGION.")
+        raise RuntimeError(
+            "KAE_EXTRACTION=bedrock requires an AWS region via AWS_REGION, "
+            "AWS_DEFAULT_REGION, or the active AWS profile."
+        )
     return BedrockExtractionAdapter(region=region)
