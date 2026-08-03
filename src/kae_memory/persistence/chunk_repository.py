@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.orm import Session as DbSession
 
 from kae_memory.domain.chunks import (
@@ -92,6 +92,67 @@ class ChunkRepository:
             .order_by(KnowledgeChunkRow.chunk_index)
         ).all()
         return tuple(_to_domain(row) for row in rows)
+
+    def supersede(self, chunk: KnowledgeChunk) -> None:
+        """Replace a chunk's text, keeping its vector until a re-embed lands.
+
+        The old vector describes text that no longer exists, but the row's text
+        is current, so a semantic hit returns the right words with a stale
+        ranking. Deleting instead would make the item vanish from vector search
+        entirely — retrieval should degrade, not disappear (ADR-0008).
+        """
+
+        self._session.execute(
+            update(KnowledgeChunkRow)
+            .where(KnowledgeChunkRow.chunk_id == str(chunk.id))
+            .values(
+                chunk_text=chunk.text,
+                content_hash=chunk.hash_value,
+                embedding_state=EmbeddingState.STALE.value,
+            )
+        )
+
+    def delete_for_knowledge(self, knowledge_id: KnowledgeItemId) -> int:
+        """Remove every chunk of one knowledge item. Returns how many went.
+
+        Used when a correction leaves fewer chunks than before; a surplus chunk
+        left behind would keep matching text the item no longer says.
+        """
+
+        existing = len(self.list_for_knowledge(knowledge_id))
+        self._session.execute(
+            delete(KnowledgeChunkRow).where(KnowledgeChunkRow.knowledge_id == str(knowledge_id))
+        )
+        return existing
+
+    def delete(self, chunk_id: ChunkId) -> None:
+        """Remove one chunk."""
+
+        self._session.execute(
+            delete(KnowledgeChunkRow).where(KnowledgeChunkRow.chunk_id == str(chunk_id))
+        )
+
+    def counts_for_project(self, project_id: ProjectId) -> tuple[int, int]:
+        """Return ``(chunks, embedded)`` for one project.
+
+        The signal that separates "nothing matched" from "nothing is indexed",
+        which are the same empty list to a caller who cannot tell them apart.
+        """
+
+        total = self._session.scalar(
+            select(func.count())
+            .select_from(KnowledgeChunkRow)
+            .where(KnowledgeChunkRow.project_id == str(project_id))
+        )
+        embedded = self._session.scalar(
+            select(func.count())
+            .select_from(KnowledgeChunkRow)
+            .where(
+                KnowledgeChunkRow.project_id == str(project_id),
+                KnowledgeChunkRow.embedding.is_not(None),
+            )
+        )
+        return int(total or 0), int(embedded or 0)
 
     def list_needing_embedding(
         self, project_id: ProjectId, limit: int = 100

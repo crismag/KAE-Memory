@@ -31,7 +31,35 @@ from kae_memory.persistence.chunk_repository import (
     LexicalChunk,
     RetrievedChunk,
 )
+from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
+
+
+@dataclass(frozen=True, slots=True)
+class IndexingStatus:
+    """How much of a project's knowledge is reachable by search."""
+
+    knowledge_items: int
+    chunks: int
+    embedded_chunks: int
+
+    @property
+    def lexically_searchable(self) -> bool:
+        """Whether any knowledge can be found by term matching."""
+
+        return self.chunks > 0
+
+    @property
+    def unindexed(self) -> bool:
+        """Whether the project holds knowledge that no search can reach."""
+
+        return self.knowledge_items > 0 and self.chunks == 0
+
+    @property
+    def embedding_pending(self) -> int:
+        """Chunks awaiting a vector. Lexical works; semantic does not yet."""
+
+        return self.chunks - self.embedded_chunks
 
 
 class SearchMode(StrEnum):
@@ -94,7 +122,16 @@ class RetrievalService:
         The metadata prefix is part of the embedded text: it tells the model that
         "monthly" is a rule inside a reporting project rather than a stray adverb,
         without needing a separate index per knowledge type.
+
+        Idempotent. Knowledge is now chunked by the write that creates it, so
+        this is reached either by a backfill over items written before that, or
+        by a caller re-running it; both must be safe. An item that already has
+        chunks gets them back unchanged rather than a duplicate-key error.
         """
+
+        already = self._run(lambda session: ChunkRepository(session).list_for_knowledge(item.id))
+        if already:
+            return already
 
         moment = self._clock()
         kind = KnowledgeKind(item.kind)
@@ -158,6 +195,22 @@ class RetrievalService:
 
         self._run(store)
         return len(pending)
+
+    def indexing_status(self, project_id: ProjectId) -> "IndexingStatus":
+        """Report whether a project's knowledge can be found at all.
+
+        The signal that separates "nothing matched your query" from "nothing is
+        searchable yet". They are the same empty list to a caller who cannot
+        tell them apart, and treating the second as the first is how a project
+        comes to look emptier than it is.
+        """
+
+        def operation(session: DbSession) -> IndexingStatus:
+            items = len(SqlAlchemyKnowledgeRepository(session).list_for_project(project_id, None))
+            chunks, embedded = ChunkRepository(session).counts_for_project(project_id)
+            return IndexingStatus(knowledge_items=items, chunks=chunks, embedded_chunks=embedded)
+
+        return self._run(operation)
 
     def search(
         self,
@@ -260,6 +313,7 @@ def _to_lexical_hit(hit: LexicalChunk, query_terms: tuple[str, ...]) -> SearchHi
 __all__ = [
     "EMBEDDING_VERSION",
     "MAX_DISTANCE",
+    "IndexingStatus",
     "RetrievalService",
     "SearchHit",
     "SearchMode",

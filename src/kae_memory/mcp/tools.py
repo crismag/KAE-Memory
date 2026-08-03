@@ -381,7 +381,25 @@ def _project_knowledge_named(context: ToolContext, project: Any, module: str) ->
     }
     if context.retrieval is None:
         offer["available"] = False
-        offer["reason"] = "no retrieval service is configured in this environment"
+        offer["reason"] = "retrieval_service_not_configured"
+        offer["statements"] = []
+        offer["count"] = 0
+        return offer
+
+    status = context.retrieval.indexing_status(project.id)
+    if status.unindexed:
+        # Knowledge exists and none of it is reachable. Returning an empty list
+        # here would read as "this project knows nothing about that", which is a
+        # different and wrong answer.
+        offer["available"] = False
+        offer["reason"] = "project_knowledge_not_indexed"
+        offer["knowledge_items"] = status.knowledge_items
+        offer["searchable_chunks"] = status.chunks
+        offer["detail"] = (
+            "This project holds knowledge that has never been indexed, so no "
+            "search can reach it. The empty result below reflects the index, "
+            "not the project."
+        )
         offer["statements"] = []
         offer["count"] = 0
         return offer
@@ -539,10 +557,24 @@ def kae_search_knowledge(
     else:
         hits = context.retrieval.search(project.id, query, limit=limit, kinds=parsed_kinds)
 
-    if not hits:
+    status = context.retrieval.indexing_status(project.id)
+    if not hits and status.unindexed:
+        # An unindexed project cannot answer any query. Saying "nothing matched"
+        # would report a fact about the index as a fact about the project.
+        warnings.append(
+            f"This project holds {status.knowledge_items} knowledge item(s) and "
+            "none are indexed, so no search can reach them. This empty result "
+            "reflects the index, not the project."
+        )
+    elif not hits:
         warnings.append(
             "Nothing matched. This is a result, not a failure: no stored knowledge "
             "met the relevance threshold for this query."
+        )
+    if status.embedding_pending and resolved == "semantic":
+        warnings.append(
+            f"{status.embedding_pending} chunk(s) are awaiting an embedding and "
+            "cannot be reached by semantic search yet."
         )
 
     payload: dict[str, Any] = {
@@ -566,6 +598,12 @@ def kae_search_knowledge(
             for hit in hits
         ],
         "count": len(hits),
+        "indexing": {
+            "knowledge_items": status.knowledge_items,
+            "searchable_chunks": status.chunks,
+            "embedded_chunks": status.embedded_chunks,
+            "lexically_searchable": status.lexically_searchable,
+        },
         "warnings": warnings,
     }
 

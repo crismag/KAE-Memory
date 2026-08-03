@@ -18,11 +18,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.chunks import KnowledgeChunk, metadata_prefix, split_text
 from kae_memory.domain.errors import DomainInvariantError, IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import (
     AgentId,
     AgentRunId,
+    ChunkId,
     ExecutionId,
     KnowledgeItemId,
     MessageId,
@@ -34,6 +36,7 @@ from kae_memory.domain.identifiers import (
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import (
     KnowledgeItem,
+    KnowledgeKind,
     KnowledgeVersion,
     Project,
     Provenance,
@@ -49,6 +52,7 @@ from kae_memory.domain.workspace import (
     Session,
     SessionType,
 )
+from kae_memory.persistence.chunk_repository import ChunkRepository
 from kae_memory.persistence.readiness_repositories import (
     RelationshipRepository,
     bump_knowledge_revision,
@@ -86,6 +90,56 @@ def project_key_from_name(name: str) -> str:
 
     slug = _KEY_SEPARATORS.sub("-", name.strip().casefold()).strip("-")
     return slug[:120] or f"project-{_new_id()[:8]}"
+
+
+def _chunks_for(
+    item: KnowledgeItem, project_name: str, moment: datetime
+) -> tuple[KnowledgeChunk, ...]:
+    """Return the searchable chunks one knowledge item should have.
+
+    The same split and metadata prefix the retrieval service applies, so a
+    chunk written here is indistinguishable from one written by the indexing
+    path that already existed.
+    """
+
+    kind = KnowledgeKind(item.kind)
+    prefix = metadata_prefix(project_name, kind, None, item.lifecycle.value)
+    return tuple(
+        KnowledgeChunk(
+            id=ChunkId(_new_id()),
+            project_id=item.project_id,
+            knowledge_id=item.id,
+            knowledge_kind=kind,
+            chunk_index=index,
+            text=f"{prefix}\n\n{body}",
+            created_at=moment,
+        )
+        for index, body in enumerate(split_text(item.current_version.content))
+    )
+
+
+def _reindex(db_session: DbSession, item: KnowledgeItem, moment: datetime) -> None:
+    """Bring an item's chunks back in line with its current text.
+
+    Where a chunk still exists at the same index its text is superseded rather
+    than replaced, so the stale vector keeps serving semantic hits until a
+    re-embed lands (ADR-0008). Surplus chunks are removed, because a chunk the
+    item no longer produces would go on matching text it no longer says.
+    """
+
+    chunks = ChunkRepository(db_session)
+    project = ProjectRepository(db_session).get(item.project_id)
+    fresh = _chunks_for(item, project.name if project else "", moment)
+    current = chunks.list_for_knowledge(item.id)
+
+    for index, replacement in enumerate(fresh):
+        if index < len(current):
+            chunks.supersede(current[index].superseded_by(replacement.text))
+        else:
+            chunks.add(replacement)
+
+    for surplus in current[len(fresh) :]:
+        chunks.delete(surplus.id)
 
 
 HUMAN_EXECUTION = "human"
@@ -582,7 +636,11 @@ class MemoryService:
 
             knowledge = SqlAlchemyKnowledgeRepository(db_session)
             links = ProvenanceLinkRepository(db_session)
+            chunks = ChunkRepository(db_session)
+            project = ProjectRepository(db_session).get(run.project_id)
+            project_name = project.name if project else ""
             written: list[KnowledgeItem] = []
+            pending_chunks: list[KnowledgeChunk] = []
 
             # Collapse targets: statements the project already holds that a
             # human has not ruled out. Rejected and superseded items are
@@ -647,6 +705,7 @@ class MemoryService:
                     ),
                 )
                 knowledge.add(item)
+                pending_chunks.extend(_chunks_for(item, project_name, moment))
                 existing[_collapse_key(item.kind, request.content)] = item
                 links.add(
                     ProvenanceLink(
@@ -672,6 +731,19 @@ class MemoryService:
                         )
                     )
                 written.append(item)
+
+            if pending_chunks:
+                # Flushed before the chunks that reference them: a chunk carries
+                # a foreign key to its item, so relying on the unit of work to
+                # order two independent `add` calls leaves the dependency
+                # implicit and, on this schema, wrong.
+                db_session.flush()
+                # Indexed in the same transaction as the item it describes.
+                # Knowledge that commits without chunks is invisible to every
+                # search path, and a caller cannot tell that from having asked
+                # about something the project does not know.
+                for chunk in pending_chunks:
+                    chunks.add(chunk)
 
             if len(written) > len(collapsed):
                 # Writing knowledge is an authoritative change, so any readiness
@@ -774,6 +846,7 @@ class MemoryService:
                 moment,
             )
             repository.save(corrected)
+            _reindex(db_session, corrected, moment)
             links = ProvenanceLinkRepository(db_session)
             if from_message_id is not None:
                 links.add(
