@@ -47,10 +47,16 @@ def test_downgrade_removes_every_table(alembic_config: tuple[Config, str]) -> No
     config, url = alembic_config
 
     command.upgrade(config, "head")
-    command.downgrade(config, "base")
-
     engine = create_engine(url)
     try:
+        created = set(inspect(engine).get_table_names())
+        # Proving the upgrade landed *in this database* is what stops the
+        # assertion below passing vacuously. An empty database satisfies "no
+        # expected tables remain" perfectly, so without this the test reports
+        # success precisely when the migration ran somewhere else.
+        assert created >= EXPECTED_TABLES
+
+        command.downgrade(config, "base")
         remaining = set(inspect(engine).get_table_names())
     finally:
         engine.dispose()
