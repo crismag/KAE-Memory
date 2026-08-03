@@ -19,11 +19,11 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [x] **T1** — Measure current MCP response size and duplication — [`MCP_RESPONSE_BASELINE.md`](MCP_RESPONSE_BASELINE.md), 2026-08-03
 - [x] **T1B** — Define MCP response profiles and consumption controls — [`MCP_RESPONSE_POLICY.md`](../06_architecture/MCP_RESPONSE_POLICY.md), 2026-08-03
 - [x] **T2** — Define compact MCP response conventions — `mcp/response_policy.py`, 2026-08-03
-- [x] **T3** — Trim `kae_get_project_briefing` — 12,199 → 3,634 chars (71%), 2026-08-03
 - [x] **T2B** — Compact response conventions (style) —
   [`ADR-0021`](../06_architecture/ADR-0021-COMPACT-RESPONSE-CONVENTIONS.md),
-  2026-08-03. T2 shipped the mechanism; this is the naming, nulls, ordering, and
-  references half. Audit: 6 of 8 tools partially compliant, none non-compliant
+  2026-08-03. T2 shipped the mechanism; this is the naming, nulls, ordering,
+  and references half. Audit: 6 of 8 tools partial, none non-compliant
+- [x] **T3** — Trim `kae_get_project_briefing` — 12,199 → 3,634 chars (71%), 2026-08-03
 - [ ] **T4** — Apply pagination, limits, and detail levels to read tools. Must
   honour ADR-0021 §Coordination: wrapper shape, the `count` split, per-area
   counts at `diagnostic`, and the prose treatment of `why` and `note`
@@ -31,8 +31,6 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase B — Embedding replacement
 
-- [ ] **T6** — Select the production/demo embedding model
-- [ ] **T7** — Add embedding model and version metadata
 - [x] **T6** — Select the model — ADR-0008, `amazon.titan-embed-text-v2:0`,
   availability verified in `ca-central-1` 2026-08-03
 - [x] **T7** — Model and version metadata — `embedding_model`,
