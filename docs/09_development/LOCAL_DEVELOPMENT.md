@@ -18,7 +18,8 @@ purpose: it holds your projects, and wiping them on every restart would make
 
 | Process | Address | Notes |
 | --- | --- | --- |
-| CockroachDB | `localhost:26259`, console on `8081` | Docker, **persistent volume** — separate from the disposable test database on 26258 |
+| PostgreSQL + pgvector | `localhost:5432` | The default provider. `kae_memory` for development, `kae_memory_test` for the suite — never the same database |
+| CockroachDB | `localhost:26259`, console on `8081` | Also supported (ADR-0022). Docker, **persistent volume** — separate from the disposable test database on 26258 |
 | API | `127.0.0.1:8000` | Loopback only. It has no authentication (ADR-0014) |
 | Worker | — | Claims and executes queued runs |
 | Workspace | `localhost:5173` | Vite, proxying `/v1` and `/health` to the API |
@@ -66,7 +67,7 @@ path declining to invent judgement, not a defect (ADR-0015).
 ## Other commands
 
 ```bash
-make check           # ruff, ruff format, mypy strict, pytest against CockroachDB
+make check           # ruff, ruff format, mypy strict, pytest against the selected provider
 make openapi         # regenerate the OpenAPI document and the typed client
 make dev-db-down     # stop the development database, keep the data
 make dev-db-reset    # destroy the development data — not undoable
