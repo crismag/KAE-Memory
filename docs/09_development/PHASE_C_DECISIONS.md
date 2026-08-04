@@ -154,3 +154,34 @@ system, which is why `kae_submit_observation` had been recording model output as
 `ActorType.USER`. The invariant now requires an agent message to name either the
 run or the external actor — accountability is preserved, and the mislabel is
 gone.
+
+
+## T22 scope — approved 2026-08-03
+
+**Manifests are returned, never persisted.** KAE-Memory stays the
+knowledge-and-lineage authority; it does not become a package store or a
+publisher.
+
+T22 therefore adds:
+
+* no package or artifact tables
+* no publication mechanism of any kind
+
+and returns a compact deterministic manifest carrying: package ID, project ID,
+assembly purpose/profile, pinned `knowledge_revision`, schema and generator
+versions, generation timestamp, content hash, artifact entries, **per-artifact**
+source-knowledge lineage, confirmation state, unresolved critical gaps, and
+warnings.
+
+Lineage is per artifact rather than one combined list for the package, so one
+changed requirement does not invalidate artifacts it never fed.
+
+**Staleness compares against a manifest the caller supplies.** The server holds
+no history to compare against and does not need one. `AssemblyManifest`
+([assembly_service.py:149](../../src/kae_memory/application/assembly_service.py#L149))
+already pins a revision and exposes `is_stale_against`, so this is the existing
+mechanism reached through MCP rather than a new one.
+
+Storage and publication may later belong to KAE-Studio. **Persistent package
+history is a future capability requiring explicit approval**, not part of T22
+and not to be added incrementally under it.
