@@ -165,14 +165,13 @@ def test_doctor_fails_without_a_database_url() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Ten tools. `kae_create_project` was added because an agent could submit an
-    observation about a project but could not bring one into being, which made
-    the surface unusable without a second channel. `kae_confirm_knowledge` and
-    `kae_reject_knowledge` were added in T12 and T13 — see the write-surface
-    test below for what that cost.
+    Eleven tools. `kae_create_project` was added because an agent could submit
+    an observation about a project but could not bring one into being, which
+    made the surface unusable without a second channel. The three review tools
+    arrived in T12 to T14 — see the write-surface test below for what that cost.
     """
 
-    assert len(TOOL_DEFINITIONS) == 10
+    assert len(TOOL_DEFINITIONS) == 11
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -185,11 +184,12 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_submit_observation",
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
+        "kae_correct_knowledge",
     }
 
 
 def test_the_write_surface_is_named_and_small() -> None:
-    """Four writes. Two of them decide, and that is a deliberate weakening.
+    """Five writes. Three of them decide, and that is a deliberate weakening.
 
     This test previously asserted that *no* tool here could confirm anything:
     with confirmation absent from the surface, FR-005 held structurally and an
@@ -205,6 +205,7 @@ def test_the_write_surface_is_named_and_small() -> None:
         "kae_submit_observation",
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
+        "kae_correct_knowledge",
     }
     names = {d["name"] for d in TOOL_DEFINITIONS}
 
@@ -220,7 +221,11 @@ def test_a_confirmation_must_name_the_person_who_made_it() -> None:
     audit trail never carries an unattributed human decision.
     """
 
-    deciding = [d for d in TOOL_DEFINITIONS if "confirm" in d["name"] or "reject" in d["name"]]
+    deciding = [
+        d
+        for d in TOOL_DEFINITIONS
+        if any(token in d["name"] for token in ("confirm", "reject", "correct"))
+    ]
     assert deciding, "the review tools are expected to exist from T12 onward"
     for definition in deciding:
         required = definition["inputSchema"]["required"]
@@ -240,7 +245,7 @@ def test_no_tool_approves_or_confirms_without_review() -> None:
         name = definition["name"]
         assert "approve" not in name, name
         assert not name.endswith("_all"), name
-        if "confirm" in name or "reject" in name:
+        if any(token in name for token in ("confirm", "reject", "correct")):
             properties = definition["inputSchema"]["properties"]
             assert "knowledge_id" in properties, name
             assert "knowledge_ids" not in properties, name

@@ -72,6 +72,13 @@ class KnowledgeReviewEvent:
     actor_type: ActorType
     created_at: datetime
     actor_id: str | None = None
+    from_version_number: int | None = None
+    """The version a correction replaced. ``None`` when no version changed.
+
+    Not "unknown": a confirmation decides about a version without creating one,
+    so there is nothing to name. A correction has two versions in play and an
+    event carrying one number could not say which wording gave way to which.
+    """
     reason_code: RejectionReason | None = None
     note: str | None = None
     idempotency_key: str | None = None
@@ -85,6 +92,10 @@ class KnowledgeReviewEvent:
             raise DomainInvariantError("a rejection must record why")
         if self.action is not ReviewAction.REJECTED and self.reason_code is not None:
             raise DomainInvariantError("only a rejection carries a reason code")
+        if self.from_version_number is not None and self.action is not ReviewAction.CORRECTED:
+            raise DomainInvariantError("only a correction replaces a version")
+        if self.action is ReviewAction.CORRECTED and self.from_version_number is None:
+            raise DomainInvariantError("a correction must name the version it replaced")
         if self.reason_code is RejectionReason.OTHER and not (self.note or "").strip():
             # "other" is not a reason. Without the note the event records that
             # someone declined to say, which is worse than no category at all.

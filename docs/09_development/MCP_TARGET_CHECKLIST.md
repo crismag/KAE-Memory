@@ -77,7 +77,14 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   `HISTORICAL` scopes per the B1 decision. Every result carries `state` and
   `authoritative`, read live from the item and protected as integrity fields.
   Also fixes `reject_knowledge` accepting a `note` and discarding it.
-- [ ] **T14** — Implement `kae_correct_knowledge`
+- [x] **T14** — Implement `kae_correct_knowledge` — 2026-08-03. Append-only:
+  the original proposal is preserved and attributed to the agent, the correction
+  to the person. Approved lifecycle split implemented, keyed on the **actor**
+  as well as the prior state — an agent correction never validates, or the
+  worker could confirm knowledge. Migration `0008` adds `from_version_number`,
+  because an event carrying one version number cannot say which wording gave way
+  to which. Corrected chunks are marked stale for the Phase B re-embed workflow;
+  no embedding call inside the review transaction (ADR-0008, B2).
 - [ ] **T15** — Verify audit trail and readiness recalculation
 
 ## Phase D — Clarification surfaces

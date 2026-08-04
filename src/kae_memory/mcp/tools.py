@@ -28,7 +28,11 @@ from kae_memory.application.retrieval_service import (
 )
 from kae_memory.application.review_service import Finding, ReviewService
 from kae_memory.domain.chunks import strip_metadata_prefix
-from kae_memory.domain.errors import InvalidLifecycleTransitionError, StaleVersionError
+from kae_memory.domain.errors import (
+    DomainInvariantError,
+    InvalidLifecycleTransitionError,
+    StaleVersionError,
+)
 from kae_memory.domain.errors import KnowledgeNotFoundError as DomainKnowledgeNotFound
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SessionId
 from kae_memory.domain.knowledge_review import RejectionReason
@@ -944,3 +948,75 @@ def _require_reason(reason_code: str | None, note: str | None) -> RejectionReaso
     if reason is RejectionReason.OTHER and not (note or "").strip():
         raise InvalidArgumentError("a reason_code of 'other' requires a note explaining why")
     return reason
+
+
+def kae_correct_knowledge(
+    context: ToolContext,
+    project_id: str,
+    knowledge_id: str,
+    expected_version: Any = None,
+    content: str | None = None,
+    note: str | None = None,
+    reviewer: str | None = None,
+    idempotency_key: str | None = None,
+) -> dict[str, Any]:
+    """Relay a person's corrected wording for one knowledge statement.
+
+    The previous wording is kept, not overwritten: versions are append-only, and
+    the original remains readable as the provenance of anything derived from it
+    while it stood. What the agent proposed and what the person accepted are
+    both part of the record.
+
+    Correcting an unreviewed statement accepts the corrected form, because the
+    reviewer wrote it. Correcting a confirmed one returns it to proposed — the
+    old confirmation covered the old wording.
+    """
+
+    project = _require_project(context, project_id)
+    if not knowledge_id or not knowledge_id.strip():
+        raise InvalidArgumentError("knowledge_id is required")
+    if not reviewer or not reviewer.strip():
+        raise InvalidArgumentError(
+            "reviewer is required: a correction is a human decision, and the "
+            "record must name the person who wrote it rather than the agent "
+            "relaying it"
+        )
+    if content is None or not content.strip():
+        raise InvalidArgumentError("content is required: a correction must say what it corrects to")
+    version = _require_version(expected_version)
+
+    try:
+        outcome = context.memory.review_correct(
+            project.id,
+            KnowledgeItemId(knowledge_id),
+            expected_version=version,
+            content=content,
+            actor_type=ActorType.USER,
+            actor_id=reviewer.strip(),
+            note=note,
+            idempotency_key=idempotency_key,
+        )
+    except DomainKnowledgeNotFound as error:
+        raise KnowledgeNotFoundError(str(error)) from None
+    except StaleVersionError as error:
+        raise VersionConflictError(str(error)) from None
+    except (InvalidLifecycleTransitionError, DomainInvariantError) as error:
+        raise InvalidStateTransitionError(str(error)) from None
+
+    authoritative = outcome.item.lifecycle is LifecycleState.VALIDATED
+    return {
+        "knowledge_id": knowledge_id,
+        "state": outcome.item.lifecycle.value,
+        "version": outcome.item.current_version.number,
+        "replaced_version": outcome.event.from_version_number if outcome.event else None,
+        "authoritative": authoritative,
+        "already_applied": outcome.replayed,
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "readiness_changed": not outcome.replayed,
+        "embedding": "pending" if not outcome.replayed else "unchanged",
+        "note": (
+            "Corrected wording accepted; you wrote it."
+            if authoritative
+            else "Returned to proposed: the earlier confirmation covered the previous wording."
+        ),
+    }

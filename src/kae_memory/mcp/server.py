@@ -319,6 +319,47 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "kae_correct_knowledge",
+        "description": (
+            "Record a person's corrected wording for one knowledge statement. "
+            "The previous wording is kept, never overwritten. Correcting an "
+            "unreviewed statement accepts the corrected form, because the "
+            "reviewer wrote it; correcting a confirmed one returns it to "
+            "proposed, because the old confirmation covered the old wording."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "knowledge_id": {"type": "string"},
+                "expected_version": {"type": "integer", "minimum": 1},
+                "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The corrected statement, in full.",
+                },
+                "note": {"type": "string", "description": "Why the wording changed."},
+                "reviewer": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": (
+                        "The person who wrote this correction. Required: you are "
+                        "relaying their wording, not authoring it."
+                    ),
+                },
+                "idempotency_key": {"type": "string", "maxLength": 200},
+            },
+            "required": [
+                "project_id",
+                "knowledge_id",
+                "expected_version",
+                "content",
+                "reviewer",
+            ],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 RESOURCE_DEFINITIONS: list[dict[str, str]] = [
@@ -437,6 +478,16 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+        ),
+        "kae_correct_knowledge": lambda: tools.kae_correct_knowledge(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("knowledge_id", ""),
+            arguments.get("expected_version"),
+            arguments.get("content"),
+            arguments.get("note"),
+            arguments.get("reviewer"),
+            arguments.get("idempotency_key"),
         ),
         "kae_reject_knowledge": lambda: tools.kae_reject_knowledge(
             context,
@@ -656,6 +707,29 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_correct_knowledge(
+        project_id: str,
+        knowledge_id: str,
+        expected_version: int,
+        content: str,
+        reviewer: str,
+        note: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_correct_knowledge",
+            {
+                "project_id": project_id,
+                "knowledge_id": knowledge_id,
+                "expected_version": expected_version,
+                "content": content,
+                "note": note,
+                "reviewer": reviewer,
+                "idempotency_key": idempotency_key,
+            },
+        )
+
     wrappers = {
         handler.__name__: handler
         for handler in (
@@ -669,6 +743,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_submit_observation,
             kae_confirm_knowledge,
             kae_reject_knowledge,
+            kae_correct_knowledge,
         )
     }
 
