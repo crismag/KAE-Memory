@@ -108,6 +108,10 @@ INTEGRITY_FIELDS: frozenset[str] = frozenset(
         "source_knowledge",
         # What this response itself left out
         "truncation",
+        # Questions a limit left out. Distinct from `truncation`, which is
+        # about fields a detail level dropped — a caller needs to tell
+        # "work you have not seen" from "detail we compacted away".
+        "omitted",
     }
 )
 """Fields no profile, budget, or prose level may remove.

@@ -511,6 +511,22 @@ class MemoryService:
 
         return self._run(lambda db_session: MessageRepository(db_session).get(message_id))
 
+    def message_by_idempotency_key(self, project_id: ProjectId, key: str) -> Message | None:
+        """Return the message a previous write recorded under ``key``.
+
+        Lets a caller recover the record a replay refers to without repeating
+        the write, which is what makes re-deriving an already-asked question
+        cheap instead of an error.
+        """
+
+        def operation(db_session: DbSession) -> Message | None:
+            found = MessageRepository(db_session).find_by_idempotency_key(project_id, key)
+            # The repository also returns the payload fingerprint, which is a
+            # detail of how sameness is decided and not the caller's concern.
+            return None if found is None else found[0]
+
+        return self._run(operation)
+
     def messages_for_session(self, session_id: SessionId) -> tuple[Message, ...]:
         """Return a session's messages in submission order."""
 
