@@ -1185,16 +1185,20 @@ def kae_answer_clarification(
     except ValueError as error:
         raise InvalidArgumentError(str(error)) from None
 
+    progress = context.clarification.progress(project.id, MessageId(clarification_id))
     return {
         "clarification_id": clarification_id,
         "answer_id": str(recorded.answer.id),
         "status": "answered",
+        # Explicit rather than inferred. A caller should not have to work out
+        # from `knowledge_changed: false` and a run id where this actually is.
+        "workflow_state": progress.state.value,
         "extraction_run_id": str(recorded.run_id),
         # Three separate facts, deliberately not collapsed. The answer is
         # recorded; extraction is queued and has not run; knowledge is
         # unchanged until a person confirms what extraction proposes.
         "knowledge_state": "pending_extraction",
-        "knowledge_changed": False,
+        "knowledge_changed": progress.knowledge_changed,
         "readiness_changed": False,
         "replayed": recorded.replayed,
         "knowledge_revision": context.readiness.knowledge_revision(project.id),

@@ -117,6 +117,9 @@ INTEGRITY_FIELDS: frozenset[str] = frozenset(
         # this", which is the one thing the clarification loop must not imply.
         "knowledge_state",
         "knowledge_changed",
+        # Where a caller actually is in the loop. Compacting it away would
+        # leave them inferring progress from fields that do not carry it.
+        "workflow_state",
     }
 )
 """Fields no profile, budget, or prose level may remove.

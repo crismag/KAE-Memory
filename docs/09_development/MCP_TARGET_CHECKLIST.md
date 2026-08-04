@@ -112,7 +112,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   profile can compact "answered" into "known". One logical answer per question:
   a retry replays it, a *different* answer is refused, because nothing
   downstream could say which one the project believes.
-- [ ] **T18** — Connect clarifications to blockers and knowledge
+- [x] **T18** — Connect clarifications to blockers and knowledge — 2026-08-04,
+  [PHASE_D_COMPLETION.md](PHASE_D_COMPLETION.md). The loop closes end to end
+  through the **real worker**, not a stand-in: answer accepted -> extraction
+  queued -> worker claims -> proposed knowledge with provenance -> human
+  confirms -> readiness moves. `ClarificationState` exposes where a
+  clarification has reached, derived from the records rather than stored beside
+  them. Every integrity claim has a test that fails if it stops being true —
+  including that proposed knowledge earns no readiness coverage. **Phase D
+  complete.**
 
 ## Phase E — Ingestion and assembly
 
