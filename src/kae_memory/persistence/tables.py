@@ -20,29 +20,57 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType, Uuid
 
+from kae_memory.persistence import providers
+from kae_memory.persistence.providers import ProviderAdapter
+
 JSONB = postgresql.JSONB()
 """Native JSONB.
 
-No portable variant: CockroachDB is the only engine, in production and in tests
-alike (ADR-0011)."""
+Provider-specific DDL is resolved through the configured provider adapter, not
+hardcoded here (ADR-0022)."""
+
+
+def _active_adapter() -> ProviderAdapter:
+    """Return the configured provider's adapter.
+
+    Resolved when the DDL is compiled rather than at import, so a process can be
+    configured before its schema is described — and so importing the mapping
+    never requires a database to be configured at all, which the migration
+    tooling and the unit tests both rely on.
+
+    Falls back to CockroachDB only when nothing is configured, because a bare
+    import must not fail; a real deployment resolves explicitly and a missing
+    provider is refused at startup.
+    """
+
+    try:
+        return providers.resolve().adapter
+    except providers.ProviderConfigurationError:
+        return providers.adapter_for(providers.DatabaseProvider.COCKROACHDB)
 
 
 class Vector(UserDefinedType[Any]):
-    """CockroachDB ``VECTOR(n)``.
+    """A fixed-dimension vector column, compiled per provider.
 
-    A user-defined type rather than a dialect type: CockroachDB's vector support
-    is native, and SQLAlchemy has no built-in mapping for it. Values cross as the
-    ``'[1,2,3]'`` literal CockroachDB accepts, and come back as a string that the
-    repository parses.
+    A user-defined type rather than a dialect type: SQLAlchemy has no built-in
+    mapping for either CockroachDB's native vector or pgvector's. The DDL comes
+    from the configured provider adapter, so the mapping below stays one
+    declaration rather than two schemas that must be kept in step.
+
+    The wire format is the same on both — values cross as the ``'[1,2,3]'``
+    literal and come back as a string the repository parses — which is why only
+    the column spec varies.
     """
 
     cache_ok = True
 
-    def __init__(self, dimensions: int) -> None:
+    def __init__(self, dimensions: int, adapter: ProviderAdapter | None = None) -> None:
         self.dimensions = dimensions
+        self._adapter = adapter
 
     def get_col_spec(self, **_: Any) -> str:
-        return f"VECTOR({self.dimensions})"
+        adapter = self._adapter or _active_adapter()
+        return adapter.vector_column_spec(self.dimensions)
 
     def bind_processor(self, dialect: Any) -> Any:
         def process(value: Any) -> Any:

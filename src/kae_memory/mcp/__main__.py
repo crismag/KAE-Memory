@@ -22,6 +22,7 @@ from kae_memory.mcp.server import (
     configure_logging,
     serve,
 )
+from kae_memory.persistence import providers
 
 OK = "ok"
 FAIL = "fail"
@@ -85,18 +86,34 @@ def _migration_state(url: str) -> tuple[str, str]:
         return FAIL, f"could not determine migration state ({type(exception).__name__})"
 
 
+def _provider_name() -> str:
+    """Name the selected provider for a diagnostic, without assuming one."""
+
+    try:
+        return providers.resolve_provider().value
+    except providers.ProviderConfigurationError:
+        return "database"
+
+
 def doctor() -> int:
     """Report whether this environment can serve, and exit non-zero if not."""
 
     checks: list[str] = []
     failed = False
 
-    url = os.environ.get("KAE_DATABASE_URL")
-    if not url:
-        checks.append(_line(FAIL, "KAE_DATABASE_URL", "not set"))
+    url: str | None = None
+    try:
+        database = providers.resolve()
+        url = database.url
+        described = database.describe()
+        checks.append(_line(OK, "database provider", described["database_provider"]))
+        checks.append(_line(OK, "vector provider", described["vector_provider"]))
+        checks.append(_line(OK, "connection", _redacted_target(url)))
+    except providers.ProviderConfigurationError as error:
+        # Named rather than guessed. A doctor that reported a working default
+        # would be diagnosing a deployment nobody configured.
+        checks.append(_line(FAIL, "database provider", str(error)))
         failed = True
-    else:
-        checks.append(_line(OK, "KAE_DATABASE_URL", _redacted_target(url)))
 
     environment = os.environ.get("KAE_ENVIRONMENT", "local")
     checks.append(_line(OK, "KAE_ENVIRONMENT", environment))
@@ -127,8 +144,8 @@ def doctor() -> int:
                 _line(
                     FAIL,
                     "database reachable",
-                    f"{type(exception).__name__} — is CockroachDB running, and are "
-                    "migrations applied?",
+                    f"{type(exception).__name__} — is the configured "
+                    f"{_provider_name()} running, and are migrations applied?",
                 )
             )
             failed = True

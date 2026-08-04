@@ -27,6 +27,7 @@ from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.mcp import response_policy, tools
 from kae_memory.mcp.errors import safe_error
+from kae_memory.persistence import providers
 
 LOGGER = logging.getLogger("kae_memory.mcp")
 
@@ -57,19 +58,14 @@ def configure_logging() -> None:
 
 
 def database_url() -> str:
-    """Resolve the database URL from the existing configuration mechanism.
+    """Resolve the database URL through the shared provider configuration.
 
-    The same variable the API and worker read. A second configuration format
-    for MCP would be one more thing to get wrong in a client config file.
+    The same resolver the API and worker use. A second configuration format for
+    MCP would be one more thing to get wrong in a client config file, and a
+    second place provider identity is decided.
     """
 
-    url = os.environ.get("KAE_DATABASE_URL")
-    if not url:
-        raise RuntimeError(
-            "KAE_DATABASE_URL is not set. Supply it in the MCP client's server "
-            "configuration, the same value the API and worker use."
-        )
-    return url
+    return providers.resolve().url
 
 
 def build_context(url: str | None = None) -> tools.ToolContext:

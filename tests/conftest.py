@@ -25,16 +25,45 @@ from alembic.config import Config
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from kae_memory.persistence import providers
+from kae_memory.persistence.providers import DatabaseProvider
 from kae_memory.persistence.tables import Base
 
-DEFAULT_TEST_URL = "cockroachdb+psycopg://root@localhost:26258/defaultdb?sslmode=disable"
-"""Local single-node CockroachDB. Started by ``make test-db-up``."""
+DEFAULT_TEST_URLS: dict[DatabaseProvider, str] = {
+    DatabaseProvider.COCKROACHDB: (
+        "cockroachdb+psycopg://root@localhost:26258/defaultdb?sslmode=disable"
+    ),
+    DatabaseProvider.POSTGRESQL: (
+        "postgresql+psycopg://kae:kae@localhost:5432/postgres"
+    ),
+}
+"""Where each provider's test cluster lives locally. Started by ``make test-db-up``."""
+
+DEFAULT_TEST_URL = DEFAULT_TEST_URLS[DatabaseProvider.COCKROACHDB]
+"""Kept for callers naming it directly."""
+
+TEST_PROVIDER_VARIABLE = "KAE_TEST_DATABASE_PROVIDER"
+
+
+def test_provider() -> DatabaseProvider:
+    """Return the provider the suite runs against.
+
+    Defaults rather than refusing, unlike the application: a developer running
+    the suite has not chosen a deployment, and a test run that cannot start
+    without configuration is a worse default than one that names its engine.
+    Point ``KAE_TEST_DATABASE_PROVIDER`` at the other provider to run the same
+    contract tests against it.
+    """
+
+    name = os.environ.get(TEST_PROVIDER_VARIABLE, "").strip().lower()
+    return DatabaseProvider(name) if name else DatabaseProvider.COCKROACHDB
 
 
 def admin_url() -> str:
     """Return the URL used to create and drop test databases."""
 
-    return os.environ.get("KAE_TEST_DATABASE_URL", DEFAULT_TEST_URL)
+    configured = os.environ.get("KAE_TEST_DATABASE_URL", "").strip()
+    return configured or DEFAULT_TEST_URLS[test_provider()]
 
 
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", ""})
@@ -176,6 +205,9 @@ def alembic_config(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Config, st
     url = database_url(base, name)
     config.set_main_option("sqlalchemy.url", url)
     monkeypatch.setenv("KAE_DATABASE_URL", url)
+    # The migration resolves its provider through the shared configuration, so
+    # the vector column and index compile for the engine actually under test.
+    monkeypatch.setenv("KAE_DATABASE_PROVIDER", test_provider().value)
     require_disposable_target(url)
 
     yield config, url
@@ -183,3 +215,33 @@ def alembic_config(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[Config, st
     with admin.connect() as connection:
         connection.execute(sa.text(f"DROP DATABASE {name} CASCADE"))
     admin.dispose()
+
+
+@pytest.fixture(scope="session")
+def provider() -> DatabaseProvider:
+    """The provider this run is exercising."""
+
+    return test_provider()
+
+
+@pytest.fixture(scope="session")
+def provider_adapter(provider: DatabaseProvider) -> providers.ProviderAdapter:
+    """The adapter for the provider under test.
+
+    Contract tests take this rather than reading configuration themselves, so
+    the same test body runs against either engine.
+    """
+
+    return providers.adapter_for(provider)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _announce_provider(provider: DatabaseProvider) -> None:
+    """Make the engine under test visible in the run.
+
+    A suite that passes without saying which database it used is the shape of
+    evidence, not evidence: the same assertions can hold on one engine and fail
+    on the other, which is why ADR-0011 retired SQLite in the first place.
+    """
+
+    print(f"\n[persistence] provider under test: {provider.value}")
