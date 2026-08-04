@@ -124,9 +124,19 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase E — Ingestion and assembly
 
-- [ ] **T19** — Implement `kae_ingest_document`
-- [ ] **T20** — Connect ingestion to observations and proposed knowledge
-- [ ] **T21** — Implement `kae_assemble_context`
+- [x] **T19** — Implement `kae_ingest_document` — 2026-08-04. The service
+  existed; this exposes it. The response separates three facts a caller must
+  not collapse: text recorded, extraction **queued**, knowledge unchanged. An
+  unread remainder is reported rather than dropped, because nothing downstream
+  can tell an absent requirement from one that was never read.
+- [x] **T20** — Connect ingestion to observations and proposed knowledge —
+  2026-08-04. Draining the queued runs yields candidates that are **proposed**,
+  each tracing to the stored span it came from. A document cannot confirm its
+  own contents; ingesting a file must not become the project's opinion.
+- [x] **T21** — Implement `kae_assemble_context` — 2026-08-04. Bounded by
+  purpose, pinned to a revision, and hashed, so the same inputs produce the
+  same package. The manifest always carries the confirmation split and every
+  unresolved gap: generation may be incomplete, it may never be silent.
 - [ ] **T22** — Generate compact manifests and external artifacts
 - [ ] **T23** — Complete end-to-end MCP workflow test
 

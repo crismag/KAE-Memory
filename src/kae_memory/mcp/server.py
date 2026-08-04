@@ -21,8 +21,10 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory import config as database_config
 from kae_memory.agents import provider
+from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
+from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
@@ -82,6 +84,8 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         readiness=ReadinessService(factory),
         review=ReviewService(factory),
         retrieval=RetrievalService(factory, embedder),
+        ingestion=IngestionService(factory),
+        assembly=AssemblyService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -417,6 +421,67 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "kae_ingest_document",
+        "description": (
+            "Record a document as evidence and queue it to be read. Every span "
+            "is stored verbatim so statements can trace back to it. Nothing is "
+            "known when this returns: extraction is queued, not finished, and "
+            "no knowledge has changed. Idempotent per document and content."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "document": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Source name a span is quoted from, e.g. a file path.",
+                },
+                "text": {"type": "string", "minLength": 1},
+                "max_chunks": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": (
+                        "How much of the document to read. Spans beyond this are "
+                        "reported as truncated rather than dropped silently."
+                    ),
+                },
+                "actor_id": {"type": "string"},
+            },
+            "required": ["project_id", "document", "text"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_assemble_context",
+        "description": (
+            "Assemble the knowledge one purpose needs, pinned to one revision "
+            "and hashed so the same inputs produce the same package. Bounded "
+            "rather than complete. The manifest always states the confirmation "
+            "split and every unresolved gap the package carries."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "purpose": {
+                    "type": "string",
+                    "enum": ["discovery", "architecture", "implementation"],
+                    "description": "Which areas the package reads. Defaults to implementation.",
+                },
+                "include_proposed": {
+                    "type": "boolean",
+                    "description": (
+                        "Carry unconfirmed candidates as well. The manifest says "
+                        "how much of the package is unconfirmed either way."
+                    ),
+                },
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 RESOURCE_DEFINITIONS: list[dict[str, str]] = [
@@ -529,6 +594,20 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
 
     handlers = {
         "kae_list_projects": lambda: tools.kae_list_projects(context),
+        "kae_ingest_document": lambda: tools.kae_ingest_document(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("document", ""),
+            arguments.get("text", ""),
+            arguments.get("max_chunks"),
+            arguments.get("actor_id"),
+        ),
+        "kae_assemble_context": lambda: tools.kae_assemble_context(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("purpose", "implementation"),
+            bool(arguments.get("include_proposed", False)),
+        ),
         "kae_create_project": lambda: tools.kae_create_project(
             context,
             arguments.get("name", ""),
@@ -681,6 +760,40 @@ def build_server(context: tools.ToolContext) -> Any:
 
     def kae_list_projects() -> dict[str, Any]:
         return dispatch(context, "kae_list_projects", {})
+
+    def kae_ingest_document(
+        project_id: str,
+        document: str,
+        text: str,
+        max_chunks: int | None = None,
+        actor_id: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_ingest_document",
+            {
+                "project_id": project_id,
+                "document": document,
+                "text": text,
+                "max_chunks": max_chunks,
+                "actor_id": actor_id,
+            },
+        )
+
+    def kae_assemble_context(
+        project_id: str,
+        purpose: str = "implementation",
+        include_proposed: bool = False,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_assemble_context",
+            {
+                "project_id": project_id,
+                "purpose": purpose,
+                "include_proposed": include_proposed,
+            },
+        )
 
     def kae_create_project(
         name: str, key: str | None = None, description: str | None = None
@@ -859,6 +972,8 @@ def build_server(context: tools.ToolContext) -> Any:
         for handler in (
             kae_list_projects,
             kae_create_project,
+            kae_ingest_document,
+            kae_assemble_context,
             kae_get_project_briefing,
             kae_get_module_context,
             kae_search_knowledge,
