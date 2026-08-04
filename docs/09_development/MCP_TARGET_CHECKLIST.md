@@ -146,7 +146,16 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   deterministic while `package_id` is a fresh identity per generation, because
   "the package I already have" and "this act of assembling" are different
   questions.
-- [ ] **T23** — Complete end-to-end MCP workflow test
+- [x] **T23** — Complete end-to-end MCP workflow test — 2026-08-04. The Demo V1
+  scenario, executed through the MCP surface rather than around it: create a
+  project, ingest a document, drain the queue, read the briefing, confirm a
+  candidate, assemble a bounded context, describe the package. What it defends
+  is the honesty of each transition — a workflow that quietly promoted evidence
+  to fact, or produced a package that read as complete while carrying an
+  unanswered question, would pass a naive end-to-end test and fail the only
+  claim that matters.
+
+  **Phase E verdict: complete.**
 
 ## Phase F — Project focus and default scope
 
