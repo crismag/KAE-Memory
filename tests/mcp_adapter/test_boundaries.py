@@ -177,14 +177,17 @@ def test_doctor_fails_without_a_configured_provider() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Twelve tools. `kae_create_project` was added because an agent could submit
-    an observation about a project but could not bring one into being, which
-    made the surface unusable without a second channel. The three review tools
-    arrived in T12 to T14 — see the write-surface test below for what that cost.
-    `kae_get_clarifications` arrived in T16.
+    Fifteen tools, and the list is enumerated rather than counted so that adding
+    one is a deliberate edit here. `kae_create_project` was added because an
+    agent could submit an observation about a project but could not bring one
+    into being, which made the surface unusable without a second channel. The
+    three review tools arrived in T12 to T14 — see the write-surface test below
+    for what that cost. `kae_get_clarifications` arrived in T16,
+    `kae_answer_clarification` in T17, and Phase E added `kae_ingest_document`
+    and `kae_assemble_context`.
     """
 
-    assert len(TOOL_DEFINITIONS) == 13
+    assert len(TOOL_DEFINITIONS) == 15
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -197,6 +200,8 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_submit_observation",
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
+        "kae_ingest_document",
+        "kae_assemble_context",
         "kae_correct_knowledge",
         "kae_get_clarifications",
         "kae_answer_clarification",

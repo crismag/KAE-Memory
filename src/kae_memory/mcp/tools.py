@@ -17,8 +17,19 @@ from collections.abc import Sequence
 from typing import Any
 
 from kae_memory.agents.provider import ranks_by_meaning
+from kae_memory.application.assembly_service import (
+    AssemblyPurpose,
+    AssemblyService,
+    ContextAssembly,
+    describe_package,
+)
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
+from kae_memory.application.ingestion_service import (
+    IngestionPolicy,
+    IngestionResult,
+    IngestionService,
+)
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import (
@@ -72,6 +83,8 @@ class ToolContext:
         embedder_name: str = "deterministic",
         response_policy: ResponsePolicy | None = None,
         clarification: ClarificationService | None = None,
+        ingestion: IngestionService | None = None,
+        assembly: AssemblyService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -79,6 +92,8 @@ class ToolContext:
         self.review = review
         self.retrieval = retrieval
         self.clarification = clarification
+        self.ingestion = ingestion
+        self.assembly = assembly
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -1206,5 +1221,234 @@ def kae_answer_clarification(
             "Extraction runs when a worker picks up the queued run.",
             "What it produces is proposed knowledge, not confirmed knowledge.",
             "A person confirms it with kae_confirm_knowledge.",
+        ],
+    }
+
+
+def kae_ingest_document(
+    context: ToolContext,
+    project_id: str,
+    document: str,
+    text: str,
+    max_chunks: int | None = None,
+    actor_id: str | None = None,
+) -> dict[str, Any]:
+    """Record a document as evidence and queue it to be read (T19).
+
+    The document is split and every span is stored verbatim as a message, which
+    is what a later statement traces back to. Extraction reads those stored
+    spans rather than a copy passed through this call, so the provenance chain
+    survives the trip.
+
+    **Nothing is known yet when this returns.** The response separates three
+    facts that a caller must not collapse: the text was recorded, extraction was
+    queued, and no knowledge has changed. Reading the first as the third would
+    have the project believing something no run has produced and no person has
+    confirmed.
+
+    Idempotent per document and content. Re-submitting the same document reuses
+    the messages and runs it already created instead of reading it twice.
+    """
+
+    project = _require_project(context, project_id)
+    if context.ingestion is None:
+        raise CapabilityUnavailableError(
+            capability="document ingestion",
+            missing=["ingestion_service"],
+            use_instead=["kae_submit_observation for a single statement"],
+        )
+    if not document or not document.strip():
+        raise InvalidArgumentError(
+            "document is required: it names the source a span is quoted from, "
+            "and evidence without a source cannot be traced"
+        )
+    if not text or not text.strip():
+        raise InvalidArgumentError("text is required; an empty document records nothing")
+
+    policy = IngestionPolicy()
+    if max_chunks is not None:
+        if max_chunks < 1:
+            raise InvalidArgumentError("max_chunks must be at least 1")
+        policy = IngestionPolicy(
+            target_tokens=policy.target_tokens,
+            max_tokens=policy.max_tokens,
+            max_chunks=max_chunks,
+            max_items_per_chunk=policy.max_items_per_chunk,
+        )
+
+    try:
+        result = context.ingestion.ingest_document(
+            project.id, document.strip(), text, policy=policy, actor_id=actor_id
+        )
+    except ValueError as error:
+        raise InvalidArgumentError(str(error)) from None
+
+    return _ingestion_payload(context, project_id, result)
+
+
+def _ingestion_payload(
+    context: ToolContext, project_id: str, result: IngestionResult
+) -> dict[str, Any]:
+    """Render an ingestion without overstating what it achieved."""
+
+    outstanding = (
+        context.ingestion.outstanding_runs(ProjectId(project_id))
+        if context.ingestion is not None
+        else 0
+    )
+    warnings = list(result.warnings)
+    if not result.complete:
+        warnings.append(
+            f"{result.truncated_chunks} of {result.chunks_available} spans were not "
+            f"queued: the document exceeded max_chunks. Raise max_chunks or split "
+            f"the document, or the unread remainder will be silently absent from "
+            f"everything downstream."
+        )
+
+    return {
+        "document": result.document,
+        "session_id": str(result.session_id),
+        "chunks_recorded": len(result.chunks),
+        "chunks_available": result.chunks_available,
+        "truncated_chunks": result.truncated_chunks,
+        "complete": result.complete,
+        "idempotent_replay": result.replayed,
+        "extraction_runs_queued": [str(chunk.run_id) for chunk in result.chunks],
+        "outstanding_runs": outstanding,
+        # Three separate facts, deliberately not collapsed.
+        "evidence_recorded": True,
+        "knowledge_changed": False,
+        "workflow_state": "extraction_queued" if result.chunks else "nothing_to_read",
+        "warnings": warnings,
+        "next_steps": [
+            "Extraction runs are queued, not finished. A worker must drain them "
+            "before any candidate exists.",
+            "Then kae_get_project_briefing shows what was proposed, and a person "
+            "confirms it with kae_confirm_knowledge.",
+        ],
+    }
+
+
+def kae_assemble_context(
+    context: ToolContext,
+    project_id: str,
+    purpose: str = "implementation",
+    include_proposed: bool = False,
+) -> dict[str, Any]:
+    """Assemble the knowledge one purpose needs, pinned to one revision (T21).
+
+    Bounded rather than complete: each purpose names the areas that serve it, so
+    an implementation package does not carry the architecture review's noise.
+    The bound is what makes this smaller than the project.
+
+    Deterministic. The same revision and purpose produce the same content hash,
+    so a caller can tell "this is the package I already have" from "the project
+    moved" without re-reading it.
+
+    ``include_proposed`` carries unconfirmed candidates too. Allowed, because an
+    incomplete package is often still useful — but the manifest always states
+    the confirmation split and every unresolved gap it is carrying. Generation
+    may be incomplete; it may never be silent.
+    """
+
+    project = _require_project(context, project_id)
+    if context.assembly is None:
+        raise CapabilityUnavailableError(
+            capability="context assembly",
+            missing=["assembly_service"],
+            use_instead=["kae_get_project_briefing"],
+        )
+
+    try:
+        chosen = AssemblyPurpose(purpose)
+    except ValueError:
+        raise InvalidArgumentError(
+            f"unknown purpose {purpose!r}. Choose one of: "
+            f"{', '.join(sorted(p.value for p in AssemblyPurpose))}"
+        ) from None
+
+    assembly = context.assembly.assemble(project.id, chosen, include_proposed=include_proposed)
+    return _assembly_payload(assembly)
+
+
+def _assembly_payload(assembly: ContextAssembly) -> dict[str, Any]:
+    """Render an assembly with its lineage and its limits attached."""
+
+    manifest = assembly.manifest
+    confirmation = manifest.confirmation_state
+    description = describe_package(assembly)
+    return {
+        "manifest": {
+            "package_id": manifest.package_id,
+            "project_id": manifest.project_id,
+            "scope": manifest.scope,
+            "purpose": manifest.purpose,
+            "knowledge_revision": manifest.knowledge_revision,
+            "generated_at": manifest.generated_at.isoformat(),
+            "generator_version": manifest.generator_version,
+            "package_schema": manifest.package_schema,
+            "content_hash": manifest.content_hash,
+            "statement_count": manifest.statement_count,
+            "traced_statements": manifest.traced_statements,
+            "source_knowledge": list(manifest.source_knowledge),
+            # Always present, including when everything is confirmed: a reader
+            # must never infer from an absent field that nothing was proposed.
+            "confirmation_state": {
+                "confirmed": confirmation.confirmed,
+                "proposed": confirmation.proposed,
+                "contested": confirmation.contested,
+                "total": confirmation.total,
+            },
+            "unresolved_critical_gaps": [
+                {"summary": gap.summary, "kind": gap.kind, "area": gap.area_key}
+                for gap in manifest.unresolved_critical_gaps
+            ],
+            "warnings": list(manifest.warnings),
+        },
+        "sections": [
+            {
+                "area": section.area_key,
+                "name": section.name,
+                "statements": [
+                    {
+                        "knowledge_id": statement.knowledge_id,
+                        "kind": statement.kind,
+                        "text": statement.text,
+                        "label": statement.label,
+                        "version": statement.version,
+                        "lifecycle": statement.lifecycle,
+                    }
+                    for statement in section.statements
+                ],
+            }
+            for section in assembly.sections
+        ],
+        # What a package would contain, described rather than produced (T22).
+        # Rendering belongs to whoever owns the destination; what a caller needs
+        # here is the shape, so it can decide whether to render at all.
+        "package": {
+            "package_id": description.package_id,
+            "artifact_count": description.artifact_count,
+            "total_statements": description.total_statements,
+            "content_hash": description.content_hash,
+            "artifacts": [
+                {
+                    "path": entry.path,
+                    "area": entry.area_key,
+                    "title": entry.title,
+                    "statements": entry.statement_count,
+                    "confirmed": entry.confirmed_count,
+                    "content_hash": entry.content_hash,
+                }
+                for entry in description.artifacts
+            ],
+        },
+        "guidance": [
+            "Every statement carries its lifecycle. Treat anything not confirmed "
+            "as a candidate, not a fact.",
+            "unresolved_critical_gaps are unanswered by a person. Do not choose "
+            "an answer on the project's behalf; if one blocks the work, stop.",
+            f"This package is pinned to knowledge revision "
+            f"{manifest.knowledge_revision}. Re-assemble if the project has moved.",
         ],
     }

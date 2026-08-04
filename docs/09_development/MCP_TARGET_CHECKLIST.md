@@ -124,11 +124,38 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase E — Ingestion and assembly
 
-- [ ] **T19** — Implement `kae_ingest_document`
-- [ ] **T20** — Connect ingestion to observations and proposed knowledge
-- [ ] **T21** — Implement `kae_assemble_context`
-- [ ] **T22** — Generate compact manifests and external artifacts
-- [ ] **T23** — Complete end-to-end MCP workflow test
+- [x] **T19** — Implement `kae_ingest_document` — 2026-08-04. The service
+  existed; this exposes it. The response separates three facts a caller must
+  not collapse: text recorded, extraction **queued**, knowledge unchanged. An
+  unread remainder is reported rather than dropped, because nothing downstream
+  can tell an absent requirement from one that was never read.
+- [x] **T20** — Connect ingestion to observations and proposed knowledge —
+  2026-08-04. Draining the queued runs yields candidates that are **proposed**,
+  each tracing to the stored span it came from. A document cannot confirm its
+  own contents; ingesting a file must not become the project's opinion.
+- [x] **T21** — Implement `kae_assemble_context` — 2026-08-04. Bounded by
+  purpose, pinned to a revision, and hashed, so the same inputs produce the
+  same package. The manifest always carries the confirmation split and every
+  unresolved gap: generation may be incomplete, it may never be silent.
+- [x] **T22** — Generate compact manifests and external artifacts — 2026-08-04.
+  Deliberately metadata, not bytes: `describe_package` says what a package would
+  contain — one artifact per non-empty area, each with its own hash and its
+  confirmed split — without rendering or storing anything. No new tables.
+  Rendering belongs to whoever owns the destination; what a caller needs first
+  is the shape, so it can decide whether to render at all. Content is
+  deterministic while `package_id` is a fresh identity per generation, because
+  "the package I already have" and "this act of assembling" are different
+  questions.
+- [x] **T23** — Complete end-to-end MCP workflow test — 2026-08-04. The Demo V1
+  scenario, executed through the MCP surface rather than around it: create a
+  project, ingest a document, drain the queue, read the briefing, confirm a
+  candidate, assemble a bounded context, describe the package. What it defends
+  is the honesty of each transition — a workflow that quietly promoted evidence
+  to fact, or produced a package that read as complete while carrying an
+  unanswered question, would pass a naive end-to-end test and fail the only
+  claim that matters.
+
+  **Phase E verdict: complete.**
 
 ## Phase F — Project focus and default scope
 
