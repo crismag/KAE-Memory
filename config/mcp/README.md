@@ -9,9 +9,19 @@ one client (ADR-0018).
 
 ```bash
 uv sync --extra mcp
-export KAE_DATABASE_URL="cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
+export KAE_DATABASE_PROVIDER=postgresql
+export KAE_POSTGRESQL_URL="postgresql+psycopg://kae:<password>@localhost:5432/kae_memory"
 uv run kae-memory-mcp doctor
 ```
+
+**All three variables are required.** Omitting `KAE_DATABASE_PROVIDER` stops the
+server before it can serve, and the client reports only "Failed to connect".
+
+**PostgreSQL + pgvector is the default local provider** (`LOCAL_DEVELOPMENT.md`).
+CockroachDB is also supported: set `KAE_DATABASE_PROVIDER=cockroachdb` and
+`KAE_COCKROACHDB_URL`. A URL never implies a provider — the provider variable is
+always explicit, so a machine can hold settings for both without either becoming
+ambiguous.
 
 `doctor` checks configuration, service construction, database reachability,
 **migration state**, and capability enumeration. It writes to stderr and prints
@@ -37,9 +47,28 @@ checks.
 | Codex | Append `config/mcp/codex.toml` to `~/.codex/config.toml` |
 | Cursor | Copy `config/mcp/cursor.json` to `.cursor/mcp.json` in the target repository |
 
-Each file carries the local development URL. Change it for another cluster;
-the variable is the same one the API and worker read, so there is no second
-configuration format to keep in step.
+Each file carries the default local provider, a placeholder URL, and an
+**absolute path** to the executable. Replace `CHANGE_ME` with the local
+password. Change both for another checkout or cluster; the variables are the
+same ones the API and worker read, so there is no second configuration format
+to keep in step.
+
+### Two failures that look identical from the client
+
+A client reports "Failed to connect" whenever the process exits during startup,
+with nothing further. Both of these produce exactly that, and both have been hit
+in practice:
+
+**`kae-memory-mcp` is not on `PATH`.** It lives in the project venv, so a bare
+command name only resolves when that venv is active — which it is not when a
+client spawns the process. Hence the absolute path in every file here.
+
+**`KAE_DATABASE_PROVIDER` is not set.** The server refuses to guess a provider
+rather than defaulting to one, so it exits with
+`ProviderConfigurationError` before the transport opens.
+
+`kae-memory-mcp doctor` diagnoses both in a second, which is why it exists: the
+client cannot tell you either of them.
 
 ## What the server exposes
 
@@ -101,3 +130,13 @@ discover one. Look at the server's stderr, which the client captures.
 
 **Everything returns empty.** The database is reachable but has no projects.
 `doctor` warns about this.
+
+**Tools fail after the server connects.** The database is probably behind the
+code. `doctor` reports the revision it found and the one it expected — a
+reachable database is not a migrated one. Run `alembic upgrade head`.
+
+**A migration stopped partway.** CockroachDB pauses schema changes when its
+store drops below 5% free, which leaves the schema applied but
+`alembic_version` unmoved. Free disk, then check whether the migration's
+objects already exist: if they do, `alembic stamp <revision>` and continue,
+rather than re-running a migration that will fail on a duplicate column.

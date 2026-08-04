@@ -1,11 +1,16 @@
 {
-  "//": "Cursor — place at .cursor/mcp.json in the target repository, or merge into ~/.cursor/mcp.json",
+  "//": "Cursor \u2014 place at .cursor/mcp.json in the target repository, or merge into ~/.cursor/mcp.json",
+  "//command": "Absolute path: the executable lives in the project venv and is not on PATH when a client spawns it.",
+  "//provider": "PostgreSQL + pgvector is the default local provider.",
   "mcpServers": {
     "kae-memory": {
-      "command": "kae-memory-mcp",
-      "args": ["serve"],
+      "command": "/mnt/ai/workspaces/KAE-Memory/.venv/bin/kae-memory-mcp",
+      "args": [
+        "serve"
+      ],
       "env": {
-        "KAE_DATABASE_URL": "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable",
+        "KAE_DATABASE_PROVIDER": "postgresql",
+        "KAE_POSTGRESQL_URL": "postgresql+psycopg://kae:CHANGE_ME@localhost:5432/kae_memory",
         "KAE_ENVIRONMENT": "local"
       }
     }

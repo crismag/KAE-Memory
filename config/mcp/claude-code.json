@@ -1,9 +1,14 @@
 {
-  "//": "Claude Code — register with: claude mcp add-json kae-memory \"$(cat config/mcp/claude-code.json)\"",
-  "command": "kae-memory-mcp",
-  "args": ["serve"],
+  "//": "Claude Code \u2014 register with: claude mcp add-json kae-memory \"$(cat config/mcp/claude-code.json)\"",
+  "//command": "Absolute path: the executable lives in the project venv and is not on PATH when a client spawns it. A bare name fails with 'Failed to connect' and no further detail.",
+  "//provider": "PostgreSQL + pgvector is the default local provider. For CockroachDB set KAE_DATABASE_PROVIDER=cockroachdb and KAE_COCKROACHDB_URL instead.",
+  "command": "/mnt/ai/workspaces/KAE-Memory/.venv/bin/kae-memory-mcp",
+  "args": [
+    "serve"
+  ],
   "env": {
-    "KAE_DATABASE_URL": "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable",
+    "KAE_DATABASE_PROVIDER": "postgresql",
+    "KAE_POSTGRESQL_URL": "postgresql+psycopg://kae:CHANGE_ME@localhost:5432/kae_memory",
     "KAE_ENVIRONMENT": "local"
   }
 }
