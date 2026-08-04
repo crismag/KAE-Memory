@@ -1,7 +1,15 @@
 # TASK-010 — MCP-M1 Local KAE Engineering Context Server
 
-**Status:** proposed, 2026-08-01
+**Status:** complete, 2026-08-02
 **Milestone:** MCP-M1
+
+> **Delivered and superseded.** The server shipped in PR #54 with seven tools,
+> `doctor`, and idempotent ingestion. Work since has carried it well past this
+> specification — 13 tools, real Titan embeddings (T8/T10), a 71% smaller
+> briefing (T3), knowledge review (T12–T14), and clarifications (T16–T18).
+>
+> **`docs/09_development/MCP_TARGET_CHECKLIST.md` is the register for MCP work.**
+> This document records how the server began, not what it is now.
 
 ## Objective
 
