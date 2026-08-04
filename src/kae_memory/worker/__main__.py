@@ -21,6 +21,8 @@ from types import FrameType
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.persistence import providers
+
 from .execution import AgentStepExecutor, default_extractor, default_reviewer
 from .runner import Worker, WorkerConfig
 
@@ -104,14 +106,10 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    url = os.environ.get("KAE_DATABASE_URL", "").strip()
-    if not url:
-        raise RuntimeError(
-            "KAE_DATABASE_URL is not set. Copy .env.example and set it, for example "
-            "'cockroachdb+psycopg://user:password@host:26257/kae?sslmode=verify-full'."
-        )
+    database = providers.resolve()
+    _LOGGER.info("persistence: %s", database.describe())
 
-    engine = create_engine(url, pool_pre_ping=True)
+    engine = create_engine(database.url, pool_pre_ping=True)
     factory = sessionmaker(engine)
     config = build_config()
     executor = AgentStepExecutor(factory, default_extractor(), default_reviewer())

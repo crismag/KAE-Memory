@@ -19,21 +19,21 @@ jobs:
           enable-cache: true
       - name: Install project
         run: uv sync --extra dev
-      - name: Start CockroachDB
-        # Tests run against the engine used in production, never SQLite
-        # (ADR-0011). A service container cannot pass the start-single-node
-        # arguments the image needs, so it is started explicitly.
+      - name: Start PostgreSQL with pgvector
+        # Tests run against an engine the product deploys on, never SQLite
+        # (ADR-0011). PostgreSQL and CockroachDB are both supported (ADR-0022);
+        # this job runs the one whose setup needs no credentials.
         run: |
-          docker run -d --name kae-crdb-test -p 26258:26257 \
-            cockroachdb/cockroach:v26.2.1 \
-            start-single-node --insecure --store=type=mem,size=1GiB
+          docker run -d --name kae-pg-test -p 5432:5432 \
+            -e POSTGRES_USER=kae -e POSTGRES_PASSWORD=kae -e POSTGRES_DB=kae_memory_test \
+            pgvector/pgvector:pg16
           for i in $(seq 1 60); do
-            if docker exec kae-crdb-test ./cockroach sql --insecure -e "SELECT 1" >/dev/null 2>&1; then
-              echo "CockroachDB ready after ${i}s"; exit 0
+            if docker exec kae-pg-test pg_isready -U kae >/dev/null 2>&1; then
+              echo "PostgreSQL ready after ${i}s"; exit 0
             fi
             sleep 1
           done
-          echo "CockroachDB did not become ready"; docker logs kae-crdb-test; exit 1
+          echo "PostgreSQL did not become ready"; docker logs kae-pg-test; exit 1
       - name: Lint
         run: uv run ruff check .
       - name: Format check
@@ -41,6 +41,47 @@ jobs:
       - name: Type check
         run: uv run mypy
       - name: Test
+        # Provider-independent tests, the shared contract, PostgreSQL-specific
+        # behaviour, and migrations. CockroachDB tests marked for it skip with a
+        # reason rather than failing — see the cockroachdb-live job below.
+        env:
+          KAE_TEST_DATABASE_PROVIDER: postgresql
+          KAE_TEST_DATABASE_URL: postgresql+psycopg://kae:kae@localhost:5432/kae_memory_test
+        run: uv run pytest
+
+  cockroachdb-live:
+    # CockroachDB is a supported provider, not a deleted one. Its live
+    # integration runs when a cluster is configured, and its absence must not
+    # fail the pipeline: a suite that cannot run without every provider present
+    # would make adding a third impossible.
+    runs-on: ubuntu-latest
+    if: vars.KAE_COCKROACHDB_CI_ENABLED == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install project
+        run: uv sync --extra dev
+      - name: Start CockroachDB
+        run: |
+          docker run -d --name kae-crdb-test -p 26258:26257 \
+            cockroachdb/cockroach:v26.2.1 \
+            start-single-node --insecure --store=type=mem,size=1GiB
+          for i in $(seq 1 60); do
+            if docker exec kae-crdb-test ./cockroach sql --insecure -e "SELECT 1" >/dev/null 2>&1; then
+              docker exec kae-crdb-test ./cockroach sql --insecure \
+                -e "CREATE DATABASE IF NOT EXISTS kae_memory_test"
+              echo "CockroachDB ready after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "CockroachDB did not become ready"; docker logs kae-crdb-test; exit 1
+      - name: Test
+        env:
+          KAE_TEST_DATABASE_PROVIDER: cockroachdb
+          KAE_TEST_DATABASE_URL: cockroachdb+psycopg://root@localhost:26258/kae_memory_test?sslmode=disable
         run: uv run pytest
 
   frontend:

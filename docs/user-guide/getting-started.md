@@ -4,7 +4,7 @@ Connecting a client, creating a project, and putting the first knowledge in it.
 
 ## 1. Run the database
 
-KAE stores everything in CockroachDB.
+KAE stores everything in a relational database with vector search — PostgreSQL with pgvector, or CockroachDB. Your deployment selects which (ADR-0022).
 
 ```bash
 make dev-db-up

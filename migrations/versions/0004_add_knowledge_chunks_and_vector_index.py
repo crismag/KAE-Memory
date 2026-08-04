@@ -20,6 +20,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
+from kae_memory.persistence import providers
+from kae_memory.persistence.providers import ProviderAdapter
 from kae_memory.persistence.tables import Vector
 
 revision: str = "0004"
@@ -30,7 +32,24 @@ depends_on: str | Sequence[str] | None = None
 VECTOR_DIMENSIONS = 1024
 
 
+def _adapter() -> ProviderAdapter:
+    """Return the adapter for the provider this migration is running against.
+
+    Provider-specific DDL is confined to the vector column and its index. The
+    relational schema either side of it is identical on both engines, which is
+    why there is one migration history rather than two.
+    """
+
+    return providers.resolve().adapter
+
+
 def upgrade() -> None:
+    adapter = _adapter()
+    for statement in adapter.prepare_statements():
+        # pgvector must exist before a vector column can be created. Idempotent,
+        # and empty on an engine whose vector support is native.
+        op.execute(statement)
+
     op.create_table(
         "knowledge_chunks",
         sa.Column("chunk_id", sa.Uuid(as_uuid=False), nullable=False),
@@ -57,13 +76,20 @@ def upgrade() -> None:
         "ix_knowledge_chunks_project_state", "knowledge_chunks", ["project_id", "embedding_state"]
     )
 
-    # CREATE VECTOR INDEX has no Alembic operation, so it is raw DDL. One index
-    # on the shared chunk table — never one per knowledge type (ADR-0008).
-    op.execute("CREATE VECTOR INDEX knowledge_chunks_embedding_idx ON knowledge_chunks (embedding)")
+    # No Alembic operation covers a vector index on either engine, so it is raw
+    # DDL from the provider adapter. One index on the shared chunk table — never
+    # one per knowledge type (ADR-0008).
+    for statement in adapter.create_vector_index(
+        "knowledge_chunks", "embedding", providers.VECTOR_INDEX_NAME
+    ):
+        op.execute(statement)
 
 
 def downgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS knowledge_chunks_embedding_idx")
+    for statement in _adapter().drop_vector_index(
+        "knowledge_chunks", providers.VECTOR_INDEX_NAME
+    ):
+        op.execute(statement)
     op.drop_index("ix_knowledge_chunks_project_state", table_name="knowledge_chunks")
     op.drop_index("ix_knowledge_chunks_knowledge", table_name="knowledge_chunks")
     op.drop_table("knowledge_chunks")
