@@ -85,7 +85,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         if DATABASE_FIXTURES & set(getattr(item, "fixturenames", ())):
             item.add_marker(pytest.mark.database)
 
-        wrong_provider = PROVIDER_MARKERS & set(item.keywords) - {provider.value}
+        # Markers, not keywords. `keywords` also contains parametrize ids, so a
+        # perfectly offline test parametrised over both providers was being
+        # skipped as though it required one of them.
+        applied = {marker.name for marker in item.iter_markers()}
+        wrong_provider = PROVIDER_MARKERS & applied - {provider.value}
         if wrong_provider:
             item.add_marker(
                 pytest.mark.skip(
@@ -96,9 +100,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 )
             )
             continue
-        needs_database = DATABASE_MARKERS & set(item.keywords) or PROVIDER_MARKERS & set(
-            item.keywords
-        )
+        applied = {marker.name for marker in item.iter_markers()}
+        needs_database = (DATABASE_MARKERS | PROVIDER_MARKERS) & applied
         if needs_database and settings is None:
             item.add_marker(pytest.mark.skip(reason=unavailable))
 
