@@ -276,3 +276,48 @@ between, who decided, when, and why. Corrections name both versions, so
 
 A correction stays distinguishable from a plain confirmation even when both end
 `validated` — only one of them rewrote what the project says.
+
+
+## Answering a clarification
+
+`kae_get_clarifications` returns open questions; `kae_answer_clarification`
+records the answer.
+
+```json
+{
+  "project_id": "…",
+  "clarification_id": "…",
+  "answer": "Roughly 25 ministries file reports.",
+  "idempotency_key": "answer-2026-08-04-01",
+  "actor_id": "cris"
+}
+```
+
+### What answering does and does not do
+
+An answer is **evidence**, not knowledge. It is stored exactly as written and
+queued for extraction; what extraction produces is *proposed* knowledge that a
+person still confirms.
+
+The response says three separate things, and they stay separate:
+
+```json
+{
+  "status": "answered",
+  "knowledge_state": "pending_extraction",
+  "knowledge_changed": false,
+  "readiness_changed": false
+}
+```
+
+Reading `"answered"` as "the project now knows this" would mean acting on an
+unreviewed claim. `knowledge_state` and `knowledge_changed` are integrity
+fields: no response profile or token budget can remove them.
+
+### One answer per question
+
+With an `idempotency_key`, a retry returns the answer already recorded and
+queues no second extraction. A **different** answer to the same question is
+refused — nothing downstream could say which one the project believes.
+
+An answered question stops appearing in `kae_get_clarifications`.

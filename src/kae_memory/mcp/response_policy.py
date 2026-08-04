@@ -112,6 +112,11 @@ INTEGRITY_FIELDS: frozenset[str] = frozenset(
         # about fields a detail level dropped — a caller needs to tell
         # "work you have not seen" from "detail we compacted away".
         "omitted",
+        # An answer is recorded; knowledge is not yet changed. Dropping these
+        # to save tokens would let "answered" read as "the project now knows
+        # this", which is the one thing the clarification loop must not imply.
+        "knowledge_state",
+        "knowledge_changed",
     }
 )
 """Fields no profile, budget, or prose level may remove.

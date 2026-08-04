@@ -345,6 +345,38 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_answer_clarification",
+        "description": (
+            "Record a person's answer to an open question, verbatim. The answer "
+            "is evidence, not knowledge: it is queued for extraction, and what "
+            "that produces is proposed knowledge a person still confirms. The "
+            "response reports the answer accepted, extraction scheduled, and "
+            "knowledge unchanged — three separate facts. Supply an "
+            "idempotency_key so a retry cannot record a second answer."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "clarification_id": {
+                    "type": "string",
+                    "description": "The id returned by kae_get_clarifications.",
+                },
+                "answer": {"type": "string", "minLength": 1},
+                "idempotency_key": {"type": "string", "maxLength": 200},
+                "actor_id": {
+                    "type": "string",
+                    "description": "Who answered. Omit if the person is not identified.",
+                },
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id", "clarification_id", "answer"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_correct_knowledge",
         "description": (
             "Record a person's corrected wording for one knowledge statement. "
@@ -468,9 +500,22 @@ that hid the fact it was a bound would make a partial queue read as the whole
 one.
 """
 
+ANSWER_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
+    # Guidance a caller acting on the response does not need twice.
+    "next_steps": response_policy.DetailLevel.STANDARD,
+}
+"""What an economy profile may drop from an answer.
+
+``knowledge_state``, ``knowledge_changed``, and ``readiness_changed`` are absent
+deliberately: they are the response's whole integrity claim, and a compaction
+that removed them would leave a caller reading "answered" as "knowledge
+updated".
+"""
+
 TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
     "kae_get_project_briefing": BRIEFING_FIELD_LEVELS,
     "kae_get_clarifications": CLARIFICATION_FIELD_LEVELS,
+    "kae_answer_clarification": ANSWER_FIELD_LEVELS,
 }
 """Per-tool field maps. A tool absent from here is returned whole."""
 
@@ -518,6 +563,14 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+        ),
+        "kae_answer_clarification": lambda: tools.kae_answer_clarification(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("clarification_id", ""),
+            arguments.get("answer"),
+            arguments.get("idempotency_key"),
+            arguments.get("actor_id"),
         ),
         "kae_get_clarifications": lambda: tools.kae_get_clarifications(
             context,
@@ -752,6 +805,25 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_answer_clarification(
+        project_id: str,
+        clarification_id: str,
+        answer: str,
+        idempotency_key: str | None = None,
+        actor_id: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_answer_clarification",
+            {
+                "project_id": project_id,
+                "clarification_id": clarification_id,
+                "answer": answer,
+                "idempotency_key": idempotency_key,
+                "actor_id": actor_id,
+            },
+        )
+
     def kae_get_clarifications(project_id: str, limit: int | None = None) -> dict[str, Any]:
         return dispatch(
             context,
@@ -797,6 +869,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_reject_knowledge,
             kae_correct_knowledge,
             kae_get_clarifications,
+            kae_answer_clarification,
         )
     }
 

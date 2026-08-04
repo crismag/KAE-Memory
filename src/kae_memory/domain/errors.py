@@ -49,3 +49,12 @@ class StaleVersionError(DomainError):
     authority decisions means the slower reviewer silently overrules the faster
     one.
     """
+
+
+class AlreadyAnsweredError(DomainError):
+    """The question already carries an answer, and a different one was offered.
+
+    A replay of the same answer is fine and returns what was recorded. Two
+    different answers under one question is not: nothing downstream could say
+    which one the project believes, and extraction would run over both.
+    """
