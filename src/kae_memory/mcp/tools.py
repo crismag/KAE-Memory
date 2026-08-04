@@ -21,6 +21,7 @@ from kae_memory.application.assembly_service import (
     AssemblyPurpose,
     AssemblyService,
     ContextAssembly,
+    describe_package,
 )
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
@@ -1375,6 +1376,7 @@ def _assembly_payload(assembly: ContextAssembly) -> dict[str, Any]:
 
     manifest = assembly.manifest
     confirmation = manifest.confirmation_state
+    description = describe_package(assembly)
     return {
         "manifest": {
             "package_id": manifest.package_id,
@@ -1421,6 +1423,26 @@ def _assembly_payload(assembly: ContextAssembly) -> dict[str, Any]:
             }
             for section in assembly.sections
         ],
+        # What a package would contain, described rather than produced (T22).
+        # Rendering belongs to whoever owns the destination; what a caller needs
+        # here is the shape, so it can decide whether to render at all.
+        "package": {
+            "package_id": description.package_id,
+            "artifact_count": description.artifact_count,
+            "total_statements": description.total_statements,
+            "content_hash": description.content_hash,
+            "artifacts": [
+                {
+                    "path": entry.path,
+                    "area": entry.area_key,
+                    "title": entry.title,
+                    "statements": entry.statement_count,
+                    "confirmed": entry.confirmed_count,
+                    "content_hash": entry.content_hash,
+                }
+                for entry in description.artifacts
+            ],
+        },
         "guidance": [
             "Every statement carries its lifecycle. Treat anything not confirmed "
             "as a candidate, not a fact.",

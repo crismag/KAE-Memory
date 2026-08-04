@@ -358,6 +358,72 @@ class AssemblyService:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ArtifactEntry:
+    """One file a package would contain, described without producing it.
+
+    Metadata only. What the bytes look like is a rendering concern and belongs
+    with whatever writes them; what a consumer needs to plan is the shape — how
+    many artifacts, covering which areas, carrying how many statements, and
+    whether any of them has changed.
+    """
+
+    path: str
+    area_key: str
+    title: str
+    statement_count: int
+    confirmed_count: int
+    content_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class PackageDescription:
+    """A deterministic description of the artifacts a package would contain.
+
+    Derived from the assembly alone, so the same knowledge at the same revision
+    always describes the same package. Nothing is written and nothing is
+    stored: a description is what lets a caller decide whether to render at
+    all, and rendering belongs to whoever owns the destination.
+    """
+
+    package_id: str
+    artifact_count: int
+    total_statements: int
+    artifacts: tuple[ArtifactEntry, ...]
+    content_hash: str
+
+
+def describe_package(assembly: ContextAssembly) -> PackageDescription:
+    """Describe the artifacts ``assembly`` would produce, without producing them.
+
+    One artifact per area that has content. An empty area yields no file rather
+    than an empty one, so a consumer counting artifacts is counting things worth
+    reading.
+    """
+
+    entries = tuple(
+        ArtifactEntry(
+            path=f"context/{assembly.manifest.purpose}/{section.area_key}.md",
+            area_key=section.area_key,
+            title=section.name,
+            statement_count=len(section.statements),
+            confirmed_count=sum(
+                1 for s in section.statements if s.lifecycle == LifecycleState.VALIDATED.value
+            ),
+            content_hash=_content_hash((section,)),
+        )
+        for section in assembly.sections
+        if section.statements
+    )
+    return PackageDescription(
+        package_id=assembly.manifest.package_id,
+        artifact_count=len(entries),
+        total_statements=sum(entry.statement_count for entry in entries),
+        artifacts=entries,
+        content_hash=assembly.manifest.content_hash,
+    )
+
+
 def _content_hash(sections: Sequence[AssemblySection]) -> str:
     """Return a hash of the rendered content, for change detection.
 
@@ -379,6 +445,7 @@ __all__ = [
     "GENERATOR_VERSION",
     "PACKAGE_SCHEMA",
     "PURPOSE_AREAS",
+    "ArtifactEntry",
     "AssembledStatement",
     "AssemblyManifest",
     "AssemblyPurpose",
@@ -387,4 +454,6 @@ __all__ = [
     "ConfirmationState",
     "ContextAssembly",
     "CriticalGap",
+    "PackageDescription",
+    "describe_package",
 ]

@@ -137,7 +137,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   purpose, pinned to a revision, and hashed, so the same inputs produce the
   same package. The manifest always carries the confirmation split and every
   unresolved gap: generation may be incomplete, it may never be silent.
-- [ ] **T22** — Generate compact manifests and external artifacts
+- [x] **T22** — Generate compact manifests and external artifacts — 2026-08-04.
+  Deliberately metadata, not bytes: `describe_package` says what a package would
+  contain — one artifact per non-empty area, each with its own hash and its
+  confirmed split — without rendering or storing anything. No new tables.
+  Rendering belongs to whoever owns the destination; what a caller needs first
+  is the shape, so it can decide whether to render at all. Content is
+  deterministic while `package_id` is a fresh identity per generation, because
+  "the package I already have" and "this act of assembling" are different
+  questions.
 - [ ] **T23** — Complete end-to-end MCP workflow test
 
 ## Phase F — Project focus and default scope

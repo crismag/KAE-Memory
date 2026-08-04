@@ -288,3 +288,85 @@ class TestRegistration:
             "architecture",
             "implementation",
         }
+
+
+class TestPackageDescription:
+    """T22 — the artifacts a package would contain, described not produced.
+
+    Nothing is written and nothing is stored. A description is what lets a
+    caller decide whether to render at all, and rendering belongs to whoever
+    owns the destination.
+    """
+
+    def test_a_package_is_described(self, context: tools.ToolContext, project_id: str) -> None:
+        package = _assemble(context, project_id)["package"]
+
+        assert package["artifact_count"] >= 1
+        assert package["total_statements"] >= 1
+        assert package["content_hash"].startswith("sha256:")
+
+    def test_every_artifact_carries_a_path_and_its_own_hash(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """Per-artifact hashes are what make partial staleness detectable."""
+
+        for artifact in _assemble(context, project_id)["package"]["artifacts"]:
+            assert artifact["path"].endswith(".md")
+            assert artifact["content_hash"].startswith("sha256:")
+            assert artifact["statements"] >= 1
+
+    def test_the_description_is_deterministic(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """Content is deterministic; identity is not, and the two are different things.
+
+        ``package_id`` is a fresh identity per generation — it names this act of
+        assembling. Everything describing *what was assembled* must be stable,
+        or a caller could not tell "the package I already have" from "the
+        project moved".
+        """
+
+        first = _assemble(context, project_id)["package"]
+        second = _assemble(context, project_id)["package"]
+
+        assert first["package_id"] != second["package_id"]
+        assert first["content_hash"] == second["content_hash"]
+        assert first["artifacts"] == second["artifacts"]
+        assert first["total_statements"] == second["total_statements"]
+
+    def test_empty_areas_produce_no_artifact(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """A consumer counting artifacts should be counting things worth reading."""
+
+        package = _assemble(context, project_id)["package"]
+
+        assert all(artifact["statements"] > 0 for artifact in package["artifacts"])
+
+    def test_candidates_get_their_own_artifact(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """Unconfirmed content is a separate file, not mixed into a confirmed area.
+
+        Mixing them would leave a reader deciding statement by statement what
+        has been approved. A separate artifact makes the boundary a file
+        boundary, which is much harder to read past by accident.
+        """
+
+        package = _assemble(context, project_id, include_proposed=True)["package"]
+        paths = {artifact["area"]: artifact for artifact in package["artifacts"]}
+
+        assert "unconfirmed" in paths, "candidates must be visible as their own artifact"
+        assert paths["unconfirmed"]["confirmed"] == 0
+        assert paths["functional_requirements"]["confirmed"] >= 1
+
+    def test_a_purpose_change_changes_the_paths(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        implementation = {a["path"] for a in _assemble(context, project_id)["package"]["artifacts"]}
+        discovery = {
+            a["path"]
+            for a in _assemble(context, project_id, purpose="discovery")["package"]["artifacts"]
+        }
+
+        assert implementation.isdisjoint(discovery) or implementation != discovery
