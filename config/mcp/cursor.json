@@ -1,10 +1,12 @@
 {
   "//": "Cursor — place at .cursor/mcp.json in the target repository, or merge into ~/.cursor/mcp.json",
+  "//command": "Absolute path: the executable lives in the project venv and is not on PATH unless that venv is active.",
   "mcpServers": {
     "kae-memory": {
-      "command": "kae-memory-mcp",
+      "command": "/mnt/ai/workspaces/KAE-Memory/.venv/bin/kae-memory-mcp",
       "args": ["serve"],
       "env": {
+        "KAE_DATABASE_PROVIDER": "cockroachdb",
         "KAE_DATABASE_URL": "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable",
         "KAE_ENVIRONMENT": "local"
       }

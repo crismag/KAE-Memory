@@ -2,11 +2,17 @@
 #
 # Run `kae-memory-mcp doctor` first. It reports configuration, database
 # reachability, and migration state, and prints no credentials.
+#
+# `command` is an absolute path on purpose: the executable lives in the project
+# venv and is not on PATH unless that venv is active. A bare name produces
+# "Failed to connect" with nothing further, because the process never starts.
+# Change the path if your checkout is elsewhere.
 
 [mcp_servers.kae-memory]
-command = "kae-memory-mcp"
+command = "/mnt/ai/workspaces/KAE-Memory/.venv/bin/kae-memory-mcp"
 args = ["serve"]
 
 [mcp_servers.kae-memory.env]
+KAE_DATABASE_PROVIDER = "cockroachdb"
 KAE_DATABASE_URL = "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
 KAE_ENVIRONMENT = "local"
