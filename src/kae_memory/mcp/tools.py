@@ -30,12 +30,13 @@ from kae_memory.application.retrieval_service import (
 from kae_memory.application.review_service import Finding, ReviewService
 from kae_memory.domain.chunks import strip_metadata_prefix
 from kae_memory.domain.errors import (
+    AlreadyAnsweredError,
     DomainInvariantError,
     InvalidLifecycleTransitionError,
     StaleVersionError,
 )
 from kae_memory.domain.errors import KnowledgeNotFoundError as DomainKnowledgeNotFound
-from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SessionId
+from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId, SessionId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
@@ -43,6 +44,7 @@ from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp.errors import (
     CapabilityUnavailableError,
+    ConflictError,
     InvalidArgumentError,
     InvalidStateTransitionError,
     KnowledgeNotFoundError,
@@ -1129,4 +1131,76 @@ def _clarification_omitted(
         "available": total,
         "reason": f"limit={bound}",
         "guidance": "Raise limit to see the rest. This is not the whole queue.",
+    }
+
+
+def kae_answer_clarification(
+    context: ToolContext,
+    project_id: str,
+    clarification_id: str,
+    answer: str | None = None,
+    idempotency_key: str | None = None,
+    actor_id: str | None = None,
+) -> dict[str, Any]:
+    """Record a person's answer to an open question, verbatim.
+
+    The answer is **evidence**, not knowledge. It is stored exactly as given and
+    handed to the requirements agent like any other input; what that produces is
+    a candidate a person still confirms. Routing it anywhere else would let this
+    loop write project knowledge on someone's behalf.
+
+    So the response says three separate things, and they must stay separate: the
+    answer was accepted, extraction was scheduled, and **no knowledge has
+    changed yet**. A caller that reads the first as the third would believe the
+    project knows something nobody has confirmed.
+    """
+
+    project = _require_project(context, project_id)
+    if context.clarification is None:
+        raise CapabilityUnavailableError(
+            capability="clarifications",
+            missing=["clarification_service"],
+            use_instead=["kae_submit_observation"],
+        )
+    if not clarification_id or not clarification_id.strip():
+        raise InvalidArgumentError("clarification_id is required")
+    if answer is None or not answer.strip():
+        raise InvalidArgumentError(
+            "answer is required: an empty answer records that someone was asked "
+            "and says nothing about what they know"
+        )
+
+    try:
+        recorded = context.clarification.answer(
+            project.id,
+            MessageId(clarification_id),
+            answer,
+            actor_id=actor_id,
+            idempotency_key=idempotency_key,
+        )
+    except LookupError as error:
+        raise KnowledgeNotFoundError(str(error)) from None
+    except AlreadyAnsweredError as error:
+        raise ConflictError(str(error)) from None
+    except ValueError as error:
+        raise InvalidArgumentError(str(error)) from None
+
+    return {
+        "clarification_id": clarification_id,
+        "answer_id": str(recorded.answer.id),
+        "status": "answered",
+        "extraction_run_id": str(recorded.run_id),
+        # Three separate facts, deliberately not collapsed. The answer is
+        # recorded; extraction is queued and has not run; knowledge is
+        # unchanged until a person confirms what extraction proposes.
+        "knowledge_state": "pending_extraction",
+        "knowledge_changed": False,
+        "readiness_changed": False,
+        "replayed": recorded.replayed,
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "next_steps": [
+            "Extraction runs when a worker picks up the queued run.",
+            "What it produces is proposed knowledge, not confirmed knowledge.",
+            "A person confirms it with kae_confirm_knowledge.",
+        ],
     }

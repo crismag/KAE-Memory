@@ -56,6 +56,18 @@ class VersionConflictError(McpError):
     code = "version_conflict"
 
 
+class ConflictError(McpError):
+    """The request contradicts a decision the project already holds.
+
+    Distinct from a version conflict, which is about wording that moved. This
+    is about an answer that already exists: retrying the same one is safe, and
+    offering a different one is not, because nothing downstream could say which
+    the project believes.
+    """
+
+    code = "conflict"
+
+
 class InvalidStateTransitionError(McpError):
     """The requested decision is not available from the item's current state.
 

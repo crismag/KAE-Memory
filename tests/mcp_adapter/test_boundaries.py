@@ -183,7 +183,7 @@ def test_the_tool_surface_stays_small() -> None:
     `kae_get_clarifications` arrived in T16.
     """
 
-    assert len(TOOL_DEFINITIONS) == 12
+    assert len(TOOL_DEFINITIONS) == 13
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -198,11 +198,12 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_reject_knowledge",
         "kae_correct_knowledge",
         "kae_get_clarifications",
+        "kae_answer_clarification",
     }
 
 
 def test_the_write_surface_is_named_and_small() -> None:
-    """Six writes. Three decide, and one does not look like a write at all.
+    """Seven writes. Three decide, and one does not look like a write at all.
 
     This test previously asserted that *no* tool here could confirm anything:
     with confirmation absent from the surface, FR-005 held structurally and an
@@ -220,6 +221,7 @@ def test_the_write_surface_is_named_and_small() -> None:
         "kae_reject_knowledge",
         "kae_correct_knowledge",
         "kae_get_clarifications",
+        "kae_answer_clarification",
     }
     names = {d["name"] for d in TOOL_DEFINITIONS}
 
@@ -273,7 +275,15 @@ def _is_write(definition: dict) -> bool:
         # `clarifications` is here because kae_get_clarifications records the
         # questions it returns. A `get_` that writes is a trap for anyone
         # reasoning about which calls are safe to retry, so it is declared.
-        for token in ("create", "submit", "confirm", "reject", "correct", "clarifications")
+        for token in (
+            "create",
+            "submit",
+            "confirm",
+            "reject",
+            "correct",
+            "clarifications",
+            "answer",
+        )
     )
 
 

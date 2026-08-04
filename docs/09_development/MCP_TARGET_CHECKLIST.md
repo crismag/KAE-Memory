@@ -105,7 +105,13 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   description, the docstring, the write-surface guardrail, and a test. Fixes
   three ownership defects in `ClarificationService`, the worst of which wrote an
   answer into another project's session while claiming this project's id.
-- [ ] **T17** — Implement `kae_answer_clarification`
+- [x] **T17** — Implement `kae_answer_clarification` — 2026-08-04. Records a
+  person's answer verbatim and queues extraction. The response keeps three facts
+  separate — answer accepted, extraction scheduled, **knowledge unchanged** —
+  and `knowledge_state` / `knowledge_changed` are integrity fields, so no
+  profile can compact "answered" into "known". One logical answer per question:
+  a retry replays it, a *different* answer is refused, because nothing
+  downstream could say which one the project believes.
 - [ ] **T18** — Connect clarifications to blockers and knowledge
 
 ## Phase E — Ingestion and assembly

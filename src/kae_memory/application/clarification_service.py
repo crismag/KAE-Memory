@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
-from kae_memory.domain.errors import IdempotencyConflictError
+from kae_memory.domain.errors import AlreadyAnsweredError, IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import AgentRunId, MessageId, ProjectId, SessionId
 from kae_memory.domain.workspace import ActorType, Message, MessageType, SessionType
@@ -89,11 +89,18 @@ class OpenQuestion:
 
 @dataclass(frozen=True, slots=True)
 class AnsweredClarification:
-    """An answer, and the run that will read it."""
+    """An answer, and the run that will read it.
+
+    ``run_id`` names work that has been *scheduled*. Nothing has been extracted
+    when this is returned, and no knowledge has changed — the answer is
+    evidence, and what it yields is a candidate a person still confirms.
+    """
 
     question: Message
     answer: Message
     run_id: AgentRunId
+    replayed: bool = False
+    """Whether this returns an answer already recorded rather than a new one."""
 
 
 class ClarificationService:
@@ -270,6 +277,20 @@ class ClarificationService:
             raise ValueError("an answer must not be empty")
 
         key = idempotency_key or f"answer:{question_id}"
+        recorded = self._existing_answer(question)
+        if recorded is not None:
+            if recorded.idempotency_key == key:
+                return AnsweredClarification(
+                    question=question,
+                    answer=recorded,
+                    run_id=self._extraction_run_for(project_id, key),
+                    replayed=True,
+                )
+            raise AlreadyAnsweredError(
+                f"question {question_id} was already answered. A retry of the same "
+                "answer is safe; a different one is not, because nothing "
+                "downstream could say which the project believes."
+            )
         record = self._memory.record_message(
             project_id,
             question.session_id,
@@ -295,7 +316,31 @@ class ClarificationService:
                 "answers_question": str(question_id),
             },
         )
-        return AnsweredClarification(question=question, answer=record.message, run_id=run.id)
+        return AnsweredClarification(
+            question=question, answer=record.message, run_id=run.id, replayed=record.replayed
+        )
+
+    def _existing_answer(self, question: Message) -> Message | None:
+        """Return the answer already recorded against ``question``, if any."""
+
+        for message in self._memory.messages_for_session(question.session_id):
+            if message.message_type is not MessageType.ANSWER:
+                continue
+            if str(message.metadata.get(ANSWERS)) == str(question.id):
+                return message
+        return None
+
+    def _extraction_run_for(self, project_id: ProjectId, key: str) -> AgentRunId:
+        """Return the extraction run a previous answer enqueued.
+
+        Re-enqueued rather than looked up: ``enqueue_run`` is idempotent on this
+        key, so this returns the original run without creating a second one, and
+        without this module needing a query it has no other use for.
+        """
+
+        return self._memory.enqueue_run(
+            project_id, AgentRole.REQUIREMENTS, idempotency_key=f"extract:{key}"
+        ).id
 
     def asked(self, project_id: ProjectId, session_id: SessionId) -> tuple[Message, ...]:
         """Return the questions asked in a session, oldest first.
