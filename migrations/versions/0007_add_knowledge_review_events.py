@@ -55,9 +55,7 @@ def upgrade() -> None:
         sa.Column("idempotency_key", sa.String(length=200), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("review_event_id"),
-        sa.ForeignKeyConstraint(
-            ["knowledge_item_id"], ["knowledge_items.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["knowledge_item_id"], ["knowledge_items.id"], ondelete="CASCADE"),
     )
     op.create_index(
         "uq_review_events_item_idempotency",

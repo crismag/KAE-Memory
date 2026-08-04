@@ -13,6 +13,8 @@ exact condition that hid the defect.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -45,7 +47,7 @@ def services(
     return memory, retrieval, project.id
 
 
-def _write(memory: MemoryService, project_id: ProjectId, key: str, *texts: str) -> tuple:
+def _write(memory: MemoryService, project_id: ProjectId, key: str, *texts: str) -> tuple[Any, ...]:
     """Write through the production boundary. No chunking call anywhere."""
 
     run = memory.start_run(project_id, AgentRole.REQUIREMENTS, key)
@@ -56,7 +58,9 @@ def _write(memory: MemoryService, project_id: ProjectId, key: str, *texts: str) 
 
 
 class TestNewKnowledgeIsSearchable:
-    def test_written_knowledge_is_found_without_a_chunking_call(self, services: tuple) -> None:
+    def test_written_knowledge_is_found_without_a_chunking_call(
+        self, services: tuple[Any, ...]
+    ) -> None:
         """Test 1. The defect, stated as the behaviour that must hold."""
 
         memory, retrieval, project_id = services
@@ -68,7 +72,7 @@ class TestNewKnowledgeIsSearchable:
         assert "delegated signing mandate" in hits[0].text
 
     def test_chunks_commit_with_the_knowledge(
-        self, factory: sessionmaker[Session], services: tuple
+        self, factory: sessionmaker[Session], services: tuple[Any, ...]
     ) -> None:
         """One transaction. There is no window where knowledge exists unindexed."""
 
@@ -113,7 +117,7 @@ class TestNewKnowledgeIsSearchable:
 
 
 class TestUnindexedIsNotNoMatch:
-    def test_status_separates_the_two_conditions(self, services: tuple) -> None:
+    def test_status_separates_the_two_conditions(self, services: tuple[Any, ...]) -> None:
         """Test 2. An empty list means one of two very different things."""
 
         memory, retrieval, project_id = services
@@ -129,7 +133,7 @@ class TestUnindexedIsNotNoMatch:
         assert indexed.unindexed is False
 
     def test_knowledge_without_chunks_reports_unindexed(
-        self, factory: sessionmaker[Session], services: tuple
+        self, factory: sessionmaker[Session], services: tuple[Any, ...]
     ) -> None:
         """Simulates the state every project was in before this fix."""
 
@@ -147,7 +151,7 @@ class TestUnindexedIsNotNoMatch:
 
 
 class TestEmbeddingMayLag:
-    def test_lexical_search_works_before_any_embedding(self, services: tuple) -> None:
+    def test_lexical_search_works_before_any_embedding(self, services: tuple[Any, ...]) -> None:
         """Test 3. The hybrid lifecycle: lexical now, vectors later."""
 
         memory, retrieval, project_id = services
@@ -160,7 +164,7 @@ class TestEmbeddingMayLag:
         assert retrieval.find(project_id, "mandate"), "lexical must not wait for vectors"
 
     def test_chunks_start_pending_and_are_retryable(
-        self, factory: sessionmaker[Session], services: tuple
+        self, factory: sessionmaker[Session], services: tuple[Any, ...]
     ) -> None:
         memory, _, project_id = services
         item = _write(memory, project_id, "w6", DISTINCTIVE)[0]
@@ -170,7 +174,9 @@ class TestEmbeddingMayLag:
         assert all(chunk.state is EmbeddingState.PENDING for chunk in chunks)
         assert all(chunk.needs_embedding for chunk in chunks)
 
-    def test_embedding_completes_without_duplicating_chunks(self, services: tuple) -> None:
+    def test_embedding_completes_without_duplicating_chunks(
+        self, services: tuple[Any, ...]
+    ) -> None:
         """Test 6. A resumed embedding pass must not fork the index."""
 
         memory, retrieval, project_id = services
@@ -186,7 +192,7 @@ class TestEmbeddingMayLag:
 
 
 class TestUpdatesRefreshTheIndex:
-    def test_corrected_text_replaces_stale_text(self, services: tuple) -> None:
+    def test_corrected_text_replaces_stale_text(self, services: tuple[Any, ...]) -> None:
         """Test 4. Stale wording must stop being findable as current."""
 
         memory, retrieval, project_id = services
@@ -198,7 +204,7 @@ class TestUpdatesRefreshTheIndex:
         assert not retrieval.find(project_id, "paper"), "the old wording is gone"
         assert retrieval.find(project_id, "delegated signing mandate")
 
-    def test_a_correction_does_not_accumulate_chunks(self, services: tuple) -> None:
+    def test_a_correction_does_not_accumulate_chunks(self, services: tuple[Any, ...]) -> None:
         memory, retrieval, project_id = services
         item = _write(memory, project_id, "w9", "Approvers must hold a paper mandate.")[0]
         before = retrieval.indexing_status(project_id).chunks
@@ -209,7 +215,7 @@ class TestUpdatesRefreshTheIndex:
         assert retrieval.indexing_status(project_id).chunks == before
 
     def test_a_refreshed_chunk_is_marked_for_re_embedding(
-        self, factory: sessionmaker[Session], services: tuple
+        self, factory: sessionmaker[Session], services: tuple[Any, ...]
     ) -> None:
         """The vector still describes the old words, so it must be retried."""
 
@@ -226,7 +232,9 @@ class TestUpdatesRefreshTheIndex:
 
 
 class TestBackfillIsSafe:
-    def test_chunking_an_already_indexed_item_is_idempotent(self, services: tuple) -> None:
+    def test_chunking_an_already_indexed_item_is_idempotent(
+        self, services: tuple[Any, ...]
+    ) -> None:
         """The backfill runs over projects that are partly indexed."""
 
         memory, retrieval, project_id = services

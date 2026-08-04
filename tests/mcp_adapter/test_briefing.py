@@ -9,6 +9,8 @@ gaps.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -59,7 +61,7 @@ def briefing_context(factory: sessionmaker[Session]) -> tools.ToolContext:
 
 
 @pytest.fixture
-def briefed(briefing_context: tools.ToolContext) -> dict:
+def briefed(briefing_context: tools.ToolContext) -> dict[str, Any]:
     """A project with confirmed knowledge, one open question, and empty areas."""
 
     memory = briefing_context.memory
@@ -94,7 +96,7 @@ def briefed(briefing_context: tools.ToolContext) -> dict:
 
 
 class TestFindings:
-    def test_critical_findings_are_not_filtered_out(self, briefed: dict) -> None:
+    def test_critical_findings_are_not_filtered_out(self, briefed: dict[str, Any]) -> None:
         """The regression. Areas with no confirmed knowledge are the worst news."""
 
         criticals = [f for f in briefed["findings"] if f["severity"] == "critical"]
@@ -102,7 +104,7 @@ class TestFindings:
         assert criticals, "a project with empty mandatory areas has critical findings"
         assert any("no confirmed knowledge" in f["summary"] for f in criticals)
 
-    def test_every_finding_reaches_the_response(self, briefed: dict) -> None:
+    def test_every_finding_reaches_the_response(self, briefed: dict[str, Any]) -> None:
         """Previously only three of seven finding kinds survived the filter."""
 
         kinds = {finding["kind"] for finding in briefed["findings"]}
@@ -110,7 +112,7 @@ class TestFindings:
         assert "missing_area" in kinds, "missing areas were the filtered-out kind"
         assert "open_question" in kinds
 
-    def test_findings_are_ordered_most_severe_first(self, briefed: dict) -> None:
+    def test_findings_are_ordered_most_severe_first(self, briefed: dict[str, Any]) -> None:
         """One rendering, ordered. The regrouped copies are gone (T3)."""
 
         order = ["critical", "major", "minor"]
@@ -119,12 +121,12 @@ class TestFindings:
         assert positions == sorted(positions)
         assert "findings_by_severity" not in briefed
 
-    def test_a_finding_carries_its_recommended_action(self, briefed: dict) -> None:
+    def test_a_finding_carries_its_recommended_action(self, briefed: dict[str, Any]) -> None:
         """The review service already computes one; the briefing used to drop it."""
 
         assert all(finding["recommended_action"] for finding in briefed["findings"])
 
-    def test_the_action_lives_with_its_finding(self, briefed: dict) -> None:
+    def test_the_action_lives_with_its_finding(self, briefed: dict[str, Any]) -> None:
         """recommended_next_steps restated both fields and is removed (T3)."""
 
         assert "recommended_next_steps" not in briefed
@@ -133,7 +135,7 @@ class TestFindings:
 
 
 class TestReadinessExplanation:
-    def test_the_explanation_reproduces_the_percentage(self, briefed: dict) -> None:
+    def test_the_explanation_reproduces_the_percentage(self, briefed: dict[str, Any]) -> None:
         """If the shown arithmetic disagrees with the score, one of them is lying."""
 
         readiness = briefed["readiness"]
@@ -142,7 +144,7 @@ class TestReadinessExplanation:
         computed = explanation["earned_weight"] / explanation["applicable_weight"] * 100
         assert round(computed) == readiness["percentage"]
 
-    def test_every_area_is_rendered_once_with_its_state(self, briefed: dict) -> None:
+    def test_every_area_is_rendered_once_with_its_state(self, briefed: dict[str, Any]) -> None:
         """One list keyed on state, replacing three overlapping ones (T3)."""
 
         areas = briefed["readiness"]["explanation"]["areas"]
@@ -151,7 +153,7 @@ class TestReadinessExplanation:
         assert len(keys) == len(set(keys))
         assert {a["state"] for a in areas} <= {"sufficient", "partial", "missing"}
 
-    def test_a_missing_area_states_what_would_close_it(self, briefed: dict) -> None:
+    def test_a_missing_area_states_what_would_close_it(self, briefed: dict[str, Any]) -> None:
         """ "Missing" without a threshold is a complaint, not an instruction."""
 
         missing = [a for a in briefed["readiness"]["explanation"]["areas"] if a["credit"] == 0]
@@ -160,7 +162,7 @@ class TestReadinessExplanation:
         assert all(area["confirmed_needed"] >= 1 for area in missing)
         assert all(area["confirmed_statements"] == 0 for area in missing)
 
-    def test_a_partial_area_reports_the_weight_it_still_owes(self, briefed: dict) -> None:
+    def test_a_partial_area_reports_the_weight_it_still_owes(self, briefed: dict[str, Any]) -> None:
         """Half credit on a heavy area is a bigger gap than a light empty one.
 
         Reporting only earned weight hides it: a partial area sits under
@@ -174,7 +176,7 @@ class TestReadinessExplanation:
         assert all(0 < a["credit"] < 1.0 for a in partial)
         assert all(a["weight_outstanding"] > 0 for a in partial)
 
-    def test_projection_is_arithmetic_not_prediction(self, briefed: dict) -> None:
+    def test_projection_is_arithmetic_not_prediction(self, briefed: dict[str, Any]) -> None:
         """Resolving the mandatory areas must land exactly on the weighted score.
 
         Re-derived here from the published weights rather than by calling the
@@ -197,7 +199,7 @@ class TestReadinessExplanation:
         assert projection["percentage_if_mandatory_areas_resolved"] == round(expected)
         assert projection["percentage_if_mandatory_areas_resolved"] > readiness["percentage"]
 
-    def test_projection_names_the_areas_it_assumes_resolved(self, briefed: dict) -> None:
+    def test_projection_names_the_areas_it_assumes_resolved(self, briefed: dict[str, Any]) -> None:
         required = {area["area"] for area in briefed["readiness"]["projection"]["requires"]}
         missing = {area["area"] for area in briefed["readiness"]["missing_mandatory_areas"]}
 
@@ -205,7 +207,9 @@ class TestReadinessExplanation:
 
 
 class TestKnowledgeHealth:
-    def test_counts_come_from_statements_not_the_revision_counter(self, briefed: dict) -> None:
+    def test_counts_come_from_statements_not_the_revision_counter(
+        self, briefed: dict[str, Any]
+    ) -> None:
         """The knowledge revision is a version number, not a quantity.
 
         Reading it as a statement count is an easy mistake to make and an
@@ -217,7 +221,7 @@ class TestKnowledgeHealth:
         assert health["confirmed_statements"] == briefed["statement_count"]
         assert health["confirmed_statements"] != briefed["knowledge_revision"]
 
-    def test_labels_partition_the_confirmed_statements(self, briefed: dict) -> None:
+    def test_labels_partition_the_confirmed_statements(self, briefed: dict[str, Any]) -> None:
         """Blurring these would undo the labelling the blueprint computes.
 
         Which label a statement gets is decided by provenance, so the fixture
@@ -235,7 +239,7 @@ class TestKnowledgeHealth:
         for label, key in (("grounded", "grounded"), ("assumption", "assumptions")):
             assert health[key] == sum(1 for s in statements if s["label"] == label)
 
-    def test_unconfirmed_knowledge_is_not_counted_as_known(self, briefed: dict) -> None:
+    def test_unconfirmed_knowledge_is_not_counted_as_known(self, briefed: dict[str, Any]) -> None:
         """A proposed item is a candidate, and candidates are not knowledge."""
 
         health = briefed["knowledge_health"]
@@ -243,7 +247,7 @@ class TestKnowledgeHealth:
         assert health["awaiting_review"] >= 1
         assert health["open_questions"] >= 1
 
-    def test_coverage_agrees_with_readiness(self, briefed: dict) -> None:
+    def test_coverage_agrees_with_readiness(self, briefed: dict[str, Any]) -> None:
         assert (
             briefed["knowledge_health"]["coverage_percentage"]
             == (briefed["readiness"]["percentage"])
@@ -251,7 +255,7 @@ class TestKnowledgeHealth:
 
 
 class TestGroundingAndTraceability:
-    def test_every_statement_keeps_its_source_and_label(self, briefed: dict) -> None:
+    def test_every_statement_keeps_its_source_and_label(self, briefed: dict[str, Any]) -> None:
         """A summary that loses provenance is no longer auditable."""
 
         statements = [s for section in briefed["sections"] for s in section["statements"]]
@@ -260,7 +264,7 @@ class TestGroundingAndTraceability:
         assert all(s["knowledge_id"] for s in statements)
         assert all(s["label"] in {"grounded", "derived", "assumption"} for s in statements)
 
-    def test_the_briefing_asserts_no_prose_nobody_confirmed(self, briefed: dict) -> None:
+    def test_the_briefing_asserts_no_prose_nobody_confirmed(self, briefed: dict[str, Any]) -> None:
         """No purpose line, no narrative, no summary sentence.
 
         Every other field here is counted or computed from confirmed knowledge.
@@ -272,7 +276,7 @@ class TestGroundingAndTraceability:
         assert "narrative" not in briefed
         assert "summary" not in briefed
 
-    def test_human_labels_ship_alongside_machine_values(self, briefed: dict) -> None:
+    def test_human_labels_ship_alongside_machine_values(self, briefed: dict[str, Any]) -> None:
         """Renaming the keys would break every existing consumer."""
 
         readiness = briefed["readiness"]

@@ -8,6 +8,7 @@ ranked against each other in one cosine query.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -88,7 +89,7 @@ def seeded(factory: sessionmaker[Session]) -> tuple[MemoryService, ProjectId]:
     return memory, project.id
 
 
-def _chunks(factory: sessionmaker[Session], project_id: ProjectId) -> list:
+def _chunks(factory: sessionmaker[Session], project_id: ProjectId) -> list[Any]:
     with factory() as db:
         return list(
             ChunkRepository(db).list_needing_embedding(project_id, limit=100, embedding_version=-1)
@@ -97,7 +98,7 @@ def _chunks(factory: sessionmaker[Session], project_id: ProjectId) -> list:
 
 class TestVersionIsolation:
     def test_search_never_ranks_another_version(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """The whole reason the version exists.
 
@@ -112,7 +113,7 @@ class TestVersionIsolation:
         assert retrieval.search(project_id, STATEMENTS[0], max_distance=None) == ()
 
     def test_lexical_search_is_unaffected(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """Degrading to lexical is the point; going dark is not."""
 
@@ -124,7 +125,7 @@ class TestVersionIsolation:
 
 class TestSelection:
     def test_an_embedded_old_version_chunk_is_selected(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """State alone would leave the whole corpus behind.
 
@@ -141,7 +142,7 @@ class TestSelection:
         assert all(chunk.state is EmbeddingState.EMBEDDED for chunk in outstanding)
 
     def test_a_current_version_chunk_is_not_selected(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         service = ReembeddingService(factory, StubEmbedder())
@@ -151,7 +152,7 @@ class TestSelection:
         assert service.outstanding(project_id) == 0
 
     def test_selection_can_be_scoped_to_one_project(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         memory, project_id = seeded
         other = memory.create_project("Other", key="reembed-other")
@@ -169,7 +170,7 @@ class TestSelection:
 
 class TestSuccessIsAtomic:
     def test_a_success_updates_vector_version_model_and_state_together(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         embedder = StubEmbedder()
@@ -183,7 +184,7 @@ class TestSuccessIsAtomic:
             assert chunk.state is EmbeddingState.EMBEDDED
 
     def test_the_report_names_the_model_that_produced_the_vectors(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
 
@@ -196,7 +197,7 @@ class TestSuccessIsAtomic:
 
 class TestFailureIsolation:
     def test_a_failed_chunk_does_not_stop_the_others(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         embedder = StubEmbedder(fail_on=["Only an authorised"])
@@ -208,7 +209,7 @@ class TestFailureIsolation:
         assert report.failed == 1
 
     def test_a_failure_does_not_destroy_the_previous_vector(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """The provider is called before anything is overwritten.
 
@@ -226,7 +227,7 @@ class TestFailureIsolation:
         assert failed[0].embedding_version == PREVIOUS_VERSION
 
     def test_failures_are_reported_with_a_diagnosable_cause(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
 
@@ -240,7 +241,7 @@ class TestFailureIsolation:
         assert not report.complete
 
     def test_a_failed_chunk_is_retried_by_a_later_run(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         ReembeddingService(factory, StubEmbedder(fail_on=["Only an authorised"])).migrate(
@@ -255,7 +256,7 @@ class TestFailureIsolation:
 
 class TestResume:
     def test_a_rerun_processes_only_what_is_outstanding(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         service = ReembeddingService(factory, StubEmbedder())
@@ -268,7 +269,7 @@ class TestResume:
         assert second.complete
 
     def test_a_completed_migration_rerun_does_nothing(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         service = ReembeddingService(factory, StubEmbedder())
@@ -282,7 +283,7 @@ class TestResume:
 
 class TestConcurrency:
     def test_two_runners_cannot_process_the_same_chunk(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """Claiming is a compare-and-set, so exactly one runner wins.
 
@@ -301,7 +302,7 @@ class TestConcurrency:
         assert second is False, "the second runner must not also win the claim"
 
     def test_a_claimed_chunk_is_not_offered_to_another_runner(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         _, project_id = seeded
         with factory() as db:
@@ -317,7 +318,7 @@ class TestConcurrency:
         assert report.remaining == 0, "a claimed chunk is not outstanding work"
 
     def test_stranded_claims_are_recoverable(
-        self, factory: sessionmaker[Session], seeded: tuple
+        self, factory: sessionmaker[Session], seeded: tuple[Any, ...]
     ) -> None:
         """A crashed runner leaves claims behind; recovery is explicit.
 

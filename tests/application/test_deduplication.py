@@ -17,6 +17,8 @@ wrong destroys something a person confirmed.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -33,7 +35,7 @@ STATEMENT = "A report cannot be published before it is approved."
 
 def _write(
     memory: MemoryService, project_id: ProjectId, key: str, *texts: str, kind: str = "requirement"
-) -> tuple:
+) -> tuple[Any, ...]:
     run = memory.start_run(project_id, AgentRole.REQUIREMENTS, key)
     return memory.write_knowledge(
         run.id,

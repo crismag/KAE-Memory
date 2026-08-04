@@ -6,6 +6,7 @@ exclude anything, so the corpus came back whole however the query was worded.
 """
 
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -67,7 +68,7 @@ def _prepare(factory: sessionmaker[Session], key: str) -> tuple[Project, Retriev
     return project, retrieval
 
 
-def _bodies(hits: tuple) -> set[str]:
+def _bodies(hits: tuple[Any, ...]) -> set[str]:
     return {strip_metadata_prefix(hit.text) for hit in hits}
 
 
@@ -126,9 +127,9 @@ class TestLexicalSearch:
 
         assert hits[0].coverage == 1.0
         assert "identifiable approver" in strip_metadata_prefix(hits[0].text)
-        assert [hit.coverage for hit in hits] == sorted(
-            (hit.coverage for hit in hits), reverse=True
-        )
+        coverages = [hit.coverage for hit in hits]
+        assert all(coverage is not None for coverage in coverages)
+        assert coverages == sorted(coverages, reverse=True)  # type: ignore[type-var]
 
     def test_the_metadata_prefix_cannot_match(self, factory: sessionmaker[Session]) -> None:
         """Every chunk contains 'Project:', so the prefix would match everything."""

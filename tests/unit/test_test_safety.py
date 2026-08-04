@@ -12,6 +12,7 @@ provider switch had just created.
 from __future__ import annotations
 
 import pytest
+
 from tests.support.database import (
     DatabaseUnavailableError,
     UnsafeTestTargetError,

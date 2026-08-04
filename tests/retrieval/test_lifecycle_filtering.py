@@ -13,6 +13,9 @@ exists to prevent.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -74,7 +77,7 @@ def corpus(factory: sessionmaker[Session]) -> tuple[MemoryService, RetrievalServ
     return memory, RetrievalService(factory, DeterministicEmbeddingAdapter()), project_id
 
 
-def _texts(hits) -> str:
+def _texts(hits: Sequence[Any]) -> str:
     return " || ".join(hit.text for hit in hits)
 
 

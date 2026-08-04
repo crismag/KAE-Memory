@@ -12,6 +12,8 @@ down, and who decided.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -154,7 +156,7 @@ def reviewed(context: tools.ToolContext, factory: sessionmaker[Session]) -> dict
     }
 
 
-def _search(context: tools.ToolContext, project_id: str, query: str) -> dict:
+def _search(context: tools.ToolContext, project_id: str, query: str) -> dict[str, Any]:
     return dispatch(
         context,
         "kae_search_knowledge",
@@ -163,35 +165,37 @@ def _search(context: tools.ToolContext, project_id: str, query: str) -> dict:
 
 
 class TestDecisionsLand:
-    def test_the_valid_statement_is_authoritative(self, reviewed: dict) -> None:
+    def test_the_valid_statement_is_authoritative(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["confirm"]["state"] == "validated"
         assert reviewed["results"]["confirm"]["authoritative"] is True
 
-    def test_the_invalid_statement_is_rejected(self, reviewed: dict) -> None:
+    def test_the_invalid_statement_is_rejected(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["reject"]["state"] == "rejected"
 
-    def test_correcting_a_proposal_accepts_it(self, reviewed: dict) -> None:
+    def test_correcting_a_proposal_accepts_it(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["correct_proposed"]["state"] == "validated"
         assert reviewed["results"]["correct_proposed"]["replaced_version"] == 1
 
-    def test_correcting_confirmed_knowledge_returns_it_for_review(self, reviewed: dict) -> None:
+    def test_correcting_confirmed_knowledge_returns_it_for_review(
+        self, reviewed: dict[str, Any]
+    ) -> None:
         assert reviewed["results"]["correct_confirmed"]["state"] == "proposed"
         assert reviewed["results"]["correct_confirmed"]["authoritative"] is False
 
 
 class TestRefusalsHold:
-    def test_the_retry_changed_nothing(self, reviewed: dict) -> None:
+    def test_the_retry_changed_nothing(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["retry"]["already_applied"] is True
         assert reviewed["results"]["retry"]["readiness_changed"] is False
 
-    def test_the_stale_decision_was_refused(self, reviewed: dict) -> None:
+    def test_the_stale_decision_was_refused(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["stale"]["error"] == "version_conflict"
 
-    def test_the_cross_project_decision_was_refused(self, reviewed: dict) -> None:
+    def test_the_cross_project_decision_was_refused(self, reviewed: dict[str, Any]) -> None:
         assert reviewed["results"]["cross_project"]["error"] == "knowledge_not_found"
 
     def test_the_neighbouring_project_holds_no_review_history(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         """A refused decision must not leave a trace in the project that tried."""
 
@@ -202,20 +206,20 @@ class TestRefusalsHold:
 
 class TestWhatTheProjectNowSays:
     def test_rejected_knowledge_is_gone_from_search(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         result = _search(context, reviewed["project_id"], "publishes")
 
         assert result["count"] == 0
 
     def test_corrected_wording_is_what_search_returns(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         assert _search(context, reviewed["project_id"], "monthly")["count"] == 1
         assert _search(context, reviewed["project_id"], "quarterly")["count"] == 0
 
     def test_every_result_says_whether_a_person_confirmed_it(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         result = _search(context, reviewed["project_id"], "approval OR approver OR filed")
 
@@ -224,10 +228,11 @@ class TestWhatTheProjectNowSays:
             assert isinstance(entry["authoritative"], bool)
 
     def test_authoritative_retrieval_excludes_what_awaits_review(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         """The reworded statement is proposed again and must not be quoted as fact."""
 
+        assert context.retrieval is not None
         hits = context.retrieval.find(
             ProjectId(reviewed["project_id"]), "approval", limit=20, lifecycle=AUTHORITATIVE
         )
@@ -235,17 +240,18 @@ class TestWhatTheProjectNowSays:
         assert not any(REWORDED in hit.text for hit in hits)
 
     def test_nothing_leaked_into_the_neighbouring_project(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         assert _search(context, reviewed["other_id"], "approver")["count"] == 0
 
 
 class TestTheRecordSurvives:
     def test_the_rejected_statement_is_still_readable(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         """Rejection is not deletion."""
 
+        assert context.retrieval is not None
         hits = context.retrieval.find(
             ProjectId(reviewed["project_id"]), "publishes", limit=20, lifecycle=HISTORICAL
         )
@@ -253,7 +259,7 @@ class TestTheRecordSurvives:
         assert any(INVALID in hit.text for hit in hits)
 
     def test_the_original_wording_of_a_correction_is_preserved(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         held = context.memory.retrieve_knowledge(ProjectId(reviewed["project_id"]), lifecycle=None)
         item = next(i for i in held if str(i.id) == reviewed["inaccurate"])
@@ -262,7 +268,7 @@ class TestTheRecordSurvives:
         assert item.current_version.content == CORRECTED
 
     def test_why_the_rejection_happened_is_on_the_record(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         history = context.memory.review_history(
             ProjectId(reviewed["project_id"]), KnowledgeItemId(reviewed["invalid"])
@@ -272,7 +278,7 @@ class TestTheRecordSurvives:
         assert history[-1].note == "The repository uses SQS."
 
     def test_the_project_log_holds_one_event_per_decision(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         """Four decisions were made. The retry, the stale request, and the
         cross-project attempt must not have added a fifth."""
@@ -284,7 +290,7 @@ class TestTheRecordSurvives:
         assert [event.action for event in events].count(ReviewAction.CORRECTED) == 2
 
     def test_every_decision_names_who_made_it(
-        self, context: tools.ToolContext, reviewed: dict
+        self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
         events = context.memory.review_history_for_project(ProjectId(reviewed["project_id"]))
 
@@ -293,7 +299,7 @@ class TestTheRecordSurvives:
 
 
 class TestEmbeddingHandoff:
-    def test_corrected_content_is_queued_for_re_embedding(self, reviewed: dict) -> None:
+    def test_corrected_content_is_queued_for_re_embedding(self, reviewed: dict[str, Any]) -> None:
         factory = reviewed["factory"]
 
         with factory() as db:
@@ -302,7 +308,7 @@ class TestEmbeddingHandoff:
         assert chunks
         assert all(chunk.state is EmbeddingState.STALE for chunk in chunks)
 
-    def test_the_existing_workflow_picks_the_correction_up(self, reviewed: dict) -> None:
+    def test_the_existing_workflow_picks_the_correction_up(self, reviewed: dict[str, Any]) -> None:
         factory = reviewed["factory"]
 
         with factory() as db:

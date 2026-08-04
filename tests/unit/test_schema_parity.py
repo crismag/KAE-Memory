@@ -28,9 +28,7 @@ def _realised_schema(provider: DatabaseProvider) -> dict[str, dict[str, str]]:
 
     adapter = providers.adapter_for(provider)
     return {
-        table.name: {
-            column.name: adapter.realised_type(column.type) for column in table.columns
-        }
+        table.name: {column.name: adapter.realised_type(column.type) for column in table.columns}
         for table in Base.metadata.sorted_tables
     }
 
@@ -49,13 +47,11 @@ class TestRealisedTypes:
                     theirs = schemas[other][table][column]
                     if theirs != realised:
                         divergent.append(
-                            f"{table}.{column}: {reference.value}={realised} "
-                            f"{other.value}={theirs}"
+                            f"{table}.{column}: {reference.value}={realised} {other.value}={theirs}"
                         )
 
         assert not divergent, (
-            "the same mapping realises different storage per provider:\n  "
-            + "\n  ".join(divergent)
+            "the same mapping realises different storage per provider:\n  " + "\n  ".join(divergent)
         )
 
     def test_integer_is_the_type_that_diverges(self) -> None:
@@ -164,9 +160,7 @@ class TestProviderDdl:
                 "knowledge_chunks", "embedding", providers.VECTOR_INDEX_NAME
             )
         )
-        drop = " ".join(
-            adapter.drop_vector_index("knowledge_chunks", providers.VECTOR_INDEX_NAME)
-        )
+        drop = " ".join(adapter.drop_vector_index("knowledge_chunks", providers.VECTOR_INDEX_NAME))
 
         assert providers.VECTOR_INDEX_NAME in create
         assert providers.VECTOR_INDEX_NAME in drop

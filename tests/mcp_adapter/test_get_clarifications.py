@@ -9,6 +9,8 @@ about what it left out.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -65,7 +67,7 @@ def project_id(context: tools.ToolContext) -> str:
     return _project(context, "Ministry Reporting", "clarify-ministry")
 
 
-def _get(context: tools.ToolContext, **arguments: object) -> dict:
+def _get(context: tools.ToolContext, **arguments: object) -> dict[str, Any]:
     return dispatch(context, "kae_get_clarifications", dict(arguments))
 
 
@@ -76,9 +78,7 @@ class TestRegistration:
     def test_the_description_declares_that_it_records(self) -> None:
         """A `get_` that mutates must say so where a caller will read it."""
 
-        declaration = next(
-            d for d in TOOL_DEFINITIONS if d["name"] == "kae_get_clarifications"
-        )
+        declaration = next(d for d in TOOL_DEFINITIONS if d["name"] == "kae_get_clarifications")
         assert "record" in declaration["description"].lower()
 
 
@@ -116,9 +116,7 @@ class TestAnswerableIdentity:
         from kae_memory.domain.identifiers import MessageId
 
         result = _get(context, project_id=project_id)
-        message = context.memory.get_message(
-            MessageId(result["questions"][0]["clarification_id"])
-        )
+        message = context.memory.get_message(MessageId(result["questions"][0]["clarification_id"]))
 
         assert message is not None
         assert message.metadata.get(ASKS_ABOUT)
@@ -166,7 +164,7 @@ class TestWhatIsAsked:
     def test_only_answerable_gaps_are_returned(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
-        """"Confirm these candidates" is work, not a question."""
+        """ "Confirm these candidates" is work, not a question."""
 
         result = _get(context, project_id=project_id, limit=50)
 
@@ -202,9 +200,7 @@ class TestWhatIsAsked:
 
 
 class TestBounding:
-    def test_the_default_bound_applies(
-        self, context: tools.ToolContext, project_id: str
-    ) -> None:
+    def test_the_default_bound_applies(self, context: tools.ToolContext, project_id: str) -> None:
         result = _get(context, project_id=project_id)
 
         assert result["count"] <= 10
@@ -227,9 +223,7 @@ class TestBounding:
 
         assert result["omitted"] is None
 
-    def test_a_nonsense_limit_is_refused(
-        self, context: tools.ToolContext, project_id: str
-    ) -> None:
+    def test_a_nonsense_limit_is_refused(self, context: tools.ToolContext, project_id: str) -> None:
         assert _get(context, project_id=project_id, limit=0)["error"] == "invalid_argument"
 
 

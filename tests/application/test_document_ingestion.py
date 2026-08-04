@@ -8,6 +8,8 @@ ingestion presenting itself as complete is the one outcome worse than refusing.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -54,7 +56,7 @@ def project(factory: sessionmaker[Session]) -> tuple[IngestionService, MemorySer
 
 
 class TestFanOut:
-    def test_a_document_becomes_one_run_per_chunk(self, project: tuple) -> None:
+    def test_a_document_becomes_one_run_per_chunk(self, project: tuple[Any, ...]) -> None:
         ingestion, _, project_id = project
 
         result = ingestion.ingest_document(project_id, "spec.md", _document(6))
@@ -64,7 +66,7 @@ class TestFanOut:
         run_ids = {chunk.run_id for chunk in result.chunks}
         assert len(run_ids) == len(result.chunks), "each chunk gets its own run"
 
-    def test_each_span_is_stored_verbatim(self, project: tuple) -> None:
+    def test_each_span_is_stored_verbatim(self, project: tuple[Any, ...]) -> None:
         """The stored message is what a statement traces back to.
 
         Extracting from a copy passed through an API would break the provenance
@@ -82,7 +84,7 @@ class TestFanOut:
             assert message is not None
             assert message.content in text
 
-    def test_runs_are_enqueued_not_executed(self, project: tuple) -> None:
+    def test_runs_are_enqueued_not_executed(self, project: tuple[Any, ...]) -> None:
         """The submitter never owns the execution (ADR-0007)."""
 
         ingestion, memory, project_id = project
@@ -92,7 +94,7 @@ class TestFanOut:
         runs = {run.id: run for run in memory.runs_for_project(project_id)}
         assert all(runs[chunk.run_id].status is RunStatus.PENDING for chunk in result.chunks)
 
-    def test_the_run_carries_its_document_position(self, project: tuple) -> None:
+    def test_the_run_carries_its_document_position(self, project: tuple[Any, ...]) -> None:
         ingestion, memory, project_id = project
 
         result = ingestion.ingest_document(project_id, "spec.md", _document(4))
@@ -106,7 +108,7 @@ class TestFanOut:
 
 
 class TestDepthAndExtentAreConfigurable:
-    def test_smaller_chunks_read_the_document_more_closely(self, project: tuple) -> None:
+    def test_smaller_chunks_read_the_document_more_closely(self, project: tuple[Any, ...]) -> None:
         """The depth dial: same document, more extractions over less text each."""
 
         ingestion, _, project_id = project
@@ -121,7 +123,7 @@ class TestDepthAndExtentAreConfigurable:
 
         assert len(fine.chunks) > len(coarse.chunks)
 
-    def test_extent_caps_how_much_is_read(self, project: tuple) -> None:
+    def test_extent_caps_how_much_is_read(self, project: tuple[Any, ...]) -> None:
         ingestion, _, project_id = project
 
         result = ingestion.ingest_document(
@@ -131,7 +133,7 @@ class TestDepthAndExtentAreConfigurable:
         assert len(result.chunks) == 2
         assert result.chunks_available > 2
 
-    def test_truncation_is_never_silent(self, project: tuple) -> None:
+    def test_truncation_is_never_silent(self, project: tuple[Any, ...]) -> None:
         """The load-bearing guarantee.
 
         A partial ingestion that looks complete would let someone treat a
@@ -149,7 +151,7 @@ class TestDepthAndExtentAreConfigurable:
         assert result.warnings
         assert "max_chunks" in result.warnings[0]
 
-    def test_breadth_travels_with_the_run(self, project: tuple) -> None:
+    def test_breadth_travels_with_the_run(self, project: tuple[Any, ...]) -> None:
         """One document's policy stays attached to the runs it created."""
 
         ingestion, memory, project_id = project
@@ -178,7 +180,7 @@ class TestDepthAndExtentAreConfigurable:
         assert policy.target_tokens == 250
         assert policy.max_items_per_chunk == IngestionPolicy().max_items_per_chunk
 
-    def test_an_explicit_policy_still_wins_per_request(self, project: tuple) -> None:
+    def test_an_explicit_policy_still_wins_per_request(self, project: tuple[Any, ...]) -> None:
         """A demo dialling extent down must not need a redeploy."""
 
         ingestion, _, project_id = project
@@ -193,7 +195,7 @@ class TestDepthAndExtentAreConfigurable:
 
 
 class TestIdempotence:
-    def test_resubmitting_a_document_does_not_read_it_twice(self, project: tuple) -> None:
+    def test_resubmitting_a_document_does_not_read_it_twice(self, project: tuple[Any, ...]) -> None:
         ingestion, memory, project_id = project
         text = _document(4)
 
@@ -204,7 +206,7 @@ class TestIdempotence:
         assert second.replayed is True
         assert len(memory.runs_for_project(project_id)) == len(first.chunks)
 
-    def test_an_edited_document_ingests_only_what_changed(self, project: tuple) -> None:
+    def test_an_edited_document_ingests_only_what_changed(self, project: tuple[Any, ...]) -> None:
         """Content is part of the chunk key, so an edit is not a whole re-read."""
 
         ingestion, _, project_id = project
@@ -220,7 +222,7 @@ class TestIdempotence:
 
 
 class TestReviewOrdering:
-    def test_review_is_not_enqueued_with_the_extractions(self, project: tuple) -> None:
+    def test_review_is_not_enqueued_with_the_extractions(self, project: tuple[Any, ...]) -> None:
         """Review is cross-chunk, so it is only meaningful once they finish.
 
         There is no run-dependency mechanism, so enqueuing it alongside would
@@ -235,7 +237,7 @@ class TestReviewOrdering:
         assert roles == {AgentRole.REQUIREMENTS}
 
     def test_outstanding_runs_tells_a_caller_when_to_review(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         ingestion, _, project_id = project
         ingestion.ingest_document(project_id, "spec.md", _document(3))
@@ -253,7 +255,7 @@ class TestReviewOrdering:
         assert ingestion.outstanding_runs(project_id) == 0
 
     def test_the_whole_chain_produces_classified_knowledge(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """Ingest, extract every chunk, then review once."""
 

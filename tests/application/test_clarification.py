@@ -7,6 +7,8 @@ input, and what comes out is a candidate a human confirms.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -21,7 +23,7 @@ from kae_memory.application.clarification_service import ANSWERS, ASKS_ABOUT
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.lifecycle import LifecycleState
-from kae_memory.domain.workspace import ActorType, MessageType
+from kae_memory.domain.workspace import ActorType, Message, MessageType
 from kae_memory.worker.execution import AgentStepExecutor
 from kae_memory.worker.runner import Worker, WorkerConfig
 
@@ -43,7 +45,7 @@ def project(
 
 
 class TestDerivingQuestions:
-    def test_gaps_become_questions(self, project: tuple) -> None:
+    def test_gaps_become_questions(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
 
         pending = clarify.pending(project_id)
@@ -52,14 +54,14 @@ class TestDerivingQuestions:
         assert all(c.question for c in pending)
         assert any(c.finding_kind == "missing_area" for c in pending)
 
-    def test_the_most_severe_comes_first(self, project: tuple) -> None:
+    def test_the_most_severe_comes_first(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
 
         pending = clarify.pending(project_id)
 
         assert pending[0].severity == "critical"
 
-    def test_work_queues_are_not_asked_as_questions(self, project: tuple) -> None:
+    def test_work_queues_are_not_asked_as_questions(self, project: tuple[Any, ...]) -> None:
         """ "Confirm each candidate" is work, not something a person can answer.
 
         Asking it spends the one resource this loop exists to spend carefully.
@@ -79,7 +81,7 @@ class TestDerivingQuestions:
 
 
 class TestAsking:
-    def test_a_question_records_what_it_is_about(self, project: tuple) -> None:
+    def test_a_question_records_what_it_is_about(self, project: tuple[Any, ...]) -> None:
         """Findings have no identity, so the question records its subject."""
 
         clarify, _, project_id = project
@@ -91,7 +93,7 @@ class TestAsking:
         assert question.metadata[ASKS_ABOUT]["finding_kind"] == clarification.finding_kind
         assert question.metadata[ASKS_ABOUT]["area_key"] == clarification.area_key
 
-    def test_the_subject_stays_out_of_the_content(self, project: tuple) -> None:
+    def test_the_subject_stays_out_of_the_content(self, project: tuple[Any, ...]) -> None:
         """Content is what a person reads and answers, and nothing else."""
 
         clarify, _, project_id = project
@@ -102,7 +104,7 @@ class TestAsking:
         assert question.content == clarification.question
         assert "finding_kind" not in question.content
 
-    def test_a_question_is_not_attributed_to_an_agent(self, project: tuple) -> None:
+    def test_a_question_is_not_attributed_to_an_agent(self, project: tuple[Any, ...]) -> None:
         """It was derived by deterministic logic; no run produced it."""
 
         clarify, _, project_id = project
@@ -112,7 +114,7 @@ class TestAsking:
         assert question.actor_type is ActorType.SYSTEM
         assert question.agent_run_id is None
 
-    def test_the_same_gap_is_not_asked_twice(self, project: tuple) -> None:
+    def test_the_same_gap_is_not_asked_twice(self, project: tuple[Any, ...]) -> None:
         """Keyed on subject, not wording: rephrasing must not re-ask."""
 
         clarify, _, project_id = project
@@ -125,10 +127,10 @@ class TestAsking:
 
 
 class TestAnswering:
-    def _ask(self, clarify: ClarificationService, project_id: ProjectId) -> object:
+    def _ask(self, clarify: ClarificationService, project_id: ProjectId) -> Message:
         return clarify.ask(project_id, clarify.pending(project_id)[0])
 
-    def test_an_answer_links_back_to_its_question(self, project: tuple) -> None:
+    def test_an_answer_links_back_to_its_question(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
         question = self._ask(clarify, project_id)
 
@@ -137,7 +139,7 @@ class TestAnswering:
         assert answered.answer.message_type is MessageType.ANSWER
         assert answered.answer.metadata[ANSWERS] == str(question.id)
 
-    def test_the_answer_is_stored_verbatim(self, project: tuple) -> None:
+    def test_the_answer_is_stored_verbatim(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
         question = self._ask(clarify, project_id)
 
@@ -145,7 +147,7 @@ class TestAnswering:
 
         assert answered.answer.content == ANSWER_TEXT
 
-    def test_the_subject_survives_onto_the_answer(self, project: tuple) -> None:
+    def test_the_subject_survives_onto_the_answer(self, project: tuple[Any, ...]) -> None:
         """The finding that prompted it may be resolved away by the answer."""
 
         clarify, _, project_id = project
@@ -155,7 +157,7 @@ class TestAnswering:
 
         assert answered.answer.metadata[ASKS_ABOUT] == question.metadata[ASKS_ABOUT]
 
-    def test_answering_writes_no_knowledge_directly(self, project: tuple) -> None:
+    def test_answering_writes_no_knowledge_directly(self, project: tuple[Any, ...]) -> None:
         """The load-bearing rule. An answer is evidence, not a project fact."""
 
         clarify, memory, project_id = project
@@ -165,14 +167,16 @@ class TestAnswering:
 
         assert memory.retrieve_knowledge(project_id, lifecycle=None) == ()
 
-    def test_an_empty_answer_is_rejected(self, project: tuple) -> None:
+    def test_an_empty_answer_is_rejected(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
         question = self._ask(clarify, project_id)
 
         with pytest.raises(ValueError):
             clarify.answer(project_id, question.id, "   ")
 
-    def test_answering_something_that_is_not_a_question_is_rejected(self, project: tuple) -> None:
+    def test_answering_something_that_is_not_a_question_is_rejected(
+        self, project: tuple[Any, ...]
+    ) -> None:
         clarify, memory, project_id = project
         question = self._ask(clarify, project_id)
         note = memory.record_message(
@@ -182,7 +186,7 @@ class TestAnswering:
         with pytest.raises(ValueError):
             clarify.answer(project_id, note.message.id, ANSWER_TEXT)
 
-    def test_answering_twice_is_a_replay(self, project: tuple) -> None:
+    def test_answering_twice_is_a_replay(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
         question = self._ask(clarify, project_id)
 
@@ -195,7 +199,7 @@ class TestAnswering:
 
 class TestTheLoopCloses:
     def test_an_answer_becomes_candidate_knowledge(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """Gap → question → answer → extraction → candidate awaiting a human."""
 
@@ -216,7 +220,7 @@ class TestTheLoopCloses:
         assert memory.retrieve_knowledge(project_id, lifecycle=LifecycleState.VALIDATED) == ()
 
     def test_the_candidate_traces_back_to_the_answer(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """Provenance must reach the person's own words, not a paraphrase."""
 
@@ -237,7 +241,7 @@ class TestTheLoopCloses:
         sources = {str(link.message_id) for link in links if link.message_id}
         assert str(answered.answer.id) in sources
 
-    def test_unanswered_questions_are_reportable(self, project: tuple) -> None:
+    def test_unanswered_questions_are_reportable(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
         pending = clarify.pending(project_id)
         first = clarify.ask(project_id, pending[0])

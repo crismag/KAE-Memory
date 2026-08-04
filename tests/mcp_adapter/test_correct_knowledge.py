@@ -8,6 +8,8 @@ it.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -22,6 +24,7 @@ from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
 from kae_memory.domain.knowledge_review import ReviewAction
 from kae_memory.domain.lifecycle import LifecycleState
+from kae_memory.domain.models import KnowledgeItem
 from kae_memory.domain.workspace import ActorType
 from kae_memory.mcp import tools
 from kae_memory.mcp.server import TOOL_DEFINITIONS, dispatch
@@ -60,13 +63,13 @@ def seeded(context: tools.ToolContext) -> tuple[str, str]:
     return _seed(context, "Ministry Reporting", "correct-ministry")
 
 
-def _correct(context: tools.ToolContext, **arguments: object) -> dict:
+def _correct(context: tools.ToolContext, **arguments: object) -> dict[str, Any]:
     arguments.setdefault("reviewer", "cris")
     arguments.setdefault("content", CORRECTED)
     return dispatch(context, "kae_correct_knowledge", dict(arguments))
 
 
-def _item(context: tools.ToolContext, project_id: str, knowledge_id: str):
+def _item(context: tools.ToolContext, project_id: str, knowledge_id: str) -> KnowledgeItem:
     held = context.memory.retrieve_knowledge(ProjectId(project_id), lifecycle=None)
     return next(item for item in held if str(item.id) == knowledge_id)
 

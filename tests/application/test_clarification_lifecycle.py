@@ -93,8 +93,7 @@ class TestTheLoopCloses:
 
         question_id = _open_question(clarify, project_id)
         assert (
-            clarify.progress(project_id, question_id).state
-            is ClarificationState.WAITING_FOR_ANSWER
+            clarify.progress(project_id, question_id).state is ClarificationState.WAITING_FOR_ANSWER
         )
 
         answered = clarify.answer(project_id, question_id, ANSWER, actor_id="cris")

@@ -191,7 +191,8 @@ def test_results_are_ranked_by_ascending_distance(
 
     assert hits, "an empty result would make this assertion vacuous"
     distances = [hit.distance for hit in hits]
-    assert distances == sorted(distances)
+    assert all(d is not None for d in distances)
+    assert distances == sorted(distances)  # type: ignore[type-var]
 
 
 def test_scoring_reports_recall_at_k(evaluated: tuple[RetrievalService, ProjectId]) -> None:

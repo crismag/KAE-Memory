@@ -23,7 +23,7 @@ from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.knowledge_review import RejectionReason, ReviewAction
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeItem, KnowledgeKind
-from kae_memory.domain.readiness import AreaState
+from kae_memory.domain.readiness import AreaState, ReadinessTemplate
 from kae_memory.domain.workspace import ActorType
 
 VALID = "Only an authorised approver may approve a report."
@@ -356,7 +356,7 @@ class TestClassificationIsNotCorrectable:
         assert outcome.item.kind == KnowledgeKind.REQUIREMENT.value
 
 
-def _template():
+def _template() -> ReadinessTemplate:
     from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
 
     return SOFTWARE_TEMPLATE
