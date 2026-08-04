@@ -26,9 +26,10 @@ from sqlalchemy.orm import sessionmaker
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from kae_memory.agents import provider  # noqa: E402
-from kae_memory.application import MemoryService, RetrievalService  # noqa: E402
-from tests.retrieval.evaluation_set import CASES, EvalCase, Expectation, QueryKind  # noqa: E402
+from tests.retrieval.evaluation_set import CASES, EvalCase, QueryKind
+
+from kae_memory.agents import provider
+from kae_memory.application import MemoryService, RetrievalService
 
 TOP_K = 5
 

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from kae_memory import config as database_config
 from kae_memory.mcp.server import (
     RESOURCE_DEFINITIONS,
     TOOL_DEFINITIONS,
@@ -22,7 +23,6 @@ from kae_memory.mcp.server import (
     configure_logging,
     serve,
 )
-from kae_memory.persistence import providers
 
 OK = "ok"
 FAIL = "fail"
@@ -90,8 +90,8 @@ def _provider_name() -> str:
     """Name the selected provider for a diagnostic, without assuming one."""
 
     try:
-        return providers.resolve_provider().value
-    except providers.ProviderConfigurationError:
+        return database_config.resolve_provider().value
+    except database_config.ProviderConfigurationError:
         return "database"
 
 
@@ -103,13 +103,13 @@ def doctor() -> int:
 
     url: str | None = None
     try:
-        database = providers.resolve()
+        database = database_config.resolve()
         url = database.url
         described = database.describe()
         checks.append(_line(OK, "database provider", described["database_provider"]))
         checks.append(_line(OK, "vector provider", described["vector_provider"]))
         checks.append(_line(OK, "connection", _redacted_target(url)))
-    except providers.ProviderConfigurationError as error:
+    except database_config.ProviderConfigurationError as error:
         # Named rather than guessed. A doctor that reported a working default
         # would be diagnosing a deployment nobody configured.
         checks.append(_line(FAIL, "database provider", str(error)))

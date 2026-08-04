@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory import config as database_config
 from kae_memory.agents import provider
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.memory_service import MemoryService
@@ -27,7 +28,6 @@ from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.mcp import response_policy, tools
 from kae_memory.mcp.errors import safe_error
-from kae_memory.persistence import providers
 
 LOGGER = logging.getLogger("kae_memory.mcp")
 
@@ -65,7 +65,7 @@ def database_url() -> str:
     second place provider identity is decided.
     """
 
-    return providers.resolve().url
+    return database_config.resolve().url
 
 
 def build_context(url: str | None = None) -> tools.ToolContext:

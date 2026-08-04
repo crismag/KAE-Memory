@@ -111,7 +111,11 @@ class KnowledgeVersionRow(Base):
     __tablename__ = "knowledge_versions"
     __table_args__ = (UniqueConstraint("knowledge_item_id", "version_number"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    #: 64-bit deliberately. ``Integer`` compiles to a 32-bit column on
+    #: PostgreSQL and a 64-bit one on CockroachDB, whose INT is INT8 — so the
+    #: same migration produced two different schemas, and CockroachDB's
+    #: ``unique_rowid()`` values do not fit in the narrower one.
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     knowledge_item_id: Mapped[str] = mapped_column(
         ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False, index=True
     )

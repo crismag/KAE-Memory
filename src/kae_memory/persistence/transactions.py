@@ -92,10 +92,7 @@ class CockroachDBRetryingTransactionRunner:
                     return result
                 except DBAPIError as error:
                     session.rollback()
-                    if (
-                        not _is_serialization_failure(error)
-                        or attempt == self.policy.max_attempts
-                    ):
+                    if not _is_serialization_failure(error) or attempt == self.policy.max_attempts:
                         raise
                 except Exception:
                     session.rollback()
@@ -118,9 +115,7 @@ def runner_for(
     """
 
     if retry_required:
-        return CockroachDBRetryingTransactionRunner(
-            session_factory, policy or DEFAULT_RETRY_POLICY
-        )
+        return CockroachDBRetryingTransactionRunner(session_factory, policy or DEFAULT_RETRY_POLICY)
     return PostgreSQLTransactionRunner(session_factory)
 
 

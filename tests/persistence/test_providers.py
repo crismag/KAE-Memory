@@ -151,9 +151,7 @@ class TestVectorDdl:
 
         postgres = providers.adapter_for(DatabaseProvider.POSTGRESQL)
 
-        ddl = " ".join(
-            postgres.create_vector_index("knowledge_chunks", "embedding", "idx")
-        )
+        ddl = " ".join(postgres.create_vector_index("knowledge_chunks", "embedding", "idx"))
         assert "vector_cosine_ops" in ddl
         assert "<=>" in postgres.cosine_distance("embedding", ":vector")
 

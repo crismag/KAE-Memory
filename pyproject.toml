@@ -46,9 +46,11 @@ packages = ["src/kae_memory"]
 addopts = "--strict-markers --strict-config --cov=kae_memory --cov-report=term-missing"
 testpaths = ["tests"]
 markers = [
-    "database_contract: behaviour every provider must satisfy identically",
-    "postgresql: requires PostgreSQL with pgvector",
-    "cockroachdb: requires CockroachDB",
+    "database: requires a live database",
+    "database_contract: shared persistence contract test",
+    "postgresql: requires the PostgreSQL provider",
+    "cockroachdb: requires the CockroachDB provider",
+    "migration: exercises Alembic migrations",
 ]
 
 [tool.ruff]

@@ -137,7 +137,11 @@ def test_doctor_prints_only_to_stderr_and_hides_the_password() -> None:
         capture_output=True,
         text=True,
         timeout=180,
-        env={"PATH": "/usr/bin:/bin", "KAE_DATABASE_URL": secret_url},
+        env={
+            "PATH": "/usr/bin:/bin",
+            "KAE_DATABASE_PROVIDER": "cockroachdb",
+            "KAE_DATABASE_URL": secret_url,
+        },
     )
 
     assert completed.stdout == "", "doctor writes to stderr; stdout belongs to the protocol"
@@ -145,7 +149,14 @@ def test_doctor_prints_only_to_stderr_and_hides_the_password() -> None:
     assert "cockroachdb" in completed.stderr, "the backend is safe to report"
 
 
-def test_doctor_fails_without_a_database_url() -> None:
+def test_doctor_fails_without_a_configured_provider() -> None:
+    """Naming the provider is the first thing a deployment must do.
+
+    Previously this asserted on the connection URL. Selection now comes first:
+    a URL without a provider says where to connect and not what to expect
+    there, and the doctor refuses rather than guessing (ADR-0022).
+    """
+
     completed = subprocess.run(
         [sys.executable, "-m", "kae_memory.mcp", "doctor"],
         capture_output=True,
@@ -155,7 +166,7 @@ def test_doctor_fails_without_a_database_url() -> None:
     )
 
     assert completed.returncode == 1
-    assert "KAE_DATABASE_URL" in completed.stderr
+    assert "KAE_DATABASE_PROVIDER" in completed.stderr
     assert "not ready to serve" in completed.stderr
 
 

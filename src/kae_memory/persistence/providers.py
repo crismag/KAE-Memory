@@ -1,66 +1,31 @@
-"""Selectable database providers.
+"""Provider-specific persistence behaviour.
 
-KAE-Memory stores knowledge in a relational database with vector search over it.
-Which database is a deployment decision, not an architectural one: CockroachDB
-and PostgreSQL with pgvector are both first-class, and neither is a fallback for
-the other.
+Which provider a deployment uses is decided in :mod:`kae_memory.config`; this
+module is the other half — the DDL each one compiles, how its vector index is
+built, how it discards a database. Everything here needs SQL, which is why it
+lives below the repository boundary and why configuration does not.
 
-Everything provider-specific lives here or below the repository boundary — the
-column type a vector compiles to, how a vector index is built, whether a
-transaction needs retrying. Nothing above that boundary asks which database it
-is talking to, because the moment a service does, switching providers stops
-being configuration and becomes a code change.
-
-Selection is explicit. A missing or unknown provider raises rather than guessing
-from a URL or falling back to whichever database happens to answer: silently
-running against the wrong store is worse than not starting.
+Nothing above that boundary asks which database it is talking to. The moment a
+service does, switching providers stops being configuration and becomes a code
+change.
 """
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from dataclasses import dataclass
-from enum import StrEnum
-from typing import Any, Protocol
+from typing import Protocol
 
-
-class DatabaseProvider(StrEnum):
-    """A supported persistence backend."""
-
-    COCKROACHDB = "cockroachdb"
-    POSTGRESQL = "postgresql"
-
-
-class ProviderConfigurationError(RuntimeError):
-    """The persistence provider is missing, unknown, or has no connection URL."""
-
-
-@dataclass(frozen=True, slots=True)
-class DatabaseCapabilities:
-    """What a provider can do, separately from which provider it is.
-
-    Code should ask what is possible rather than which name is configured. The
-    two are related and not the same: a third provider with pgvector would share
-    PostgreSQL's capabilities without being PostgreSQL, and a check written
-    against the name would silently exclude it.
-    """
-
-    native_vector: bool
-    """The engine has a built-in vector type, needing no extension."""
-
-    pgvector_extension: bool
-    """Vector support comes from pgvector, which must be created in the database."""
-
-    approximate_vector_index: bool
-    """An approximate nearest-neighbour index is available."""
-
-    transaction_retry_required: bool
-    """Serialization failures are expected and a caller must retry them."""
-
-    distributed_sql: bool
-    """The engine distributes SQL execution across nodes."""
-
+from kae_memory.config import (
+    CAPABILITIES,
+    DatabaseCapabilities,
+    DatabaseProvider,
+    ProviderConfigurationError,
+    capabilities_for,
+    resolve_provider,
+    resolve_url,
+)
+from kae_memory.config import DatabaseSettings as _Settings
 
 VECTOR_INDEX_NAME = "knowledge_chunks_embedding_idx"
 """One vector index, on the embedding column. Kind is a metadata filter."""
@@ -100,6 +65,15 @@ class ProviderAdapter(Protocol):
         """Return an expression for cosine distance between column and parameter."""
         ...
 
+    def drop_database(self, name: str) -> str:
+        """Return DDL dropping a database along with anything connected to it.
+
+        Used by test tooling, which creates and discards databases constantly.
+        The engines spell "drop it regardless of what is attached" differently,
+        and getting it wrong strands databases behind open sessions.
+        """
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class CockroachDBAdapter:
@@ -111,13 +85,7 @@ class CockroachDBAdapter:
     """
 
     provider: DatabaseProvider = DatabaseProvider.COCKROACHDB
-    capabilities: DatabaseCapabilities = DatabaseCapabilities(
-        native_vector=True,
-        pgvector_extension=False,
-        approximate_vector_index=True,
-        transaction_retry_required=True,
-        distributed_sql=True,
-    )
+    capabilities: DatabaseCapabilities = CAPABILITIES[DatabaseProvider.COCKROACHDB]
 
     def vector_column_spec(self, dimensions: int) -> str:
         return f"VECTOR({dimensions})"
@@ -135,6 +103,9 @@ class CockroachDBAdapter:
     def cosine_distance(self, column: str, parameter: str) -> str:
         return f"{column} <=> {parameter}"
 
+    def drop_database(self, name: str) -> str:
+        return f"DROP DATABASE IF EXISTS {name} CASCADE"
+
 
 @dataclass(frozen=True, slots=True)
 class PostgreSQLAdapter:
@@ -151,13 +122,7 @@ class PostgreSQLAdapter:
     """
 
     provider: DatabaseProvider = DatabaseProvider.POSTGRESQL
-    capabilities: DatabaseCapabilities = DatabaseCapabilities(
-        native_vector=False,
-        pgvector_extension=True,
-        approximate_vector_index=True,
-        transaction_retry_required=False,
-        distributed_sql=False,
-    )
+    capabilities: DatabaseCapabilities = CAPABILITIES[DatabaseProvider.POSTGRESQL]
 
     def vector_column_spec(self, dimensions: int) -> str:
         return f"vector({dimensions})"
@@ -170,8 +135,7 @@ class PostgreSQLAdapter:
         # repository queries with. An index built for a different operator is
         # not merely slower — the planner will not use it.
         return (
-            f"CREATE INDEX IF NOT EXISTS {name} ON {table} "
-            f"USING hnsw ({column} vector_cosine_ops)",
+            f"CREATE INDEX IF NOT EXISTS {name} ON {table} USING hnsw ({column} vector_cosine_ops)",
         )
 
     def drop_vector_index(self, table: str, name: str) -> tuple[str, ...]:
@@ -180,25 +144,17 @@ class PostgreSQLAdapter:
     def cosine_distance(self, column: str, parameter: str) -> str:
         return f"{column} <=> {parameter}"
 
+    def drop_database(self, name: str) -> str:
+        # PostgreSQL rejects CASCADE here and refuses to drop a database with
+        # live connections. FORCE terminates them, which is what a disposable
+        # test database needs and what CASCADE achieves on CockroachDB.
+        return f"DROP DATABASE IF EXISTS {name} WITH (FORCE)"
+
 
 _ADAPTERS: dict[DatabaseProvider, ProviderAdapter] = {
     DatabaseProvider.COCKROACHDB: CockroachDBAdapter(),
     DatabaseProvider.POSTGRESQL: PostgreSQLAdapter(),
 }
-
-PROVIDER_VARIABLE = "KAE_DATABASE_PROVIDER"
-URL_VARIABLES: dict[DatabaseProvider, str] = {
-    DatabaseProvider.COCKROACHDB: "KAE_COCKROACHDB_URL",
-    DatabaseProvider.POSTGRESQL: "KAE_POSTGRESQL_URL",
-}
-FALLBACK_URL_VARIABLE = "KAE_DATABASE_URL"
-"""Honoured only once a provider has been named explicitly.
-
-Kept so an existing deployment adds one variable rather than rewriting its
-configuration. It never implies a provider: a URL is a connection string, and
-reading provider identity out of one is how a deployment ends up pointed at the
-right host with the wrong assumptions.
-"""
 
 
 def adapter_for(provider: DatabaseProvider) -> ProviderAdapter:
@@ -207,59 +163,13 @@ def adapter_for(provider: DatabaseProvider) -> ProviderAdapter:
     return _ADAPTERS[provider]
 
 
-def resolve_provider(environ: Mapping[str, str] | None = None) -> DatabaseProvider:
-    """Return the configured provider, or refuse.
-
-    No default. Choosing one here would make an unconfigured deployment start
-    successfully against an engine nobody selected, and the failure would appear
-    later as missing data rather than as a configuration error.
-    """
-
-    env = os.environ if environ is None else environ
-    name = (env.get(PROVIDER_VARIABLE) or "").strip().lower()
-    if not name:
-        raise ProviderConfigurationError(
-            f"{PROVIDER_VARIABLE} is not set. Choose one of: "
-            f"{', '.join(sorted(p.value for p in DatabaseProvider))}."
-        )
-    try:
-        return DatabaseProvider(name)
-    except ValueError:
-        raise ProviderConfigurationError(
-            f"unknown database provider {name!r}. Choose one of: "
-            f"{', '.join(sorted(p.value for p in DatabaseProvider))}."
-        ) from None
-
-
-def resolve_url(
-    provider: DatabaseProvider, environ: Mapping[str, str] | None = None
-) -> str:
-    """Return the connection URL for ``provider``.
-
-    Prefers the provider-specific variable so a machine can hold settings for
-    both without either becoming ambiguous.
-    """
-
-    env = os.environ if environ is None else environ
-    specific = (env.get(URL_VARIABLES[provider]) or "").strip()
-    if specific:
-        return specific
-    fallback = (env.get(FALLBACK_URL_VARIABLE) or "").strip()
-    if fallback:
-        return fallback
-    raise ProviderConfigurationError(
-        f"no connection URL for provider {provider.value!r}. Set "
-        f"{URL_VARIABLES[provider]}, or {FALLBACK_URL_VARIABLE} to use one URL "
-        "for whichever provider is selected."
-    )
-
-
 @dataclass(frozen=True, slots=True)
 class DatabaseConfiguration:
-    """The resolved persistence configuration for one process.
+    """Settings plus the adapter that implements them.
 
-    One process, one provider. Switching is a deployment change, not something
-    that happens while running.
+    :class:`kae_memory.config.DatabaseSettings` says which provider and where;
+    this adds how, which is the part that needs SQL. Callers outside persistence
+    want the former and should not import this.
     """
 
     provider: DatabaseProvider
@@ -270,30 +180,17 @@ class DatabaseConfiguration:
     def capabilities(self) -> DatabaseCapabilities:
         return self.adapter.capabilities
 
-    def describe(self) -> dict[str, Any]:
-        """Return diagnostics safe to log or return over an API.
+    def describe(self) -> dict[str, object]:
+        """Return diagnostics safe to log or return over an API."""
 
-        Carries no URL, host, or credential. It reports what the store can do,
-        without ranking the providers against each other — a diagnostic that
-        called one of them primary would be stating a preference the
-        architecture does not hold.
-        """
-
-        return {
-            "database_provider": self.provider.value,
-            "vector_provider": (
-                "cockroachdb_native" if self.capabilities.native_vector else "pgvector"
-            ),
-            "distributed_sql": self.capabilities.distributed_sql,
-            "transaction_retry_required": self.capabilities.transaction_retry_required,
-            "approximate_vector_index": self.capabilities.approximate_vector_index,
-        }
+        return _Settings(self.provider, self.url, self.capabilities).describe()
 
 
 def resolve(environ: Mapping[str, str] | None = None) -> DatabaseConfiguration:
-    """Return the configuration this process should use.
+    """Return the persistence configuration this process should use.
 
-    The one place provider identity is decided. Everywhere else asks this.
+    Selection itself happens in :mod:`kae_memory.config`; this pairs the result
+    with the adapter that knows the provider's SQL.
     """
 
     provider = resolve_provider(environ)
@@ -305,6 +202,7 @@ def resolve(environ: Mapping[str, str] | None = None) -> DatabaseConfiguration:
 
 
 __all__ = [
+    "CAPABILITIES",
     "VECTOR_INDEX_NAME",
     "CockroachDBAdapter",
     "DatabaseCapabilities",
@@ -314,6 +212,7 @@ __all__ = [
     "ProviderAdapter",
     "ProviderConfigurationError",
     "adapter_for",
+    "capabilities_for",
     "resolve",
     "resolve_provider",
     "resolve_url",
