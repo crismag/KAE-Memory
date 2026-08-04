@@ -21,6 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents import provider
 from kae_memory.application.blueprint_service import BlueprintService
+from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
@@ -80,6 +81,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
     embedder, name = provider.build_embedder(os.environ)
     return tools.ToolContext(
         memory=MemoryService(factory),
+        clarification=ClarificationService(factory),
         blueprint=BlueprintService(factory),
         readiness=ReadinessService(factory),
         review=ReviewService(factory),
@@ -320,6 +322,33 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_get_clarifications",
+        "description": (
+            "Open questions this project's gaps justify asking a person, most "
+            "severe first. Records the questions it returns, so each one has an "
+            "id that kae_answer_clarification can answer; safe to call again, "
+            "because questions are keyed on what they are about rather than "
+            "their wording. Returns only gaps a person can answer, never review "
+            "work such as confirming candidates."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Default 10. The response reports what a bound left out.",
+                },
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_correct_knowledge",
         "description": (
             "Record a person's corrected wording for one knowledge statement. "
@@ -429,8 +458,23 @@ else answers one of the six questions a briefing exists to answer, so it stays
 at every level.
 """
 
+CLARIFICATION_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
+    # Which knowledge a question concerns, and whether this call is what asked
+    # it, are useful when tracing and noise when working through a queue.
+    "questions[].knowledge_ids": response_policy.DetailLevel.DIAGNOSTIC,
+    "questions[].newly_asked": response_policy.DetailLevel.DIAGNOSTIC,
+    "note": response_policy.DetailLevel.STANDARD,
+}
+"""What an economy profile may drop from a clarification list.
+
+``truncation`` is absent deliberately: it is an integrity field, and a bound
+that hid the fact it was a bound would make a partial queue read as the whole
+one.
+"""
+
 TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
     "kae_get_project_briefing": BRIEFING_FIELD_LEVELS,
+    "kae_get_clarifications": CLARIFICATION_FIELD_LEVELS,
 }
 """Per-tool field maps. A tool absent from here is returned whole."""
 
@@ -478,6 +522,11 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+        ),
+        "kae_get_clarifications": lambda: tools.kae_get_clarifications(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("limit"),
         ),
         "kae_correct_knowledge": lambda: tools.kae_correct_knowledge(
             context,
@@ -707,6 +756,13 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_get_clarifications(project_id: str, limit: int | None = None) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_clarifications",
+            {"project_id": project_id, "limit": limit},
+        )
+
     def kae_correct_knowledge(
         project_id: str,
         knowledge_id: str,
@@ -744,6 +800,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_confirm_knowledge,
             kae_reject_knowledge,
             kae_correct_knowledge,
+            kae_get_clarifications,
         )
     }
 

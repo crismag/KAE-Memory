@@ -18,6 +18,7 @@ from typing import Any
 
 from kae_memory.agents.provider import ranks_by_meaning
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
+from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import (
@@ -68,12 +69,14 @@ class ToolContext:
         retrieval: RetrievalService | None = None,
         embedder_name: str = "deterministic",
         response_policy: ResponsePolicy | None = None,
+        clarification: ClarificationService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
         self.readiness = readiness
         self.review = review
         self.retrieval = retrieval
+        self.clarification = clarification
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -1019,4 +1022,107 @@ def kae_correct_knowledge(
             if authoritative
             else "Returned to proposed: the earlier confirmation covered the previous wording."
         ),
+    }
+
+
+CLARIFICATION_LIMIT = 10
+"""How many open questions one call returns by default.
+
+A gap list is a work queue, and handing back forty at once produces neither a
+review nor a plan. The cap is a default rather than a maximum so a caller that
+genuinely wants the whole queue can say so.
+"""
+
+
+def kae_get_clarifications(
+    context: ToolContext,
+    project_id: str,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """Return the open questions this project's gaps justify asking a person.
+
+    **This call records questions.** Clarifications are derived from findings
+    and have no identity of their own, so a purely read-only version would hand
+    back questions that :func:`kae_answer_clarification` could not answer.
+    Materialising them is what makes them addressable.
+
+    Safe to call repeatedly. Questions are keyed on what they are about rather
+    than on their wording, so re-deriving one already asked returns the existing
+    question instead of asking a person the same thing twice.
+
+    Only gaps a person can answer are returned. Work queues — "confirm these
+    candidates" — are not questions, and offering them here would spend the one
+    resource this loop exists to spend carefully.
+    """
+
+    project = _require_project(context, project_id)
+    if context.clarification is None:
+        raise CapabilityUnavailableError(
+            capability="clarifications",
+            missing=["clarification_service"],
+            use_instead=["kae_get_project_briefing"],
+        )
+    bound = _clarification_limit(limit)
+
+    questions = context.clarification.open_questions(project.id, limit=bound)
+    return {
+        "project_id": str(project.id),
+        "questions": [_render_question(question) for question in questions],
+        "count": len(questions),
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "truncation": _clarification_truncation(context, project.id, len(questions), bound),
+        "note": (
+            "Answer with kae_answer_clarification. An answer is recorded as "
+            "evidence and extracted into proposed knowledge; a person still "
+            "confirms what becomes project knowledge."
+        ),
+    }
+
+
+def _clarification_limit(limit: int | None) -> int:
+    if limit is None:
+        return CLARIFICATION_LIMIT
+    try:
+        bound = int(limit)
+    except (TypeError, ValueError):
+        raise InvalidArgumentError("limit must be an integer") from None
+    if bound < 1:
+        raise InvalidArgumentError("limit must be 1 or greater")
+    return bound
+
+
+def _render_question(question: OpenQuestion) -> dict[str, Any]:
+    return {
+        "clarification_id": str(question.id),
+        "question": question.question,
+        "severity": question.severity,
+        "finding_kind": question.finding_kind,
+        "area_key": question.area_key,
+        "knowledge_ids": list(question.knowledge_ids),
+        "status": "open",
+        "asked_at": question.asked_at.isoformat(),
+        "newly_asked": question.newly_asked,
+    }
+
+
+def _clarification_truncation(
+    context: ToolContext, project_id: Any, returned: int, bound: int
+) -> dict[str, Any] | None:
+    """Report what the bound left out, rather than letting it read as complete.
+
+    A caller cannot tell a short queue from a truncated one, and treating the
+    second as the first is how a project looks finished while questions go
+    unasked.
+    """
+
+    if returned < bound or context.clarification is None:
+        return None
+    total = len(context.clarification.pending(project_id))
+    if total <= returned:
+        return None
+    return {
+        "returned": returned,
+        "available": total,
+        "reason": f"limit={bound}",
+        "guidance": "Raise limit to see the rest. This is not the whole queue.",
     }

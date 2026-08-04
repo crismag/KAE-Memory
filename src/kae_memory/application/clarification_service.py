@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.errors import IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import AgentRunId, MessageId, ProjectId, SessionId
 from kae_memory.domain.workspace import ActorType, Message, MessageType, SessionType
@@ -64,6 +65,26 @@ class Clarification:
             "area_key": self.area_key,
             "knowledge_ids": list(self.knowledge_ids),
         }
+
+
+@dataclass(frozen=True, slots=True)
+class OpenQuestion:
+    """A materialised question a person can actually answer.
+
+    Distinct from :class:`Clarification`, which is derived from a finding and
+    has no identity. A caller cannot answer something with no id, so this pairs
+    the derived subject with the durable message that carries it.
+    """
+
+    id: MessageId
+    question: str
+    finding_kind: str
+    severity: str
+    asked_at: datetime
+    area_key: str | None = None
+    knowledge_ids: tuple[str, ...] = ()
+    newly_asked: bool = False
+    """Whether this call created the question rather than finding it already asked."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +126,98 @@ class ClarificationService:
             _as_clarification(finding)
             for finding in self._review.findings(project_id)
             if _is_askable(finding)
+        )
+
+    def _owned_question(self, project_id: ProjectId, question_id: MessageId) -> Message:
+        """Return the question, or refuse if it belongs to another project.
+
+        Enforced here rather than in the caller. Without it, answering another
+        project's question recorded the answer against *that* project's session
+        while claiming this project's id — a cross-project write, not merely a
+        read leak.
+        """
+
+        question = self._memory.get_message(question_id)
+        if question is None or question.project_id != project_id:
+            raise LookupError(f"unknown question in this project: {question_id}")
+        if question.message_type is not MessageType.QUESTION:
+            raise ValueError(f"message {question_id} is not a question")
+        return question
+
+    def open_questions(
+        self, project_id: ProjectId, session_id: SessionId | None = None, limit: int | None = None
+    ) -> tuple[OpenQuestion, ...]:
+        """Return answerable questions, materialising any not yet asked.
+
+        This writes, and the name of the MCP tool over it should not hide that.
+        Derived clarifications have no identity, so a read that returned them
+        would hand back questions nothing could answer; materialising is the
+        only way to give a caller something addressable.
+
+        Safe to call repeatedly. Questions are keyed on their subject, so
+        re-deriving one already asked returns the existing message rather than
+        asking a person the same thing twice.
+        """
+
+        already = {
+            str(message.metadata.get(ANSWERS))
+            for message in self._all_messages(project_id)
+            if message.message_type is MessageType.ANSWER
+        }
+
+        found: list[OpenQuestion] = []
+        for clarification in self.pending(project_id):
+            question, created = self._materialise(project_id, clarification, session_id)
+            if str(question.id) in already:
+                continue
+            found.append(
+                OpenQuestion(
+                    id=question.id,
+                    question=question.content,
+                    finding_kind=clarification.finding_kind,
+                    severity=clarification.severity,
+                    asked_at=question.created_at,
+                    area_key=clarification.area_key,
+                    knowledge_ids=clarification.knowledge_ids,
+                    newly_asked=created,
+                )
+            )
+        return tuple(found[:limit] if limit is not None else found)
+
+    def _materialise(
+        self,
+        project_id: ProjectId,
+        clarification: Clarification,
+        session_id: SessionId | None,
+    ) -> tuple[Message, bool]:
+        """Return the durable question for ``clarification``, asking if needed.
+
+        The subject key is stable but the wording is not: a finding's
+        recommended action can be rephrased, and the message layer treats a
+        different payload under the same key as a conflict. Rephrasing must not
+        re-ask, so the already-recorded question wins and the conflict resolves
+        to it.
+        """
+
+        key = _question_key(clarification)
+        existing = self._memory.message_by_idempotency_key(project_id, key)
+        if existing is not None:
+            return existing, False
+        try:
+            return self.ask(project_id, clarification, session_id=session_id), True
+        except IdempotencyConflictError:
+            recorded = self._memory.message_by_idempotency_key(project_id, key)
+            if recorded is None:  # pragma: no cover - the key just conflicted
+                raise
+            return recorded, False
+
+    def _all_messages(self, project_id: ProjectId) -> tuple[Message, ...]:
+        """Return every message in a project, across its sessions."""
+
+        return tuple(
+            message
+            for session in self._memory.sessions_for_project(project_id)
+            for message in self._memory.messages_for_session(session.id)
         )
 
     def ask(
@@ -152,11 +265,7 @@ class ClarificationService:
         would let this loop write knowledge on a person's behalf.
         """
 
-        question = self._memory.get_message(question_id)
-        if question is None:
-            raise LookupError(f"unknown question: {question_id}")
-        if question.message_type is not MessageType.QUESTION:
-            raise ValueError(f"message {question_id} is not a question")
+        question = self._owned_question(project_id, question_id)
         if not text.strip():
             raise ValueError("an answer must not be empty")
 
@@ -189,18 +298,27 @@ class ClarificationService:
         return AnsweredClarification(question=question, answer=record.message, run_id=run.id)
 
     def asked(self, project_id: ProjectId, session_id: SessionId) -> tuple[Message, ...]:
-        """Return the questions asked in a session, oldest first."""
+        """Return the questions asked in a session, oldest first.
+
+        ``project_id`` is a filter, not decoration: it was previously accepted
+        and ignored, so a caller naming their own project could read another's
+        session by knowing its id.
+        """
 
         return tuple(
             message
             for message in self._memory.messages_for_session(session_id)
-            if message.message_type is MessageType.QUESTION
+            if message.message_type is MessageType.QUESTION and message.project_id == project_id
         )
 
     def unanswered(self, project_id: ProjectId, session_id: SessionId) -> tuple[Message, ...]:
         """Return questions with no answer recorded against them."""
 
-        messages = self._memory.messages_for_session(session_id)
+        messages = tuple(
+            message
+            for message in self._memory.messages_for_session(session_id)
+            if message.project_id == project_id
+        )
         answered = {
             str(message.metadata.get(ANSWERS))
             for message in messages
@@ -267,5 +385,6 @@ __all__ = [
     "AnsweredClarification",
     "Clarification",
     "ClarificationService",
+    "OpenQuestion",
     "questions_for",
 ]

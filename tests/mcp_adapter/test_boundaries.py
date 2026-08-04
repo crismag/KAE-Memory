@@ -165,13 +165,14 @@ def test_doctor_fails_without_a_database_url() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Eleven tools. `kae_create_project` was added because an agent could submit
+    Twelve tools. `kae_create_project` was added because an agent could submit
     an observation about a project but could not bring one into being, which
     made the surface unusable without a second channel. The three review tools
     arrived in T12 to T14 — see the write-surface test below for what that cost.
+    `kae_get_clarifications` arrived in T16.
     """
 
-    assert len(TOOL_DEFINITIONS) == 11
+    assert len(TOOL_DEFINITIONS) == 12
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -185,11 +186,12 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
         "kae_correct_knowledge",
+        "kae_get_clarifications",
     }
 
 
 def test_the_write_surface_is_named_and_small() -> None:
-    """Five writes. Three of them decide, and that is a deliberate weakening.
+    """Six writes. Three decide, and one does not look like a write at all.
 
     This test previously asserted that *no* tool here could confirm anything:
     with confirmation absent from the surface, FR-005 held structurally and an
@@ -206,6 +208,7 @@ def test_the_write_surface_is_named_and_small() -> None:
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
         "kae_correct_knowledge",
+        "kae_get_clarifications",
     }
     names = {d["name"] for d in TOOL_DEFINITIONS}
 
@@ -336,3 +339,18 @@ def test_a_rejection_must_record_why() -> None:
     assert rejecting, "the rejection tool is expected to exist from T13 onward"
     for definition in rejecting:
         assert "reason_code" in definition["inputSchema"]["required"], definition["name"]
+
+
+def test_a_read_named_tool_that_writes_says_so() -> None:
+    """`kae_get_clarifications` records the questions it returns.
+
+    A `get_` that mutates is a trap for anyone reasoning about which calls are
+    safe to retry or to run speculatively. It is allowed here because derived
+    clarifications have no identity and an unanswerable question is useless —
+    but the description has to admit it, not bury it.
+    """
+
+    definition = next(d for d in TOOL_DEFINITIONS if d["name"] == "kae_get_clarifications")
+    description = definition["description"].lower()
+
+    assert "record" in description, "a mutating read must declare the mutation"
