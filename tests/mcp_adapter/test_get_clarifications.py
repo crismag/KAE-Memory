@@ -217,15 +217,15 @@ class TestBounding:
         result = _get(context, project_id=project_id, limit=1)
 
         assert result["count"] == 1
-        assert result["truncation"] is not None
-        assert result["truncation"]["available"] > 1
+        assert result["omitted"] is not None
+        assert result["omitted"]["available"] > 1
 
     def test_an_unbounded_result_reports_no_truncation(
         self, context: tools.ToolContext, project_id: str
     ) -> None:
         result = _get(context, project_id=project_id, limit=100)
 
-        assert result["truncation"] is None
+        assert result["omitted"] is None
 
     def test_a_nonsense_limit_is_refused(
         self, context: tools.ToolContext, project_id: str

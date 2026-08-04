@@ -97,7 +97,14 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase D — Clarification surfaces
 
-- [ ] **T16** — Implement `kae_get_clarifications`
+- [x] **T16** — Implement `kae_get_clarifications` — 2026-08-04. Settles the
+  identity mismatch that gated Phase D: clarifications derived from findings
+  have no id, so this **records** the questions it returns, keyed on subject
+  through the existing `_question_key` and `UNIQUE (project_id,
+  idempotency_key)`. The mutation behind a `get_` name is declared in the tool
+  description, the docstring, the write-surface guardrail, and a test. Fixes
+  three ownership defects in `ClarificationService`, the worst of which wrote an
+  answer into another project's session while claiming this project's id.
 - [ ] **T17** — Implement `kae_answer_clarification`
 - [ ] **T18** — Connect clarifications to blockers and knowledge
 

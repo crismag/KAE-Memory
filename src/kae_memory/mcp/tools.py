@@ -1070,7 +1070,11 @@ def kae_get_clarifications(
         "questions": [_render_question(question) for question in questions],
         "count": len(questions),
         "knowledge_revision": context.readiness.knowledge_revision(project.id),
-        "truncation": _clarification_truncation(context, project.id, len(questions), bound),
+        # Not "truncation": that name belongs to the response policy, which
+        # uses it for fields a detail level dropped. Two different omissions
+        # under one key would leave a caller unable to tell "questions you did
+        # not see" from "fields we compacted away".
+        "omitted": _clarification_omitted(context, project.id, len(questions), bound),
         "note": (
             "Answer with kae_answer_clarification. An answer is recorded as "
             "evidence and extracted into proposed knowledge; a person still "
@@ -1105,12 +1109,12 @@ def _render_question(question: OpenQuestion) -> dict[str, Any]:
     }
 
 
-def _clarification_truncation(
+def _clarification_omitted(
     context: ToolContext, project_id: Any, returned: int, bound: int
 ) -> dict[str, Any] | None:
-    """Report what the bound left out, rather than letting it read as complete.
+    """Report the questions this bound left out.
 
-    A caller cannot tell a short queue from a truncated one, and treating the
+    A caller cannot tell a short queue from a bounded one, and treating the
     second as the first is how a project looks finished while questions go
     unasked.
     """

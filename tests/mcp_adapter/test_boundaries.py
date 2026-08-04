@@ -270,7 +270,10 @@ def _is_write(definition: dict) -> bool:
 
     return any(
         token in definition["name"]
-        for token in ("create", "submit", "confirm", "reject", "correct")
+        # `clarifications` is here because kae_get_clarifications records the
+        # questions it returns. A `get_` that writes is a trap for anyone
+        # reasoning about which calls are safe to retry, so it is declared.
+        for token in ("create", "submit", "confirm", "reject", "correct", "clarifications")
     )
 
 
