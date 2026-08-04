@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from kae_memory.config import (
     CAPABILITIES,
@@ -29,6 +29,57 @@ from kae_memory.config import DatabaseSettings as _Settings
 
 VECTOR_INDEX_NAME = "knowledge_chunks_embedding_idx"
 """One vector index, on the embedding column. Kind is a metadata filter."""
+
+
+def _normalise_type(column_type: Any, integer_width: str) -> str:
+    """Describe a mapped type by what it stores, independent of spelling.
+
+    ``integer_width`` is the one axis on which the engines genuinely disagree
+    about a type they both accept. Everything else here maps to the same
+    storage on both, and is normalised so that a difference in *spelling* —
+    ``VECTOR(1024)`` against ``vector(1024)`` — never reads as a difference in
+    schema.
+    """
+
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        DateTime,
+        Float,
+        Integer,
+        SmallInteger,
+        String,
+        Text,
+        Uuid,
+    )
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    dimensions = getattr(column_type, "dimensions", None)
+    if dimensions is not None:
+        # A fixed-dimension vector, however the provider spells the type.
+        return f"vector({dimensions})"
+    if isinstance(column_type, JSONB):
+        return "jsonb"
+    if isinstance(column_type, Uuid):
+        return "uuid"
+    if isinstance(column_type, Boolean):
+        return "bool"
+    if isinstance(column_type, SmallInteger):
+        return "int16"
+    if isinstance(column_type, BigInteger):
+        return "int64"
+    if isinstance(column_type, Integer):
+        # The one that mattered. CockroachDB's INT is INT8.
+        return integer_width
+    if isinstance(column_type, Float):
+        return "float64"
+    if isinstance(column_type, Text):
+        return "text"
+    if isinstance(column_type, String):
+        return f"varchar({column_type.length})" if column_type.length else "text"
+    if isinstance(column_type, DateTime):
+        return "timestamptz" if column_type.timezone else "timestamp"
+    return str(column_type).lower()
 
 
 class ProviderAdapter(Protocol):
@@ -74,6 +125,20 @@ class ProviderAdapter(Protocol):
         """
         ...
 
+    def realised_type(self, column_type: Any) -> str:
+        """Return what this engine actually stores for a mapped column type.
+
+        Not the DDL it emits — what the server makes of it. The two differ, and
+        the difference is invisible in a generated schema: both engines compile
+        ``Integer`` to the literal word ``INTEGER``, but CockroachDB's ``INT``
+        is 64-bit while PostgreSQL's is 32-bit. One migration, two schemas, and
+        nothing in the emitted SQL says so.
+
+        That divergence was found by a dataset failing to load. This is how it
+        gets found in milliseconds instead.
+        """
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class CockroachDBAdapter:
@@ -105,6 +170,10 @@ class CockroachDBAdapter:
 
     def drop_database(self, name: str) -> str:
         return f"DROP DATABASE IF EXISTS {name} CASCADE"
+
+    def realised_type(self, column_type: Any) -> str:
+        # CockroachDB's INT, INTEGER, and INT8 are all 64-bit.
+        return _normalise_type(column_type, integer_width="int64")
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +218,10 @@ class PostgreSQLAdapter:
         # live connections. FORCE terminates them, which is what a disposable
         # test database needs and what CASCADE achieves on CockroachDB.
         return f"DROP DATABASE IF EXISTS {name} WITH (FORCE)"
+
+    def realised_type(self, column_type: Any) -> str:
+        # PostgreSQL's INTEGER is int4; only BIGINT is 64-bit.
+        return _normalise_type(column_type, integer_width="int32")
 
 
 _ADAPTERS: dict[DatabaseProvider, ProviderAdapter] = {

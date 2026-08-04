@@ -11,7 +11,6 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
-    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -119,7 +118,11 @@ class KnowledgeVersionRow(Base):
     knowledge_item_id: Mapped[str] = mapped_column(
         ForeignKey("knowledge_items.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: 64-bit for the same reason as ``id``: ``Integer`` realises as 32 bits on
+    #: PostgreSQL and 64 on CockroachDB, so a bare one leaves the two providers
+    #: holding different schemas. Version numbers are small — the width is not
+    #: the point, agreeing on it is.
+    version_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     source: Mapped[str] = mapped_column(Text, nullable=False)
     actor_id: Mapped[str] = mapped_column(String(64), nullable=False)

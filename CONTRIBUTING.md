@@ -47,6 +47,26 @@ Destructive tests refuse any target whose database name does not designate it as
 disposable — `_test`, `test_`, or `testing`. Being on `localhost` is not enough:
 a developer keeps real work there too.
 
+### When to run CockroachDB
+
+CockroachDB is in **maintenance verification**: supported and kept working, not
+under active development. It is infrastructure now, not the product.
+
+| Run | When |
+|---|---|
+| Offline schema parity and SQL compilation | every suite run — they need no database |
+| Full CockroachDB suite | before a release, and after a change to persistence, migrations, or vector SQL |
+
+Nothing contacts CockroachDB unless `KAE_TEST_DATABASE_PROVIDER=cockroachdb` is
+set, so the everyday loop is the PostgreSQL suite and costs about three minutes.
+The CockroachDB suite takes over seven hours, which is why it is reserved rather
+than scheduled — and why the offline parity checks matter: they catch the class
+of divergence that actually occurs, in milliseconds, on every run.
+
+Do not optimise the CockroachDB suite, restructure the provider test tiers, or
+pursue provider-specific improvements unless a provider-sensitive change
+requires it.
+
 `uv.lock` is committed. Use `uv sync` rather than `uv pip install` so the locked
 versions are honoured, and commit the lockfile whenever dependencies change.
 
