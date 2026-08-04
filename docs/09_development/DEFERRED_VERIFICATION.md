@@ -6,7 +6,21 @@ test database alone.
 
 ## CVG-1 — CockroachDB Cloud schema verification
 
-**Status: blocked externally. Not waived.**
+**Status: blocked externally. Not waived. Scope narrowed 2026-08-04.**
+
+**What changed.** PostgreSQL with pgvector is now a supported provider
+(ADR-0022), the development dataset has been copied to it, and both the
+application and the suite run there. So this gate no longer blocks any work.
+
+It is not therefore closed. Whether that cluster's schema survived the
+migration-test defect is still unknown, and a question does not stop having an
+answer because the work moved elsewhere. What narrows is the consequence: the
+cluster is no longer on the path of anything being built, so this is now a
+question about a specific machine rather than a risk to current development.
+
+The dataset it holds is no longer the only copy. 218 rows across 13 tables were
+copied to PostgreSQL and verified table by table, so a total loss of that
+cluster would cost the cluster and not the work.
 
 **What happened.** The migration test fixture pointed Alembic at a throwaway
 database, but `migrations/env.py` resolves `KAE_DATABASE_URL` *before* the
@@ -34,14 +48,21 @@ migration tests. Do not record cloud schema verification as complete.
 1. Restore or replace the CockroachDB Cloud cluster.
 2. Confirm connectivity with a **read-only** check.
 3. Inspect the current migration revision and schema.
-4. Apply pending migrations deliberately — `0007` and `0008` are outstanding as
-   of Phase C.
+4. Apply pending migrations deliberately — `0007`, `0008`, and `0009` are
+   outstanding there. `0009` matters least on that engine and matters most as a
+   record: it exists because CockroachDB and PostgreSQL compiled `Integer`
+   differently, which is exactly the class of divergence this gate would surface.
 5. Run the CockroachDB-specific integration tests against it.
 6. Record the result here and in the Phase E completion report.
 
-**Until then:** all migrations and tests run against the isolated local test
-database. Phase D and Phase E continue, because neither needs cloud access. The
-Phase E completion report must still carry this item as unresolved.
+**Until then:** all migrations and tests run against isolated local test
+databases, named so the destructive guard recognises them. Phase D and Phase E
+continue, because neither needs cloud access. The Phase E completion report must
+still carry this item as unresolved.
+
+**Do not close this by pointing at the PostgreSQL migration.** That verifies
+PostgreSQL. The claim this gate is about — that a specific CockroachDB Cloud
+schema is intact — can only be settled against that cluster.
 
 ## CVG-2 — Retrieval threshold on a grown corpus
 
@@ -59,3 +80,31 @@ Hybrid ranking, not a better constant, is the durable answer.
 
 An agent that fabricates a `reviewer` name records a human decision nobody made.
 Nothing in this layer detects it. Closing it needs identity MCP does not carry.
+
+## CVG-4 — CockroachDB live integration breadth
+
+**Status: closed 2026-08-04. Both providers fully verified.**
+
+The same 675 tests pass on both engines:
+
+| provider | result | wall clock |
+|---|---|---|
+| PostgreSQL 16 + pgvector 0.6.0 | 675 passed | 1m 46s |
+| CockroachDB v26.2 | 675 passed | 7h 30m |
+
+Identical counts, including migrations through `0009`, the provider-aware
+vector DDL, and semantic retrieval over real Titan embeddings. This is what
+"both providers are supported" is allowed to mean.
+
+**The 250× runtime difference is a finding, not an aside.** It explains the
+growing suite times recorded through Phases B and C, which were read at the
+time as the test count climbing: they were per-statement cost on a distributed
+engine. It also makes CockroachDB impractical as the default development loop,
+which is a reason to select PostgreSQL locally and no reason at all to treat
+CockroachDB as lesser — a distributed store pays for properties a single node
+does not provide.
+
+CI runs CockroachDB as a job gated on `KAE_COCKROACHDB_CI_ENABLED`, so its
+absence cannot fail the pipeline and its presence is a deliberate choice. Given
+the runtime, that gate is also what keeps it from making every pull request
+wait seven hours.

@@ -19,6 +19,7 @@ from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.review_service import ReviewService
+from kae_memory.persistence import providers
 
 APP_VERSION = "0.1.0"
 
@@ -36,14 +37,12 @@ class Settings:
     def from_environment(cls) -> "Settings":
         """Read settings, failing loudly rather than defaulting to a wrong database."""
 
-        url = os.environ.get("KAE_DATABASE_URL", "").strip()
-        if not url:
-            raise RuntimeError(
-                "KAE_DATABASE_URL is not set. Copy .env.example and set it, for example "
-                "'cockroachdb+psycopg://user:password@host:26257/kae?sslmode=verify-full'."
-            )
+        # One resolver for the whole process. Provider identity is decided in
+        # `persistence.providers` and nowhere else, so switching engines stays
+        # configuration rather than a code change.
+        database = providers.resolve()
         return cls(
-            database_url=url,
+            database_url=database.url,
             # Binds to loopback by default. A process that listens on every
             # interface by accident is a data breach in an API with no
             # authentication (ADR-0014).

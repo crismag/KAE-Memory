@@ -10,6 +10,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from kae_memory.persistence import providers
 from kae_memory.persistence.tables import Base
 
 config = context.config
@@ -23,6 +24,13 @@ target_metadata = Base.metadata
 def _database_url() -> str:
     """Return the configured database URL."""
 
+    # Provider configuration first, so a migration runs against the engine the
+    # deployment actually selected. The bare URL and the Alembic config remain
+    # for tooling that predates provider selection.
+    try:
+        return providers.resolve().url
+    except providers.ProviderConfigurationError:
+        pass
     url = os.environ.get("KAE_DATABASE_URL") or config.get_main_option("sqlalchemy.url")
     if not url:
         raise RuntimeError(

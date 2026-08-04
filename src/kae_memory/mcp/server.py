@@ -19,6 +19,7 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory import config as database_config
 from kae_memory.agents import provider
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.memory_service import MemoryService
@@ -57,19 +58,14 @@ def configure_logging() -> None:
 
 
 def database_url() -> str:
-    """Resolve the database URL from the existing configuration mechanism.
+    """Resolve the database URL through the shared provider configuration.
 
-    The same variable the API and worker read. A second configuration format
-    for MCP would be one more thing to get wrong in a client config file.
+    The same resolver the API and worker use. A second configuration format for
+    MCP would be one more thing to get wrong in a client config file, and a
+    second place provider identity is decided.
     """
 
-    url = os.environ.get("KAE_DATABASE_URL")
-    if not url:
-        raise RuntimeError(
-            "KAE_DATABASE_URL is not set. Supply it in the MCP client's server "
-            "configuration, the same value the API and worker use."
-        )
-    return url
+    return database_config.resolve().url
 
 
 def build_context(url: str | None = None) -> tools.ToolContext:

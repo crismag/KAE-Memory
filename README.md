@@ -18,7 +18,7 @@ through persistent engineering memory.
 
 **Implementation.** The persistent-memory claim is proven end to end.
 
-The repository contains engineering specifications, domain contracts, CockroachDB
+The repository contains engineering specifications, domain contracts, database
 persistence for knowledge and for projects, sessions, messages and agent runs,
 application contracts, the product experience definition, the demonstration
 narrative, five accepted architecture decisions, and the execution roadmap.
@@ -72,7 +72,7 @@ User creates project
 ```
 
 The proof is that the second agent's input is the first agent's confirmed output,
-recovered from CockroachDB rather than carried in process memory. That path is
+recovered from the database rather than carried in process memory. That path is
 tested in `tests/application/test_cross_run_proof.py`.
 
 ## Development principle
@@ -104,16 +104,16 @@ Domain contracts                        projects, agents, knowledge items,
         |                               lifecycle, typed relationships
 Persistence                             SQLAlchemy mappings, repositories,
         |                               bounded serialization-failure retry
-CockroachDB                             durable, authoritative store
+PostgreSQL or CockroachDB               durable, authoritative store (selectable)
 ```
 
 The core is a Python 3.12 library (ADR-0002). Domain contracts carry no
 persistence or transport dependencies; persistence sits behind a repository
-protocol so CockroachDB and model-provider adapters can change without rewriting
+protocol so database and model-provider adapters can change without rewriting
 workflows (ADR-0003). Durable knowledge is built before orchestration, retrieval,
 or generation (ADR-0001).
 
-Agents reach the database only through KAE application contracts. CockroachDB MCP
+Agents reach the database only through KAE application contracts. Database MCP
 is for inspection and management, never domain writes (ADR-0004).
 
 The demonstration deployment shape is
@@ -128,7 +128,7 @@ and is not an approved deployment baseline.
   versions, lifecycle, projects, sessions, messages, agent runs and their status
   model, provenance links, typed domain errors.
 - `src/kae_memory/persistence/` — SQLAlchemy mappings and repositories for all of
-  the above, plus bounded retry for CockroachDB serialization failures.
+  the above, plus bounded retry where the provider requires it.
 - `src/kae_memory/application/` — `MemoryService`: create project, open session,
   record message, start/interrupt/resume/complete run, write knowledge, confirm,
   retrieve. Every domain write passes through here.
@@ -186,8 +186,8 @@ in order — each stage has a verification gate.
 make check       # lint, format check, mypy strict, pytest
 ```
 
-`make check` passes: ruff, ruff format, mypy strict, and 210 tests against
-CockroachDB. No test contacts a model provider.
+`make check` passes: ruff, ruff format, mypy strict, and the full suite against
+the selected provider — 675 tests on PostgreSQL. No test contacts a model provider.
 
 `make worker` runs the durable worker as a **separate process** from the API — it
 claims queued runs and executes them, so an enqueued run actually completes. It

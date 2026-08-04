@@ -26,8 +26,26 @@ from kae_memory.domain.lexical import MIN_COVERAGE, LexicalMatch, match
 from kae_memory.domain.lifecycle import RETRIEVABLE, LifecycleState
 from kae_memory.domain.models import KnowledgeKind
 
+from .providers import DatabaseProvider as _Provider
+from .providers import ProviderAdapter, adapter_for
+from .providers import ProviderConfigurationError as _ConfigError
+from .providers import resolve as _resolve
 from .tables import KnowledgeChunkRow
 from .timestamps import as_aware
+
+
+def _default_adapter() -> ProviderAdapter:
+    """Return the configured adapter, or CockroachDB when nothing is set.
+
+    A repository constructed in a unit test has no configured provider and must
+    still import; a deployment resolves explicitly and refuses a missing one at
+    startup.
+    """
+
+    try:
+        return _resolve().adapter
+    except _ConfigError:
+        return adapter_for(_Provider.COCKROACHDB)
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,8 +83,12 @@ class LexicalChunk:
 class ChunkRepository:
     """Persistence boundary for knowledge chunks and their embeddings."""
 
-    def __init__(self, session: DbSession) -> None:
+    def __init__(self, session: DbSession, adapter: ProviderAdapter | None = None) -> None:
         self._session = session
+        # The distance expression is the one piece of retrieval SQL that a
+        # provider could spell differently. Asking the adapter keeps that
+        # possibility open without putting a provider check in this file.
+        self._adapter = adapter or _default_adapter()
 
     def add(self, chunk: KnowledgeChunk) -> None:
         """Persist a chunk with no embedding yet."""
@@ -332,10 +354,11 @@ class ChunkRepository:
         """
 
         literal = "[" + ",".join(repr(float(value)) for value in query_vector) + "]"
+        distance = self._adapter.cosine_distance("c.embedding", ":vector")
         states = sorted(state.value for state in lifecycle)
         placeholders = ", ".join(f":life_{index}" for index in range(len(states)))
         sql = (
-            "SELECT c.chunk_id, c.embedding <=> :vector AS distance, k.lifecycle "
+            f"SELECT c.chunk_id, {distance} AS distance, k.lifecycle "
             "FROM knowledge_chunks c "
             "JOIN knowledge_items k ON k.id = c.knowledge_id "
             "WHERE c.project_id = :project_id "
@@ -356,7 +379,7 @@ class ChunkRepository:
             sql += f"  AND c.knowledge_kind IN ({kind_placeholders}) "
             params.update({f"kind_{index}": name for index, name in enumerate(names)})
         if max_distance is not None:
-            sql += "  AND c.embedding <=> :vector <= :max_distance "
+            sql += f"  AND {distance} <= :max_distance "
             params["max_distance"] = float(max_distance)
         sql += "ORDER BY distance LIMIT :limit"
 

@@ -45,6 +45,13 @@ packages = ["src/kae_memory"]
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config --cov=kae_memory --cov-report=term-missing"
 testpaths = ["tests"]
+markers = [
+    "database: requires a live database",
+    "database_contract: shared persistence contract test",
+    "postgresql: requires the PostgreSQL provider",
+    "cockroachdb: requires the CockroachDB provider",
+    "migration: exercises Alembic migrations",
+]
 
 [tool.ruff]
 target-version = "py312"
