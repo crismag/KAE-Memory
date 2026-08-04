@@ -83,18 +83,28 @@ Nothing in this layer detects it. Closing it needs identity MCP does not carry.
 
 ## CVG-4 — CockroachDB live integration breadth
 
-**Status: partially verified 2026-08-04.**
+**Status: closed 2026-08-04. Both providers fully verified.**
 
-CockroachDB passes the persistence and domain suites locally (73 tests,
-including migrations through `0009` and the provider-aware vector DDL), which
-is the coverage that matters most for portability. The full suite against it is
-running at the time of writing.
+The same 675 tests pass on both engines:
 
-Until that completes, the honest statement is: **CockroachDB code paths are
-unit-tested for compilation, configuration, and strategy selection, and
-live-integration-tested for persistence, migrations, and domain behaviour.**
-That is not the same as the whole suite, and the difference should not be
-rounded away.
+| provider | result | wall clock |
+|---|---|---|
+| PostgreSQL 16 + pgvector 0.6.0 | 675 passed | 1m 46s |
+| CockroachDB v26.2 | 675 passed | 7h 30m |
+
+Identical counts, including migrations through `0009`, the provider-aware
+vector DDL, and semantic retrieval over real Titan embeddings. This is what
+"both providers are supported" is allowed to mean.
+
+**The 250× runtime difference is a finding, not an aside.** It explains the
+growing suite times recorded through Phases B and C, which were read at the
+time as the test count climbing: they were per-statement cost on a distributed
+engine. It also makes CockroachDB impractical as the default development loop,
+which is a reason to select PostgreSQL locally and no reason at all to treat
+CockroachDB as lesser — a distributed store pays for properties a single node
+does not provide.
 
 CI runs CockroachDB as a job gated on `KAE_COCKROACHDB_CI_ENABLED`, so its
-absence cannot fail the pipeline and its presence is a deliberate choice.
+absence cannot fail the pipeline and its presence is a deliberate choice. Given
+the runtime, that gate is also what keeps it from making every pull request
+wait seven hours.
