@@ -25,13 +25,15 @@ record.
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import StrEnum
 
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.errors import AlreadyAnsweredError, IdempotencyConflictError
-from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import AgentRunId, MessageId, ProjectId, SessionId
+from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, Message, MessageType, SessionType
 from kae_memory.persistence.transactions import RetryPolicy
 
@@ -65,6 +67,47 @@ class Clarification:
             "area_key": self.area_key,
             "knowledge_ids": list(self.knowledge_ids),
         }
+
+
+class ClarificationState(StrEnum):
+    """Where one clarification has reached in the loop.
+
+    Derived from the records themselves — the question, the answer, the run,
+    and what the run produced — rather than tracked in a column beside them. A
+    stored state would be a second source of truth able to disagree with the
+    first, and the disagreement would be invisible.
+
+    The states exist because a caller must not have to infer progress from
+    unrelated fields, and because each transition is a real thing that has or
+    has not happened yet.
+    """
+
+    WAITING_FOR_ANSWER = "waiting_for_answer"
+    WAITING_FOR_EXTRACTION = "waiting_for_extraction"
+    EXTRACTING = "extracting"
+    AWAITING_REVIEW = "awaiting_review"
+    COMPLETED = "completed"
+    EXTRACTION_FAILED = "extraction_failed"
+    """Terminal for now: the answer stands, and nothing was extracted from it."""
+
+
+@dataclass(frozen=True, slots=True)
+class ClarificationProgress:
+    """One clarification's position in the loop, and what it has produced."""
+
+    question_id: MessageId
+    state: ClarificationState
+    answer_id: MessageId | None = None
+    extraction_run_id: AgentRunId | None = None
+    run_status: str | None = None
+    proposed_knowledge_ids: tuple[str, ...] = ()
+    validated_knowledge_ids: tuple[str, ...] = ()
+
+    @property
+    def knowledge_changed(self) -> bool:
+        """Whether anything a person confirmed came out of this."""
+
+        return bool(self.validated_knowledge_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +268,56 @@ class ClarificationService:
             message
             for session in self._memory.sessions_for_project(project_id)
             for message in self._memory.messages_for_session(session.id)
+        )
+
+    def progress(self, project_id: ProjectId, question_id: MessageId) -> ClarificationProgress:
+        """Return where a clarification has reached, from the records.
+
+        Asks the same sources the workflow writes to, so the answer cannot drift
+        from what actually happened. Nothing here advances anything.
+        """
+
+        question = self._owned_question(project_id, question_id)
+        answer = self._existing_answer(question)
+        if answer is None:
+            return ClarificationProgress(
+                question_id=question_id, state=ClarificationState.WAITING_FOR_ANSWER
+            )
+
+        key = answer.idempotency_key or f"answer:{question_id}"
+        run_id = self._extraction_run_for(project_id, key)
+        run = self._memory.get_run(run_id)
+        status = run.status.value if run is not None else None
+
+        produced = self._memory.knowledge_produced_by(run_id)
+        proposed = tuple(
+            str(item.id) for item in produced if item.lifecycle is LifecycleState.PROPOSED
+        )
+        validated = tuple(
+            str(item.id) for item in produced if item.lifecycle is LifecycleState.VALIDATED
+        )
+
+        if run is not None and run.status is RunStatus.FAILED:
+            state = ClarificationState.EXTRACTION_FAILED
+        elif run is not None and run.status is RunStatus.RUNNING:
+            state = ClarificationState.EXTRACTING
+        elif not produced:
+            # Queued, or finished having found nothing worth proposing. Either
+            # way no knowledge exists yet, which is what a caller needs to know.
+            state = ClarificationState.WAITING_FOR_EXTRACTION
+        elif proposed:
+            state = ClarificationState.AWAITING_REVIEW
+        else:
+            state = ClarificationState.COMPLETED
+
+        return ClarificationProgress(
+            question_id=question_id,
+            state=state,
+            answer_id=answer.id,
+            extraction_run_id=run_id,
+            run_status=status,
+            proposed_knowledge_ids=proposed,
+            validated_knowledge_ids=validated,
         )
 
     def ask(
@@ -429,7 +522,9 @@ __all__ = [
     "ASKS_ABOUT",
     "AnsweredClarification",
     "Clarification",
+    "ClarificationProgress",
     "ClarificationService",
+    "ClarificationState",
     "OpenQuestion",
     "questions_for",
 ]
