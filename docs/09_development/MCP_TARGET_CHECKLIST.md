@@ -85,7 +85,15 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   because an event carrying one version number cannot say which wording gave way
   to which. Corrected chunks are marked stale for the Phase B re-embed workflow;
   no embedding call inside the review transaction (ADR-0008, B2).
-- [ ] **T15** — Verify audit trail and readiness recalculation
+- [x] **T15** — Verify audit trail and readiness recalculation — 2026-08-03,
+  [PHASE_C_COMPLETION.md](PHASE_C_COMPLETION.md). Audit coverage, attribution,
+  ordering, replay and stale-decision behaviour verified; readiness verified
+  against the repository's existing lifecycle rules rather than restated. Adds
+  `review_history_for_project` as the minimal read surface, and one end-to-end
+  scenario over the whole workflow. **Scenario 3 is not applicable**: correction
+  cannot reclassify knowledge, because `kind` is immutable and readiness
+  resolves through area link plus kind — asserted as a test rather than omitted.
+  Phase C verdict: **complete with documented limitations**.
 
 ## Phase D — Clarification surfaces
 

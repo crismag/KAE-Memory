@@ -1110,6 +1110,19 @@ class MemoryService:
 
         return self._run(operation)
 
+    def review_history_for_project(self, project_id: ProjectId) -> tuple[KnowledgeReviewEvent, ...]:
+        """Return every review decision in one project, oldest first.
+
+        The read behind "who decided what here, and when". Deliberately a
+        service method rather than an MCP tool: Phase C owes an auditable
+        record, not an audit administration surface.
+        """
+
+        def operation(db_session: DbSession) -> tuple[KnowledgeReviewEvent, ...]:
+            return ReviewEventRepository(db_session).history_for_project(project_id)
+
+        return self._run(operation)
+
     def confirm_knowledge(self, item_id: KnowledgeItemId) -> KnowledgeItem:
         """Confirm a candidate. Confirmation is a human act; no agent performs it."""
 

@@ -76,9 +76,7 @@ class TestOwnership:
         memory, project_id = project
 
         with pytest.raises(KnowledgeNotFoundError):
-            memory.review_confirm(
-                project_id, KnowledgeItemId("does-not-exist"), expected_version=1
-            )
+            memory.review_confirm(project_id, KnowledgeItemId("does-not-exist"), expected_version=1)
 
 
 class TestVersionGuard:
