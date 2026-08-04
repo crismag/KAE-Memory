@@ -9,13 +9,15 @@ What does not change is the contradiction policy. Neither engine records one.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.agents.review import ReviewRequest, UnverifiableReviewError
 from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
-from kae_memory.domain.execution import AgentRole, RunStatus
+from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.worker.execution import AgentStepExecutor, default_reviewer
 from kae_memory.worker.runner import Worker, WorkerConfig
@@ -40,13 +42,15 @@ def _seed(memory: MemoryService, project_id: ProjectId, key: str) -> None:
         memory.confirm_knowledge(item.id)
 
 
-def _review(factory: sessionmaker[Session], project_id: ProjectId, reviewer: object) -> object:
+def _review(factory: sessionmaker[Session], project_id: ProjectId, reviewer: object) -> AgentRun:
     MemoryService(factory).enqueue_run(project_id, AgentRole.REVIEW, "review-1")
-    return Worker(
+    executed = Worker(
         factory,
         AgentStepExecutor(factory, object(), reviewer),  # type: ignore[arg-type]
         WorkerConfig(worker_id="reviewer"),
     ).run_once()
+    assert executed is not None, "a run was enqueued, so one must have been claimed"
+    return executed
 
 
 @pytest.fixture
@@ -61,7 +65,7 @@ def project(factory: sessionmaker[Session]) -> tuple[MemoryService, ReadinessSer
 
 class TestWithoutAReviewer:
     def test_only_unambiguous_kinds_are_classified(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """Refusing to guess is the point when nothing can judge."""
 
@@ -70,7 +74,7 @@ class TestWithoutAReviewer:
         executed = _review(factory, project_id, None)
 
         assert executed.status is RunStatus.SUCCEEDED
-        assert executed.output_summary["classification"] == "offline_by_kind"
+        assert (executed.output_summary or {})["classification"] == "offline_by_kind"
         assert [link.area_key for link in readiness.area_links(project_id)] == [
             "users_and_stakeholders"
         ]
@@ -78,7 +82,7 @@ class TestWithoutAReviewer:
 
 class TestWithAReviewer:
     def test_the_run_reports_which_engine_classified(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """A reader must be able to tell a model's judgement from a rule."""
 
@@ -86,11 +90,11 @@ class TestWithAReviewer:
 
         executed = _review(factory, project_id, DeterministicReviewAdapter())
 
-        assert executed.output_summary["classification"] == "reviewed_by_model"
-        assert executed.output_summary["prompt_version"] == "review.v1"
+        assert (executed.output_summary or {})["classification"] == "reviewed_by_model"
+        assert (executed.output_summary or {})["prompt_version"] == "review.v1"
 
     def test_classification_is_still_attributable(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         _, readiness, project_id = project
 
@@ -126,13 +130,13 @@ class TestWithAReviewer:
 
         executed = _review(factory, proj.id, DeterministicReviewAdapter())
 
-        assert executed.output_summary["proposed_contradictions"] == 1
+        assert (executed.output_summary or {})["proposed_contradictions"] == 1
         assert readiness.calculate(proj.id).unresolved_contradiction_count == 0
 
 
 class TestResilience:
     def test_a_reviewer_failure_falls_back_rather_than_failing_the_run(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         """Losing the ambiguous cases costs coverage a human can still supply.
 
@@ -156,14 +160,18 @@ class TestResilience:
         executed = _review(factory, project_id, DeterministicReviewAdapter(fabricating))
 
         assert executed.status is RunStatus.SUCCEEDED
-        assert executed.output_summary["classification"] == "offline_by_kind_after_reviewer_error"
-        assert executed.output_summary["reviewer_error"] == UnverifiableReviewError.error_code
+        assert (executed.output_summary or {})[
+            "classification"
+        ] == "offline_by_kind_after_reviewer_error"
+        assert (executed.output_summary or {})[
+            "reviewer_error"
+        ] == UnverifiableReviewError.error_code
         assert [link.area_key for link in readiness.area_links(project_id)] == [
             "users_and_stakeholders"
         ]
 
     def test_an_impossible_pairing_is_dropped_not_fatal(
-        self, factory: sessionmaker[Session], project: tuple
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
         _, readiness, project_id = project
 
@@ -182,7 +190,7 @@ class TestResilience:
         executed = _review(factory, project_id, DeterministicReviewAdapter(misfiles))
 
         assert executed.status is RunStatus.SUCCEEDED
-        assert len(executed.output_summary["rejected_assignments"]) == 1
+        assert len((executed.output_summary or {})["rejected_assignments"]) == 1
         assert readiness.area_links(project_id) == ()
 
 

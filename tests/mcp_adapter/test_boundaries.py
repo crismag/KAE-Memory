@@ -12,6 +12,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -267,7 +268,7 @@ def test_no_tool_approves_or_confirms_without_review() -> None:
             assert "knowledge_ids" not in properties, name
 
 
-def _is_write(definition: dict) -> bool:
+def _is_write(definition: dict[str, Any]) -> bool:
     """Whether a tool changes durable state."""
 
     return any(

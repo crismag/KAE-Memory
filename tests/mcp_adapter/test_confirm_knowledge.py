@@ -9,6 +9,8 @@ the structured payloads a client reads.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -19,7 +21,7 @@ from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.domain.execution import AgentRole
-from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
 from kae_memory.domain.workspace import ActorType
 from kae_memory.mcp import tools
 from kae_memory.mcp.server import TOOL_DEFINITIONS, dispatch
@@ -58,7 +60,7 @@ def seeded(context: tools.ToolContext) -> tuple[str, str]:
     return _seed(context, "Ministry Reporting", "confirm-ministry")
 
 
-def _confirm(context: tools.ToolContext, **arguments: object) -> dict:
+def _confirm(context: tools.ToolContext, **arguments: object) -> dict[str, Any]:
     """Dispatch a confirmation, defaulting the reviewer.
 
     `reviewer` is required by the tool, so a test that is not about attribution
@@ -326,7 +328,7 @@ class TestActorHonesty:
         assert history[0].actor_id == "cris"
 
 
-def _knowledge_id(value: str):
+def _knowledge_id(value: str) -> KnowledgeItemId:
     from kae_memory.domain.identifiers import KnowledgeItemId
 
     return KnowledgeItemId(value)

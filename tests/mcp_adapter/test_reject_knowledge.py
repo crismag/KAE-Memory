@@ -7,6 +7,8 @@ from a scope decision has the record without the meaning.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -55,7 +57,7 @@ def seeded(context: tools.ToolContext) -> tuple[str, str]:
     return _seed(context, "Ministry Reporting", "reject-ministry")
 
 
-def _reject(context: tools.ToolContext, **arguments: object) -> dict:
+def _reject(context: tools.ToolContext, **arguments: object) -> dict[str, Any]:
     arguments.setdefault("reviewer", "cris")
     arguments.setdefault("reason_code", "incorrect")
     return dispatch(context, "kae_reject_knowledge", dict(arguments))
@@ -310,6 +312,7 @@ class TestSearchEffect:
         project_id, knowledge_id = seeded
         _reject(context, project_id=project_id, knowledge_id=knowledge_id, expected_version=1)
 
+        assert context.retrieval is not None
         hits = context.retrieval.find(
             ProjectId(project_id), "publishes", limit=10, lifecycle=HISTORICAL
         )

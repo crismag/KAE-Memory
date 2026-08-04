@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
@@ -86,7 +87,7 @@ class GeometryEmbedder:
         return EmbeddingResult(vectors=tuple(vectors), model=self.model, dimensions=self.dimensions)
 
 
-def _has(hits, statement: str) -> bool:
+def _has(hits: Sequence[Any], statement: str) -> bool:
     """Whether any hit carries ``statement``.
 
     Substring rather than equality: stored chunk text is prefixed with the
@@ -166,7 +167,7 @@ class TestThreshold:
     """Distance decides whether an answer is offered at all."""
 
     def test_a_result_beyond_the_cutoff_is_dropped_not_ranked_last(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         """The failure this prevents is a confident wrong answer.
 
@@ -183,7 +184,7 @@ class TestThreshold:
         assert not _has(hits, FAR)
 
     def test_an_unrelated_query_returns_nothing_at_all(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         """Silence is a valid answer, and the only honest one here."""
 
@@ -194,7 +195,7 @@ class TestThreshold:
         assert retrieval.search(ministry, "Kubernetes ingress controller", limit=10) == ()
 
     def test_removing_the_cutoff_returns_the_far_chunk(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         """Proves the cutoff is doing the work, not an empty corpus."""
 
@@ -221,7 +222,7 @@ class TestScoping:
     """A hit from the wrong project is worse than no hit."""
 
     def test_search_never_crosses_a_project_boundary(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         _, _ministry, other = corpus
         retrieval = RetrievalService(factory, _QueryAt(QUERY_ANGLE))
@@ -232,7 +233,7 @@ class TestScoping:
         assert not _has(hits, NEAR), "a hit leaked in from Ministry Reporting"
 
     def test_only_the_current_embedding_version_is_ranked(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         """Two models' vectors in one cosine query rank by nothing at all."""
 
@@ -258,7 +259,7 @@ class TestScoping:
 
 class TestLexicalRemains:
     def test_exact_terminology_is_found_without_any_embedding(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         """Lexical is the floor the system degrades to, not a legacy path."""
 
@@ -281,7 +282,7 @@ class TestKnownLimitation:
     """
 
     def test_a_marginal_match_and_noise_are_not_separable_by_distance_alone(
-        self, factory: sessionmaker[Session], corpus: tuple
+        self, factory: sessionmaker[Session], corpus: tuple[Any, ...]
     ) -> None:
         _, ministry, _ = corpus
         # A query sitting between the relevant statement and nothing in

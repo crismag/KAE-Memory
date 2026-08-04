@@ -13,6 +13,8 @@ them together.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -72,7 +74,7 @@ def asked(context: tools.ToolContext) -> tuple[str, str]:
     return project_id, listed["questions"][0]["clarification_id"]
 
 
-def _answer(context: tools.ToolContext, **arguments: object) -> dict:
+def _answer(context: tools.ToolContext, **arguments: object) -> dict[str, Any]:
     arguments.setdefault("answer", ANSWER)
     return dispatch(context, "kae_answer_clarification", dict(arguments))
 
@@ -84,9 +86,7 @@ class TestRegistration:
     def test_the_description_says_knowledge_is_not_yet_changed(self) -> None:
         """A caller reads this before deciding what the call means."""
 
-        declaration = next(
-            d for d in TOOL_DEFINITIONS if d["name"] == "kae_answer_clarification"
-        )
+        declaration = next(d for d in TOOL_DEFINITIONS if d["name"] == "kae_answer_clarification")
         description = declaration["description"].lower()
 
         assert "evidence" in description
@@ -307,9 +307,7 @@ class TestRefusals:
         project_id, clarification_id = asked
         first = _answer(context, project_id=project_id, clarification_id=clarification_id)
 
-        result = _answer(
-            context, project_id=project_id, clarification_id=first["answer_id"]
-        )
+        result = _answer(context, project_id=project_id, clarification_id=first["answer_id"])
 
         assert result["error"] in {"invalid_argument", "knowledge_not_found"}
 

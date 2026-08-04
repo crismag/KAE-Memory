@@ -8,6 +8,8 @@ integrity rules that must never be silent.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -62,7 +64,7 @@ def project(
 
 
 class TestThePurposeBounds:
-    def test_an_assembly_reads_less_than_the_whole_project(self, project: tuple) -> None:
+    def test_an_assembly_reads_less_than_the_whole_project(self, project: tuple[Any, ...]) -> None:
         """The point of a package: smaller than everything, by a stated rule."""
 
         assembly, _, _, project_id = project
@@ -73,7 +75,7 @@ class TestThePurposeBounds:
         assert "functional_requirements" in areas
         assert "users_and_stakeholders" not in areas, "actors do not serve implementation"
 
-    def test_different_purposes_read_differently(self, project: tuple) -> None:
+    def test_different_purposes_read_differently(self, project: tuple[Any, ...]) -> None:
         assembly, _, _, project_id = project
 
         discovery = assembly.assemble(project_id, AssemblyPurpose.DISCOVERY)
@@ -84,7 +86,7 @@ class TestThePurposeBounds:
         assert discovery_areas != implementation_areas
         assert "constraints_and_assumptions" in discovery_areas & implementation_areas
 
-    def test_an_uncovered_area_is_reported_not_hidden(self, project: tuple) -> None:
+    def test_an_uncovered_area_is_reported_not_hidden(self, project: tuple[Any, ...]) -> None:
         """Silence about what a package omits is the failure being designed out."""
 
         assembly, _, _, project_id = project
@@ -96,7 +98,7 @@ class TestThePurposeBounds:
 
 
 class TestLineage:
-    def test_the_manifest_pins_the_revision_it_read(self, project: tuple) -> None:
+    def test_the_manifest_pins_the_revision_it_read(self, project: tuple[Any, ...]) -> None:
         assembly, _, readiness, project_id = project
 
         result = assembly.assemble(project_id, AssemblyPurpose.IMPLEMENTATION)
@@ -106,7 +108,7 @@ class TestLineage:
         assert result.manifest.package_schema == PACKAGE_SCHEMA
         assert result.manifest.scope == "project"
 
-    def test_an_assembly_goes_stale_when_knowledge_changes(self, project: tuple) -> None:
+    def test_an_assembly_goes_stale_when_knowledge_changes(self, project: tuple[Any, ...]) -> None:
         """The reason the revision is pinned at all."""
 
         assembly, memory, _, project_id = project
@@ -121,7 +123,7 @@ class TestLineage:
 
         assert assembly.is_stale(project_id, result.manifest) is True
 
-    def test_identical_knowledge_hashes_identically(self, project: tuple) -> None:
+    def test_identical_knowledge_hashes_identically(self, project: tuple[Any, ...]) -> None:
         """Staleness must not fire on every regeneration."""
 
         assembly, _, _, project_id = project
@@ -134,7 +136,9 @@ class TestLineage:
 
 
 class TestIntegrityIsNeverSilent:
-    def test_source_knowledge_names_every_statement_rendered(self, project: tuple) -> None:
+    def test_source_knowledge_names_every_statement_rendered(
+        self, project: tuple[Any, ...]
+    ) -> None:
         """An artifact that cannot name what it read cannot be invalidated."""
 
         assembly, _, _, project_id = project
@@ -145,7 +149,9 @@ class TestIntegrityIsNeverSilent:
         assert set(result.manifest.source_knowledge) == {s.knowledge_id for s in result.statements}
         assert result.manifest.traced_statements == result.manifest.statement_count
 
-    def test_confirmation_state_is_present_even_when_all_confirmed(self, project: tuple) -> None:
+    def test_confirmation_state_is_present_even_when_all_confirmed(
+        self, project: tuple[Any, ...]
+    ) -> None:
         """Never empty-by-omission: a reader must not infer from an absent field."""
 
         assembly, _, _, project_id = project
@@ -155,7 +161,7 @@ class TestIntegrityIsNeverSilent:
         assert result.manifest.confirmation_state.proposed == 0
         assert result.manifest.confirmation_state.confirmed == result.manifest.statement_count
 
-    def test_unconfirmed_statements_are_counted_and_flagged(self, project: tuple) -> None:
+    def test_unconfirmed_statements_are_counted_and_flagged(self, project: tuple[Any, ...]) -> None:
         assembly, memory, readiness, project_id = project
         run = memory.start_run(project_id, AgentRole.REQUIREMENTS, "candidate")
         item = memory.write_knowledge(
@@ -171,7 +177,7 @@ class TestIntegrityIsNeverSilent:
         assert result.manifest.confirmation_state.proposed == 1
         assert any("unconfirmed" in warning for warning in result.manifest.warnings)
 
-    def test_unconfirmed_statements_are_excluded_by_default(self, project: tuple) -> None:
+    def test_unconfirmed_statements_are_excluded_by_default(self, project: tuple[Any, ...]) -> None:
         assembly, memory, readiness, project_id = project
         run = memory.start_run(project_id, AgentRole.REQUIREMENTS, "candidate")
         item = memory.write_knowledge(
@@ -185,7 +191,7 @@ class TestIntegrityIsNeverSilent:
         assert result.manifest.confirmation_state.proposed == 0
         assert "An unreviewed rule." not in [s.text for s in result.statements]
 
-    def test_critical_gaps_travel_with_the_package(self, project: tuple) -> None:
+    def test_critical_gaps_travel_with_the_package(self, project: tuple[Any, ...]) -> None:
         """An incomplete package may generate; it may not hide why."""
 
         assembly, _, _, project_id = project
@@ -208,7 +214,7 @@ class TestIntegrityIsNeverSilent:
 
 
 class TestTraceability:
-    def test_every_statement_keeps_its_identifier_and_label(self, project: tuple) -> None:
+    def test_every_statement_keeps_its_identifier_and_label(self, project: tuple[Any, ...]) -> None:
         assembly, _, _, project_id = project
 
         result = assembly.assemble(project_id, AssemblyPurpose.IMPLEMENTATION)
@@ -220,7 +226,7 @@ class TestTraceability:
 
 
 class TestScopeBoundary:
-    def test_only_project_scope_exists(self, project: tuple) -> None:
+    def test_only_project_scope_exists(self, project: tuple[Any, ...]) -> None:
         """Module scope is specified but not implemented, and does not pretend to be.
 
         Building it on absent modules, relationships, and traversal would invent

@@ -8,6 +8,8 @@ remedies.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -65,7 +67,7 @@ def seeded_project(gap_context: tools.ToolContext) -> str:
 
 
 @pytest.fixture
-def gap(gap_context: tools.ToolContext, seeded_project: str) -> dict:
+def gap(gap_context: tools.ToolContext, seeded_project: str) -> dict[str, Any]:
     return dispatch(
         gap_context,
         "kae_get_module_context",
@@ -74,13 +76,13 @@ def gap(gap_context: tools.ToolContext, seeded_project: str) -> dict:
 
 
 class TestTheGapStaysAGap:
-    def test_it_is_still_an_error(self, gap: dict) -> None:
+    def test_it_is_still_an_error(self, gap: dict[str, Any]) -> None:
         """Adding a path forward must not soften the verdict."""
 
         assert gap["error"] == "capability_unavailable"
         assert "not available" in gap["message"]
 
-    def test_the_original_contract_is_intact(self, gap: dict) -> None:
+    def test_the_original_contract_is_intact(self, gap: dict[str, Any]) -> None:
         """A consumer reading only the old fields must still be correct."""
 
         assert "modules as a knowledge kind" in gap["missing_capabilities"]
@@ -104,11 +106,11 @@ class TestTheGapStaysAGap:
 
 
 class TestTheSubject:
-    def test_the_requested_module_is_named_back(self, gap: dict) -> None:
+    def test_the_requested_module_is_named_back(self, gap: dict[str, Any]) -> None:
         assert gap["subject"]["module"] == "approval workflow"
         assert gap["subject"]["project"] == "Ministry Reporting"
 
-    def test_not_registered_is_distinguished_from_unsupported(self, gap: dict) -> None:
+    def test_not_registered_is_distinguished_from_unsupported(self, gap: dict[str, Any]) -> None:
         """Two different problems with two different remedies.
 
         A caller must not read this as "you typed the wrong module name".
@@ -117,7 +119,7 @@ class TestTheSubject:
         assert gap["subject"]["status"] == "not_registered"
         assert "nowhere to register one" in gap["subject"]["detail"]
 
-    def test_next_steps_do_not_promise_a_workaround(self, gap: dict) -> None:
+    def test_next_steps_do_not_promise_a_workaround(self, gap: dict[str, Any]) -> None:
         """Registering a module is a product change, and says so."""
 
         steps = " ".join(gap["next_steps"])
@@ -125,7 +127,7 @@ class TestTheSubject:
 
 
 class TestWhatIsOfferedInstead:
-    def test_matching_project_knowledge_is_offered(self, gap: dict) -> None:
+    def test_matching_project_knowledge_is_offered(self, gap: dict[str, Any]) -> None:
         offer = gap["available_now"]
 
         assert offer["available"] is True
@@ -133,7 +135,7 @@ class TestWhatIsOfferedInstead:
         texts = [s["text"] for s in offer["statements"]]
         assert "Only an authorised approver may approve a report." in texts
 
-    def test_the_offer_is_scoped_and_captioned_as_a_term_match(self, gap: dict) -> None:
+    def test_the_offer_is_scoped_and_captioned_as_a_term_match(self, gap: dict[str, Any]) -> None:
         """The load-bearing guard.
 
         Handing back statements that merely contain "approval" under a heading
@@ -147,7 +149,7 @@ class TestWhatIsOfferedInstead:
         assert offer["match_type"] == "name_terms"
         assert "not module membership" in offer["caveat"]
 
-    def test_unrelated_knowledge_is_not_swept_in(self, gap: dict) -> None:
+    def test_unrelated_knowledge_is_not_swept_in(self, gap: dict[str, Any]) -> None:
         """An offer padded with everything is worse than no offer."""
 
         texts = [s["text"] for s in gap["available_now"]["statements"]]
@@ -155,7 +157,7 @@ class TestWhatIsOfferedInstead:
         assert "Ministry leaders submit monthly reports." not in texts
         assert "Identity must come from the existing organisational directory." not in texts
 
-    def test_every_offered_statement_stays_traceable(self, gap: dict) -> None:
+    def test_every_offered_statement_stays_traceable(self, gap: dict[str, Any]) -> None:
         statements = gap["available_now"]["statements"]
 
         assert statements

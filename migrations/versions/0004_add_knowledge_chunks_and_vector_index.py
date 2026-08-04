@@ -86,9 +86,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for statement in _adapter().drop_vector_index(
-        "knowledge_chunks", providers.VECTOR_INDEX_NAME
-    ):
+    for statement in _adapter().drop_vector_index("knowledge_chunks", providers.VECTOR_INDEX_NAME):
         op.execute(statement)
     op.drop_index("ix_knowledge_chunks_project_state", table_name="knowledge_chunks")
     op.drop_index("ix_knowledge_chunks_knowledge", table_name="knowledge_chunks")

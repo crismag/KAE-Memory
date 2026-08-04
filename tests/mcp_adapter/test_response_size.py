@@ -323,4 +323,4 @@ def test_the_measurement_script_names_only_read_tools() -> None:
     """A measurement pass must not write. Nothing here may call the write tool."""
 
     assert "kae_submit_observation" not in measurement.READ_TOOLS
-    assert ProjectId  # imported for the script's own signature check
+    assert ProjectId is not None  # imported for the script's own signature check
