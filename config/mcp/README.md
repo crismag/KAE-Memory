@@ -9,13 +9,19 @@ one client (ADR-0018).
 
 ```bash
 uv sync --extra mcp
-export KAE_DATABASE_PROVIDER=cockroachdb
-export KAE_DATABASE_URL="cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
+export KAE_DATABASE_PROVIDER=postgresql
+export KAE_POSTGRESQL_URL="postgresql+psycopg://kae:<password>@localhost:5432/kae_memory"
 uv run kae-memory-mcp doctor
 ```
 
 **All three variables are required.** Omitting `KAE_DATABASE_PROVIDER` stops the
 server before it can serve, and the client reports only "Failed to connect".
+
+**PostgreSQL + pgvector is the default local provider** (`LOCAL_DEVELOPMENT.md`).
+CockroachDB is also supported: set `KAE_DATABASE_PROVIDER=cockroachdb` and
+`KAE_COCKROACHDB_URL`. A URL never implies a provider — the provider variable is
+always explicit, so a machine can hold settings for both without either becoming
+ambiguous.
 
 `doctor` checks configuration, service construction, database reachability,
 **migration state**, and capability enumeration. It writes to stderr and prints
@@ -41,8 +47,9 @@ checks.
 | Codex | Append `config/mcp/codex.toml` to `~/.codex/config.toml` |
 | Cursor | Copy `config/mcp/cursor.json` to `.cursor/mcp.json` in the target repository |
 
-Each file carries the local development URL and an **absolute path** to the
-executable. Change both for another checkout or cluster; the variables are the
+Each file carries the default local provider, a placeholder URL, and an
+**absolute path** to the executable. Replace `CHANGE_ME` with the local
+password. Change both for another checkout or cluster; the variables are the
 same ones the API and worker read, so there is no second configuration format
 to keep in step.
 

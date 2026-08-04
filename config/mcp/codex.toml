@@ -1,18 +1,21 @@
 # Codex — append to ~/.codex/config.toml
 #
-# Run `kae-memory-mcp doctor` first. It reports configuration, database
-# reachability, and migration state, and prints no credentials.
+# Run `kae-memory-mcp doctor` first. It reports the provider, connection,
+# database reachability, and migration state, and prints no credentials.
 #
 # `command` is an absolute path on purpose: the executable lives in the project
-# venv and is not on PATH unless that venv is active. A bare name produces
+# venv and is not on PATH when a client spawns it. A bare name produces
 # "Failed to connect" with nothing further, because the process never starts.
-# Change the path if your checkout is elsewhere.
+#
+# PostgreSQL + pgvector is the default local provider (LOCAL_DEVELOPMENT.md).
+# For CockroachDB, set KAE_DATABASE_PROVIDER = "cockroachdb" and supply
+# KAE_COCKROACHDB_URL instead.
 
 [mcp_servers.kae-memory]
 command = "/mnt/ai/workspaces/KAE-Memory/.venv/bin/kae-memory-mcp"
 args = ["serve"]
 
 [mcp_servers.kae-memory.env]
-KAE_DATABASE_PROVIDER = "cockroachdb"
-KAE_DATABASE_URL = "cockroachdb+psycopg://root@localhost:26259/kae_dev?sslmode=disable"
+KAE_DATABASE_PROVIDER = "postgresql"
+KAE_POSTGRESQL_URL = "postgresql+psycopg://kae:CHANGE_ME@localhost:5432/kae_memory"
 KAE_ENVIRONMENT = "local"
