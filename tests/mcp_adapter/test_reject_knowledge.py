@@ -295,7 +295,7 @@ class TestSearchEffect:
             "kae_search_knowledge",
             {"project_id": project_id, "query": "publishes", "mode": "lexical"},
         )
-        assert before["count"] >= 1
+        assert before["matched_chunks"] >= 1
 
         _reject(context, project_id=project_id, knowledge_id=knowledge_id, expected_version=1)
 
@@ -304,7 +304,7 @@ class TestSearchEffect:
             "kae_search_knowledge",
             {"project_id": project_id, "query": "publishes", "mode": "lexical"},
         )
-        assert after["count"] == 0
+        assert after["matched_chunks"] == 0
 
     def test_it_remains_reachable_historically(
         self, context: tools.ToolContext, seeded: tuple[str, str]

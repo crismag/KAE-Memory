@@ -118,7 +118,7 @@ class TestItStartsEmpty:
 
         listed = dispatch(context, "kae_list_projects", {})
 
-        assert created["project_id"] in {p["project_id"] for p in listed["projects"]}
+        assert created["project_id"] in {p["project_id"] for p in listed["results"]}
 
 
 class TestRejectedInput:

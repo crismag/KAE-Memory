@@ -53,6 +53,7 @@ from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
+from kae_memory.mcp import response_policy
 from kae_memory.mcp.errors import (
     CapabilityUnavailableError,
     ConflictError,
@@ -120,12 +121,14 @@ def _require_project(context: ToolContext, project_id: str) -> Any:
     return project
 
 
-def kae_list_projects(context: ToolContext) -> dict[str, Any]:
+def kae_list_projects(
+    context: ToolContext, limit: int | None = None, cursor: str | None = None
+) -> dict[str, Any]:
     """Identify the projects this environment can read."""
 
     projects = context.memory.list_projects()
-    return {
-        "projects": [
+    return response_policy.paginate(
+        [
             {
                 "project_id": str(project.id),
                 "name": project.name,
@@ -134,8 +137,9 @@ def kae_list_projects(context: ToolContext) -> dict[str, Any]:
             }
             for project in projects
         ],
-        "count": len(projects),
-    }
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 def kae_create_project(
@@ -525,6 +529,7 @@ def kae_search_knowledge(
     kinds: list[str] | None = None,
     mode: str = "auto",
     diagnostics: bool = False,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
     """Search project knowledge without loading the whole project.
 
@@ -604,16 +609,8 @@ def kae_search_knowledge(
             "cannot be reached by semantic search yet."
         )
 
-    payload: dict[str, Any] = {
-        "query": query,
-        "search_mode": resolved,
-        "semantic_search_available": context.semantic_ranking,
-        "ranking": {
-            "lexical": resolved == "lexical",
-            "semantic": resolved == "semantic",
-            "metadata_filtered": parsed_kinds is not None,
-        },
-        "results": [
+    page = response_policy.paginate(
+        [
             {
                 "knowledge_id": str(hit.knowledge_id),
                 "kind": hit.kind.value,
@@ -626,7 +623,24 @@ def kae_search_knowledge(
             }
             for hit in hits
         ],
-        "count": len(hits),
+        limit=None,
+        cursor=cursor,
+    )
+
+    payload: dict[str, Any] = {
+        "query": query,
+        "search_mode": resolved,
+        **page,
+        "semantic_search_available": context.semantic_ranking,
+        "ranking": {
+            "lexical": resolved == "lexical",
+            "semantic": resolved == "semantic",
+            "metadata_filtered": parsed_kinds is not None,
+        },
+        # `count` split in two (ADR-0021 rule 5): one number could not say
+        # whether three hits came from three statements or three spans of one.
+        "matched_chunks": len(hits),
+        "matched_knowledge_items": len({str(hit.knowledge_id) for hit in hits}),
         "indexing": {
             "knowledge_items": status.knowledge_items,
             "searchable_chunks": status.chunks,
@@ -655,8 +669,18 @@ def kae_search_knowledge(
     return payload
 
 
-def kae_get_open_decisions(context: ToolContext, project_id: str) -> dict[str, Any]:
-    """Return what is unresolved and could affect an agent's work."""
+def kae_get_open_decisions(
+    context: ToolContext,
+    project_id: str,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """Return what is unresolved and could affect an agent's work.
+
+    Paginated, and ``total`` counts everything unresolved rather than the page.
+    A caller that read twenty of forty open decisions and believed it had seen
+    them all would plan around a project it has only partly understood.
+    """
 
     project = _require_project(context, project_id)
     everything = context.memory.retrieve_knowledge(project.id, lifecycle=None)
@@ -671,19 +695,28 @@ def kae_get_open_decisions(context: ToolContext, project_id: str) -> dict[str, A
     return {
         "project_id": str(project.id),
         "knowledge_revision": context.readiness.knowledge_revision(project.id),
-        "open_knowledge": [
-            {
-                "knowledge_id": str(item.id),
-                "text": item.current_version.content,
-                "lifecycle": item.lifecycle.value,
-            }
-            for item in unknowns
-        ],
-        "findings": [
-            {"kind": f.kind.value, "severity": f.severity.value, "summary": f.summary}
-            for f in blocking
-        ],
-        "count": len(unknowns) + len(blocking),
+        **response_policy.paginate(
+            [
+                {
+                    "knowledge_id": str(item.id),
+                    "text": item.current_version.content,
+                    "lifecycle": item.lifecycle.value,
+                    "source": "open_knowledge",
+                }
+                for item in unknowns
+            ]
+            + [
+                {
+                    "kind": f.kind.value,
+                    "severity": f.severity.value,
+                    "summary": f.summary,
+                    "source": "finding",
+                }
+                for f in blocking
+            ],
+            limit=limit,
+            cursor=cursor,
+        ),
         "guidance": (
             "These are unresolved. Do not choose an answer on the project's "
             "behalf; if one blocks the work, report it and stop."

@@ -210,13 +210,13 @@ class TestWhatTheProjectNowSays:
     ) -> None:
         result = _search(context, reviewed["project_id"], "publishes")
 
-        assert result["count"] == 0
+        assert result["matched_chunks"] == 0
 
     def test_corrected_wording_is_what_search_returns(
         self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
-        assert _search(context, reviewed["project_id"], "monthly")["count"] == 1
-        assert _search(context, reviewed["project_id"], "quarterly")["count"] == 0
+        assert _search(context, reviewed["project_id"], "monthly")["matched_chunks"] == 1
+        assert _search(context, reviewed["project_id"], "quarterly")["matched_chunks"] == 0
 
     def test_every_result_says_whether_a_person_confirmed_it(
         self, context: tools.ToolContext, reviewed: dict[str, Any]
@@ -242,7 +242,7 @@ class TestWhatTheProjectNowSays:
     def test_nothing_leaked_into_the_neighbouring_project(
         self, context: tools.ToolContext, reviewed: dict[str, Any]
     ) -> None:
-        assert _search(context, reviewed["other_id"], "approver")["count"] == 0
+        assert _search(context, reviewed["other_id"], "approver")["matched_chunks"] == 0
 
 
 class TestTheRecordSurvives:
