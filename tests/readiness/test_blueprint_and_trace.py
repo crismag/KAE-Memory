@@ -217,7 +217,11 @@ def test_markdown_carries_the_same_labels_and_identifiers(
     markdown = render_markdown(_blueprint(factory, project_id))  # type: ignore[arg-type]
 
     assert "# Reporting" in markdown
-    assert "Draft blueprint — incomplete" in markdown
+    # "Provisional", not "incomplete" (N34): a blueprint below the
+    # implementation threshold is still usable output with disclosed gaps, and
+    # the earlier wording read as a verdict on the project rather than a
+    # description of the document.
+    assert "Provisional blueprint" in markdown
     assert "[grounded; knowledge " in markdown
     assert str(item_id) in markdown
     assert "## Missing mandatory areas" in markdown
