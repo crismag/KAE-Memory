@@ -4,7 +4,7 @@
 read this page before any other repository context. It is the single answer to
 "where does KAE-Memory stand today, and what happens next?"
 
-**Last realigned:** 2026-08-05 · **Model version:** 7
+**Last realigned:** 2026-08-05 · **Model version:** 8
 
 ## Vision
 
@@ -24,7 +24,8 @@ through persistent memory.
 
 ## Current milestone
 
-**Phase A completion — T4 and T5.** Everything before it is done.
+**Backend foundation complete; product integration and configuration controls
+are now the active phase.**
 
 The milestone register below carried the project to M11. Work is now tracked by
 the **T-numbered register** in
@@ -32,11 +33,17 @@ the **T-numbered register** in
 which is the source of truth for what happens next. The milestones remain as
 history; they are no longer the queue.
 
-**23 of ~25 targets are delivered.** Phases B (embeddings), C (knowledge
-review), D (clarifications), and E (ingestion and assembly) are complete. What
-remains in the register is T4 and T5 — pagination and detail levels on read
-tools, and verifying token reduction without losing essential context — plus
-two deferred groups, T24 (observation classification) and T25 (project focus).
+**T1 through T24 are delivered.** T4/T5 closed response pagination and verified
+that compaction preserves integrity fields. T24 now classifies observations and
+records operational updates without auto-confirming them. T25.2 added stateless
+`project_key` resolution alongside `project_id`. T25.3 (server-side active
+project) remains deliberately conditional, and T25.4 (cross-project comparison)
+remains undesigned; neither is part of the current product path.
+
+The complete next-phase orientation and independent action contexts are in
+[`NEXT_PHASE_FULL_CONTEXT.md`](NEXT_PHASE_FULL_CONTEXT.md). Use one focus file
+per implementation task rather than treating the entire next phase as a single
+coding prompt.
 
 **Phase E closed the acquisition-to-package loop.** A document can be ingested,
 read into candidates, confirmed by a person, and assembled into a bounded
@@ -123,7 +130,8 @@ rejected rather than merged with a follow-up promise.
 | Deployment and health endpoint | Implemented — both entrypoints, systemd units, install and deploy scripts, SIGTERM handling, runbooks (ADR-0017). Not yet run on a real instance |
 | Application services | Implemented — memory, blueprint, readiness, review, retrieval, clarification, ingestion, assembly, re-embedding |
 | HTTP interface | Implemented — four routers (workspace, readiness, blueprint, root), ADR-0014 contract, generated client |
-| User interface | Implemented — the discovery workspace in `frontend/` (ADR-0009) |
+| Embedded user interface | Implemented in `frontend/`, but no longer the presumed product UI; it requires a dependency/value survey before removal |
+| Product user interface | Owned by KAE-Studio; integration with the real Memory contract is the next product proof |
 | Cloud services | None provisioned |
 | MCP surface | Implemented — 15 tools, 4 resource templates, 1 prompt over STDIO (ADR-0018) |
 | Document ingestion and context assembly | Implemented — `kae_ingest_document`, `kae_assemble_context`, deterministic package description (T19–T22) |
@@ -174,8 +182,8 @@ Timing, sample data, and delivery craft:
 - Python 3.12 library-first core (ADR-0002), with application layers added only
   as slices require them.
 - SQLAlchemy 2.0 + Alembic + psycopg 3 for persistence (ADR-0003).
-- CockroachDB as the authoritative durable store, with serialization-failure
-  retry handled at the unit-of-work boundary.
+- PostgreSQL/pgvector and CockroachDB as selectable durable providers
+  (ADR-0022), with provider-specific behaviour behind persistence adapters.
 - Memory-first ordering: durable knowledge before orchestration, retrieval,
   or generation (ADR-0001).
 - Ports and adapters at the persistence and model-provider boundaries so
@@ -255,47 +263,23 @@ death is the proof; a demo without it does not satisfy the release.
 - Two coding agents must not edit the same branch. A second agent may review a
   completed pull request.
 
-## Immediate next task
+## Immediate next tasks
 
-**Two things, in this order.**
+Choose one bounded focus; do not execute all four as one branch:
 
-**1. Run the live retrieval evaluation.** M8's pipeline is verified, but ADR-0008's
-acceptance criterion — the expected item appearing in top-k — is only genuinely
-tested against the real model:
+1. **Configuration foundation:** inventory and classify magic numbers and
+   backend messages, define validated defaults and precedence, then migrate one
+   coherent slice. See
+   [`focus/CONFIGURATION_AND_MESSAGES.md`](focus/CONFIGURATION_AND_MESSAGES.md).
+2. **Frontend separation survey:** map every dependency on `frontend/` and
+   prepare a deletion manifest without deleting it in the survey task. See
+   [`focus/FRONTEND_SEPARATION.md`](focus/FRONTEND_SEPARATION.md).
+3. **Studio integration:** prove project creation through first proposal review
+   against the real Memory contract, then extend to readiness and assembly. See
+   [`focus/STUDIO_INTEGRATION.md`](focus/STUDIO_INTEGRATION.md).
+4. **Remaining gaps:** address module modelling, publication, remote MCP, or
+   deployment proof only through their separately identified decisions and
+   gates. See [`focus/ENGINE_AND_PROOF_GAPS.md`](focus/ENGINE_AND_PROOF_GAPS.md).
 
-```bash
-KAE_EVAL_LIVE_EMBEDDING=1 AWS_REGION=us-east-1 \
-  uv run pytest tests/retrieval/test_evaluation_fixture.py -s
-```
-
-It enforces a 75% recall threshold and needs Bedrock access to
-`amazon.titan-embed-text-v2:0`. Until it runs, semantic recall is plumbing that
-works rather than retrieval that is good.
-
-**2. Continue M9 — workspace and reporting.** The readiness foundation has
-landed. All five prerequisites ADR-0012 recorded are closed:
-
-| Prerequisite | Resolution |
-| --- | --- |
-| Recalculation must not become a fourth agent role | Synchronous deterministic application logic; classification stays with the Review Agent |
-| Relationship wiring for contradictions | `RelationshipRepository`, with `resolved_at` as a relational column |
-| "Blocker" is a new concept | A dedicated `discovery_blockers` table, not a knowledge kind |
-| No representation of an authoritative revision | `projects.knowledge_revision`, a monotonic counter |
-| Areas do not map onto knowledge kinds | Existing eight kinds kept, plus an explicit `knowledge_area_links` assignment |
-
-The **API contract is now decided and implemented** (ADR-0014): projects,
-sessions, messages, knowledge, runs, readiness, blockers, and contradictions
-under `/v1`, plus `GET /health` and run progress over **Server-Sent Events** at
-`GET /v1/runs/{id}/events`. `python -m kae_memory.api` serves it and
-`/openapi.json` is the schema the client is generated from.
-
-The **workspace UI and generated client have landed** (ADR-0009): React,
-TypeScript, Vite, React Router, and TanStack Query, with the client generated
-from the API's own OpenAPI document and CI diffing it so a backend contract
-change cannot skip regeneration.
-
-What remains in M9: the **generated TypeScript client**, the **workspace UI**, the **Review Agent's** classification
-and findings, and reporting. CI gains a Node job when frontend code lands.
-
-ADR-0010 still applies: no provider selection, BYOK, credential storage, quotas,
-billing, or extra live adapters.
+No current task authorises a KAE-Memory settings UI, a broad administration
+policy system, or new product UI work inside this repository.
