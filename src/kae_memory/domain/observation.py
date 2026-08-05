@@ -278,6 +278,47 @@ project.
 """
 
 
+class InvalidOperationalTransitionError(DomainInvariantError):
+    """A requested operational state change is not one the domain permits."""
+
+
+_ALLOWED_OPERATIONAL_TRANSITIONS: dict[OperationalState, frozenset[OperationalState]] = {
+    # A proposal is a claim awaiting a decision: accept it, refuse it, or let
+    # it lapse. It cannot jump to resolved, because resolving something nobody
+    # accepted would record an outcome for work the project never took on.
+    OperationalState.PROPOSED: frozenset(
+        {OperationalState.ACTIVE, OperationalState.REJECTED, OperationalState.EXPIRED}
+    ),
+    OperationalState.ACTIVE: frozenset(
+        {OperationalState.RESOLVED, OperationalState.EXPIRED, OperationalState.REJECTED}
+    ),
+    # Terminal. A resolved record that could reopen would make "resolved" mean
+    # "resolved for now", and a later reader could not tell the two apart. A
+    # recurrence is a new record with its own evidence.
+    OperationalState.RESOLVED: frozenset(),
+    OperationalState.EXPIRED: frozenset(),
+    OperationalState.REJECTED: frozenset(),
+}
+
+
+def ensure_operational_transition(current: OperationalState, target: OperationalState) -> None:
+    """Validate a requested operational transition.
+
+    Modelled on `lifecycle.ensure_transition` deliberately. Operational state
+    decays differently from knowledge — a milestone status is true until the
+    next one, where a requirement is true until superseded — but both need the
+    same property: a state change that the domain does not permit fails here,
+    once, rather than in each adapter that happens to remember to check.
+    """
+
+    if target not in _ALLOWED_OPERATIONAL_TRANSITIONS[current]:
+        allowed = sorted(state.value for state in _ALLOWED_OPERATIONAL_TRANSITIONS[current])
+        raise InvalidOperationalTransitionError(
+            f"cannot move an operational record from {current.value} to "
+            f"{target.value}; permitted: {', '.join(allowed) or 'none, this state is terminal'}"
+        )
+
+
 def is_verified_result(produced_by_approved_runner: bool) -> str:
     """Return whether a test result is `verified` or merely `reported`.
 

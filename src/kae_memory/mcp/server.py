@@ -300,6 +300,86 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_get_operational_state",
+        "description": (
+            "Where the work stands, as reported. Filterable by state, kind, and "
+            "subject. Everything returned is a claim: `authority` says who made "
+            "it and `state` says whether anyone has accepted it. A proposed "
+            "record has been read by nobody, and no milestone is complete "
+            "because a sentence said so."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "states": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["proposed", "active", "resolved", "expired", "rejected"],
+                    },
+                    "description": "Defaults to proposed and active - the current state of the work.",
+                },
+                "kinds": {"type": "array", "items": {"type": "string"}},
+                "subject": {
+                    "type": "string",
+                    "description": "A milestone or target id, such as `M8` or `T1`.",
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                "cursor": {"type": "string"},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_get_classifications",
+        "description": (
+            "Classified spans of this project's observations, with the range of "
+            "stored text each came from. Classification says what a span was, "
+            "not whether it is true; nothing listed is confirmed knowledge."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "tiers": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["durable", "operational", "evidence"]},
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                "cursor": {"type": "string"},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_settle_operational_record",
+        "description": (
+            "Relay a person's decision about a reported operational record: "
+            "accept it as active, resolve it, reject it, or let it expire. "
+            "`actor` is required - a decision nobody is named for cannot be "
+            "audited. Settling records that someone took responsibility for a "
+            "claim; it does not verify the claim."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "operational_update_id": {"type": "string", "minLength": 1},
+                "state": {
+                    "type": "string",
+                    "enum": ["active", "resolved", "expired", "rejected"],
+                },
+                "actor": {"type": "string", "minLength": 1},
+                "note": {"type": "string"},
+            },
+            "required": ["project_id", "operational_update_id", "state", "actor"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_confirm_knowledge",
         "description": (
             "Record a person's decision to accept one proposed knowledge item as "
@@ -833,6 +913,30 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("reviewer"),
             arguments.get("idempotency_key"),
         ),
+        "kae_get_operational_state": lambda: tools.kae_get_operational_state(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("states"),
+            arguments.get("kinds"),
+            arguments.get("subject"),
+            arguments.get("limit"),
+            arguments.get("cursor"),
+        ),
+        "kae_get_classifications": lambda: tools.kae_get_classifications(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("tiers"),
+            arguments.get("limit"),
+            arguments.get("cursor"),
+        ),
+        "kae_settle_operational_record": lambda: tools.kae_settle_operational_record(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("operational_update_id", ""),
+            arguments.get("state", ""),
+            arguments.get("actor", ""),
+            arguments.get("note"),
+        ),
         "kae_confirm_knowledge": lambda: tools.kae_confirm_knowledge(
             context,
             arguments.get("project_id", ""),
@@ -1078,6 +1182,69 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_get_operational_state(
+        states: list[str] | None = None,
+        kinds: list[str] | None = None,
+        subject: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_operational_state",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "states": states,
+                "kinds": kinds,
+                "subject": subject,
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
+
+    def kae_get_classifications(
+        tiers: list[str] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_classifications",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "tiers": tiers,
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
+
+    def kae_settle_operational_record(
+        operational_update_id: str,
+        state: str,
+        actor: str,
+        note: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_settle_operational_record",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "operational_update_id": operational_update_id,
+                "state": state,
+                "actor": actor,
+                "note": note,
+            },
+        )
+
     def kae_confirm_knowledge(
         knowledge_id: str,
         expected_version: int,
@@ -1198,6 +1365,9 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_submit_observation,
             kae_confirm_knowledge,
             kae_reject_knowledge,
+            kae_get_operational_state,
+            kae_get_classifications,
+            kae_settle_operational_record,
             kae_correct_knowledge,
             kae_get_clarifications,
             kae_answer_clarification,

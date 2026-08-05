@@ -51,11 +51,27 @@ settling that.
   Bounded responses, pagination where data grows, explicit revision identity,
   honest queued and partial states. No lifecycle, validation, readiness, or
   idempotency logic duplicated in a router.
-- [ ] **N4** — Classification lifecycle closure: filterable, pageable reads for
-  classified observations and operational state; the accept, reject, resolve,
-  and supersede transitions the domain already models; and a caller for
-  `ClassificationRepository.supersede_older_versions`, which exists today with
-  no path to it.
+- [x] **N4** — Classification lifecycle closure — 2026-08-05. Three tools:
+  `kae_get_operational_state` (filter by state, kind, subject; paged),
+  `kae_get_classifications` (filter by tier; paged), and
+  `kae_settle_operational_record`. Transition rules live in the domain as
+  `ensure_operational_transition`, modelled on the knowledge lifecycle: a
+  proposal may be accepted, refused, or lapse, and terminal states are terminal
+  — a recurrence is a new record, not a reopening that erases the fact that
+  this one closed.
+
+  **Settling is not verifying.** Accepting a reported completion records that a
+  person took responsibility for the claim; the record keeps `authority:
+  agent_reported` and `verification: reported`, and `actor` is required for the
+  same reason `reviewer` is on confirmation.
+
+  Supersession now has a caller, and wiring it exposed a defect T24's tests
+  could not have caught: `superseded_by` was a UUID column, but supersession is
+  by classifier **version** — one old classification is not replaced by one new
+  row, a whole result set is retired. Migration `0012` retypes it to
+  `superseded_by_version`. No data was lost, because nothing had ever written
+  the column, which is the same fact from two directions: a column nothing
+  writes is a column whose type nothing checks.
 - [ ] **N5** — HTTP trust boundary: authentication, project authorisation kept
   separate from it, explicit CORS allowlists, request-size and rate and timeout
   bounds, safe external errors with correlation ids. Local development may have

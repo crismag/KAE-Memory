@@ -177,17 +177,23 @@ def test_doctor_fails_without_a_configured_provider() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Fifteen tools, and the list is enumerated rather than counted so that adding
-    one is a deliberate edit here. `kae_create_project` was added because an
+    Eighteen tools, and the list is enumerated rather than counted so that
+    adding one is a deliberate edit here. `kae_create_project` was added because an
     agent could submit an observation about a project but could not bring one
     into being, which made the surface unusable without a second channel. The
     three review tools arrived in T12 to T14 — see the write-surface test below
     for what that cost. `kae_get_clarifications` arrived in T16,
     `kae_answer_clarification` in T17, and Phase E added `kae_ingest_document`
     and `kae_assemble_context`.
+
+    N4 added three, and the count is the argument for having added them. T24
+    shipped classification with a write path and no read or review path: spans
+    and operational records were reachable only through the briefing, and four
+    states the domain models were reachable by nothing at all. Two filtered
+    reads and one settle command are the smallest surface that closes it.
     """
 
-    assert len(TOOL_DEFINITIONS) == 15
+    assert len(TOOL_DEFINITIONS) == 18
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -197,6 +203,9 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_search_knowledge",
         "kae_get_open_decisions",
         "kae_get_readiness",
+        "kae_get_operational_state",
+        "kae_get_classifications",
+        "kae_settle_operational_record",
         "kae_submit_observation",
         "kae_confirm_knowledge",
         "kae_reject_knowledge",
