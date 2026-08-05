@@ -186,9 +186,134 @@ the product around the gap.
   conversation, proposed-setup confirmation, unresolved setup questions,
   default destination selection, and per-publication override.
   *Non-goals:* Studio collecting or displaying any raw credential.
+- [ ] **N39** — **Studio generate-with-assumptions workflow.** Actions:
+  continue interview, add sources, review important questions, let KAE
+  recommend, generate with assumptions, accept current knowledge, prepare
+  package, publish, return to setup later. **Generation is never disabled by a
+  score or a completion percentage.**
+- [ ] **N40** — **MCP generation-policy parameters.** Generation purpose,
+  maturity mode, whether provisional information may be included, whether KAE
+  may make reversible assumptions, acceptance of the knowledge boundary,
+  assumptions accepted, questions deferred, whether an override becomes a
+  default.
+  *Acceptance:* an agent never has to fake readiness or confirm uncertain
+  knowledge to make generation possible. **"Generate anyway" authorises
+  generation only** — never publication, destructive writes, or claimed
+  certainty.
 - [ ] **N15** — First vertical slice on real HTTP: project selection through
   first proposal review, with unavailable, queued, partial, proposed, and
   complete visibly distinct.
+
+## Phase O — Progressive acquisition and user-controlled sufficiency
+
+Product context: *KAE Progressive Knowledge Acquisition, User-Controlled
+Sufficiency, and Non-Blocking Generation*, 2026-08-05.
+
+> Incomplete, uncertain, or minimal project knowledge is a normal project
+> condition — not a failure, and not by itself a reason to stop generation.
+
+**Placed before Phase M deliberately.** Setup, configuration, and publication
+all inherit this rule: requiredness is evaluated against a requested capability,
+never globally. Designing them first would bake in the gate this phase exists to
+prevent.
+
+### What the inspection found
+
+Three of the fifteen inspection points turned out already satisfied. Those need
+regression evidence, not redesign.
+
+**Already correct — preserve and prove:**
+
+- **Readiness does not block generation.** No code path raises on
+  `implementation_eligible` or `draft_eligible`; they are advisory and feed
+  labels and prose. Nothing uses a score as an authorization decision.
+- **Assembly already admits unconfirmed knowledge** through `include_proposed`,
+  and labels it rather than hiding it.
+- **Capability gaps are already narrow.** `CapabilityUnavailableError` names its
+  subject, what is missing, and what to use instead — the shape this context
+  asks for.
+
+**Real gaps:**
+
+- **Assumptions have no durable identity.** `StatementLabel.ASSUMPTION` is a
+  label applied to an assembled statement, not an entity with provenance,
+  confidence, reversibility, or acceptance. Nothing can pin one, disclose one,
+  or revisit one.
+- **Proposed knowledge is labelled `assumption` during assembly.** Two distinct
+  concepts share one word: unconfirmed *knowledge* and a KAE-made
+  *interpretation*.
+- **Questions have no disposition.** No deferred, no "I don't know", no
+  delegation, no revisit trigger. A question is open or answered.
+- **The deliverable model cannot record maturity or accepted sufficiency.**
+  N20/N20.1 pin what was rendered; nothing records what it was *for*, or that a
+  person accepted the knowledge boundary.
+- **N20.1 cannot pin assumptions**, because they do not exist as entities.
+- **Wording.** `blueprint_service` emits "This blueprint is not authorised for
+  implementation" — permission language for an advisory statement.
+
+- [ ] **N34** — **Progressive acquisition vocabulary and capability readiness.**
+  *Scope:* acquisition states; capability-specific readiness replacing any
+  single pass/fail reading — available, available with assumptions, available
+  with warnings, degraded, needs choice, needs authorization, blocked by
+  integrity, blocked by provider, unsupported. Each answers: what can be done
+  now, what improves with more information, which assumptions are required,
+  which operation is unavailable and why, and the next useful action.
+  *Non-goals:* removing the percentage — it stays as an indicator.
+  *Tests:* **regression evidence that a low score blocks nothing**, since it
+  currently does not and nothing stops that changing.
+  *Docs:* audit "blocked", "failed", "not ready", "insufficient", "not
+  authorised" in backend prose; reserve failure words for real failures.
+
+- [ ] **N35** — **Assumption lifecycle and provenance.** A durable entity, not
+  a label.
+  *Scope:* identity, project, the gap it addresses, assumed value, reason,
+  evidence, confidence, consequence if wrong, scope, reversibility, acceptance,
+  whether authority was delegated, revisit trigger. Categories: user-stated,
+  KAE-inferred, KAE-recommended-and-accepted, KAE-temporary, imported,
+  template-inherited, unresolved alternative.
+  *Acceptance:* **a material assumption is never silently promoted to a
+  confirmed requirement** — the rule FR-005 already applies to knowledge.
+  **Blocks N20.2 and N37.**
+
+- [ ] **N36** — **Question priority and disposition.** Applies to both
+  clarifications and setup questions (N25), which keep their separate
+  identities.
+  *Scope:* classification by consequence — helpful, important, deferred,
+  capability-blocking, authorization-blocking, integrity-blocking; dispositions
+  — open, suggested, answered, deferred, unknown-by-user, delegated, assumed for
+  this generation, no longer relevant, superseded.
+  *Acceptance:* **"I don't know" is a preserved answer, not an absent one**, and
+  is not re-asked until a trigger fires. Ten helpful questions never make a
+  project look blocked.
+
+- [ ] **N37** — **Mode-aware assembly.**
+  *Scope:* generation modes (explore, shape, plan, build, validate) as declared
+  *intent* that qualifies output, never a gate; inclusion classes — confirmed,
+  user-supplied, proposed, inferred, assumed, disputed, superseded, rejected,
+  deferred — each labelled accurately.
+  *Fixes:* proposed knowledge currently labelled `assumption`, which conflates
+  unconfirmed knowledge with a KAE interpretation.
+  *Acceptance:* a contradiction is representable without failing generation.
+  *Depends on:* N35.
+
+- [ ] **N38** — **Deliverable maturity and accepted sufficiency.**
+  *Scope:* intended use, generation mode, knowledge boundary, user-accepted
+  sufficiency (purpose, actor, time, what was disclosed), confirmed and
+  unconfirmed counts, material assumptions, open decisions, contradictions,
+  deferred questions, limitations, next actions.
+  *Acceptance:* **maturity describes evidence and intent — never permission.** A
+  provisional package is still immutable, reproducible, and publishable;
+  immutability describes identity, not completeness. Acceptance applies to one
+  generation and never marks questions resolved.
+
+- [ ] **N20.2** — **Pin provisional context in reproduction.** Extends N20.1.
+  *Scope:* pin assumption identities and versions, the confirmation state used,
+  open decisions represented, relevant clarification state, and the generation
+  mode — alongside the statement pins and render inputs already captured.
+  *Acceptance:* **historical reproduction never consults current knowledge.** A
+  provisional package reproduces its uncertainty exactly; an improved package is
+  a new deliverable and never overwrites an old identity.
+  *Depends on:* N35, N38.
 
 ## Phase M — Preliminary setup and project configuration
 
@@ -241,6 +366,11 @@ is the gap this phase fills.
   versa; answering one updates configuration and not knowledge.
 
 - [ ] **N26** — **Typed project configuration projection.**
+  *Constraint from Phase O:* every field must support unknown, inferred,
+  suggested, confirmed, provisional, deferred, inherited, overridden, and
+  unavailable-because-disabled. **A project must be creatable with almost none
+  of it populated** — `primary_repository` is unknown for an idea, and
+  `default_publication_target` stays unknown until the first publication.
   *Purpose:* publication must not search natural-language knowledge at runtime
   to decide where to write files.
   *Scope:* a validated typed record distinct from knowledge statements;
@@ -456,6 +586,12 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   journey — create project, connect sources, confirm preliminary setup, acquire
   knowledge, organise modules, assemble, record, render, verify, publish
   through the remembered default, and open the result in Studio.
+- [ ] **N41** — **Sparse-project generation proof.** The eight acceptance
+  scenarios from the progressive-acquisition context, end to end: a
+  one-sentence idea, a partial questionnaire, an existing repository with weak
+  documentation, contradictory sources, no publication target, "generate now"
+  with important questions open, reproducing a historical provisional
+  deliverable, and a real hard block that stays narrow.
 - [ ] **N22** — Remote MCP tenancy and authentication. Distinct from N5, which
   is the HTTP boundary.
 - [ ] **N23** — Live deployment proof.
