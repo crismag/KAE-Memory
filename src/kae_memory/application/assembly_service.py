@@ -30,6 +30,11 @@ from uuid import uuid4
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.generation import (
+    GenerationMode,
+    InclusionClass,
+    inclusions_for,
+)
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.readiness import SOFTWARE_TEMPLATE, ReadinessTemplate
@@ -108,6 +113,15 @@ class AssembledStatement:
     area_key: str
     version: int
     lifecycle: str
+    inclusion_class: str = InclusionClass.CONFIRMED.value
+    """What kind of content this is, distinct from `label` (N37).
+
+    `label` says where authority comes from — grounded, derived, assumed —
+    and is computed from provenance. This says whether the statement is
+    confirmed, proposed, disputed, or assumed. Assembly used to carry the
+    confirmation state in `label`, which made "KAE inferred this" and "nobody
+    has confirmed this" the same word.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,12 +233,22 @@ class AssemblyService:
         project_id: ProjectId,
         purpose: AssemblyPurpose,
         include_proposed: bool = False,
+        mode: GenerationMode | None = None,
     ) -> ContextAssembly:
         """Assemble the knowledge serving ``purpose``, pinned to one revision.
 
         The revision is read first and reported in the manifest. Everything
         rendered came from that revision, so a later reader can ask whether the
         project has moved rather than guessing from a timestamp.
+
+        ``mode`` declares what the output is *for* (N37). It **widens** what is
+        included and qualifies the result; it never refuses and never narrows.
+        There is no mode from which generation is unavailable, and a caller
+        asking for a build package from an idea gets one — labelled as resting
+        on unconfirmed statements rather than withheld.
+
+        An unnamed mode changes nothing, so a default cannot move under callers
+        who never asked for one.
 
         ``include_proposed`` carries unconfirmed candidates as well. Allowed,
         because an incomplete package is often still useful, and the manifest
@@ -259,6 +283,7 @@ class AssemblyService:
                     kind=statement.kind,
                     text=statement.text,
                     label=statement.label.value,
+                    inclusion_class=InclusionClass.CONFIRMED.value,
                     area_key=section.area_key,
                     version=1,
                     lifecycle=LifecycleState.VALIDATED.value,
@@ -275,7 +300,12 @@ class AssemblyService:
                 )
 
         proposed: tuple[AssembledStatement, ...] = ()
-        if include_proposed:
+        # A named mode widens; an unnamed one changes nothing. Making the mode
+        # opt-in keeps a default from moving under callers who never asked for
+        # one — the same rule that says an override must not silently become a
+        # default.
+        included = inclusions_for(mode) if mode is not None else frozenset()
+        if include_proposed or InclusionClass.PROPOSED in included:
             proposed = self._proposed_for(project_id, wanted)
             if proposed:
                 sections.append(
@@ -360,7 +390,12 @@ class AssemblyService:
                 knowledge_id=str(item.id),
                 kind=item.kind,
                 text=item.current_version.content,
-                label=StatementLabel.ASSUMPTION.value,
+                # Was ASSUMPTION, which conflated two things (N37). A proposed
+                # statement came from extraction over real evidence; whether a
+                # person has ruled on it is `inclusion_class`, and where its
+                # authority comes from is `label`.
+                label=StatementLabel.DERIVED.value,
+                inclusion_class=InclusionClass.PROPOSED.value,
                 area_key=links[str(item.id)],
                 version=item.current_version.number,
                 lifecycle=item.lifecycle.value,
