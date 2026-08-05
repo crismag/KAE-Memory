@@ -125,6 +125,18 @@ class RequirementsAgent(_Agent):
         )
 
 
+class DiscoveryAgent(RequirementsAgent):
+    """Turns an early description into what a project now knows it is discussing.
+
+    Identical to :class:`RequirementsAgent` in everything but the role, which is
+    what selects the prompt. That is the whole difference and it is worth
+    keeping visible: the extraction path, the provenance chain, and the review
+    model are the same, and only the instruction changes.
+    """
+
+    role = AgentRole.DISCOVERY
+
+
 class ArchitectureAgent(_Agent):
     """Derives decisions from requirements a human has confirmed.
 

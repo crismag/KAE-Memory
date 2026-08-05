@@ -99,11 +99,12 @@ def test_a_run_without_input_fails_typed(factory: sessionmaker[Session]) -> None
     assert executed.error_code == MissingRunInputError.error_code
 
 
-def test_all_three_authorised_roles_are_executable(factory: sessionmaker[Session]) -> None:
-    """FR-009 authorises exactly three roles, and the worker now executes each.
+def test_every_authorised_role_is_executable(factory: sessionmaker[Session]) -> None:
+    """Four roles since N46 added discovery, and the worker executes each.
 
-    ``UnsupportedRoleError`` remains as the guard for a fourth role appearing
-    without an execution path — it should never be reachable through the enum.
+    Counted from the enum rather than written as a number, so adding a role
+    fails here only when it has no execution path — which is the thing worth
+    failing on. ``UnsupportedRoleError`` remains the guard for exactly that.
     """
 
     memory = MemoryService(factory)
@@ -114,7 +115,7 @@ def test_all_three_authorised_roles_are_executable(factory: sessionmaker[Session
     worker = _worker(factory)
     executed = [worker.run_once() for _ in AgentRole]
 
-    assert len(list(AgentRole)) == 3
+    assert len(list(AgentRole)) == len(executed), "every role has an execution path"
     assert all(run is not None and run.status is RunStatus.SUCCEEDED for run in executed)
     assert UnsupportedRoleError.error_code == "role_not_implemented"
 

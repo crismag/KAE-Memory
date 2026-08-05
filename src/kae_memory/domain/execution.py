@@ -17,12 +17,21 @@ from .identifiers import AgentRunId, ProjectId, SessionId
 
 
 class AgentRole(StrEnum):
-    """The three authorised agent roles.
+    """The authorised agent roles.
 
     Adding a role requires a new approved requirement. The database column is a
     plain string, so extending this enum does not require a migration.
+
+    `DISCOVERY` was approved 2026-08-05 (N46). The other three read text that
+    already contains what they extract: requirements from a stakeholder's own
+    words, architecture from confirmed requirements, review from written
+    knowledge. None of them turns *an idea* into what a project now knows it is
+    discussing, and using `REQUIREMENTS` for that produced almost nothing —
+    correctly, since its prompt is disciplined about not inventing requirements
+    nobody expressed.
     """
 
+    DISCOVERY = "discovery"
     REQUIREMENTS = "requirements"
     ARCHITECTURE = "architecture"
     REVIEW = "review"

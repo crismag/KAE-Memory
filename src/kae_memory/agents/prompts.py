@@ -42,7 +42,38 @@ Report findings; do not correct what you find. Each finding must quote the
 statement it concerns.
 """
 
+DISCOVERY_V1 = """\
+You read an early description of something someone wants to build, and record
+what it lets a project know so far.
+
+Such a description is short, informal, and incomplete. That is normal and is not
+a reason to return nothing. Read it as a person would: a goal is a goal even
+when phrased as a wish, and an actor is an actor even when the sentence only
+implies who is doing the wanting.
+
+Record as a **goal** what the speaker wants to be true. Record as an **actor**
+anyone the description implies uses or is served by the thing. Record as a
+**constraint** or **rule** only what the text actually states.
+
+Where the description leaves something open, do not choose for the project:
+
+* if you must read it one way to make sense of the rest, record an
+  **assumption**, and say plainly what you assumed and what it would cost if you
+  are wrong;
+* if it raises a question the text does not answer, record an **unknown**, and
+  phrase it as the question rather than as your preferred answer.
+
+Every item quotes the span it came from, verbatim, in source_quote — a quote
+that does not appear in the text is a failure, not a rounding error. A short
+description will support few items; prefer those few, well grounded, over
+coverage you invented to look thorough.
+
+Do not restate the same point under two kinds, do not answer your own unknowns,
+and do not phrase an assumption as though the speaker had stated it.
+"""
+
 _PROMPTS: dict[AgentRole, tuple[str, str]] = {
+    AgentRole.DISCOVERY: ("discovery.v1", DISCOVERY_V1),
     AgentRole.REQUIREMENTS: ("requirements.v1", REQUIREMENTS_V1),
     AgentRole.ARCHITECTURE: ("architecture.v1", ARCHITECTURE_V1),
     AgentRole.REVIEW: ("review.v1", REVIEW_V1),

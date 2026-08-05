@@ -95,8 +95,12 @@ class AgentStepExecutor:
                 output_summary={"items_written": len(existing), "replayed": True},
             )
 
-        if run.role is AgentRole.REQUIREMENTS:
-            return self._requirements(memory, run)
+        if run.role in {AgentRole.REQUIREMENTS, AgentRole.DISCOVERY}:
+            # One path, two instructions. The role selects the prompt; the
+            # extraction, the provenance chain, and the review model are
+            # identical, and duplicating the method to change one argument
+            # would give the two ways to drift apart.
+            return self._extract_from_message(memory, run)
         if run.role is AgentRole.ARCHITECTURE:
             return self._architecture(memory, run)
         if run.role is AgentRole.REVIEW:
@@ -105,7 +109,7 @@ class AgentStepExecutor:
             f"the {run.role.value} agent is not implemented; run {run.id} cannot be executed"
         )
 
-    def _requirements(self, memory: MemoryService, run: AgentRun) -> StepResult:
+    def _extract_from_message(self, memory: MemoryService, run: AgentRun) -> StepResult:
         """Extract candidates from the message the run names.
 
         Prefers ``message_id`` over inline text: the stored message is the
@@ -126,7 +130,8 @@ class AgentStepExecutor:
             from_message = message.id
         if not source_text:
             raise MissingRunInputError(
-                "a requirements run needs input_context.message_id or input_context.source_text"
+                f"a {run.role.value} run needs input_context.message_id or "
+                f"input_context.source_text"
             )
 
         # A fan-out sets the breadth per chunk; a single message uses the
@@ -135,7 +140,7 @@ class AgentStepExecutor:
         max_items = int(context.get("max_items") or DEFAULT_MAX_ITEMS_PER_CHUNK)
         result = self.extractor.extract(
             ExtractionRequest(
-                role=AgentRole.REQUIREMENTS,
+                role=run.role,
                 source_text=str(source_text),
                 max_items=max_items,
             )

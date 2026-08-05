@@ -316,23 +316,36 @@ and what N42, N44, N45, N46 must reproduce:
   call via `generation_policy.discovery_extraction: disabled`. One model call
   per observation, the shape ingestion already pays per chunk.
 
-- [ ] **N46** — **Discovery extraction role.** `AgentRole` has REQUIREMENTS,
-  ARCHITECTURE, REVIEW. None of them is "turn an idea into what we now know we
-  are talking about".
+- [x] **N46** — Discovery extraction role — `discovery.v1`, 2026-08-05.
+  `AgentRole` gains a fourth member, approved with this target.
 
-  `requirements.v1` extracts from "a stakeholder's own words" and is
-  deliberately disciplined about not inventing — correct for requirement-bearing
-  text, and it will yield little or nothing from one sentence of product intent.
-  That is the prompt working, not failing.
+  The other three read text that already contains what they extract:
+  requirements from a stakeholder's own words, architecture from confirmed
+  requirements, review from written knowledge. None turns *an idea* into what a
+  project now knows it is discussing, and `requirements.v1` reads an early
+  description almost to nothing — correctly, since it is disciplined about not
+  inferring requirements nobody expressed.
 
-  *Scope:* a `discovery.v1` role and prompt producing goals, actors,
-  assumptions, and unknowns from sparse product language, held to the same rules
-  as its sibling: quote the span verbatim, record inference as an assumption,
-  record an unanswered question as an unknown, never confirm.
-  *Non-goals:* a rule for any particular phrasing. The criterion is **semantic
-  handling of ordinary product conversation**, and a pattern for "I want…" would
-  pass the test while failing the requirement.
-  *Depends on:* N42 for the path to reach it.
+  **One execution path, two instructions.** `DiscoveryAgent` subclasses
+  `RequirementsAgent` and the worker branches on a set, so extraction,
+  provenance, and the review model are literally the same code. Duplicating the
+  method to change one argument would give the two ways to drift apart, with
+  one of them quietly wrong.
+
+  The prompt keeps every epistemic rule its sibling keeps — verbatim
+  `source_quote`, inference recorded as an assumption with its cost, an
+  unanswered question recorded as an unknown — and adds the one thing that
+  differs: **incompleteness is normal and is not a reason to return nothing**,
+  and a goal is a goal when phrased as a wish. It explicitly forbids answering
+  its own unknowns and dressing an assumption as something the speaker said.
+
+  **No rule for any phrasing.** A test asserts the prompt never names "I want",
+  because a pattern would pass the acceptance scenario while failing the
+  requirement it stands for.
+
+  No test asserts a particular candidate. Output depends on the extractor and
+  the model, and asserting "produces an actor" would assert the model's taste —
+  failing on a better answer and passing on a worse one that happened to match.
 
 - [ ] **N43** — **Model-backed semantic classifier.** Behind the existing
   `ObservationClassifier` protocol, reporting `semantic_classification: true`

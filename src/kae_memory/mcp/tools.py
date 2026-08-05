@@ -1458,11 +1458,10 @@ def _queue_discovery_extraction(
 
     run = context.memory.enqueue_run(
         project.id,
-        # REQUIREMENTS until N46 adds a discovery role. That prompt is tuned for
-        # requirement-bearing text and will read a sparse product sentence
-        # thinly — correctly, since it is disciplined about not inventing. The
-        # edge is what N42 builds; making it productive is N46.
-        AgentRole.REQUIREMENTS,
+        # Discovery, not requirements (N46). `requirements.v1` is disciplined
+        # about not inventing requirements nobody expressed, which is correct
+        # for a specification and reads an early description almost to nothing.
+        AgentRole.DISCOVERY,
         # Derived from the caller's key, so a retried submission reuses the run
         # rather than paying for a second model call or producing a second set
         # of candidates.
