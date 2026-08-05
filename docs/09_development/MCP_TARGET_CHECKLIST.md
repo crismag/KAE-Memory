@@ -39,7 +39,26 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
   Found and fixed on the way: `_prune` descended into dicts but not into list
   elements, so a field map entry naming a key inside every element was silently
   ignored. The response looked compacted and was not.
-- [ ] **T5** — Verify token reduction without losing essential context
+- [x] **T5** — Verify token reduction without losing essential context —
+  [`MCP_TOKEN_REDUCTION_T5.md`](MCP_TOKEN_REDUCTION_T5.md), 2026-08-05. The
+  briefing is 63–70% below the T1 baseline, and **zero** integrity fields are
+  lost at `economy` across six tools and three projects. Survival is computed
+  by comparing live responses, not by listing expected names, so a new
+  integrity field is covered the day it is added.
+
+  Two reservations, recorded rather than hidden: `regular` is four characters
+  from `economy` (its detail level is already `summary`), and four of six read
+  tools are byte-identical across profiles because they have no field map —
+  their reduction comes from T4's pagination instead.
+
+  The verification found four defects. A compacted readiness response was
+  *larger* than the full one, because T4 reported one dropped path per list
+  element. Two clarification field-map entries were written as `questions[]...`
+  and matched nothing, so both fields shipped at every level while the map said
+  otherwise. A third withheld `next_steps`, which the integrity registry keeps
+  regardless. All three were the same defect — a map claiming a reduction the
+  code did not perform — so there is now a test that resolves every field-map
+  path against a real payload.
 
 ## Phase B — Embedding replacement
 

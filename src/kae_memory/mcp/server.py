@@ -607,8 +607,12 @@ at every level.
 CLARIFICATION_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
     # Which knowledge a question concerns, and whether this call is what asked
     # it, are useful when tracing and noise when working through a queue.
-    "questions[].knowledge_ids": response_policy.DetailLevel.DIAGNOSTIC,
-    "questions[].newly_asked": response_policy.DetailLevel.DIAGNOSTIC,
+    # Dotted, not `questions[]`: a path names the key, and the pruner reaches
+    # inside a list the same way it reaches inside an object. The bracket form
+    # these entries used matched nothing, so both fields shipped at every
+    # detail level while this map said otherwise.
+    "questions.knowledge_ids": response_policy.DetailLevel.DIAGNOSTIC,
+    "questions.newly_asked": response_policy.DetailLevel.DIAGNOSTIC,
     "note": response_policy.DetailLevel.STANDARD,
 }
 """What an economy profile may drop from a clarification list.
@@ -618,16 +622,19 @@ that hid the fact it was a bound would make a partial queue read as the whole
 one.
 """
 
-ANSWER_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
-    # Guidance a caller acting on the response does not need twice.
-    "next_steps": response_policy.DetailLevel.STANDARD,
-}
-"""What an economy profile may drop from an answer.
+ANSWER_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {}
+"""What an economy profile may drop from an answer: nothing.
 
 ``knowledge_state``, ``knowledge_changed``, and ``readiness_changed`` are absent
 deliberately: they are the response's whole integrity claim, and a compaction
 that removed them would leave a caller reading "answered" as "knowledge
 updated".
+
+This map previously withheld ``next_steps`` below `standard`. It never did —
+``next_steps`` is in the integrity registry, which the pruner honours first, so
+the entry was a claim the code did not carry out. Removed rather than made to
+work: what still has to happen before an answer becomes knowledge is exactly
+the kind of statement the registry exists to protect.
 """
 
 TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
