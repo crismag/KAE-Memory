@@ -1,0 +1,345 @@
+"""The declared adapter capability registry (N6, ADR-0023).
+
+ADR-0023 made HTTP and MCP peer adapters over the same application services and
+said that a capability required on both and exposed by only one is a defect
+rather than a roadmap item — *unless it is a declared exception*.
+
+This is where it is declared. The register is executable: a test walks it
+against the real `TOOL_DEFINITIONS` and the real FastAPI route table, in both
+directions. A capability that claims an exposure it does not have fails, and —
+the half that actually prevents drift — **a tool or route that is not
+registered here fails too**.
+
+That reverse check is the point. The twelve-capability gap N1 measured did not
+happen because anyone decided HTTP should lack search. It happened because
+nothing noticed, for five phases, that each new target landed on one adapter.
+A register nobody has to remember to update is a register that describes the
+past.
+
+`EXCEPTIONS` are deliberate asymmetries, each with the reason it is one. An
+exception is a decision; an absence is a defect. Keeping them in the same file,
+in the same shape, is what stops the second from being filed as the first.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+
+class Exposure(StrEnum):
+    """Where a capability is expected to be reachable."""
+
+    BOTH = "both"
+    """Required on HTTP and MCP. Absence on either is a defect."""
+
+    AGENT_ONLY = "agent_only"
+    """MCP only, by decision. Present on HTTP would be the defect."""
+
+    PRODUCT_ONLY = "product_only"
+    """HTTP only, by decision."""
+
+    INTERNAL = "internal"
+    """Neither. Operational or administrative, reached another way."""
+
+
+@dataclass(frozen=True, slots=True)
+class Capability:
+    """One thing the platform can do, and where a caller may ask for it."""
+
+    key: str
+    summary: str
+    exposure: Exposure
+    mcp: tuple[str, ...] = ()
+    http: tuple[str, ...] = ()
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        asymmetric = self.exposure is not Exposure.BOTH
+        if asymmetric and not self.reason:
+            raise ValueError(
+                f"{self.key}: an asymmetric exposure needs a reason. An exception "
+                f"without one is indistinguishable from an oversight."
+            )
+
+
+REGISTRY: tuple[Capability, ...] = (
+    Capability(
+        key="project.list",
+        summary="Identify the projects this environment can read",
+        exposure=Exposure.BOTH,
+        mcp=("kae_list_projects",),
+        http=("GET /v1/projects",),
+    ),
+    Capability(
+        key="project.create",
+        summary="Create a project, idempotent by key",
+        exposure=Exposure.BOTH,
+        mcp=("kae_create_project",),
+        http=("POST /v1/projects",),
+    ),
+    Capability(
+        key="project.read",
+        summary="Read one project's identity",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}",),
+        reason=(
+            "MCP answers this inside the briefing. A tool returning a name and a key "
+            "would cost a round trip to learn what the next call already carries."
+        ),
+    ),
+    Capability(
+        key="knowledge.search",
+        summary="Search project knowledge without loading the project",
+        exposure=Exposure.BOTH,
+        mcp=("kae_search_knowledge",),
+        http=("GET /v1/projects/{project_id}/knowledge/search",),
+    ),
+    Capability(
+        key="knowledge.list",
+        summary="List a project's knowledge items",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/knowledge",),
+        reason=(
+            "An agent that loads every statement has defeated the point of a bounded "
+            "context. Studio renders a review queue and legitimately needs the list."
+        ),
+    ),
+    Capability(
+        key="knowledge.confirm",
+        summary="Relay a person's decision to accept a candidate",
+        exposure=Exposure.BOTH,
+        mcp=("kae_confirm_knowledge",),
+        http=("POST /v1/knowledge/{item_id}/confirm",),
+    ),
+    Capability(
+        key="knowledge.reject",
+        summary="Relay a person's decision to refuse a candidate",
+        exposure=Exposure.BOTH,
+        mcp=("kae_reject_knowledge",),
+        http=("POST /v1/projects/{project_id}/knowledge/{item_id}/reject",),
+    ),
+    Capability(
+        key="knowledge.correct",
+        summary="Record corrected wording as a new version",
+        exposure=Exposure.BOTH,
+        mcp=("kae_correct_knowledge",),
+        http=("POST /v1/projects/{project_id}/knowledge/{item_id}/correct",),
+    ),
+    Capability(
+        key="knowledge.trace",
+        summary="Resolve a statement to the evidence behind it",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/knowledge/{item_id}/trace",),
+        reason=(
+            "MCP carries provenance inside the payloads that quote a statement, so a "
+            "separate trace call would return what the agent already holds."
+        ),
+    ),
+    Capability(
+        key="document.ingest",
+        summary="Record a document as evidence and queue its extraction",
+        exposure=Exposure.BOTH,
+        mcp=("kae_ingest_document",),
+        http=("POST /v1/projects/{project_id}/documents",),
+    ),
+    Capability(
+        key="clarification.open",
+        summary="Materialise the questions a project's findings justify asking",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_clarifications",),
+        http=("POST /v1/projects/{project_id}/clarifications",),
+    ),
+    Capability(
+        key="clarification.answer",
+        summary="Record an answer and queue the extraction it justifies",
+        exposure=Exposure.BOTH,
+        mcp=("kae_answer_clarification",),
+        http=("POST /v1/projects/{project_id}/clarifications/{question_id}/answer",),
+    ),
+    Capability(
+        key="context.assemble",
+        summary="Assemble a bounded context pinned to a knowledge revision",
+        exposure=Exposure.BOTH,
+        mcp=("kae_assemble_context",),
+        http=("GET /v1/projects/{project_id}/context",),
+    ),
+    Capability(
+        key="readiness.read",
+        summary="Report how well understood a project is",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_readiness",),
+        http=("GET /v1/projects/{project_id}/readiness",),
+    ),
+    Capability(
+        key="readiness.recalculate",
+        summary="Recalculate and snapshot readiness",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/readiness/calculate",),
+        reason=(
+            "MCP recalculates when a read finds a stale snapshot, so an agent never "
+            "needs to ask. Studio drives it from a button."
+        ),
+    ),
+    Capability(
+        key="readiness.history",
+        summary="Read past readiness snapshots",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/readiness/history",),
+        reason="A trend is something a person looks at; an agent plans from the current figure.",
+    ),
+    Capability(
+        key="readiness.areas",
+        summary="Assign knowledge to readiness areas",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/readiness/areas",),
+        reason="Template administration, not a product action an agent performs.",
+    ),
+    Capability(
+        key="review.findings",
+        summary="What is missing, contested, or unresolved",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_project_briefing", "kae_get_open_decisions"),
+        http=("GET /v1/projects/{project_id}/review",),
+    ),
+    Capability(
+        key="blueprint.read",
+        summary="Confirmed statements organised by area",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_project_briefing",),
+        http=(
+            "GET /v1/projects/{project_id}/blueprint",
+            "GET /v1/projects/{project_id}/blueprint.md",
+        ),
+    ),
+    Capability(
+        key="blocker.manage",
+        summary="Raise and resolve blockers",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "GET /v1/projects/{project_id}/blockers",
+            "POST /v1/projects/{project_id}/blockers",
+            "POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve",
+        ),
+        reason=(
+            "An agent reports a blocker as an observation and a person decides it is "
+            "one. Letting an agent raise one directly would put an unreviewed claim "
+            "into the register that gates readiness."
+        ),
+    ),
+    Capability(
+        key="contradiction.manage",
+        summary="Record and resolve contradictions",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/contradictions",
+            "POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve",
+        ),
+        reason="Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it.",
+    ),
+    Capability(
+        key="observation.submit",
+        summary="Record something an agent discovered, as proposed evidence",
+        exposure=Exposure.AGENT_ONLY,
+        mcp=("kae_submit_observation",),
+        reason=(
+            "Studio's equivalent is a conversation message, which is a different "
+            "durable act with its own session ordering. Offering both over HTTP "
+            "would give a client two ways to say one thing."
+        ),
+    ),
+    Capability(
+        key="observation.classifications",
+        summary="Read classified spans of submitted observations",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_classifications",),
+        http=("GET /v1/projects/{project_id}/classifications",),
+    ),
+    Capability(
+        key="operational.read",
+        summary="Where the work stands, as reported",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_operational_state",),
+        http=("GET /v1/projects/{project_id}/operational-state",),
+    ),
+    Capability(
+        key="operational.settle",
+        summary="Relay a person's decision about a reported operational record",
+        exposure=Exposure.BOTH,
+        mcp=("kae_settle_operational_record",),
+        http=("POST /v1/projects/{project_id}/operational-state/{record_id}/settle",),
+    ),
+    Capability(
+        key="module.context",
+        summary="Implementation context for one module",
+        exposure=Exposure.AGENT_ONLY,
+        mcp=("kae_get_module_context",),
+        reason=(
+            "Reports a capability gap rather than answering, because modules are not "
+            "modelled (N16-N19). An HTTP route returning the same gap would be a "
+            "second place to maintain the same apology."
+        ),
+    ),
+    Capability(
+        key="session.manage",
+        summary="Open, close, and read conversation sessions",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/sessions",
+            "GET /v1/projects/{project_id}/sessions",
+            "POST /v1/sessions/{session_id}/close",
+            "GET /v1/sessions/{session_id}/messages",
+            "POST /v1/sessions/{session_id}/messages",
+        ),
+        reason=(
+            "ADR-0006 gives Memory durable conversation and Studio the interview. An "
+            "agent submits observations rather than holding a session."
+        ),
+    ),
+    Capability(
+        key="run.manage",
+        summary="Enqueue agent work and follow its progress",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/runs",
+            "GET /v1/projects/{project_id}/runs",
+            "GET /v1/runs/{run_id}",
+            "GET /v1/runs/{run_id}/events",
+            "GET /v1/runs/{run_id}/knowledge",
+        ),
+        reason=(
+            "Studio shows progress. An agent that *is* the work does not submit runs "
+            "to itself, and a tool that let it would invite recursion nobody bounded."
+        ),
+    ),
+    Capability(
+        key="embedding.reembed",
+        summary="Migrate stored knowledge to a new embedding version",
+        exposure=Exposure.INTERNAL,
+        reason=(
+            "Long-running, restartable, and destructive to get wrong. Driven by "
+            "scripts/development/reembed-knowledge.py, where it can be resumed."
+        ),
+    ),
+)
+
+
+def by_key(key: str) -> Capability:
+    """Return one capability, or raise if it is not registered."""
+
+    for capability in REGISTRY:
+        if capability.key == key:
+            return capability
+    raise KeyError(f"no capability {key!r} in the registry")
+
+
+def declared_mcp_tools() -> frozenset[str]:
+    """Every MCP tool the registry accounts for."""
+
+    return frozenset(tool for capability in REGISTRY for tool in capability.mcp)
+
+
+def declared_http_routes() -> frozenset[str]:
+    """Every HTTP route the registry accounts for, as ``METHOD /path``."""
+
+    return frozenset(route for capability in REGISTRY for route in capability.http)

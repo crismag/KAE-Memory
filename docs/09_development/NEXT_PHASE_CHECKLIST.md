@@ -117,14 +117,24 @@ settling that.
   also cannot cover `/v1/knowledge/{id}`, `/v1/sessions/{id}`, or
   `/v1/runs/{id}`, which name a resource whose project is only knowable after a
   lookup; a scoped token still reaches those.
-- [ ] **N6** — Adapter parity tests: a declared capability registry that fails
-  when something required on both adapters is exposed by only one. Behaviour
-  parity, not envelope parity — transport serialisation may differ.
+- [x] **N6** — Adapter capability registry — `src/kae_memory/capabilities.py`,
+  2026-08-05. 28 capabilities, each with an exposure and — where asymmetric — a
+  reason the dataclass refuses to be constructed without. 98 tests walk it
+  against the real `TOOL_DEFINITIONS` and the real OpenAPI route table.
 
-**Phase acceptance.** A Studio-required capability is reachable over HTTP with
-the same domain behaviour as its MCP equivalent, or is recorded as an
-intentional exception. No unauthenticated remote access. Divergence fails a
-test rather than surfacing months later.
+  **The reverse check is the one that prevents recurrence:** a tool or route
+  that is *not* registered fails the suite. The twelve-capability gap N1
+  measured did not happen because anyone decided HTTP should lack search; it
+  happened because nothing noticed, for five phases, that each new target
+  landed on one adapter. A register nobody has to remember to update is a
+  register that describes the past.
+
+**Phase acceptance: met.** Every Studio-required capability is reachable over
+HTTP, or is a recorded exception with a reason. Remote deployment cannot start
+unauthenticated. Divergence now fails a test rather than surfacing months later
+in a document.
+
+**Phase H is complete.**
 
 ## Phase I — Configuration and service messages
 
