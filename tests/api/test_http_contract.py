@@ -153,7 +153,11 @@ def test_a_replayed_enqueue_converges_on_one_run(client: TestClient) -> None:
 
 
 def test_an_unknown_role_is_rejected_before_anything_is_written(client: TestClient) -> None:
-    """FR-009 authorises exactly three roles."""
+    """FR-009 authorised three roles; `discovery` was approved as a fourth (N46).
+
+    What the test defends is unchanged: an unauthorised role is refused before
+    anything is written, and the refusal names what is permitted.
+    """
 
     project_id = _project(client)
 
@@ -165,6 +169,7 @@ def test_an_unknown_role_is_rejected_before_anything_is_written(client: TestClie
     assert response.status_code == 422
     assert sorted(response.json()["error"]["detail"]["permitted"]) == [
         "architecture",
+        "discovery",
         "requirements",
         "review",
     ]

@@ -93,7 +93,7 @@ class TestTheEdgeExists:
         payload = _submit(context, project_id)
 
         runs = context.memory.runs_for_project(ProjectId(project_id))
-        assert [run.role for run in runs] == [AgentRole.REQUIREMENTS]
+        assert [run.role for run in runs] == [AgentRole.DISCOVERY]
         assert {run.status for run in runs} == {RunStatus.PENDING}
         assert payload["extraction"]["status"] == RunStatus.PENDING.value
 
