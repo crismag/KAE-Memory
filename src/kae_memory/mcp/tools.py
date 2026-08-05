@@ -30,6 +30,7 @@ from kae_memory.application.classification_service import (
     ClassificationService,
     OperationalRecordNotFoundError,
 )
+from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import (
     IngestionPolicy,
     IngestionResult,
@@ -103,6 +104,7 @@ class ToolContext:
         assembly: AssemblyService | None = None,
         classification: ClassificationService | None = None,
         modules: ModuleService | None = None,
+        deliverables: DeliverableService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -114,6 +116,7 @@ class ToolContext:
         self.assembly = assembly
         self.classification = classification
         self.modules = modules
+        self.deliverables = deliverables
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -718,6 +721,122 @@ def kae_get_module_graph(context: ToolContext, project_id: str) -> dict[str, Any
             "Build order follows depends_on only. A module with no dependencies "
             "may still need knowledge that is not yet confirmed."
         ),
+    }
+
+
+def kae_record_deliverable(
+    context: ToolContext,
+    project_id: str,
+    purpose: str = "implementation",
+    include_proposed: bool = False,
+    recorded_by: str | None = None,
+) -> dict[str, Any]:
+    """Record what an assembly produced, as a durable deliverable (N20).
+
+    Assembling produces a description and forgets it: `package_id` is fresh per
+    call, because an assembly is a computation. This is the other thing — a
+    durable record that this project produced this output at this revision.
+
+    Idempotent by content. Recording the same output twice returns the same
+    deliverable, because two identical outputs are one deliverable recorded
+    twice; a second id would report a change the project did not make.
+
+    **Nothing is rendered, stored, or published.** The record holds the
+    manifest, the hashes, and what each artifact would contain. Writing bytes
+    to a destination belongs to whoever owns the destination.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.deliverables is None or context.assembly is None:
+        raise CapabilityUnavailableError(
+            capability="deliverables",
+            missing=["a deliverable or assembly service is not configured for this server"],
+        )
+    try:
+        selected = AssemblyPurpose(purpose)
+    except ValueError:
+        valid = ", ".join(p.value for p in AssemblyPurpose)
+        raise InvalidArgumentError(
+            f"unknown purpose {purpose!r}; expected one of {valid}"
+        ) from None
+
+    assembly = context.assembly.assemble(project.id, selected, include_proposed=include_proposed)
+    deliverable, created = context.deliverables.record(project.id, assembly, recorded_by)
+    payload = _deliverable_payload(deliverable, context.readiness.knowledge_revision(project.id))
+    payload["recorded"] = created
+    payload["idempotent_replay"] = not created
+    payload["note"] = (
+        "Recorded as a durable output. Nothing was rendered, stored, or published: "
+        "this is the record that an output existed, not the output itself."
+    )
+    return payload
+
+
+def kae_list_deliverables(
+    context: ToolContext,
+    project_id: str,
+    states: Sequence[str] | None = None,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """List a project's recorded deliverables, newest first."""
+
+    project = resolve_project(context, project_id)
+    if context.deliverables is None:
+        raise CapabilityUnavailableError(
+            capability="deliverables",
+            missing=["a deliverable service is not configured for this server"],
+        )
+
+    revision = context.readiness.knowledge_revision(project.id)
+    records = context.deliverables.list_for_project(project.id, states)
+    page = response_policy.paginate(
+        [_deliverable_payload(record, revision) for record in records],
+        limit=limit,
+        cursor=cursor,
+    )
+    return {
+        "project_id": str(project.id),
+        **page,
+        "knowledge_revision": revision,
+        "note": (
+            "A stale deliverable is one recorded before the project moved. It is "
+            "still what was produced; it is no longer what the project now says."
+        ),
+    }
+
+
+def _deliverable_payload(deliverable: Any, current_revision: int) -> dict[str, Any]:
+    """Render one deliverable, including whether the project has moved past it."""
+
+    return {
+        "deliverable_id": str(deliverable.id),
+        "purpose": deliverable.purpose,
+        "scope": deliverable.scope,
+        "module": deliverable.module_key,
+        "state": deliverable.state.value,
+        "knowledge_revision": deliverable.knowledge_revision,
+        "content_hash": deliverable.content_hash,
+        # Derived, never stored. A stored staleness flag is true until something
+        # remembers to update it, and the write most likely to forget is the one
+        # that made it false.
+        "stale": deliverable.is_stale_against(current_revision),
+        "artifacts": [
+            {
+                "path": artifact.path,
+                "area": artifact.area_key,
+                "title": artifact.title,
+                "statements": artifact.statement_count,
+                "confirmed": artifact.confirmed_count,
+                "content_hash": artifact.content_hash,
+            }
+            for artifact in deliverable.artifacts
+        ],
+        "source_knowledge": list(deliverable.source_knowledge),
+        "recorded_by": deliverable.recorded_by,
+        "superseded_by": deliverable.superseded_by,
+        "rendered": False,
+        "published": False,
     }
 
 

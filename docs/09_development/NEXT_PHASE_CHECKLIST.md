@@ -243,9 +243,32 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   substitute — module scope is genuinely unavailable *for that project* — but
   the way out now exists, so the next steps name it instead of saying this
   needs a product change.
-- [ ] **N20** — Durable deliverable identity. Assembly `package_id` is a fresh
-  UUID per call; a listable deliverable is a different concept and needs a
-  persistence and ownership decision, not a router that invents one.
+- [x] **N20** — Durable deliverable identity — `domain/deliverables.py`,
+  `application/deliverable_service.py`, migration `0014`, 2026-08-05. Scope as
+  directed: KAE-Memory owns persistent immutable identity, project ownership,
+  manifest and hashes, lifecycle, and provenance. **No package bytes in the
+  database, and no publication or storage side effect** — those are N21.
+
+  **Identity is content, not call.** Recording the same output twice returns
+  the same deliverable, enforced by a unique index rather than a lookup,
+  because a lookup before an insert races and two concurrent recordings would
+  mint two ids and report a change the project did not make. The knowledge
+  revision is part of that identity: the same content at a later revision is a
+  different claim, because it says the project moved and the output did not.
+
+  **Staleness is derived, never stored.** A stored flag is true until something
+  remembers to update it, and the write most likely to forget is the one that
+  made it false.
+
+  `rendered` and `published` are present on every response and always false.
+  Their absence would let a caller assume either happened. A test asserts no
+  column named `content`, `bytes`, `payload`, or `blob` exists on the table —
+  against the mapping, not the payload, because the constraint was about the
+  database.
+
+  Withdrawn is distinct from superseded: "there is a newer one" and "do not use
+  this" are different facts, and collapsing them would leave a reader unable to
+  tell which they were being told. **Studio's `listDeliverables` is unblocked.**
 - [ ] **N21** — Artifact rendering and publication records. Nothing exists.
   Constraint from the orientation file: no package bytes or publication side
   effects in Memory without a new persistence and ownership decision.

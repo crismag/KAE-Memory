@@ -24,7 +24,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query, status
 
 from kae_memory.application.assembly_service import AssemblyPurpose, describe_package
+from kae_memory.application.deliverable_service import DeliverableNotFoundError
 from kae_memory.application.ingestion_service import IngestionPolicy
+from kae_memory.domain.deliverables import InvalidDeliverableTransitionError
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.models import KnowledgeKind
@@ -32,6 +34,7 @@ from kae_memory.domain.models import KnowledgeKind
 from ..dependencies import (
     Assembly,
     Clarifications,
+    Deliverables,
     Ingestion,
     Memory,
     Readiness,
@@ -44,11 +47,16 @@ from ..schemas import (
     ClarificationListResponse,
     ClarificationResponse,
     CorrectKnowledgeRequest,
+    DeliverableListResponse,
+    DeliverableResponse,
     IngestDocumentRequest,
     IngestionResponse,
     KnowledgeReviewResponse,
+    RecordDeliverableRequest,
     RejectKnowledgeRequest,
     SearchResponse,
+    SupersedeDeliverableRequest,
+    WithdrawDeliverableRequest,
 )
 
 router = APIRouter(prefix="/v1", tags=["pipeline"])
@@ -291,3 +299,144 @@ def assemble_context(
         ],
     }
     return AssemblyResponse.of(assembled, package, readiness.knowledge_revision(resolved))
+
+
+@router.post(
+    "/projects/{project_id}/deliverables",
+    response_model=DeliverableResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_deliverable(
+    project_id: str,
+    body: RecordDeliverableRequest,
+    memory: Memory,
+    assembly: Assembly,
+    readiness: Readiness,
+    deliverables: Deliverables,
+) -> DeliverableResponse:
+    """Record what an assembly produced, as a durable deliverable (N20).
+
+    **201, unlike assembly's GET.** Something durable now exists that a caller
+    can resolve by id later — which is exactly the difference between a
+    deliverable and an assembly, whose `package_id` is fresh per call because a
+    computation should not hand out an identity that outlives it.
+
+    Idempotent by content: recording the same output twice returns the same
+    deliverable, and `recorded` says which happened.
+
+    Nothing is rendered, stored, or published here. That is N21's concern and
+    belongs to whoever owns the destination.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        purpose = AssemblyPurpose(body.purpose)
+    except ValueError as error:
+        valid = ", ".join(p.value for p in AssemblyPurpose)
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown purpose {body.purpose!r}; expected one of {valid}",
+        ) from error
+
+    assembled = assembly.assemble(resolved, purpose, include_proposed=body.include_proposed)
+    deliverable, created = deliverables.record(resolved, assembled, body.recorded_by)
+    return DeliverableResponse.of(deliverable, readiness.knowledge_revision(resolved), created)
+
+
+@router.get("/projects/{project_id}/deliverables", response_model=DeliverableListResponse)
+def list_deliverables(
+    project_id: str,
+    memory: Memory,
+    readiness: Readiness,
+    deliverables: Deliverables,
+    states: Annotated[list[str] | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 20,
+) -> DeliverableListResponse:
+    """Recorded deliverables, newest first.
+
+    The port Studio's `listDeliverables` was blocked on. It could not be
+    written before because assembly UUIDs are not identity, and a route that
+    invented one would have handed a client an id resolving to nothing.
+    """
+
+    resolved = _project(project_id, memory)
+    records = deliverables.list_for_project(resolved, states)
+    return DeliverableListResponse.of(records, readiness.knowledge_revision(resolved), limit)
+
+
+@router.get(
+    "/projects/{project_id}/deliverables/{deliverable_id}", response_model=DeliverableResponse
+)
+def read_deliverable(
+    project_id: str,
+    deliverable_id: str,
+    memory: Memory,
+    readiness: Readiness,
+    deliverables: Deliverables,
+) -> DeliverableResponse:
+    """One deliverable, scoped to its project."""
+
+    resolved = _project(project_id, memory)
+    try:
+        deliverable = deliverables.get(resolved, deliverable_id)
+    except DeliverableNotFoundError as error:
+        raise not_found("deliverable", deliverable_id) from error
+    return DeliverableResponse.of(deliverable, readiness.knowledge_revision(resolved))
+
+
+@router.post(
+    "/projects/{project_id}/deliverables/{deliverable_id}/supersede",
+    response_model=DeliverableResponse,
+)
+def supersede_deliverable(
+    project_id: str,
+    deliverable_id: str,
+    body: SupersedeDeliverableRequest,
+    memory: Memory,
+    readiness: Readiness,
+    deliverables: Deliverables,
+) -> DeliverableResponse:
+    """Mark a deliverable replaced by a later one.
+
+    The record survives. What was shipped stays readable, because the question
+    a deliverable answers is historical and a deleted answer answers nothing.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        deliverable = deliverables.supersede(resolved, deliverable_id, body.replacement_id)
+    except DeliverableNotFoundError as error:
+        raise not_found("deliverable", deliverable_id) from error
+    except InvalidDeliverableTransitionError as error:
+        raise ApiError(status.HTTP_409_CONFLICT, "invalid_state_transition", str(error)) from error
+    return DeliverableResponse.of(deliverable, readiness.knowledge_revision(resolved))
+
+
+@router.post(
+    "/projects/{project_id}/deliverables/{deliverable_id}/withdraw",
+    response_model=DeliverableResponse,
+)
+def withdraw_deliverable(
+    project_id: str,
+    deliverable_id: str,
+    body: WithdrawDeliverableRequest,
+    memory: Memory,
+    readiness: Readiness,
+    deliverables: Deliverables,
+) -> DeliverableResponse:
+    """Mark a deliverable as one the project no longer stands behind.
+
+    Distinct from superseded, which names a replacement. Withdrawn says there
+    is none, and collapsing the two would leave a reader unable to tell "there
+    is a newer one" from "do not use this".
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        deliverable = deliverables.withdraw(resolved, deliverable_id, body.reason)
+    except DeliverableNotFoundError as error:
+        raise not_found("deliverable", deliverable_id) from error
+    except InvalidDeliverableTransitionError as error:
+        raise ApiError(status.HTTP_409_CONFLICT, "invalid_state_transition", str(error)) from error
+    return DeliverableResponse.of(deliverable, readiness.knowledge_revision(resolved))

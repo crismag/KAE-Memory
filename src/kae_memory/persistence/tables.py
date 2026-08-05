@@ -690,3 +690,44 @@ class ModuleRelationshipRow(Base):
     )
     target_knowledge_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DeliverableRow(Base):
+    """A durable record of an assembled product output (N20).
+
+    Holds identity, ownership, the manifest, hashes, lifecycle, and provenance.
+    **Never the artifact bytes.** Rendering and storing content is N21 and
+    belongs to whoever owns the destination; a relational row competing with a
+    file store for that job would be the worst of both.
+    """
+
+    __tablename__ = "deliverables"
+    __table_args__ = (
+        # Identity is content, not call. Recording the same output twice is one
+        # deliverable recorded twice, and the unique index — not a lookup — is
+        # what makes that true under two concurrent recordings.
+        UniqueConstraint("identity_hash", name="uq_deliverables_identity"),
+        Index("ix_deliverables_project_state", "project_id", "state"),
+        Index("ix_deliverables_project_recorded", "project_id", "recorded_at"),
+        CheckConstraint("knowledge_revision >= 0", name="ck_deliverables_revision"),
+    )
+
+    deliverable_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    identity_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(40), nullable=False)
+    scope: Mapped[str] = mapped_column(String(20), nullable=False)
+    module_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    knowledge_revision: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(120), nullable=False)
+    generator_version: Mapped[str] = mapped_column(String(40), nullable=False, default="")
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    # Metadata only: paths, titles, counts, and per-artifact hashes. The hash is
+    # what lets a later renderer prove what it wrote matches what was recorded,
+    # without this table ever having held the content.
+    artifacts: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    source_knowledge: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    superseded_by: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
