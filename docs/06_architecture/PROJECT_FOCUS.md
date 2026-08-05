@@ -1,12 +1,20 @@
 # Project Focus and Default Scope
 
-Status: **accepted principle**, 2026-08-03. Implementation incremental, **not
-yet authorised**.
-Owning target: **T25**, deferred (`../09_development/MCP_TARGET_CHECKLIST.md`).
+Status: **option B implemented**, 2026-08-05. A and B are done; C and the
+cross-project tool are deliberately not built.
+Owning target: **T25** (`../09_development/MCP_TARGET_CHECKLIST.md`).
 
 > **Project Focus Lock** — the active project defines the default retrieval,
 > recommendation, observation, and context boundary. Leaving it requires
 > explicit user intent.
+
+**What exists now.** Every project-scoped tool accepts a project **key** as well
+as an id — `kae_get_project_briefing(project_key="kae-memory")`, or the key
+passed as `project_id`. Resolution happens once in `dispatch`; a response
+resolved from a key carries `resolved_project` with `resolved_from`. There is
+**no server-side focus**: §3C is not built, so nothing below describes stored
+state. A call naming no project is an `invalid_argument` listing the available
+keys, never an inferred project.
 
 Accepted as a product principle on 2026-08-03. What remains is sequencing, not
 design. This document records how it is realised without redesigning the

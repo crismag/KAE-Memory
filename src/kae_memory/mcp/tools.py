@@ -13,6 +13,7 @@ Two honesty rules run through the whole module, both from ADR-0018:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -112,13 +113,97 @@ class ToolContext:
         return ranks_by_meaning(self.embedder_name)
 
 
-def _require_project(context: ToolContext, project_id: str) -> Any:
-    if not project_id or not project_id.strip():
-        raise InvalidArgumentError("project_id is required")
-    project = context.memory.get_project(ProjectId(project_id))
+_UUID_FORM = re.compile(r"\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z", re.I)
+"""Whether a caller-supplied string is shaped like an id or like a key.
+
+Shape, not a database lookup: a key that happened to look like a UUID would be
+ambiguous no matter how it were resolved, and project keys are derived from
+names (`KAE-Memory` -> `kae-memory`), so none can take this form.
+"""
+
+
+def _available_keys(context: ToolContext) -> str:
+    """The keys this environment holds, for an error that helps rather than scolds.
+
+    A caller who named the wrong project is one lookup away from the right one,
+    and that lookup is the hop T25.2 exists to remove.
+    """
+
+    keys = sorted(project.key for project in context.memory.list_projects() if project.key)
+    return ", ".join(keys[:10])
+
+
+def resolve_project(context: ToolContext, project_id: str, project_key: str | None = None) -> Any:
+    """Resolve a project from an id, a key, or a key passed as the id (T25.2).
+
+    The UUID is the friction. An agent that must call `kae_list_projects`,
+    read the response, and pick an id before it can ask anything will often
+    skip the routing and answer from its own context instead — which is how a
+    tool with correct isolation still produces an answer about the wrong
+    project. A key removes the hop without adding state.
+
+    Nothing here is an authorisation boundary. Resolution decides *which*
+    project a caller named; it never decides whether they may read it.
+    """
+
+    named = (project_id or "").strip()
+    keyed = (project_key or "").strip()
+
+    if not named and not keyed:
+        available = _available_keys(context)
+        raise InvalidArgumentError(
+            "project_id or project_key is required"
+            + (f"; this environment holds: {available}" if available else "")
+        )
+
+    if named and _UUID_FORM.match(named):
+        project = context.memory.get_project(ProjectId(named))
+        if project is None:
+            raise ProjectNotFoundError(f"no project with id {named!r}")
+        if keyed and project.key != keyed:
+            # Two arguments naming two projects is a caller bug, and picking
+            # one would answer about a project they did not intend. Which of
+            # the two was meant is not knowable from here.
+            raise InvalidArgumentError(
+                f"project_id {named!r} is {project.key!r}, not {keyed!r}; pass one or the other"
+            )
+        return project
+
+    # A non-UUID `project_id` is a key. Refusing it would be technically
+    # defensible and would send the caller back to the lookup hop this exists
+    # to remove.
+    key = named or keyed
+    project = context.memory.find_project_by_key(key)
     if project is None:
-        raise ProjectNotFoundError(f"no project with id {project_id!r}")
+        available = _available_keys(context)
+        raise ProjectNotFoundError(
+            f"no project with key {key!r}"
+            + (f"; this environment holds: {available}" if available else "")
+        )
     return project
+
+
+def project_scope(project: Any, project_id: str, project_key: str | None = None) -> dict[str, Any]:
+    """State which project answered, and how that was decided.
+
+    A response resolved from a key must say so. The rule the response policy
+    applies elsewhere holds here too: a response may reduce what it says, never
+    what it admits.
+    """
+
+    named = (project_id or "").strip()
+    resolved_from = (
+        "project_id"
+        if named and _UUID_FORM.match(named)
+        else "project_key"
+        if named or project_key
+        else "unresolved"
+    )
+    return {
+        "project_id": str(project.id),
+        "project_key": project.key,
+        "resolved_from": resolved_from,
+    }
 
 
 def kae_list_projects(
@@ -313,7 +398,7 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
     whose value is that it never makes them.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     snapshot = context.readiness.latest(project.id) or context.readiness.calculate(project.id)
     blueprint = context.blueprint.generate(
         project.id,
@@ -463,7 +548,7 @@ def kae_get_module_context(context: ToolContext, project_id: str, module: str) -
     and those have different remedies.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not module or not module.strip():
         raise InvalidArgumentError("module is required")
     raise CapabilityUnavailableError(
@@ -543,7 +628,7 @@ def kae_search_knowledge(
     them for development and for anyone who wants the underlying evidence.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not query or not query.strip():
         raise InvalidArgumentError("query is required")
     if limit < 1 or limit > 50:
@@ -682,7 +767,7 @@ def kae_get_open_decisions(
     them all would plan around a project it has only partly understood.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     everything = context.memory.retrieve_knowledge(project.id, lifecycle=None)
     unknowns = tuple(item for item in everything if item.kind == KnowledgeKind.UNKNOWN.value)
     findings = context.review.findings(project.id)
@@ -731,7 +816,7 @@ def kae_get_readiness(context: ToolContext, project_id: str) -> dict[str, Any]:
     module is implementable must not read a project figure as an answer.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     snapshot = context.readiness.latest(project.id) or context.readiness.calculate(project.id)
     current_revision = context.readiness.knowledge_revision(project.id)
 
@@ -782,7 +867,7 @@ def kae_submit_observation(
     including when it is phrased as one.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not observation or not observation.strip():
         raise InvalidArgumentError("observation is required")
     if not idempotency_key or not idempotency_key.strip():
@@ -861,7 +946,7 @@ def kae_confirm_knowledge(
     and it is the trade recorded in PHASE_C_DECISIONS.md.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not knowledge_id or not knowledge_id.strip():
         raise InvalidArgumentError("knowledge_id is required")
     if not reviewer or not reviewer.strip():
@@ -920,7 +1005,7 @@ def kae_reject_knowledge(
     human decision, and the record names which human.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not knowledge_id or not knowledge_id.strip():
         raise InvalidArgumentError("knowledge_id is required")
     if not reviewer or not reviewer.strip():
@@ -1025,7 +1110,7 @@ def kae_correct_knowledge(
     old confirmation covered the old wording.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if not knowledge_id or not knowledge_id.strip():
         raise InvalidArgumentError("knowledge_id is required")
     if not reviewer or not reviewer.strip():
@@ -1105,7 +1190,7 @@ def kae_get_clarifications(
     resource this loop exists to spend carefully.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if context.clarification is None:
         raise CapabilityUnavailableError(
             capability="clarifications",
@@ -1203,7 +1288,7 @@ def kae_answer_clarification(
     project knows something nobody has confirmed.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if context.clarification is None:
         raise CapabilityUnavailableError(
             capability="clarifications",
@@ -1283,7 +1368,7 @@ def kae_ingest_document(
     the messages and runs it already created instead of reading it twice.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if context.ingestion is None:
         raise CapabilityUnavailableError(
             capability="document ingestion",
@@ -1384,7 +1469,7 @@ def kae_assemble_context(
     may be incomplete; it may never be silent.
     """
 
-    project = _require_project(context, project_id)
+    project = resolve_project(context, project_id)
     if context.assembly is None:
         raise CapabilityUnavailableError(
             capability="context assembly",

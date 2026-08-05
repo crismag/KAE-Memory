@@ -190,25 +190,37 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 
 ## Phase F — Project focus and default scope
 
-**T25 — Make the selected project the default scope.** Deferred, **implementation
-not authorised.** Design: [`PROJECT_FOCUS.md`](../06_architecture/PROJECT_FOCUS.md).
+**T25 — Make the selected project the default scope.** Authorised 2026-08-05.
+Design: [`PROJECT_FOCUS.md`](../06_architecture/PROJECT_FOCUS.md).
 
 Scoped down after review: cross-project isolation is **already enforced** — six
 of eight tools require a `project_id`, every service call is single-project, and
 no tool can return knowledge from a project the caller did not name. The gap is
 ergonomics and disambiguation, not leakage.
 
-- [ ] **T25.1** — Studio injects the active `project_id`. **Zero KAE change**;
-  solves the Studio case entirely
-- [ ] **T25.2** — Accept `project_key` alongside `project_id` on every
-  project-scoped tool. Stateless, no schema change, removes the
-  list → pick → call hop that suppresses routing
+- [x] **T25.1** — Studio injects the active `project_id`. **Zero KAE change**,
+  and nothing to build here: Studio holds the open project and supplies it. The
+  Studio prototype runs on mock adapters, so this lands with the real
+  integration rather than as KAE work.
+- [x] **T25.2** — Accept `project_key` alongside `project_id` — 2026-08-05.
+  `resolve_project` takes an id, a key, or a key passed as the id; resolution
+  happens once in `dispatch` rather than in fourteen handlers. `project_id` is
+  no longer schema-required, because a key-only call would otherwise fail
+  validation before reaching the error that helps. A response resolved from a
+  key carries `resolved_project` naming the project and `resolved_from`, and
+  that field is in the integrity registry so no profile can drop it.
 - [ ] **T25.3** — *Only if T25.2 proves insufficient:* server-side active
-  project, with a mandatory `scope` echo naming the project and how it resolved
-- [ ] **T25.4** — Cross-project comparison as a separate tool, never a wider
-  setting on an existing one
+  project. **Not built, by the design's own condition** — B is stateless and
+  has not yet been shown to be insufficient. Building C now would trade a
+  stateless surface for one whose answers depend on prior calls, before knowing
+  whether the trade is needed.
+- [ ] **T25.4** — Cross-project comparison as a separate tool. **Not built:
+  undesigned.** `PROJECT_FOCUS.md` §4 records the constraint (never a wider
+  setting on an existing tool) and explicitly does not design the tool. Nothing
+  in Demo V1 asks to compare projects.
 
-**Acceptance criteria**
+**Acceptance criteria** — met, except where they describe T25.3's implicit
+focus, which does not exist and so cannot be relied on.
 
 - Explicit project arguments always override any default.
 - No project and no default is an `invalid_argument` error, never an inferred
