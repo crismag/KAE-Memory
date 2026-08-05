@@ -27,6 +27,7 @@ from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
+from kae_memory.application.module_service import ModuleService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
@@ -88,6 +89,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         ingestion=IngestionService(factory),
         assembly=AssemblyService(factory),
         classification=ClassificationService(factory),
+        modules=ModuleService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -296,6 +298,67 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["project_id", "observation", "idempotency_key"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_define_module",
+        "description": (
+            "Register a module, idempotent by key. A module is proposed when "
+            "defined; a person confirms what belongs in the system definition."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "key": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1},
+                "summary": {"type": "string"},
+            },
+            "required": ["key", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_relate_modules",
+        "description": (
+            "Record a structural edge: depends_on, owns, exposes, consumes "
+            "(module to module), or satisfies, verified_by (module to a "
+            "statement). Cycles in depends_on and owns are refused, and "
+            "ownership is exclusive."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "source": {"type": "string", "minLength": 1},
+                "relation": {
+                    "type": "string",
+                    "enum": [
+                        "depends_on",
+                        "owns",
+                        "exposes",
+                        "consumes",
+                        "satisfies",
+                        "verified_by",
+                    ],
+                },
+                "target": {"type": "string"},
+                "knowledge_id": {"type": "string"},
+            },
+            "required": ["source", "relation"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_get_module_graph",
+        "description": (
+            "Every module in this project and the order they can be built in. "
+            "Build order follows depends_on only."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {"project_id": {"type": "string"}},
             "additionalProperties": False,
         },
     },
@@ -915,6 +978,24 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("reviewer"),
             arguments.get("idempotency_key"),
         ),
+        "kae_define_module": lambda: tools.kae_define_module(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("key", ""),
+            arguments.get("name", ""),
+            arguments.get("summary", ""),
+        ),
+        "kae_relate_modules": lambda: tools.kae_relate_modules(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("source", ""),
+            arguments.get("relation", ""),
+            arguments.get("target"),
+            arguments.get("knowledge_id"),
+        ),
+        "kae_get_module_graph": lambda: tools.kae_get_module_graph(
+            context, arguments.get("project_id", "")
+        ),
         "kae_get_operational_state": lambda: tools.kae_get_operational_state(
             context,
             arguments.get("project_id", ""),
@@ -1184,6 +1265,55 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_define_module(
+        key: str,
+        name: str,
+        summary: str = "",
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_define_module",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "key": key,
+                "name": name,
+                "summary": summary,
+            },
+        )
+
+    def kae_relate_modules(
+        source: str,
+        relation: str,
+        target: str | None = None,
+        knowledge_id: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_relate_modules",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "source": source,
+                "relation": relation,
+                "target": target,
+                "knowledge_id": knowledge_id,
+            },
+        )
+
+    def kae_get_module_graph(
+        project_id: str = "", project_key: str | None = None
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_module_graph",
+            {"project_id": project_id, "project_key": project_key},
+        )
+
     def kae_get_operational_state(
         states: list[str] | None = None,
         kinds: list[str] | None = None,
@@ -1367,6 +1497,9 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_submit_observation,
             kae_confirm_knowledge,
             kae_reject_knowledge,
+            kae_define_module,
+            kae_relate_modules,
+            kae_get_module_graph,
             kae_get_operational_state,
             kae_get_classifications,
             kae_settle_operational_record,

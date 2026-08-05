@@ -55,7 +55,13 @@ def project_id(context: tools.ToolContext) -> str:
 def test_module_context_reports_a_gap_rather_than_inventing_one(
     context: tools.ToolContext, project_id: str
 ) -> None:
-    """Fabricating modules here would put a second project model outside the domain."""
+    """Fabricating modules here would put a second project model outside the domain.
+
+    Still a gap on a project with no modules, and the reason changed with
+    N17-N19: the relationship write path exists now, so what is missing is a
+    registered module rather than the capability to have one. The refusal to
+    invent is what this test holds, and that has not moved.
+    """
 
     with pytest.raises(CapabilityUnavailableError) as raised:
         tools.kae_get_module_context(context, project_id, "MOD-APR")
@@ -63,7 +69,7 @@ def test_module_context_reports_a_gap_rather_than_inventing_one(
     payload = raised.value.payload()
     assert payload["error"] == "capability_unavailable"
     assert payload["capability"] == "module context"
-    assert any("relationship write path" in m for m in payload["missing_capabilities"])
+    assert any("no modules are registered" in m for m in payload["missing_capabilities"])
     assert "Do not infer" in payload["guidance"]
     assert payload["use_instead"], "a gap must point at what can be used instead"
 

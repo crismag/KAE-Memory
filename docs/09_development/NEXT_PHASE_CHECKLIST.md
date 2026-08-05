@@ -207,11 +207,42 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
 
   Retired names now raise with what replaced them, because three of the four
   source documents use at least one.
-- [ ] **N17** — Module relationship model: how a module owns, depends on, and
-  exposes.
-- [ ] **N18** — Module graph traversal: dependents, dependencies, build order.
-- [ ] **N19** — Module-scoped context assembly, replacing the capability gap
-  `kae_get_module_context` currently reports honestly.
+- [x] **N17** — Module relationship model — `domain/modules.py`,
+  `application/module_service.py`, migration `0013`, 2026-08-05. The write path
+  the platform never had: `record_contradiction` was the only thing creating an
+  edge, which is why the graph, the build order, and module context were all
+  blocked behind one absence rather than five.
+
+  **Cycles are refused at write time**, not detected at read time — a graph
+  checked only when traversed stores state it cannot answer from, and the
+  caller who discovers that is the one who least caused it. Ownership is
+  exclusive. A self-edge is refused as a typo rather than reported as a cycle,
+  so it does not bury the real ones. The database carries what DDL can express;
+  cycles and exclusivity are refused in the service, because no constraint sees
+  the whole graph.
+- [x] **N18** — Module graph traversal — 2026-08-05. Dependencies and
+  dependents together, because they answer opposite questions a reader needs at
+  once: what must exist before I build this, and what breaks if I change it.
+  Build order is Kahn's algorithm over `depends_on`, ties broken by identifier
+  so the answer is stable — an order that varies cannot be compared to the
+  previous one, which is most of what a build order is for. A cycle raises
+  rather than returning a partial order, because a truncated order looks like
+  an answer.
+- [x] **N19** — Module-scoped context — 2026-08-05. `kae_get_module_context`
+  answers instead of reporting a gap. Statements come from `satisfies` and
+  `verified_by` **edges**, not from matching the module's name against text:
+  "these statements mention approval" and "this module satisfies these
+  requirements" are different claims, and the old behaviour could only make the
+  first.
+
+  Dependencies arrive as **stubs**. An implementer needs what a dependency
+  offers, not how it is built; expanding them would reproduce the project one
+  edge at a time, which is what a module scope exists to prevent.
+
+  A project with no modules still gets the gap payload and its labelled
+  substitute — module scope is genuinely unavailable *for that project* — but
+  the way out now exists, so the next steps name it instead of saying this
+  needs a product change.
 - [ ] **N20** — Durable deliverable identity. Assembly `package_id` is a fresh
   UUID per call; a listable deliverable is a different concept and needs a
   persistence and ownership decision, not a router that invents one.

@@ -36,6 +36,7 @@ from kae_memory.application.ingestion_service import (
     IngestionService,
 )
 from kae_memory.application.memory_service import MemoryService
+from kae_memory.application.module_service import ModuleNotFoundError, ModuleService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import (
     MAX_DISTANCE,
@@ -56,6 +57,7 @@ from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId,
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.domain.modules import CyclicModuleGraphError, DuplicateOwnershipError
 from kae_memory.domain.observation import (
     ACTIVE_STATES,
     InvalidOperationalTransitionError,
@@ -63,6 +65,8 @@ from kae_memory.domain.observation import (
     RetentionTier,
 )
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
+from kae_memory.domain.relationships import ModuleRelation
+from kae_memory.domain.relationships import resolve as resolve_relation
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp import response_policy
 from kae_memory.mcp.errors import (
@@ -98,6 +102,7 @@ class ToolContext:
         ingestion: IngestionService | None = None,
         assembly: AssemblyService | None = None,
         classification: ClassificationService | None = None,
+        modules: ModuleService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -108,6 +113,7 @@ class ToolContext:
         self.ingestion = ingestion
         self.assembly = assembly
         self.classification = classification
+        self.modules = modules
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -595,6 +601,126 @@ def _tier_report(
     return report
 
 
+def kae_define_module(
+    context: ToolContext,
+    project_id: str,
+    key: str,
+    name: str,
+    summary: str = "",
+) -> dict[str, Any]:
+    """Register a module. Idempotent by key.
+
+    A module is *proposed* when defined. Nothing here confirms that it belongs
+    in the system — that is a person's call, the same as for knowledge, and for
+    the same reason: an agent that could confirm its own proposals would make
+    the review model decorative.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.modules is None:
+        raise CapabilityUnavailableError(
+            capability="modules",
+            missing=["a module service is not configured for this server"],
+        )
+    if not key or not key.strip() or not name or not name.strip():
+        raise InvalidArgumentError("a module needs a key and a name")
+
+    module = context.modules.define(project.id, key, name, summary)
+    return {
+        "project_id": str(project.id),
+        "module": {
+            "key": module.key,
+            "name": module.name,
+            "summary": module.summary,
+            "status": module.status.value,
+        },
+        "knowledge_changed": False,
+        "note": (
+            "Recorded as a proposed module. A person confirms what becomes part "
+            "of the system definition."
+        ),
+    }
+
+
+def kae_relate_modules(
+    context: ToolContext,
+    project_id: str,
+    source: str,
+    relation: str,
+    target: str | None = None,
+    knowledge_id: str | None = None,
+) -> dict[str, Any]:
+    """Record one structural edge between modules, or from a module to knowledge.
+
+    The vocabulary is fixed (ADR-0025) and a retired name raises with what
+    replaced it. Cycles in `depends_on` and `owns` are refused here rather than
+    detected later: a graph checked only when traversed stores state it cannot
+    answer from.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.modules is None:
+        raise CapabilityUnavailableError(
+            capability="modules",
+            missing=["a module service is not configured for this server"],
+        )
+
+    try:
+        resolved = resolve_relation(relation)
+    except DomainInvariantError as error:
+        raise InvalidArgumentError(str(error)) from error
+    if not isinstance(resolved, ModuleRelation):
+        raise InvalidArgumentError(
+            f"{relation!r} relates two statements, not two modules. Structural "
+            f"relations are: {', '.join(r.value for r in ModuleRelation)}"
+        )
+
+    try:
+        edge = context.modules.relate(project.id, source, resolved, target, knowledge_id)
+    except ModuleNotFoundError as error:
+        raise KnowledgeNotFoundError(str(error)) from error
+    except (CyclicModuleGraphError, DuplicateOwnershipError) as error:
+        raise InvalidStateTransitionError(str(error)) from error
+    except DomainInvariantError as error:
+        raise InvalidArgumentError(str(error)) from error
+
+    return {
+        "project_id": str(project.id),
+        "source": source,
+        "relation": edge.relation.value,
+        "target": target or knowledge_id,
+        "knowledge_changed": False,
+    }
+
+
+def kae_get_module_graph(context: ToolContext, project_id: str) -> dict[str, Any]:
+    """Return every module and the order they can be built in.
+
+    Build order is the question a dependency graph exists to answer. Ties break
+    by identifier so the answer is stable — an order that varies between calls
+    cannot be compared to the previous one, which is most of what it is for.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.modules is None:
+        raise CapabilityUnavailableError(
+            capability="modules",
+            missing=["a module service is not configured for this server"],
+        )
+
+    modules = context.modules.list_modules(project.id)
+    ordered = context.modules.build_order(project.id)
+    return {
+        "project_id": str(project.id),
+        "modules": [{"key": m.key, "name": m.name, "status": m.status.value} for m in modules],
+        "build_order": [m.key for m in ordered],
+        "note": (
+            "Build order follows depends_on only. A module with no dependencies "
+            "may still need knowledge that is not yet confirmed."
+        ),
+    }
+
+
 def _project_knowledge_named(context: ToolContext, project: Any, module: str) -> dict[str, Any]:
     """Report project knowledge whose wording matches a requested module name.
 
@@ -607,6 +733,7 @@ def _project_knowledge_named(context: ToolContext, project: Any, module: str) ->
 
     offer: dict[str, Any] = {
         "scope": "project",
+        "module_scope_available": False,
         "match_type": "name_terms",
         "caveat": (
             "These statements match the wording of the requested name. That is a "
@@ -657,53 +784,167 @@ def _project_knowledge_named(context: ToolContext, project: Any, module: str) ->
 
 
 def kae_get_module_context(context: ToolContext, project_id: str, module: str) -> dict[str, Any]:
-    """Report that module context is not available in this version.
+    """Return what one module needs to be implemented without reading the project.
 
-    Deliberately returns a gap rather than data. Modules are not a knowledge
-    kind here, no general relationship write path exists, and nothing traverses
-    the graph — so any module context this tool produced would be invented by
-    the adapter rather than retrieved from the domain.
+    The capability this reported as unavailable through T1-T25 (N19). What made
+    it unavailable was never the assembly — it was that modules had no model, no
+    edges, and no traversal. N16 settled the vocabulary, N17 built the model,
+    N18 the traversal; this composes them.
 
-    The gap now names its subject and the way out. "Unavailable" alone leaves a
-    caller unable to tell an unregistered module from an unsupported feature,
-    and those have different remedies.
+    A module that is not registered still gets an honest answer rather than an
+    invented one, and the two are distinguishable: an unknown module names the
+    modules that exist, where an unavailable capability named what was missing.
     """
 
     project = resolve_project(context, project_id)
     if not module or not module.strip():
         raise InvalidArgumentError("module is required")
+
+    if context.modules is not None:
+        try:
+            neighbourhood = context.modules.neighbourhood(project.id, module.strip())
+        except ModuleNotFoundError:
+            registered = [m.key for m in context.modules.list_modules(project.id)]
+            if registered:
+                # A wrong name and an unmodelled project are different answers.
+                # Falling back to a term match here would hand back statements
+                # that merely mention the word, in a project that can say better.
+                raise KnowledgeNotFoundError(
+                    f"no module {module.strip()!r} in this project; "
+                    f"registered: {', '.join(registered)}"
+                ) from None
+        else:
+            return _module_context_payload(context, project, neighbourhood)
+
+    # No modules registered, or no module service configured. Module scope is
+    # genuinely unavailable *for this project*, and the original gap payload —
+    # which named its subject, offered a labelled substitute, and refused to
+    # promise a workaround — is still the right answer. What changed is that a
+    # project which has modelled its modules no longer reaches it.
     raise CapabilityUnavailableError(
         capability="module context",
-        missing=[
-            "modules as a knowledge kind",
-            "relationship write path (edges can currently only be created as contradictions)",
-            "graph traversal for dependencies and dependents",
-            "module-scoped readiness",
-            "purpose- and scope-bounded context assembly",
-        ],
+        missing=["no modules are registered in this project"],
         use_instead=[
+            "kae_define_module to register one, then kae_relate_modules to place it",
             "kae_get_project_briefing for current project understanding",
             "kae_search_knowledge to locate knowledge related to this module",
-            "kae_get_open_decisions to see what is unresolved",
         ],
         subject={
             "module": module,
             "project": project.name,
             "status": "not_registered",
             "detail": (
-                "No module of this name is recorded, and none could be: modules "
-                "are not yet a knowledge kind, so this version has nowhere to "
-                "register one. The name was not rejected — it was never lookable."
+                "No module of this name is recorded. Modules are modelled in this "
+                "version, so this name is lookable — there is simply nothing to "
+                "look up until one is registered."
             ),
         },
         available_now=_project_knowledge_named(context, project, module),
         next_steps=[
+            "Register the module and relate it to the knowledge it satisfies.",
             "Read the project briefing for the confirmed knowledge that does exist.",
             "Resolve the open decisions that would block this module's requirements.",
-            "Registering modules requires the module capability itself; it is a "
-            "product change, not a configuration one.",
         ],
     )
+
+
+def _module_context_payload(
+    context: ToolContext, project: Any, neighbourhood: Any
+) -> dict[str, Any]:
+    """Render one module's bounded context.
+
+    Dependencies arrive as **stubs** — key, name, summary — rather than as their
+    full context. An implementer needs to know what a dependency offers, not how
+    it is built; expanding them would reproduce the whole project one edge at a
+    time, which is the thing a module scope exists to prevent.
+    """
+
+    module = neighbourhood.module
+    statements = _module_statements(context, project, neighbourhood)
+
+    return {
+        "project_id": str(project.id),
+        "scope": "module",
+        "module_scope_available": True,
+        "module": {
+            "key": module.key,
+            "name": module.name,
+            "summary": module.summary,
+            "status": module.status.value,
+        },
+        "depends_on": [_stub(m) for m in neighbourhood.depends_on],
+        "dependents": [_stub(m) for m in neighbourhood.dependents],
+        "exposes": [_stub(m) for m in neighbourhood.exposes],
+        "consumes": [_stub(m) for m in neighbourhood.consumes],
+        "owns": [_stub(m) for m in neighbourhood.owns],
+        "owned_by": _stub(neighbourhood.owned_by) if neighbourhood.owned_by else None,
+        "statements": statements,
+        "knowledge_revision": context.readiness.knowledge_revision(project.id),
+        "note": (
+            "Dependencies are summarised, not expanded. What a dependency offers is "
+            "what an implementer needs; how it is built is its own context."
+        ),
+        "guidance": [
+            "Statements labelled proposed are candidates, not decisions.",
+            "This is one module's scope. Knowledge outside it was not read and is "
+            "not implied to be absent.",
+        ],
+    }
+
+
+def _stub(module: Any) -> dict[str, Any]:
+    return {"key": module.key, "name": module.name, "summary": module.summary}
+
+
+def _module_statements(
+    context: ToolContext, project: Any, neighbourhood: Any
+) -> list[dict[str, Any]]:
+    """The statements this module satisfies or is verified by.
+
+    Resolved from edges rather than from a term match. The difference is the
+    whole point of N17: "these statements mention the word approval" and "this
+    module satisfies these requirements" are different claims, and the old
+    behaviour could only make the first.
+    """
+
+    wanted = {
+        **{knowledge_id: "satisfies" for knowledge_id in neighbourhood.satisfies},
+        **{knowledge_id: "verified_by" for knowledge_id in neighbourhood.verified_by},
+    }
+    if not wanted:
+        return []
+
+    items = context.memory.retrieve_knowledge(project.id, lifecycle=None)
+    resolved: list[dict[str, Any]] = []
+    for item in items:
+        relation = wanted.get(str(item.id))
+        if relation is None:
+            continue
+        resolved.append(
+            {
+                "knowledge_id": str(item.id),
+                "relation": relation,
+                "kind": item.kind.value if hasattr(item.kind, "value") else str(item.kind),
+                "text": item.current_version.content,
+                "lifecycle": item.lifecycle.value,
+                "label": "confirmed" if item.lifecycle is LifecycleState.VALIDATED else "proposed",
+            }
+        )
+
+    missing = sorted(set(wanted) - {row["knowledge_id"] for row in resolved})
+    if missing:
+        # An edge pointing at a statement that no longer exists is a real state
+        # and reporting it as an empty list would hide it.
+        resolved.append(
+            {
+                "knowledge_id": None,
+                "relation": "unresolved_edges",
+                "text": f"{len(missing)} linked statements could not be resolved",
+                "lifecycle": "unknown",
+                "label": "unresolved",
+            }
+        )
+    return resolved
 
 
 _SEARCH_MODES = ("auto", "lexical", "semantic")

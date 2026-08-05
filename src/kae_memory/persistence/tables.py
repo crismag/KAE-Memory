@@ -623,3 +623,70 @@ class OperationalUpdateRow(Base):
     detail: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ModuleRow(Base):
+    """One part of the system being defined (N17)."""
+
+    __tablename__ = "modules"
+    __table_args__ = (
+        # A key is how a person names a module in conversation and how Studio
+        # routes to one. Unique per project so `auth` means one thing here and
+        # something else in another project, without either having to know.
+        UniqueConstraint("project_id", "key", name="uq_modules_project_key"),
+        Index("ix_modules_project", "project_id"),
+    )
+
+    module_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    key: Mapped[str] = mapped_column(String(120), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ModuleRelationshipRow(Base):
+    """A directed structural edge (N17, ADR-0025).
+
+    Separate from ``knowledge_relationships``, which holds epistemic edges. The
+    two vocabularies answer different questions and one table would make every
+    read filter for the half it did not want.
+    """
+
+    __tablename__ = "module_relationships"
+    __table_args__ = (
+        # The same edge twice is one edge. Enforced here rather than by a
+        # lookup, because a lookup before an insert races and a duplicated
+        # `owns` would defeat the exclusivity rule it exists to support.
+        UniqueConstraint(
+            "source_module_id",
+            "relation",
+            "target_module_id",
+            "target_knowledge_id",
+            name="uq_module_relationships_edge",
+        ),
+        Index("ix_module_relationships_project", "project_id", "relation"),
+        Index("ix_module_relationships_source", "source_module_id"),
+        Index("ix_module_relationships_target", "target_module_id"),
+        CheckConstraint(
+            "(target_module_id IS NULL) <> (target_knowledge_id IS NULL)",
+            name="ck_module_relationships_one_target",
+        ),
+        CheckConstraint(
+            "target_module_id IS NULL OR target_module_id <> source_module_id",
+            name="ck_module_relationships_no_self_edge",
+        ),
+    )
+
+    module_relationship_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_module_id: Mapped[str] = mapped_column(
+        ForeignKey("modules.module_id", ondelete="CASCADE"), nullable=False
+    )
+    relation: Mapped[str] = mapped_column(String(40), nullable=False)
+    target_module_id: Mapped[str | None] = mapped_column(
+        ForeignKey("modules.module_id", ondelete="CASCADE"), nullable=True
+    )
+    target_knowledge_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

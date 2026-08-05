@@ -177,7 +177,7 @@ def test_doctor_fails_without_a_configured_provider() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Eighteen tools, and the list is enumerated rather than counted so that
+    Twenty-one tools, and the list is enumerated rather than counted so that
     adding one is a deliberate edit here. `kae_create_project` was added because an
     agent could submit an observation about a project but could not bring one
     into being, which made the surface unusable without a second channel. The
@@ -191,9 +191,14 @@ def test_the_tool_surface_stays_small() -> None:
     and operational records were reachable only through the briefing, and four
     states the domain models were reachable by nothing at all. Two filtered
     reads and one settle command are the smallest surface that closes it.
+
+    N17-N19 added three more, and they replaced a refusal rather than adding
+    reach: `kae_get_module_context` had reported a capability gap since T1
+    because modules had no model, no edges, and no traversal. Defining a
+    module, relating it, and reading the graph are what that gap was made of.
     """
 
-    assert len(TOOL_DEFINITIONS) == 18
+    assert len(TOOL_DEFINITIONS) == 21
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -203,6 +208,9 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_search_knowledge",
         "kae_get_open_decisions",
         "kae_get_readiness",
+        "kae_define_module",
+        "kae_relate_modules",
+        "kae_get_module_graph",
         "kae_get_operational_state",
         "kae_get_classifications",
         "kae_settle_operational_record",
