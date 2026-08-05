@@ -24,10 +24,16 @@ repository context. It records:
 - the branch strategy;
 - the immediate next task.
 
-**Work is tracked by the T-numbered register** in
-[`09_development/MCP_TARGET_CHECKLIST.md`](09_development/MCP_TARGET_CHECKLIST.md).
-The milestones carried the project to M11 and are no longer the queue; the
-T-register says what happens next.
+**Work is tracked by the N-numbered register** in
+[`09_development/NEXT_PHASE_CHECKLIST.md`](09_development/NEXT_PHASE_CHECKLIST.md).
+The T-register in
+[`09_development/MCP_TARGET_CHECKLIST.md`](09_development/MCP_TARGET_CHECKLIST.md)
+is **closed** — T1–T25 complete — and is kept as the record of how the MCP
+surface was built, not as a queue. The milestones that carried the project to
+M11 are older still.
+
+The two registers share no numbers, so a target identifier never means two
+things.
 
 Nothing in this repository authorises implementation on its own. If the current
 state page and another document disagree, the current state page is correct and

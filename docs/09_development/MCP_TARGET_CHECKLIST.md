@@ -1,5 +1,12 @@
 # Master MCP Target Checklist
 
+> **Closed 2026-08-05. T1–T25 complete.** This file is the record of how the MCP
+> surface was built and why each decision was made; it is no longer the queue.
+> Current work is tracked in
+> [`NEXT_PHASE_CHECKLIST.md`](NEXT_PHASE_CHECKLIST.md). T25.3 and T25.4 remain
+> unchecked deliberately — see their entries; an unchecked box that means
+> "decided against" is not a pending item.
+
 Status: **control register**, opened 2026-08-03. Updated after each completed target.
 
 This is the authoritative list of what the MCP surface still needs. It is
