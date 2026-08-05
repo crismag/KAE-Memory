@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.application.assembly_service import ContextAssembly, describe_package
+from kae_memory.application.review_service import FindingKind
 from kae_memory.domain.deliverables import (
     ORDERING_CONTRACT,
     ArtifactRecord,
@@ -165,10 +166,6 @@ class DeliverableService:
                 ],
                 render_inputs=inputs.as_dict(),
                 qualification=qualification.as_dict() if qualification else None,
-                # Inputs are always captured on this path, and an empty package
-                # has nothing to pin while remaining reproducible. Deriving it
-                # from the pins alone marked every empty package unprovable.
-                publication_eligible=True,
                 recorded_by=recorded_by,
                 recorded_at=datetime.now(UTC),
             )
@@ -323,6 +320,7 @@ def _describe_qualification(
     """
 
     state = assembly.manifest.confirmation_state
+    contradictions, open_decisions, gaps = _sort_gaps(assembly.manifest.unresolved_critical_gaps)
     present: set[InclusionClass] = set()
     if state.confirmed:
         present.add(InclusionClass.CONFIRMED)
@@ -336,8 +334,49 @@ def _describe_qualification(
         mode=mode,
         confirmed_count=state.confirmed,
         unconfirmed_count=state.proposed,
-        contradictions=tuple(gap.summary for gap in assembly.manifest.unresolved_critical_gaps),
-        limitations=tuple(assembly.manifest.warnings),
+        contradictions=contradictions,
+        open_decisions=open_decisions,
+        limitations=tuple(assembly.manifest.warnings) + gaps,
         qualifications=qualifications(mode, frozenset(present)),
         accepted=accepted,
     )
+
+
+_CONTRADICTION_KINDS = frozenset({FindingKind.UNRESOLVED_CONTRADICTION.value})
+"""The only kind that is a disagreement.
+
+Named as a set rather than compared inline, because the first version of this
+mapping sent *every* gap to `contradictions` — so a project with nothing in it
+reported four contradictions when it had no knowledge to disagree with itself.
+A missing area is an absence, and calling it a conflict would send a reader
+looking for two sources that never existed.
+"""
+
+_DECISION_KINDS = frozenset({FindingKind.OPEN_QUESTION.value, FindingKind.OPEN_BLOCKER.value})
+"""Kinds waiting on a person to choose, rather than on more information."""
+
+
+def _sort_gaps(
+    gaps: Sequence[Any],
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Split gaps into disagreements, unresolved choices, and absences.
+
+    Exhaustive by exclusion: anything not named a contradiction or a decision
+    is treated as an absence. A new finding kind therefore lands in
+    `limitations`, which understates it, rather than in `contradictions`, which
+    would invent a conflict.
+    """
+
+    contradictions: list[str] = []
+    decisions: list[str] = []
+    absences: list[str] = []
+
+    for gap in gaps:
+        if gap.kind in _CONTRADICTION_KINDS:
+            contradictions.append(gap.summary)
+        elif gap.kind in _DECISION_KINDS:
+            decisions.append(gap.summary)
+        else:
+            absences.append(gap.summary)
+
+    return tuple(contradictions), tuple(decisions), tuple(absences)
