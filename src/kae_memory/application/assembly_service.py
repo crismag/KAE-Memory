@@ -164,6 +164,16 @@ class AssemblyManifest:
     confirmation_state: ConfirmationState
     unresolved_critical_gaps: tuple[CriticalGap, ...]
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    statement_pins: tuple[tuple[str, int], ...] = ()
+    """Every rendered statement, at the exact version rendered (N20.1).
+
+    `source_knowledge` names *what* was read; this names *which version of it*.
+    Assembly reads `current_version`, so the identifier alone goes stale the
+    moment a statement is corrected — and a deliverable built from identifiers
+    would look reproducible while producing different content.
+    """
+    include_proposed: bool = False
+    """Recorded because it changes what is assembled, and therefore the output."""
 
     def is_stale_against(self, current_revision: int) -> bool:
         """Return whether project knowledge has moved since this was generated."""
@@ -316,6 +326,8 @@ class AssemblyService:
             # identifier. An artifact that cannot name what it rendered cannot be
             # invalidated when that knowledge changes.
             source_knowledge=tuple(s.knowledge_id for s in assembled),
+            statement_pins=tuple((s.knowledge_id, s.version) for s in assembled),
+            include_proposed=include_proposed,
             statement_count=len(assembled),
             traced_statements=sum(1 for s in assembled if s.knowledge_id),
             confirmation_state=ConfirmationState(
