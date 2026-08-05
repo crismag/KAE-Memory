@@ -625,9 +625,6 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   documentation, contradictory sources, no publication target, "generate now"
   with important questions open, reproducing a historical provisional
   deliverable, and a real hard block that stays narrow.
-- [ ] **N22** — Remote MCP tenancy and authentication. Distinct from N5, which
-  is the HTTP boundary.
-- [ ] **N23** — Live deployment proof.
 
 ## Dependencies outside this repository
 
