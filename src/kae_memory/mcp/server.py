@@ -25,6 +25,7 @@ from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.module_service import ModuleService
@@ -90,6 +91,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         assembly=AssemblyService(factory),
         classification=ClassificationService(factory),
         modules=ModuleService(factory),
+        deliverables=DeliverableService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -298,6 +300,52 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["project_id", "observation", "idempotency_key"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_record_deliverable",
+        "description": (
+            "Record what an assembly produced as a durable deliverable. "
+            "Idempotent by content: recording the same output twice returns the "
+            "same deliverable. Nothing is rendered, stored, or published — this "
+            "is the record that an output existed, not the output itself."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "purpose": {
+                    "type": "string",
+                    "enum": ["discovery", "architecture", "implementation"],
+                },
+                "include_proposed": {"type": "boolean"},
+                "recorded_by": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_list_deliverables",
+        "description": (
+            "Recorded deliverables, newest first. `stale` is derived: a "
+            "deliverable recorded before the project moved is still what was "
+            "produced, and no longer what the project now says."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "states": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": ["recorded", "superseded", "withdrawn"],
+                    },
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                "cursor": {"type": "string"},
+            },
             "additionalProperties": False,
         },
     },
@@ -978,6 +1026,20 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("reviewer"),
             arguments.get("idempotency_key"),
         ),
+        "kae_record_deliverable": lambda: tools.kae_record_deliverable(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("purpose", "implementation"),
+            bool(arguments.get("include_proposed", False)),
+            arguments.get("recorded_by"),
+        ),
+        "kae_list_deliverables": lambda: tools.kae_list_deliverables(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("states"),
+            arguments.get("limit"),
+            arguments.get("cursor"),
+        ),
         "kae_define_module": lambda: tools.kae_define_module(
             context,
             arguments.get("project_id", ""),
@@ -1265,6 +1327,44 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_record_deliverable(
+        purpose: str = "implementation",
+        include_proposed: bool = False,
+        recorded_by: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_record_deliverable",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "purpose": purpose,
+                "include_proposed": include_proposed,
+                "recorded_by": recorded_by,
+            },
+        )
+
+    def kae_list_deliverables(
+        states: list[str] | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_list_deliverables",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "states": states,
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
+
     def kae_define_module(
         key: str,
         name: str,
@@ -1497,6 +1597,8 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_submit_observation,
             kae_confirm_knowledge,
             kae_reject_knowledge,
+            kae_record_deliverable,
+            kae_list_deliverables,
             kae_define_module,
             kae_relate_modules,
             kae_get_module_graph,

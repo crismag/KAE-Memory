@@ -345,6 +345,43 @@ REGISTRY: tuple[Capability, ...] = (
         ),
     ),
     Capability(
+        key="deliverable.record",
+        summary="Record an assembled output as a durable deliverable",
+        exposure=Exposure.BOTH,
+        mcp=("kae_record_deliverable",),
+        http=("POST /v1/projects/{project_id}/deliverables",),
+    ),
+    Capability(
+        key="deliverable.list",
+        summary="Recorded deliverables, newest first, with derived staleness",
+        exposure=Exposure.BOTH,
+        mcp=("kae_list_deliverables",),
+        http=("GET /v1/projects/{project_id}/deliverables",),
+    ),
+    Capability(
+        key="deliverable.read",
+        summary="One deliverable's manifest, artifact index, and lifecycle",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/deliverables/{deliverable_id}",),
+        reason=(
+            "An agent that recorded a deliverable already holds its payload. "
+            "Studio resolves one from a stored id when a person opens it later."
+        ),
+    ),
+    Capability(
+        key="deliverable.lifecycle",
+        summary="Supersede or withdraw a recorded deliverable",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede",
+            "POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw",
+        ),
+        reason=(
+            "Withdrawing what a project stands behind is a person's judgement, and "
+            "an agent that could do it would be settling a question nobody asked it."
+        ),
+    ),
+    Capability(
         key="embedding.reembed",
         summary="Migrate stored knowledge to a new embedding version",
         exposure=Exposure.INTERNAL,

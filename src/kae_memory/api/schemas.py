@@ -918,3 +918,103 @@ class SettleOperationalRequest(BaseModel):
     state: str
     actor: str = Field(min_length=1)
     note: str | None = None
+
+
+# -- deliverables (N20) ----------------------------------------------------
+
+
+class RecordDeliverableRequest(BaseModel):
+    purpose: str = "implementation"
+    include_proposed: bool = False
+    recorded_by: str | None = None
+
+
+class SupersedeDeliverableRequest(BaseModel):
+    replacement_id: str = Field(min_length=1)
+
+
+class WithdrawDeliverableRequest(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+class DeliverableResponse(BaseModel):
+    """A durable record of an assembled output.
+
+    `rendered` and `published` are present and always false. Their absence
+    would let a caller assume either happened; N20 records that an output
+    existed and deliberately performs no storage or publication side effect.
+    """
+
+    deliverable_id: str
+    purpose: str
+    scope: str
+    module: str | None
+    state: str
+    knowledge_revision: int
+    content_hash: str
+    stale: bool
+    artifacts: list[dict[str, Any]]
+    source_knowledge: list[str]
+    manifest: dict[str, Any]
+    recorded_by: str | None
+    superseded_by: str | None
+    rendered: bool = False
+    published: bool = False
+    recorded: bool | None = None
+
+    @classmethod
+    def of(
+        cls, deliverable: Any, current_revision: int, created: bool | None = None
+    ) -> "DeliverableResponse":
+        return cls(
+            deliverable_id=str(deliverable.id),
+            purpose=deliverable.purpose,
+            scope=deliverable.scope,
+            module=deliverable.module_key,
+            state=deliverable.state.value,
+            knowledge_revision=deliverable.knowledge_revision,
+            content_hash=deliverable.content_hash,
+            # Derived, never stored. A stored flag is true until something
+            # remembers to update it.
+            stale=deliverable.is_stale_against(current_revision),
+            artifacts=[
+                {
+                    "path": artifact.path,
+                    "area": artifact.area_key,
+                    "title": artifact.title,
+                    "statements": artifact.statement_count,
+                    "confirmed": artifact.confirmed_count,
+                    "content_hash": artifact.content_hash,
+                }
+                for artifact in deliverable.artifacts
+            ],
+            source_knowledge=list(deliverable.source_knowledge),
+            manifest=dict(deliverable.manifest),
+            recorded_by=deliverable.recorded_by,
+            superseded_by=deliverable.superseded_by,
+            recorded=created,
+        )
+
+
+class DeliverableListResponse(BaseModel):
+    deliverables: list[DeliverableResponse]
+    total: int
+    omitted: int
+    knowledge_revision: int
+    note: str
+
+    @classmethod
+    def of(
+        cls, records: Sequence[Any], current_revision: int, limit: int
+    ) -> "DeliverableListResponse":
+        shown = list(records)[:limit]
+        return cls(
+            deliverables=[DeliverableResponse.of(r, current_revision) for r in shown],
+            total=len(records),
+            omitted=max(0, len(records) - len(shown)),
+            knowledge_revision=current_revision,
+            note=(
+                "A stale deliverable is one recorded before the project moved. It "
+                "is still what was produced; it is no longer what the project now says."
+            ),
+        )

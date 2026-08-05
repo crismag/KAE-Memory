@@ -20,6 +20,7 @@ from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
@@ -185,6 +186,13 @@ def authorise_project(request: Request, project_id: str) -> None:
         raise not_found("project", project_id)
 
 
+def get_deliverables(request: Request) -> DeliverableService:
+    """Return the request's deliverable service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return DeliverableService(factory)
+
+
 def get_session_factory(request: Request) -> sessionmaker[DbSession]:
     """Return the shared session factory."""
 
@@ -228,3 +236,4 @@ Ingestion = Annotated[IngestionService, Depends(get_ingestion)]
 Assembly = Annotated[AssemblyService, Depends(get_assembly)]
 Clarifications = Annotated[ClarificationService, Depends(get_clarification)]
 Classification = Annotated[ClassificationService, Depends(get_classification)]
+Deliverables = Annotated[DeliverableService, Depends(get_deliverables)]
