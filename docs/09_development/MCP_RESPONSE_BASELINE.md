@@ -14,10 +14,20 @@ The six enabled MCP tools that only read:
 leave evidence in whatever project was measured, so the measurement harness
 cannot call it and a test asserts it is absent from the tool list.
 
-Tools named in the checklist but not yet implemented — `kae_ingest_document`,
-`kae_get_clarifications`, `kae_answer_clarification`, `kae_confirm_knowledge`,
-`kae_reject_knowledge`, `kae_correct_knowledge`, `kae_assemble_context` — are
-out of scope here and belong to Phases C to E.
+**Superseded in part, 2026-08-05.** Every tool this section listed as unbuilt
+now exists: `kae_confirm_knowledge`, `kae_reject_knowledge`, and
+`kae_correct_knowledge` in Phase C; `kae_get_clarifications` and
+`kae_answer_clarification` in Phase D; `kae_ingest_document` and
+`kae_assemble_context` in Phase E.
+
+The measurements below were taken against the seven-tool surface and are kept
+as the baseline they are — a record of what response sizes looked like before
+T3 trimmed the briefing by 71%. They are not a description of the current
+surface, which is fifteen tools. Re-measure before comparing.
+
+The exclusion still holds: `kae_submit_observation` and the other writes are
+not measured, because measuring a write by performing one would leave evidence
+in whatever project was measured.
 
 ## 2. Measurement method
 

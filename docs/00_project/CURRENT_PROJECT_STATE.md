@@ -4,7 +4,7 @@
 read this page before any other repository context. It is the single answer to
 "where does KAE-Memory stand today, and what happens next?"
 
-**Last realigned:** 2026-07-27 · **Model version:** 6
+**Last realigned:** 2026-08-05 · **Model version:** 7
 
 ## Vision
 
@@ -24,29 +24,30 @@ through persistent memory.
 
 ## Current milestone
 
-**M9 — Workspace and Reporting** (next)
+**Phase A completion — T4 and T5.** Everything before it is done.
 
-M8 is complete: knowledge is chunked, embedded, and searchable by cosine distance
-over a real `VECTOR(1024)` index, with every hit explaining why it was returned.
+The milestone register below carried the project to M11. Work is now tracked by
+the **T-numbered register** in
+[`../09_development/MCP_TARGET_CHECKLIST.md`](../09_development/MCP_TARGET_CHECKLIST.md),
+which is the source of truth for what happens next. The milestones remain as
+history; they are no longer the queue.
 
-**Corrected 2026-08-03.** That claim was true of the retrieval machinery and
-false of the system. Nothing in `src/` called `chunk_knowledge`, so knowledge
-written through any production path committed without chunks and no search could
-reach it. The one project that looked healthy had been chunked by hand during
-fixture preparation. Writes now index in the same transaction; see
-`../09_development/DEFECT_KNOWLEDGE_INDEXING.md`.
+**23 of ~25 targets are delivered.** Phases B (embeddings), C (knowledge
+review), D (clarifications), and E (ingestion and assembly) are complete. What
+remains in the register is T4 and T5 — pagination and detail levels on read
+tools, and verifying token reduction without losing essential context — plus
+two deferred groups, T24 (observation classification) and T25 (project focus).
 
-**One caveat carried forward.** The suite runs offline against a deterministic
-embedder, which verifies the retrieval *pipeline* but cannot rank meaning.
-Measured recall is chance-level by construction. Ranking quality needs the opt-in
-live Titan run (`KAE_EVAL_LIVE_EMBEDDING=1`), which has not happened yet and
-requires Bedrock access to `amazon.titan-embed-text-v2:0`.
+**Phase E closed the acquisition-to-package loop.** A document can be ingested,
+read into candidates, confirmed by a person, and assembled into a bounded
+context package with a deterministic description. The Demo V1 scenario runs end
+to end through the MCP surface in
+`tests/mcp_adapter/test_end_to_end_workflow.py`.
 
-M9 makes the whole chain visible as the product — the discovery workspace, the
-Review Agent, and reporting.
-
-ADR-0010 records a future provider-neutral and BYOK product direction without
-adding work to M7. Bedrock remains the only approved live demo adapter.
+**The Titan caveat is discharged.** T8 implemented the real embedding provider,
+T10 re-embedded all 32 existing chunks, and T11 validated retrieval quality.
+The deterministic embedder remains the offline default, and any response ranked
+by it says so rather than presenting hash-derived ordering as meaning.
 
 ## Milestones
 
@@ -61,9 +62,9 @@ adding work to M7. Bedrock remains the only approved live demo adapter.
 | M6 | Agent Collaboration — Requirements and Architecture agents, confirmation, context assembly | ✔ complete |
 | M7 | Resilience and Recovery — idempotency, retry, durable run status, continuation | ✔ complete |
 | M8 | Semantic Retrieval — embeddings, recall, return session | ✔ complete |
-| M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | ► current |
-| M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | open |
-| M11 | Demo Ready and Release — rehearsal, packaging, submission evidence | open |
+| M9 | Workspace and Reporting — discovery workspace over real state, Review Agent, reports | ✔ complete |
+| M10 | AWS Demonstration — deployed chain, disposable compute, health, secrets | ✔ complete (ADR-0017; not yet run on a real instance) |
+| M11 | Demo Ready and Release — rehearsal, packaging, submission evidence | superseded by the T-register |
 
 M0–M3 are complete in the sense that their deliverables exist and are reviewable,
 not in the sense that they are final. M2 in particular is a foundation, not full
@@ -71,14 +72,25 @@ coverage — see below.
 
 ## Repository health
 
-Assessed 2026-07-27 against `make check`, after M8.
+Assessed 2026-08-05 against the full gate, on PostgreSQL.
 
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
-| `ruff format --check` | ✔ 52 files formatted |
-| `mypy --strict` | ✔ clean across 14 source files |
-| `pytest` | ✔ 112 passed, against CockroachDB v26.2.1 |
+| `ruff format --check` | ✔ 256 files formatted |
+| `mypy --strict` | ✔ clean across 133 source files |
+| `pytest` | ✔ 792 passed, 92% coverage, against PostgreSQL 5432 |
+
+**PostgreSQL with pgvector is the default provider** (ADR-0022); CockroachDB is
+also supported. `KAE_DATABASE_PROVIDER` is mandatory and has no default,
+because a connection URL says where to connect and not what to expect there.
+Schema head is revision `0010`.
+
+**The type gate was repaired on 2026-08-04.** `tests/support/` had been added
+without `tests/__init__.py`, so mypy resolved one file under two module names,
+reported that, and stopped before checking anything — 192 real errors sat
+unreported while `make check` failed on module resolution. Anything asserting
+"mypy passes" before that date was asserting a command that verified nothing.
 
 RA-01 cleared all four known defects:
 
@@ -105,19 +117,24 @@ rejected rather than merged with a follow-up promise.
 | Project / session / message persistence | Implemented — revision `0002`, repositories, application contracts |
 | AgentRun and workflow state | Implemented — status model, idempotency, interrupt and resume |
 | Provenance links | Implemented — produced-by, used-by, derived-from-message |
-| Agent execution | Implemented — Requirements and Architecture agents behind `ExtractionPort`. Review agent is M9 |
-| Relationship persistence | Table exists; domain wiring is M9 |
-| Semantic retrieval and embeddings | Implemented — `VECTOR(1024)`, cosine, one index. Ranking quality unmeasured pending the live Titan run |
-| Deployment and health endpoint | **Implemented** — both entrypoints, systemd units, install and deploy scripts, SIGTERM handling, and the runbooks. Not yet run on a real instance |
-| Application services | Implemented — `MemoryService` |
-| HTTP interface | **Not implemented** — the contract itself is M9's first step |
-| User interface | **Not implemented** — decided (ADR-0009); M9 sequences API contract, generated client, then UI |
+| Agent execution | Implemented — Requirements, Architecture, and Review agents behind `ExtractionPort` |
+| Relationship persistence | Table and contradiction recording exist. **No general write path or traversal** — the gap `kae_get_module_context` reports |
+| Semantic retrieval and embeddings | Implemented — vector index, cosine, lexical and semantic modes. Titan validated in T11; the offline embedder is hash-derived and every response says so |
+| Deployment and health endpoint | Implemented — both entrypoints, systemd units, install and deploy scripts, SIGTERM handling, runbooks (ADR-0017). Not yet run on a real instance |
+| Application services | Implemented — memory, blueprint, readiness, review, retrieval, clarification, ingestion, assembly, re-embedding |
+| HTTP interface | Implemented — four routers (workspace, readiness, blueprint, root), ADR-0014 contract, generated client |
+| User interface | Implemented — the discovery workspace in `frontend/` (ADR-0009) |
 | Cloud services | None provisioned |
+| MCP surface | Implemented — 15 tools, 4 resource templates, 1 prompt over STDIO (ADR-0018) |
+| Document ingestion and context assembly | Implemented — `kae_ingest_document`, `kae_assemble_context`, deterministic package description (T19–T22) |
+| Modules as first-class knowledge | **Not implemented** — no `module` kind, no relationship write path, no traversal, no module-scoped readiness |
+| Artifact rendering and publication | **Not implemented** — assembly describes a package; rendering and writing it belong elsewhere (ADR-0020, proposed) |
 | BYOK and usage governance | **Not implemented** — approved as a post-demo direction by ADR-0010 |
 
-The domain layer is ahead of the persistence layer, and the persistence layer is
-ahead of everything above it. No coding agent should assume a service, endpoint,
-or table exists without checking `src/kae_memory/`.
+That inversion has closed: the layers are now built through to the MCP surface.
+What remains genuinely absent is named above — modules, and anything that
+renders or publishes an artifact. No coding agent should assume a service,
+endpoint, or table exists without checking `src/kae_memory/`.
 
 ## Current MVP
 

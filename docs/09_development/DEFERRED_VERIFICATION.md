@@ -83,9 +83,17 @@ Nothing in this layer detects it. Closing it needs identity MCP does not carry.
 
 ## CVG-4 — CockroachDB live integration breadth
 
-**Status: closed 2026-08-04. Both providers fully verified.**
+**Status: closed 2026-08-04 at 675 tests and revision `0009`.**
 
-The same 675 tests pass on both engines:
+**Not re-verified since.** The suite is now 792 tests and the schema head is
+`0010`. The additions are MCP-surface tests, which are provider-independent,
+and revision `0006` (message idempotency), whose unique-constraint behaviour
+under concurrency is engine-specific and was exercised on PostgreSQL only.
+Treat the parity below as the record of a run, not a standing guarantee — a
+CockroachDB pass takes seven and a half hours, so re-running it is a release
+decision rather than a routine one.
+
+The same 675 tests passed on both engines on that date:
 
 | provider | result | wall clock |
 |---|---|---|

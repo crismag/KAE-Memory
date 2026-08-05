@@ -19,7 +19,7 @@ requirements · future surfaces.
 
 | Concern | Current state |
 | --- | --- |
-| Tool handlers | `kae_memory.mcp.tools` — seven functions returning `dict[str, Any]` |
+| Tool handlers | `kae_memory.mcp.tools` — fifteen functions returning `dict[str, Any]` |
 | Serialisers / DTOs | **None for MCP.** Handlers build dicts inline |
 | Response mappers | **None** |
 | Rendering layer | **None.** The handler *is* the renderer |
@@ -62,7 +62,7 @@ client response
 
 Rationale, and the cost of it:
 
-- **One place, not seven.** Four controls across seven tools is twenty-eight
+- **One place, not fifteen.** Four controls across fifteen tools is sixty
   opportunities to diverge if handlers enforce policy themselves.
 - **Handlers stay authoritative.** A handler's job is to render everything it
   can support. Deciding what a *caller* can afford is a different concern and
