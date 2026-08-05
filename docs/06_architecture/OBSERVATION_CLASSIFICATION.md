@@ -1,24 +1,35 @@
 # Observation Classification and Routing
 
-Status: **future implementation**, 2026-08-03. **Not authorised, and not an
-architectural blocker.** Owning target: **T24**
+Status: **implemented**, 2026-08-05. Owning target: **T24**
 (`../09_development/MCP_TARGET_CHECKLIST.md`).
-
-Reviewed 2026-08-03 and moved out of active architecture. The current behaviour —
-preserve submitted evidence, maintain provenance, require human confirmation —
-is sufficient and correct. This document is design detail held for whenever T24
-is scheduled, and **must not block T2 or T3**.
 
 Design authority for how a submitted observation becomes — or deliberately does
 not become — durable project knowledge.
 
-> **Nothing in this document is implemented.** `kae_submit_observation` records
-> text verbatim as a message and does nothing else. §1 states exactly what
-> exists today so this document cannot be mistaken for a description of it.
+**What is built, and what differs from the design.** Phases 1–5 of §14 are
+implemented: deterministic extraction, classification into the §4 taxonomy with
+confidence and mixed spans, operational records, and briefing tier filters.
+Two departures, both deliberate:
+
+- **The classifier is rule-based, not semantic** (§6 stage 2 anticipated a
+  model). It reports `semantic_classification: false` on every response, so
+  nothing reads an `unclassified` span as "there was nothing there" when it
+  means "this classifier does not know that phrasing". A model-backed classifier
+  can be swapped in behind the same protocol; §15 question 3 is still open.
+- **`classification_hint` is compared, never obeyed** (§15 question 1). It is
+  recorded against the classification and reported as `agreed`; it cannot
+  override a class, because a hint that could would let a caller promote a
+  greeting to a requirement.
+
+§1 below describes the surface **before** T24 and is kept as the record of what
+the parameter used to do. Phase 6 — evaluation of accuracy, false-promotion
+rate, and reviewer workload — is not done.
 
 ---
 
-## 1. Current behaviour, precisely
+## 1. Behaviour before T24, precisely
+
+Historical. Superseded 2026-08-05 by the implementation described above.
 
 | Step | Today |
 | --- | --- |
@@ -302,13 +313,14 @@ Phase 1 is complete with this document. Phases 2–6 await activation of T24.
 
 ## 15. Open questions
 
-1. **Does `classification_hint` stay?** **Deferred 2026-08-03** — do not
-   optimise an interface with no runtime behaviour. Revisit when classifier
-   work begins (T24.5). It currently implies a capability that does not exist,
-   which is why it is recorded rather than left unnoticed.
-2. **Do `observation_classifications` and `operational_updates` earn their
-   tables?** Two new tables and a migration, against a demo that may not need
-   operational state yet.
+1. ~~**Does `classification_hint` stay?**~~ **Resolved 2026-08-05.** It stays,
+   compared rather than obeyed, and it no longer contaminates the stored
+   observation text.
+2. ~~**Do `observation_classifications` and `operational_updates` earn their
+   tables?**~~ **Resolved 2026-08-05** — both, in migration 0011. One
+   observation produces several spans, so a span is not a property of the
+   message; and a classification is immutable once written while an operational
+   record transitions, so they are not one table either.
 3. **Which model classifies?** Ties to Phase B (T6–T8). A classifier is a second
    provider dependency, and the extraction adapter already exists.
 4. **Is `unknown` a class or the absence of one?** It appears in both the

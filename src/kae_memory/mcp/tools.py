@@ -26,6 +26,7 @@ from kae_memory.application.assembly_service import (
 )
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
+from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.ingestion_service import (
     IngestionPolicy,
     IngestionResult,
@@ -52,6 +53,7 @@ from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId,
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.domain.observation import RetentionTier
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp import response_policy
@@ -87,6 +89,7 @@ class ToolContext:
         clarification: ClarificationService | None = None,
         ingestion: IngestionService | None = None,
         assembly: AssemblyService | None = None,
+        classification: ClassificationService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -96,6 +99,7 @@ class ToolContext:
         self.clarification = clarification
         self.ingestion = ingestion
         self.assembly = assembly
+        self.classification = classification
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -386,7 +390,9 @@ def _knowledge_health(
     }
 
 
-def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str, Any]:
+def kae_get_project_briefing(
+    context: ToolContext, project_id: str, tiers: Sequence[str] | None = None
+) -> dict[str, Any]:
     """Return the current concise understanding of one project.
 
     Composes the blueprint with readiness, because the blueprint needs the
@@ -396,6 +402,16 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
     response adds no narrative and no purpose statement: summarising a project
     in words nobody confirmed would put an unattributable claim in the one tool
     whose value is that it never makes them.
+
+    ``tiers`` selects retention tiers (T24.4). The default is durable knowledge
+    plus active operational state; evidence is never included, because personal
+    commentary and session notes are not claims about the project. A caller who
+    wants them asks for them, and gets them labelled.
+
+    Tier filters and detail levels are orthogonal and must stay that way: a
+    tier decides *which kinds of thing* are eligible, a detail level decides
+    *how much* of what is eligible gets rendered. Collapsing them into one
+    control would make "brief" and "durable only" the same word.
     """
 
     project = resolve_project(context, project_id)
@@ -410,8 +426,9 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
     )
     findings = context.review.findings(project.id)
     by_area = {area.key: area.name for area in snapshot.areas}
+    requested = _requested_tiers(tiers)
 
-    return {
+    payload: dict[str, Any] = {
         "project": {"project_id": str(project.id), "name": project.name, "key": project.key},
         "knowledge_revision": context.readiness.knowledge_revision(project.id),
         "readiness": {
@@ -472,6 +489,102 @@ def kae_get_project_briefing(context: ToolContext, project_id: str) -> dict[str,
         "complete": blueprint.complete,
         "unassigned_confirmed_count": blueprint.unassigned_confirmed_count,
     }
+    payload["tiers"] = _tier_report(context, project, requested)
+    return payload
+
+
+DEFAULT_BRIEFING_TIERS: tuple[RetentionTier, ...] = (
+    RetentionTier.DURABLE,
+    RetentionTier.OPERATIONAL,
+)
+"""What a standard briefing shows (T24.4).
+
+Evidence is excluded by default and not by accident. Personal commentary,
+greetings, and session notes are preserved as evidence and stay searchable in
+history; what they must not do is appear in a briefing as though they described
+the project. Classification decides project *relevance*, not worth.
+"""
+
+
+def _requested_tiers(tiers: Sequence[str] | None) -> tuple[RetentionTier, ...]:
+    """Resolve a caller's tier selection, refusing names that mean nothing."""
+
+    if not tiers:
+        return DEFAULT_BRIEFING_TIERS
+    resolved: list[RetentionTier] = []
+    for name in tiers:
+        try:
+            resolved.append(RetentionTier(str(name).strip().lower()))
+        except ValueError:
+            valid = ", ".join(tier.value for tier in RetentionTier)
+            raise InvalidArgumentError(
+                f"unknown retention tier {name!r}; expected one of {valid}"
+            ) from None
+    return tuple(dict.fromkeys(resolved))
+
+
+def _tier_report(
+    context: ToolContext, project: Any, requested: Sequence[RetentionTier]
+) -> dict[str, Any]:
+    """Describe which tiers this briefing carries, and what that left out.
+
+    An excluded tier is named rather than silently absent. A briefing that
+    simply omitted operational state would be indistinguishable from one whose
+    project had none, and the caller would have no way to tell which.
+    """
+
+    included = [tier.value for tier in requested]
+    excluded = [tier.value for tier in RetentionTier if tier not in requested]
+    report: dict[str, Any] = {
+        "included": included,
+        "excluded": excluded,
+        "note": (
+            "Evidence-tier text is preserved and searchable; it is excluded here "
+            "because it is not a claim about the project."
+        ),
+    }
+
+    if context.classification is None:
+        report["operational_state"] = {
+            "available": False,
+            "reason": "no classifier is configured for this server",
+        }
+        return report
+
+    if RetentionTier.OPERATIONAL in requested:
+        records = context.classification.operational_state(project.id)
+        report["operational_state"] = [
+            {
+                "kind": record.kind,
+                "subject": record.subject,
+                "reported_status": record.reported_status,
+                "current_status": record.current_status,
+                "transition_type": record.transition_type,
+                # The field that keeps a sentence from completing a milestone.
+                "authority": record.authority,
+                "state": record.state,
+                "verification": record.verification,
+                "effective_date": record.effective_date,
+                "date_role": record.date_role,
+            }
+            for record in records
+        ]
+        report["operational_note"] = (
+            "Reported, not verified. A milestone is never completed because a "
+            "sentence said so; these are proposed transitions."
+        )
+
+    if RetentionTier.EVIDENCE in requested:
+        report["evidence"] = [
+            {
+                "classification": row["classification"],
+                "text": row["normalized_text"],
+                "confidence": row["confidence"],
+            }
+            for row in context.classification.classifications(project.id, [RetentionTier.EVIDENCE])
+        ]
+
+    return report
 
 
 def _project_knowledge_named(context: ToolContext, project: Any, module: str) -> dict[str, Any]:
@@ -880,7 +993,7 @@ def kae_submit_observation(
     if open_session is None:
         open_session = context.memory.open_session(project.id, SessionType.DISCOVERY)
 
-    content = _render_observation(observation, source, classification_hint)
+    content = _render_observation(observation, source)
     record = context.memory.record_message(
         project.id,
         SessionId(str(open_session.id)),
@@ -895,7 +1008,7 @@ def kae_submit_observation(
         idempotency_key=idempotency_key,
     )
 
-    return {
+    payload: dict[str, Any] = {
         "message_id": str(record.message.id),
         "session_id": str(open_session.id),
         "idempotent_replay": record.replayed,
@@ -906,12 +1019,122 @@ def kae_submit_observation(
             "person confirms what becomes project knowledge."
         ),
     }
+    payload.update(
+        _classification_payload(
+            context, project.id, record.message.id, observation.strip(), classification_hint
+        )
+    )
+    return payload
 
 
-def _render_observation(
-    observation: str, source: dict[str, Any] | None, classification_hint: str | None
-) -> str:
-    """Render an observation with its source, as one verbatim record."""
+def _classification_payload(
+    context: ToolContext,
+    project_id: ProjectId,
+    message_id: MessageId,
+    text: str,
+    hint: str | None,
+) -> dict[str, Any]:
+    """Classify a recorded observation and describe what that did (T24).
+
+    Classification runs *after* the observation is durable, and its failure is
+    reported rather than raised. Evidence capture must not depend on a
+    classifier being reachable, and a submission that failed because the
+    classifier did would lose the text it was trying to keep.
+    """
+
+    if context.classification is None:
+        return {
+            "classification": {
+                "available": False,
+                "reason": "no classifier is configured for this server",
+                "note": "The observation is recorded. Nothing was classified or routed.",
+            }
+        }
+
+    outcome = context.classification.classify(project_id, message_id, text, hint)
+    if outcome.failed:
+        return {
+            "classification": {
+                "available": True,
+                "classified": False,
+                "reason": outcome.failure_reason,
+                "note": (
+                    "The observation is recorded and classification failed. It can "
+                    "be retried; nothing was routed."
+                ),
+            }
+        }
+
+    durable = outcome.by_tier(RetentionTier.DURABLE)
+    operational = outcome.by_tier(RetentionTier.OPERATIONAL)
+    evidence = outcome.by_tier(RetentionTier.EVIDENCE)
+
+    classification: dict[str, Any] = {
+        "available": True,
+        "classified": True,
+        "classifier": outcome.classifier,
+        "classifier_version": outcome.classifier_version,
+        # The same honesty the search surface applies to a hash-derived
+        # embedder: wording a rule-based classifier does not recognise is
+        # invisible to it, and a caller told this was semantic would read an
+        # unclassified span as "there was nothing there".
+        "semantic_classification": outcome.semantic,
+        "idempotent_replay": outcome.replayed,
+        "spans": [
+            {
+                "classification": span.classification.value,
+                "retention_tier": span.tier.value,
+                "route": span.route.value,
+                "confidence": round(span.confidence, 2),
+                "review_required": span.review_required,
+                "span": {"start": span.span.start, "end": span.span.end},
+                "text": span.normalized_text,
+                "fields": span.fields,
+            }
+            for span in outcome.spans
+        ],
+        "durable_candidates": len(durable),
+        "operational_records": len(outcome.operational_ids),
+        "evidence_only": len(evidence),
+        "unclassified": len(outcome.unclassified_spans),
+        "knowledge_changed": False,
+        "note": (
+            "Classification says what a span was, not whether it is true. "
+            "Nothing here is confirmed knowledge, and no operational status "
+            "changed: a reported transition is a proposal."
+        ),
+    }
+    if operational and not outcome.operational_ids and not outcome.replayed:
+        classification["warnings"] = [
+            "Operational spans were found but none met the confidence to route; "
+            "they are recorded for review."
+        ]
+    if hint:
+        # T24.5: recorded and compared, never obeyed. A caller asserting
+        # "requirement" over a greeting would otherwise route the greeting.
+        classification["hint"] = {
+            "supplied": hint,
+            "agreed": outcome.hint_agreed,
+            "note": (
+                "A hint is compared against what the classifier found. It does "
+                "not override the classification."
+            ),
+        }
+    return {"classification": classification}
+
+
+def _render_observation(observation: str, source: dict[str, Any] | None) -> str:
+    """Render an observation with its source, as one verbatim record.
+
+    The classification hint used to be appended here as a line of text. It
+    routed nothing and was never read again, which made the parameter a claim
+    the system did not honour (T24.5). It is now compared against what the
+    classifier found and reported as agreement or disagreement, so the observed
+    text stays the observation and nothing else.
+
+    The observation is the prefix of the rendered content, so a span into the
+    observation is a span into what was stored.
+    """
 
     lines = [observation.strip()]
     if source:
@@ -919,8 +1142,6 @@ def _render_observation(
         if parts:
             lines.append("")
             lines.append("Source — " + "; ".join(parts))
-    if classification_hint:
-        lines.append(f"Classification hint: {classification_hint}")
     return "\n".join(lines)
 
 

@@ -84,7 +84,7 @@ Assessed 2026-08-05 against the full gate, on PostgreSQL.
 **PostgreSQL with pgvector is the default provider** (ADR-0022); CockroachDB is
 also supported. `KAE_DATABASE_PROVIDER` is mandatory and has no default,
 because a connection URL says where to connect and not what to expect there.
-Schema head is revision `0010`.
+Schema head is revision `0011`, which added `observation_classifications` and `operational_updates` for T24.
 
 **The type gate was repaired on 2026-08-04.** `tests/support/` had been added
 without `tests/__init__.py`, so mypy resolved one file under two module names,
