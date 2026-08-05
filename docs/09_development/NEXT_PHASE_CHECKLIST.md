@@ -342,15 +342,33 @@ regression evidence, not redesign.
   is not re-asked until a trigger fires. Ten helpful questions never make a
   project look blocked.
 
-- [ ] **N37** — **Mode-aware assembly.**
-  *Scope:* generation modes (explore, shape, plan, build, validate) as declared
-  *intent* that qualifies output, never a gate; inclusion classes — confirmed,
-  user-supplied, proposed, inferred, assumed, disputed, superseded, rejected,
-  deferred — each labelled accurately.
-  *Fixes:* proposed knowledge currently labelled `assumption`, which conflates
-  unconfirmed knowledge with a KAE interpretation.
-  *Acceptance:* a contradiction is representable without failing generation.
-  *Depends on:* N35.
+- [x] **N37** — Mode-aware assembly — `domain/generation.py`, 2026-08-05.
+
+  Five modes (explore, shape, plan, build, validate) declaring what the output
+  is *for*. A mode **widens** what is included and qualifies the result; it
+  never refuses and never narrows, because narrowing is the shape a gate would
+  need. `mode_never_blocks` raises on a mode configured to include nothing, and
+  a test asserts **build admits unconfirmed statements** — "build requires
+  confirmed requirements" reads as prudence and is the N34 gate in new words.
+
+  Validation is the one mode that includes less, and it narrows *toward*
+  disagreement rather than away from doubt: contradictions and assumptions are
+  exactly what a reviewer must see.
+
+  **Mode is opt-in.** An unnamed mode changes nothing, so no default moves
+  under callers who never asked for one — the same rule that says an override
+  must not silently become a default. The pre-N37 contract is asserted intact.
+
+  **The conflation is undone.** `StatementLabel` says where authority comes
+  from and is computed from provenance; assembly was using `assumption` to mean
+  "nobody has confirmed this", which made a statement KAE inferred and a
+  statement awaiting review the same word. Proposed statements now carry
+  `label: derived` and `inclusion_class: proposed`, and the two fields answer
+  different questions.
+
+  Qualification replaces refusal: a build package with nothing confirmed says
+  it is suitable for prototype implementation and is not evidence of production
+  readiness, rather than being withheld.
 
 - [ ] **N38** — **Deliverable maturity and accepted sufficiency.**
   *Scope:* intended use, generation mode, knowledge boundary, user-accepted
