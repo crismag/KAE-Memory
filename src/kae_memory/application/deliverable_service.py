@@ -39,8 +39,14 @@ from kae_memory.domain.deliverables import (
     ensure_deliverable_transition,
     identity_hash,
 )
+from kae_memory.domain.generation import GenerationMode, InclusionClass, qualifications
 from kae_memory.domain.identifiers import ProjectId
-from kae_memory.domain.maturity import DeliverableQualification
+from kae_memory.domain.maturity import (
+    SUGGESTED_FOR,
+    AcceptedSufficiency,
+    DeliverableQualification,
+    Maturity,
+)
 from kae_memory.persistence.tables import DeliverableRow
 from kae_memory.persistence.transactions import run_transaction
 
@@ -63,6 +69,9 @@ class DeliverableService:
         module_key: str | None = None,
         structural_fingerprint: str | None = None,
         qualification: DeliverableQualification | None = None,
+        mode: GenerationMode = GenerationMode.BUILD,
+        maturity: Maturity | None = None,
+        accepted: AcceptedSufficiency | None = None,
     ) -> tuple[Deliverable, bool]:
         """Record one assembled output, returning it and whether it is new.
 
@@ -82,6 +91,11 @@ class DeliverableService:
 
         manifest = assembly.manifest
         description = describe_package(assembly)
+        # Derived here rather than by each adapter. N38 shipped the model and
+        # nothing constructed one, so every recorded deliverable carried
+        # `qualification: null` — the same "exists with no caller" defect this
+        # repository has now hit twice.
+        qualification = qualification or _describe_qualification(assembly, mode, maturity, accepted)
         scope = "module" if module_key else manifest.scope
         inputs = RenderInputs(
             purpose=manifest.purpose,
@@ -151,7 +165,10 @@ class DeliverableService:
                 ],
                 render_inputs=inputs.as_dict(),
                 qualification=qualification.as_dict() if qualification else None,
-                publication_eligible=bool(manifest.statement_pins),
+                # Inputs are always captured on this path, and an empty package
+                # has nothing to pin while remaining reproducible. Deriving it
+                # from the pins alone marked every empty package unprovable.
+                publication_eligible=True,
                 recorded_by=recorded_by,
                 recorded_at=datetime.now(UTC),
             )
@@ -289,4 +306,38 @@ def _as_deliverable(row: DeliverableRow) -> Deliverable:
         ),
         render_inputs=RenderInputs.from_dict(dict(row.render_inputs or {})),
         qualification=dict(row.qualification) if row.qualification else None,
+    )
+
+
+def _describe_qualification(
+    assembly: ContextAssembly,
+    mode: GenerationMode,
+    maturity: Maturity | None,
+    accepted: AcceptedSufficiency | None,
+) -> DeliverableQualification:
+    """Describe what this package is for, from what it actually contains.
+
+    Counted from the assembly rather than asserted by a caller: a package that
+    could claim its own confirmation split would be able to claim a better one
+    than it has.
+    """
+
+    state = assembly.manifest.confirmation_state
+    present: set[InclusionClass] = set()
+    if state.confirmed:
+        present.add(InclusionClass.CONFIRMED)
+    if state.proposed:
+        present.add(InclusionClass.PROPOSED)
+    if state.contested:
+        present.add(InclusionClass.DISPUTED)
+
+    return DeliverableQualification(
+        maturity=maturity or SUGGESTED_FOR[mode],
+        mode=mode,
+        confirmed_count=state.confirmed,
+        unconfirmed_count=state.proposed,
+        contradictions=tuple(gap.summary for gap in assembly.manifest.unresolved_critical_gaps),
+        limitations=tuple(assembly.manifest.warnings),
+        qualifications=qualifications(mode, frozenset(present)),
+        accepted=accepted,
     )
