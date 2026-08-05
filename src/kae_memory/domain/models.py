@@ -16,6 +16,7 @@ from .identifiers import (
     RelationshipId,
 )
 from .lifecycle import LifecycleState, ensure_transition
+from .relationships import KnowledgeRelation
 from .workspace import ProjectStatus
 
 
@@ -151,21 +152,23 @@ class KnowledgeItem:
         return replace(self, lifecycle=target)
 
 
-class RelationshipType(StrEnum):
-    """Auditable relationship types between stable domain entities.
+RelationshipType = KnowledgeRelation
+"""The vocabulary for edges between statements (N16, ADR-0025).
 
-    This enum is the single authoritative relationship vocabulary. ADR-0005 listed
-    an alternative set while specifying the physical schema; the column is a plain
-    string, so values can be added here later without a migration.
-    """
+An alias, not a second enum. This name is what `review_service`,
+`readiness_repositories`, and ADR-0015 already refer to, and renaming those
+call sites would be churn in the service that gates readiness — for a rename.
 
-    SUPPORTS = "supports"
-    CONTRADICTS = "contradicts"
-    DERIVES_FROM = "derives_from"
-    IMPLEMENTS = "implements"
-    VALIDATES = "validates"
-    SUPERSEDES = "supersedes"
-    BLOCKS = "blocks"
+The values changed. Seven became three: `derives_from`, `implements`,
+`validates`, and `blocks` had no writer and no stored row, and two of them were
+structural all along (see `relationships.RETIRED`). A vocabulary term nobody
+writes has no defined meaning, so the first caller to use one would be
+inventing the semantics rather than applying them.
+
+Structural relations — `depends_on`, `owns`, `exposes`, `consumes`,
+`satisfies`, `verified_by` — live in `relationships.ModuleRelation`. One
+statement does not depend on another; a module does.
+"""
 
 
 @dataclass(frozen=True, slots=True)

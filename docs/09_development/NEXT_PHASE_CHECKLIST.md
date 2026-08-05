@@ -187,10 +187,26 @@ the product around the gap.
 
 Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_GAPS.md)
 
-- [ ] **N16** — **Relationship vocabulary.** Four competing lists exist and only
-  `depends_on` appears in three. Names are near-impossible to change once graph
-  data exists, so this is settled *before* any relationship is written. **Gates
-  N17–N19.**
+- [x] **N16** — Relationship vocabulary —
+  [`ADR-0025`](../../specifications/ADR/ADR-0025-relationship-vocabulary.md),
+  `domain/relationships.py`, 2026-08-05. **Two registers, not one.** The four
+  lists were never four versions of one thing: three describe system structure
+  and one describes how statements relate, which is exactly why `depends_on`
+  appeared in three of four. One statement does not depend on another.
+
+  Epistemic — `supports`, `contradicts`, `supersedes`. Structural —
+  `depends_on`, `owns`, `exposes`, `consumes`, `satisfies`, `verified_by`,
+  matching Studio's `MODULE_SPECIFICATION.md` §4 exactly, because a vocabulary
+  the consumer must translate gets translated twice and differently.
+
+  **The epistemic register shrank from seven to three.** `derives_from`,
+  `implements`, `validates`, and `blocks` had no writer and no stored row —
+  verified: zero rows in `knowledge_relationships`. Two were structural all
+  along and moved; two were retired with their reason. A term nobody writes has
+  no defined meaning, and the first caller would have invented it.
+
+  Retired names now raise with what replaced them, because three of the four
+  source documents use at least one.
 - [ ] **N17** — Module relationship model: how a module owns, depends on, and
   exposes.
 - [ ] **N18** — Module graph traversal: dependents, dependencies, build order.
