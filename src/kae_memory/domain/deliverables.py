@@ -193,6 +193,18 @@ LEGACY_INELIGIBLE = (
     "versions and rendering options it used cannot be proven, so re-rendering "
     "it could produce different content under its original identity"
 )
+
+PINS_MISSING = (
+    "render inputs were captured but the statements they rendered were not "
+    "pinned, so the versions this package used cannot be proven"
+)
+"""A different failure from the legacy one, and it needs its own words.
+
+The first version of this check reported every un-pinned deliverable as
+predating N20.1. That was true of most of them and false of this case, and a
+caller reading it would go looking for a migration problem that does not exist.
+A reason that is usually right is a reason nobody can trust.
+"""
 """Why a pre-N20.1 deliverable cannot be published.
 
 Stated on the record rather than inferred by a caller. These deliverables stay
@@ -275,27 +287,48 @@ class Deliverable:
         return self.state is DeliverableState.RECORDED
 
     @property
+    def renders_nothing(self) -> bool:
+        """Whether this package assembled no statements at all.
+
+        An empty package is **trivially reproducible**: rendering nothing twice
+        produces nothing twice, and its content hash is the hash of empty
+        input. Treating it as unprovable confused "we did not capture the pins"
+        with "there was nothing to pin".
+        """
+
+        return not self.artifacts and not self.statement_pins
+
+    @property
     def publication_eligible(self) -> bool:
         """Whether this deliverable can be re-rendered and proven identical.
 
-        Requires pinned statement versions *and* the full render inputs. A
-        deliverable holding one without the other is not partially reproducible
-        — it is unreproducible with extra detail.
+        Needs the render inputs, and needs the statements pinned *when there
+        were statements*. An empty package has nothing to pin and is
+        reproducible anyway.
 
         The artifact hashes remain the final proof. Eligibility says the inputs
         exist to attempt reproduction; the hash says whether the attempt
         succeeded, and only the hash can say that.
         """
 
-        return bool(self.statement_pins) and self.render_inputs is not None
+        if self.render_inputs is None:
+            return False
+        return bool(self.statement_pins) or self.renders_nothing
 
     @property
     def ineligibility_reason(self) -> str | None:
-        """Why this deliverable cannot be published, or ``None`` if it can."""
+        """Why this deliverable cannot be published, or ``None`` if it can.
+
+        Two causes with two reasons. Reporting both as "recorded before N20.1"
+        was accurate for the common case and wrong for the other, and a caller
+        cannot act on a reason that is only usually true.
+        """
 
         if self.publication_eligible:
             return None
-        return LEGACY_INELIGIBLE
+        if self.render_inputs is None:
+            return LEGACY_INELIGIBLE
+        return PINS_MISSING
 
 
 def identity_hash(

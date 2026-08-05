@@ -41,6 +41,8 @@ from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.domain.deliverables import (
     LEGACY_INELIGIBLE,
     ORDERING_CONTRACT,
+    PINS_MISSING,
+    ArtifactRecord,
     Deliverable,
     DeliverableId,
     RenderInputs,
@@ -232,12 +234,16 @@ class TestEligibility:
         assert body["publication_eligible"] is True
         assert body["ineligibility_reason"] is None
 
-    def test_eligibility_needs_both_pins_and_inputs(self) -> None:
-        """Neither alone is partial reproducibility.
+    def test_eligibility_needs_inputs_and_pins_for_what_was_rendered(self) -> None:
+        """Corrected by manual testing.
 
-        A deliverable with one and not the other is unreproducible with extra
-        detail, and reporting it as partly eligible would invite a caller to
-        try.
+        The first rule was `pins AND inputs`, which marked an **empty** package
+        unprovable — it has nothing to pin and is trivially reproducible, since
+        rendering nothing twice produces nothing twice. The rule conflated "we
+        did not capture the pins" with "there was nothing to pin".
+
+        What is genuinely unprovable is a package that rendered artifacts and
+        pinned none of them.
         """
 
         base: dict[str, Any] = {
@@ -247,7 +253,55 @@ class TestEligibility:
             "scope": "project",
             "knowledge_revision": 3,
             "content_hash": "sha256:abc",
-            "artifacts": (),
+        }
+        inputs = RenderInputs(
+            purpose="implementation",
+            scope="project",
+            include_proposed=False,
+            ordering_contract=ORDERING_CONTRACT,
+            generator_version="1.0.0",
+            package_schema="kae.package.v1",
+            knowledge_revision=3,
+        )
+        artifact = ArtifactRecord(
+            path="requirements.md",
+            area_key="functional_requirements",
+            title="Requirements",
+            statement_count=1,
+            confirmed_count=1,
+            content_hash="sha256:def",
+        )
+
+        empty = Deliverable(**base, artifacts=(), render_inputs=inputs)
+        unpinned = Deliverable(**base, artifacts=(artifact,), render_inputs=inputs)
+        pinned = Deliverable(
+            **base,
+            artifacts=(artifact,),
+            statement_pins=(StatementPin("k1", 1),),
+            render_inputs=inputs,
+        )
+        legacy = Deliverable(**base, artifacts=(artifact,))
+
+        assert empty.publication_eligible is True, "nothing to pin, and reproducible"
+        assert unpinned.publication_eligible is False
+        assert pinned.publication_eligible is True
+        assert legacy.publication_eligible is False
+
+    def test_the_two_ineligible_causes_have_two_reasons(self) -> None:
+        """A reason that is only usually true is a reason nobody can act on.
+
+        Reporting an un-pinned deliverable as predating N20.1 sent a reader
+        looking for a migration problem that did not exist.
+        """
+
+        base: dict[str, Any] = {
+            "id": DeliverableId("d1"),
+            "project_id": ProjectId("p1"),
+            "purpose": "implementation",
+            "scope": "project",
+            "knowledge_revision": 3,
+            "content_hash": "sha256:abc",
+            "artifacts": (ArtifactRecord("a.md", "area", "A", 1, 1, "sha256:def"),),
         }
         inputs = RenderInputs(
             purpose="implementation",
@@ -259,13 +313,8 @@ class TestEligibility:
             knowledge_revision=3,
         )
 
-        pins_only = Deliverable(**base, statement_pins=(StatementPin("k1", 1),))
-        inputs_only = Deliverable(**base, render_inputs=inputs)
-        both = Deliverable(**base, statement_pins=(StatementPin("k1", 1),), render_inputs=inputs)
-
-        assert pins_only.publication_eligible is False
-        assert inputs_only.publication_eligible is False
-        assert both.publication_eligible is True
+        assert Deliverable(**base).ineligibility_reason == LEGACY_INELIGIBLE
+        assert Deliverable(**base, render_inputs=inputs).ineligibility_reason == PINS_MISSING
 
     def test_the_hash_remains_the_final_proof(
         self, client: TestClient, factory: sessionmaker[Session], project_id: str
