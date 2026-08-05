@@ -54,6 +54,8 @@ from kae_memory.domain.errors import (
     StaleVersionError,
 )
 from kae_memory.domain.errors import KnowledgeNotFoundError as DomainKnowledgeNotFound
+from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.generation_policy import from_mapping as resolve_generation_policy
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId, SessionId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
@@ -1357,6 +1359,7 @@ def kae_submit_observation(
     idempotency_key: str,
     source: dict[str, Any] | None = None,
     classification_hint: str | None = None,
+    generation_policy: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Record something an agent discovered, as proposed evidence.
 
@@ -1404,12 +1407,79 @@ def kae_submit_observation(
             "person confirms what becomes project knowledge."
         ),
     }
+    payload["extraction"] = _queue_discovery_extraction(
+        context, project, record.message.id, open_session, idempotency_key, generation_policy
+    )
     payload.update(
         _classification_payload(
             context, project.id, record.message.id, observation.strip(), classification_hint
         )
     )
     return payload
+
+
+def _queue_discovery_extraction(
+    context: ToolContext,
+    project: Any,
+    message_id: MessageId,
+    session: Any,
+    idempotency_key: str,
+    generation_policy: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Enqueue interpretation of this observation, and say plainly whether it ran (N42).
+
+    The missing edge. Extraction was reachable from documents and from
+    clarification answers and from nothing else, so a conversational statement
+    could be stored perfectly and never become a candidate — which is how a
+    project built from one sentence assembled to nothing while every subsystem
+    behaved correctly.
+
+    Three outcomes, and a caller must be able to tell them apart without
+    inferring from silence: queued, skipped because the caller asked for it to
+    be, and unavailable because this deployment cannot. Reporting the last two
+    identically would make a policy choice indistinguishable from a broken
+    server.
+
+    Nothing here confirms anything. What the run produces is proposed, reviewed
+    by a person, and counted toward readiness only then.
+    """
+
+    try:
+        policy = resolve_generation_policy(generation_policy)
+    except DomainInvariantError as error:
+        raise InvalidArgumentError(str(error)) from error
+
+    if not policy.extracts_on_submission:
+        return {
+            "queued": False,
+            "reason": "generation_policy.discovery_extraction is disabled",
+            "generation_policy": policy.as_dict(),
+        }
+
+    run = context.memory.enqueue_run(
+        project.id,
+        # REQUIREMENTS until N46 adds a discovery role. That prompt is tuned for
+        # requirement-bearing text and will read a sparse product sentence
+        # thinly — correctly, since it is disciplined about not inventing. The
+        # edge is what N42 builds; making it productive is N46.
+        AgentRole.REQUIREMENTS,
+        # Derived from the caller's key, so a retried submission reuses the run
+        # rather than paying for a second model call or producing a second set
+        # of candidates.
+        idempotency_key=f"observe:{idempotency_key}",
+        session_id=SessionId(str(session.id)),
+        input_context={"message_id": str(message_id), "source": "observation"},
+    )
+    return {
+        "queued": True,
+        "run_id": str(run.id),
+        "status": run.status.value,
+        "generation_policy": policy.as_dict(),
+        "note": (
+            "Queued, not finished. A worker reads the observation and proposes "
+            "candidates; a person confirms what becomes project knowledge."
+        ),
+    }
 
 
 def _classification_payload(
