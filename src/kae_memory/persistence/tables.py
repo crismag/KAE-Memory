@@ -746,3 +746,38 @@ class DeliverableRow(Base):
         default=False,
         server_default=text_sql("false"),
     )
+
+
+class AssumptionRow(Base):
+    """One interpretation used in place of missing information (N35).
+
+    Deliberately not a `knowledge_item`. That table feeds readiness and is the
+    thing a person confirms; an assumption is what KAE proceeded on *because*
+    nobody had confirmed anything, and putting the two in one table would make
+    the promotion this model forbids a single UPDATE away.
+    """
+
+    __tablename__ = "assumptions"
+    __table_args__ = (
+        Index("ix_assumptions_project_state", "project_id", "state"),
+        Index("ix_assumptions_project_subject", "project_id", "subject"),
+        CheckConstraint("confidence >= 0 AND confidence <= 1", name="ck_assumptions_confidence"),
+    )
+
+    assumption_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    assumed_value: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    origin: Mapped[str] = mapped_column(String(40), nullable=False)
+    consequence: Mapped[str] = mapped_column(String(20), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    reversible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    scope: Mapped[str] = mapped_column(String(40), nullable=False, default="project")
+    revisit: Mapped[str] = mapped_column(String(40), nullable=False)
+    evidence: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    accepted_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    delegated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    supersedes: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
