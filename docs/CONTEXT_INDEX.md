@@ -39,6 +39,7 @@ after the current state, then load exactly one focused action file:
 
 - [`focus/CONFIGURATION_AND_MESSAGES.md`](00_project/focus/CONFIGURATION_AND_MESSAGES.md)
 - [`focus/FRONTEND_SEPARATION.md`](00_project/focus/FRONTEND_SEPARATION.md)
+- [`focus/BACKEND_INTERFACE_READINESS.md`](00_project/focus/BACKEND_INTERFACE_READINESS.md)
 - [`focus/STUDIO_INTEGRATION.md`](00_project/focus/STUDIO_INTEGRATION.md)
 - [`focus/ENGINE_AND_PROOF_GAPS.md`](00_project/focus/ENGINE_AND_PROOF_GAPS.md)
 
