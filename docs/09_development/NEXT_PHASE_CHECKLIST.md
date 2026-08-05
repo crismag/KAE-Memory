@@ -179,11 +179,106 @@ the product around the gap.
   is `POST /v1/sessions/{session_id}/messages`. Either the client resolves a
   session or Memory offers a project-scoped write. Small, and it lands in the
   first slice.
+- [ ] **N33** — **Studio setup and target-management contracts.** Extends N12.
+  Studio's `PublishTarget` is keyed by *kind* alone — `'github' | 'local' |
+  's3'` — with no target identity and no per-project registration, which the
+  registered-target model (N27) makes incompatible. Also needs: the setup
+  conversation, proposed-setup confirmation, unresolved setup questions,
+  default destination selection, and per-publication override.
+  *Non-goals:* Studio collecting or displaying any raw credential.
 - [ ] **N15** — First vertical slice on real HTTP: project selection through
   first proposal review, with unavailable, queued, partial, proposed, and
   complete visibly distinct.
 
-## Phase L — Engine and proof gaps
+## Phase M — Preliminary setup and project configuration
+
+> Lettered M and placed before L deliberately. Phase L's rendering and
+> publication targets depend on it: a publication target registry has to exist
+> before a provider can resolve one, and the alternative — letting the first
+> provider define the domain — is what the product context rules out.
+
+Product context: *KAE Preliminary Project Setup, Configuration Acquisition, and
+Publication*, 2026-08-05.
+
+The principle these targets serve: **configuration is acquired when possible,
+requested only when necessary, remembered once established, and reused silently
+during ordinary work.** A normal interaction is "generate the development
+package" — not a destination questionnaire.
+
+Phase I (N7, N8) governs **system and deployment** configuration. Nothing in the
+register covered **project** configuration or **per-operation overrides**, which
+is the gap this phase fills.
+
+- [ ] **N24** — **Preliminary setup domain and vocabulary.**
+  *Purpose:* name the stage and its states before anything implements it.
+  *Scope:* setup states — not started, discovering, needs input, sufficient to
+  begin acquisition, ready for generation, ready for publication, degraded;
+  the inference policy as a typed rule rather than prose (adopt and disclose /
+  propose / ask / defer / block); provenance and confidence on every inferred
+  value.
+  *Non-goals:* asking anything; any provider; any UI.
+  *Acceptance:* setup readiness is reported **separately from knowledge
+  readiness**, and names the exact unavailable capability and the next useful
+  action. An unknown publication target does not block repository analysis; a
+  missing primary source does block repository acquisition.
+  *Tests:* each state reachable; blocking and non-blocking questions separated;
+  no inferred credential or authorisation, ever.
+
+- [ ] **N25** — **Setup-question lifecycle.**
+  *Decision required first:* whether these reuse the clarification model with a
+  purpose field, or need their own. **Evidence says they need their own.**
+  `Clarification` is derived from a `Finding` and has no identity until
+  materialised; it carries `finding_kind`, `severity`, and `knowledge_ids`, and
+  is answerable only through the finding that produced it. A setup question has
+  no finding, targets a configuration field rather than a statement, and must
+  record whether its answer becomes the project default. Forcing it in would
+  distort both lifecycles, which the product context explicitly forbids.
+  *Scope must preserve:* purpose, blocking status, suggested answer, evidence
+  for the suggestion, confirmed answer, project association, configuration
+  field affected, answer provenance, whether it becomes the default, whether it
+  may be revisited.
+  *Tests:* a setup question never appears in the clarification queue and vice
+  versa; answering one updates configuration and not knowledge.
+
+- [ ] **N26** — **Typed project configuration projection.**
+  *Purpose:* publication must not search natural-language knowledge at runtime
+  to decide where to write files.
+  *Scope:* a validated typed record distinct from knowledge statements;
+  derivation from confirmed knowledge where appropriate; explicit separation of
+  descriptive knowledge, governed preference, deployment configuration, secrets,
+  and per-operation override.
+  *Non-goals:* storing credentials in any of these; a settings UI.
+  *Acceptance:* "the project uses `crismag/KAE-Studio`" may exist as knowledge,
+  and publication reads a validated target record instead.
+  *Tests:* a knowledge statement naming a repository never routes a
+  publication; secrets are refused at the boundary.
+
+- [ ] **N27** — **Publication target registry and default resolution.**
+  *Scope:* zero or more targets per project; at most one default per purpose or
+  deliverable class; availability and authorisation state; provider-neutral
+  identity with safe provider-specific configuration and **no raw credentials**;
+  `target_id` optional on a request, resolving to the project default.
+  *Acceptance:* a request carrying a bucket, repository coordinate, or absolute
+  path is refused; an override never silently becomes the default.
+  *Tests:* default resolution; override isolation; unauthorised target refused;
+  disabled provider refused.
+  *Registry:* product + agent read, product-only default management.
+
+- [ ] **N28** — **Provider authorisation and connection boundary.**
+  Separate from publication execution, deliberately.
+  *Scope:* connection records, authorisation state, and the trust boundary that
+  keeps GitHub, S3, and filesystem credentials in the runtime layer.
+  *Non-goals:* publishing anything; exposing a credential to Studio or to an
+  agent under any response shape.
+  *Acceptance:* an unauthorised target is visible as unavailable with a reason,
+  and cannot be published to.
+
+## Phase L — Rendering, publication, and proof
+
+Renamed from "Engine and proof gaps". The module targets that gave it that name
+(N16–N19) are complete; what remains is the delivery half, decomposed so that no
+single target carries provider execution, authorisation, history, and setup at
+once.
 
 Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_GAPS.md)
 
@@ -269,9 +364,91 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   Withdrawn is distinct from superseded: "there is a newer one" and "do not use
   this" are different facts, and collapsing them would leave a reader unable to
   tell which they were being told. **Studio's `listDeliverables` is unblocked.**
-- [ ] **N21** — Artifact rendering and publication records. Nothing exists.
-  Constraint from the orientation file: no package bytes or publication side
-  effects in Memory without a new persistence and ownership decision.
+- [ ] **N21** — **Renderer and hash verification.** Provider-neutral, no
+  destination. Split out of the former "rendering and publication" so that the
+  contract exists before any provider defines the domain.
+
+  *Purpose:* turn a recorded deliverable into bytes, and prove those bytes match
+  the N20 manifest and per-artifact hashes.
+  *Scope:* deterministic renderer; verification against `content_hash` per
+  artifact and for the package; explicit failure when reproduction cannot be
+  proven.
+  *Non-goals:* writing anywhere, any provider, any credential, any target.
+  *Depends on:* **N20.1** (below) — without version pinning, reproduction is
+  unprovable for any deliverable whose knowledge has moved.
+  *Acceptance:* rendering the same deliverable twice is byte-identical;
+  verification fails loudly rather than publishing mismatched content; nothing
+  is written to disk, object storage, or a repository.
+  *Tests:* determinism; hash match; deliberate mismatch refused; a deliverable
+  whose source knowledge changed refuses rather than silently re-rendering.
+  *Registry:* one capability, agent + product, no provider terms.
+
+- [ ] **N20.1** — **Pin statement versions in deliverable provenance.**
+  Corrective, and a prerequisite for N21 rather than a nicety.
+
+  N20 records `source_knowledge` as identifiers only. Assembly reads
+  `item.current_version`, so a corrected statement changes what a re-render
+  produces while the recorded identifiers stay the same. **Knowledge versions
+  are immutable and append-only**, so exact reproduction is achievable — but
+  only if the deliverable pins `(knowledge_id, version)` pairs. Without this,
+  every deliverable becomes permanently unpublishable the moment any statement
+  it drew on is corrected, and N21's "fail explicitly" rule turns into "fail
+  always".
+
+  *Scope:* carry per-statement version into the assembly manifest and the
+  deliverable record; migration; read a specific version when rendering.
+  *Non-goals:* changing what assembly selects, or how a hash is computed.
+  *Acceptance:* a deliverable recorded before a correction still renders to its
+  original hash afterwards.
+  *Tests:* correct a statement, re-render the earlier deliverable, assert the
+  hash matches; assert a deliverable with an unreachable version refuses.
+
+- [ ] **N29** — **Publication attempt history.** Append-oriented records
+  separate from the immutable deliverable.
+
+  *Scope:* requested target, provider, status, attempt history, verification
+  result, package hash and size, external reference, error category, actor
+  provenance, timestamps. States: requested, rendering, verification_failed,
+  publishing, published, failed, cancelled.
+  *Non-goals:* provider execution; storing expiring download URLs.
+  *Acceptance:* a failed attempt never marks the deliverable invalid; retry is
+  possible; the deliverable's own state is untouched by publication outcomes.
+  *Tests:* failure isolation; retry idempotence; no URL persisted.
+
+- [ ] **N30** — **Local filesystem provider.** The simplest contract proof, and
+  explicitly not the permanent architecture.
+
+  *Scope:* publication root from trusted runtime configuration; target stores a
+  safe relative location beneath it; absolute and traversal paths refused;
+  staged or atomic writes; defined collision behaviour; rendered files verified
+  against N20 hashes before the write is accepted.
+  *Non-goals:* browser download — a hosted user choosing "download" is not
+  server-local publication and needs its own delivery mechanism.
+  *Acceptance:* nothing is written outside the configured root under any input;
+  the capability can be disabled in hosted deployments.
+  *Tests:* traversal, absolute path, symlink escape, collision, disabled mode.
+
+- [ ] **N31** — **S3-compatible provider.** Private objects, server-configured
+  bucket and allowed prefix, immutable or versioned keys, encryption, runtime
+  credentials. Short-lived download URLs generated on demand and **never
+  persisted**. Repeated publication of one deliverable is idempotent.
+  *Non-goals:* public ACLs; caller-supplied buckets or endpoints.
+
+- [ ] **N32** — **GitHub publication provider.** Default mode creates or updates
+  a dedicated branch and draft pull request. Commit to a configured branch is
+  opt-in; **direct commit to the default branch needs explicit project *and*
+  system authorisation**. Records repository, commit SHA, branch, path, and pull
+  request. Existing user edits are never silently overwritten; conflict and
+  changed-base behaviour is explicit.
+  *Depends on:* **N28** — authorisation is a separate boundary from execution.
+
+- [ ] **N22** — Remote MCP tenancy and authentication. Distinct from N5, which
+  is the HTTP boundary.
+- [ ] **N23** — **End-to-end acquisition-to-publication proof**, in deployment.
+  Widened from "live deployment proof": the product criterion is a complete
+  journey — create project, connect sources, confirm preliminary setup, acquire
+  knowledge, organise modules, assemble, record, render, verify, publish
+  through the remembered default, and open the result in Studio.
 - [ ] **N22** — Remote MCP tenancy and authentication. Distinct from N5, which
   is the HTTP boundary.
 - [ ] **N23** — Live deployment proof.
