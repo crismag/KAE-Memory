@@ -282,7 +282,12 @@ class TestRegistration:
         schema = definition["inputSchema"]
 
         assert schema["additionalProperties"] is False
-        assert schema["required"] == ["project_id"]
+        # `project_id` is no longer schema-required (T25.2): a project may be
+        # named by key instead, and a call naming neither is answered by an
+        # `invalid_argument` listing the keys this environment holds, which is
+        # more use than a schema violation.
+        assert "required" not in schema
+        assert "project_key" in schema["properties"]
         assert set(schema["properties"]["purpose"]["enum"]) == {
             "discovery",
             "architecture",

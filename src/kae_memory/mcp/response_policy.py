@@ -92,6 +92,10 @@ INTEGRITY_FIELDS: frozenset[str] = frozenset(
         "match_type",
         "available",
         "reason",
+        # Which project answered, when a key rather than an id decided it
+        # (T25.2). A caller who named `kae-memory` and got an answer about
+        # another project must be able to see that from the response.
+        "resolved_project",
         # What a figure does and does not answer
         "scope",
         "scope_note",

@@ -637,6 +637,41 @@ work: what still has to happen before an answer becomes knowledge is exactly
 the kind of statement the registry exists to protect.
 """
 
+PROJECT_KEY_PROPERTY: dict[str, Any] = {
+    "type": "string",
+    "description": (
+        "Name the project by key instead of id - `kae-memory` rather than a "
+        "UUID. `project_id` accepts a key too; passing both when they disagree "
+        "is an error rather than a guess."
+    ),
+}
+
+
+def _accept_project_keys(definitions: list[dict[str, Any]]) -> None:
+    """Let every project-scoped tool be called by key (T25.2).
+
+    Applied to the declarations rather than written into each of them, so a
+    tool added later cannot be the one that forgot. `project_id` also stops
+    being schema-required: a call naming no project is answered by
+    `resolve_project` with an `invalid_argument` that lists the keys this
+    environment holds, which is more use to a caller than a schema violation.
+    """
+
+    for definition in definitions:
+        schema = definition["inputSchema"]
+        if "project_id" not in schema.get("properties", {}):
+            continue
+        schema["properties"]["project_key"] = dict(PROJECT_KEY_PROPERTY)
+        required = [name for name in schema.get("required", []) if name != "project_id"]
+        if required:
+            schema["required"] = required
+        else:
+            schema.pop("required", None)
+
+
+_accept_project_keys(TOOL_DEFINITIONS)
+
+
 TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
     "kae_get_project_briefing": BRIEFING_FIELD_LEVELS,
     "kae_get_readiness": READINESS_FIELD_LEVELS,
@@ -646,12 +681,47 @@ TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
 """Per-tool field maps. A tool absent from here is returned whole."""
 
 
+def _resolve_project_argument(
+    context: tools.ToolContext, arguments: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Normalise `project_id` / `project_key` into one canonical id (T25.2).
+
+    Returns the rewritten arguments and, when a key did the resolving, the
+    echo that says which project answered. A call naming neither is left alone:
+    `kae_list_projects` takes no project, and a tool that needs one raises its
+    own `invalid_argument` naming what is available.
+    """
+
+    supplied_id = str(arguments.get("project_id") or "").strip()
+    supplied_key = str(arguments.get("project_key") or "").strip()
+    if not supplied_id and not supplied_key:
+        return arguments, None
+
+    project = tools.resolve_project(context, supplied_id, supplied_key)
+    rewritten = dict(arguments)
+    rewritten["project_id"] = str(project.id)
+    rewritten.pop("project_key", None)
+
+    echo = tools.project_scope(project, supplied_id, supplied_key)
+    return rewritten, None if echo["resolved_from"] == "project_id" else echo
+
+
 def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Route one tool call, returning a structured payload either way.
 
     A raised exception becomes a structured error rather than a traceback: a
     traceback is not a tool result, and its text may embed a connection string.
+
+    A project named by key is resolved to its id once, here, rather than in
+    fourteen handlers (T25.2). Resolution is not authorisation: it decides
+    which project a caller named, never whether they may read it.
     """
+
+    try:
+        arguments, resolved = _resolve_project_argument(context, arguments)
+    except Exception as exception:
+        LOGGER.warning("tool %s failed to resolve a project: %s", name, type(exception).__name__)
+        return safe_error(exception)
 
     handlers = {
         "kae_list_projects": lambda: tools.kae_list_projects(
@@ -762,6 +832,12 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
         LOGGER.warning("tool %s failed: %s", name, type(exception).__name__)
         return safe_error(exception)
 
+    if resolved is not None and not payload.get("error"):
+        # Only when a key did the resolving. A caller who passed an id already
+        # knows which project answered, and echoing it back on every response
+        # would spend tokens restating the argument.
+        payload["resolved_project"] = resolved
+
     field_levels = TOOL_FIELD_LEVELS.get(name)
     if field_levels is None or payload.get("error"):
         # An error payload is entirely integrity fields; projecting it would
@@ -829,17 +905,19 @@ def build_server(context: tools.ToolContext) -> Any:
         return dispatch(context, "kae_list_projects", {"limit": limit, "cursor": cursor})
 
     def kae_ingest_document(
-        project_id: str,
         document: str,
         text: str,
         max_chunks: int | None = None,
         actor_id: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_ingest_document",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "document": document,
                 "text": text,
                 "max_chunks": max_chunks,
@@ -848,15 +926,17 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_assemble_context(
-        project_id: str,
         purpose: str = "implementation",
         include_proposed: bool = False,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_assemble_context",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "purpose": purpose,
                 "include_proposed": include_proposed,
             },
@@ -872,17 +952,19 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_get_project_briefing(
-        project_id: str,
         profile: str | None = None,
         detail: str | None = None,
         prose: str | None = None,
         max_output_tokens: int | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_get_project_briefing",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "profile": profile,
                 "detail": detail,
                 "prose": prose,
@@ -890,25 +972,33 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
-    def kae_get_module_context(project_id: str, module: str) -> dict[str, Any]:
+    def kae_get_module_context(
+        module: str,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
         return dispatch(
-            context, "kae_get_module_context", {"project_id": project_id, "module": module}
+            context,
+            "kae_get_module_context",
+            {"project_id": project_id, "project_key": project_key, "module": module},
         )
 
     def kae_search_knowledge(
-        project_id: str,
         query: str,
         limit: int = 8,
         kinds: list[str] | None = None,
         mode: str = "auto",
         diagnostics: bool = False,
         cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_search_knowledge",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "query": query,
                 "limit": limit,
                 "kinds": kinds,
@@ -919,29 +1009,46 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_get_open_decisions(
-        project_id: str, limit: int | None = None, cursor: str | None = None
+        limit: int | None = None,
+        cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_get_open_decisions",
-            {"project_id": project_id, "limit": limit, "cursor": cursor},
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "limit": limit,
+                "cursor": cursor,
+            },
         )
 
-    def kae_get_readiness(project_id: str) -> dict[str, Any]:
-        return dispatch(context, "kae_get_readiness", {"project_id": project_id})
+    def kae_get_readiness(
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_readiness",
+            {"project_id": project_id, "project_key": project_key},
+        )
 
     def kae_submit_observation(
-        project_id: str,
         observation: str,
         idempotency_key: str,
         source: dict[str, Any] | None = None,
         classification_hint: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_submit_observation",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "observation": observation,
                 "idempotency_key": idempotency_key,
                 "source": source,
@@ -950,18 +1057,20 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_confirm_knowledge(
-        project_id: str,
         knowledge_id: str,
         expected_version: int,
         note: str | None = None,
         reviewer: str | None = None,
         idempotency_key: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_confirm_knowledge",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "knowledge_id": knowledge_id,
                 "expected_version": expected_version,
                 "note": note,
@@ -971,19 +1080,21 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_reject_knowledge(
-        project_id: str,
         knowledge_id: str,
         expected_version: int,
         reason_code: str,
         reviewer: str,
         note: str | None = None,
         idempotency_key: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_reject_knowledge",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "knowledge_id": knowledge_id,
                 "expected_version": expected_version,
                 "reason_code": reason_code,
@@ -994,17 +1105,19 @@ def build_server(context: tools.ToolContext) -> Any:
         )
 
     def kae_answer_clarification(
-        project_id: str,
         clarification_id: str,
         answer: str,
         idempotency_key: str | None = None,
         actor_id: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_answer_clarification",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "clarification_id": clarification_id,
                 "answer": answer,
                 "idempotency_key": idempotency_key,
@@ -1012,27 +1125,33 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
-    def kae_get_clarifications(project_id: str, limit: int | None = None) -> dict[str, Any]:
+    def kae_get_clarifications(
+        limit: int | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_get_clarifications",
-            {"project_id": project_id, "limit": limit},
+            {"project_id": project_id, "project_key": project_key, "limit": limit},
         )
 
     def kae_correct_knowledge(
-        project_id: str,
         knowledge_id: str,
         expected_version: int,
         content: str,
         reviewer: str,
         note: str | None = None,
         idempotency_key: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
             "kae_correct_knowledge",
             {
                 "project_id": project_id,
+                "project_key": project_key,
                 "knowledge_id": knowledge_id,
                 "expected_version": expected_version,
                 "content": content,

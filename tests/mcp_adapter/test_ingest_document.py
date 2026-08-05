@@ -241,7 +241,10 @@ class TestRegistration:
         schema = definition["inputSchema"]
 
         assert schema["additionalProperties"] is False
-        assert set(schema["required"]) == {"project_id", "document", "text"}
+        # `project_id` left `required` with T25.2 — a project may be named by
+        # key. What a document ingestion cannot do without is the document.
+        assert set(schema["required"]) == {"document", "text"}
+        assert "project_key" in schema["properties"]
 
     def test_the_description_does_not_promise_knowledge(self) -> None:
         """The surface must not advertise what the response then denies."""
