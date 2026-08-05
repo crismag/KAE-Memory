@@ -383,25 +383,32 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   whose source knowledge changed refuses rather than silently re-rendering.
   *Registry:* one capability, agent + product, no provider terms.
 
-- [ ] **N20.1** — **Pin statement versions in deliverable provenance.**
-  Corrective, and a prerequisite for N21 rather than a nicety.
+- [x] **N20.1** — Pin every input a deliverable was rendered from —
+  `domain/deliverables.py`, migration `0015`, 2026-08-05.
 
-  N20 records `source_knowledge` as identifiers only. Assembly reads
-  `item.current_version`, so a corrected statement changes what a re-render
-  produces while the recorded identifiers stay the same. **Knowledge versions
-  are immutable and append-only**, so exact reproduction is achievable — but
-  only if the deliverable pins `(knowledge_id, version)` pairs. Without this,
-  every deliverable becomes permanently unpublishable the moment any statement
-  it drew on is corrected, and N21's "fail explicitly" rule turns into "fail
-  always".
+  **Statements are pinned as `(knowledge_id, version)`.** Knowledge versions are
+  immutable and append-only, which is what makes a pin a promise rather than a
+  hope: the version it names still exists, unchanged, however far the statement
+  has moved. A test corrects a statement and asserts the earlier deliverable's
+  pins and hash are unmoved.
 
-  *Scope:* carry per-statement version into the assembly manifest and the
-  deliverable record; migration; read a specific version when rendering.
-  *Non-goals:* changing what assembly selects, or how a hash is computed.
-  *Acceptance:* a deliverable recorded before a correction still renders to its
-  original hash afterwards.
-  *Tests:* correct a statement, re-render the earlier deliverable, assert the
-  hash matches; assert a deliverable with an unreachable version refuses.
+  **Statements were not the only input.** `render_inputs` captures purpose,
+  scope, `include_proposed`, the ordering contract, generator version, package
+  schema, knowledge revision, module key, and — for module scope — a structural
+  fingerprint of the graph that decided what the scope contained. A partial set
+  is treated as absent: reproduction needs every input, and a subset would let
+  a deliverable claim eligibility it cannot honour.
+
+  **Artifact hashes remain the final proof.** Eligibility says the inputs exist
+  to attempt reproduction; only the hash says the attempt succeeded, and the
+  two are reported separately so neither is mistaken for the other.
+
+  **Nothing was backfilled.** Legacy rows stay readable and are explicitly
+  `publication_eligible: false` with a reason that says what is missing and why
+  it matters. A fabricated pin would make an unprovable claim look proven, which
+  is worse than an absent one. `publication_eligible` carries a `server_default`
+  as well as a mapping default, so a metadata-built schema and a migrated one
+  agree that an unspecified row is ineligible.
 
 - [ ] **N29** — **Publication attempt history.** Append-oriented records
   separate from the immutable deliverable.

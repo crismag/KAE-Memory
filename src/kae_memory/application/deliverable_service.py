@@ -29,10 +29,13 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.application.assembly_service import ContextAssembly, describe_package
 from kae_memory.domain.deliverables import (
+    ORDERING_CONTRACT,
     ArtifactRecord,
     Deliverable,
     DeliverableId,
     DeliverableState,
+    RenderInputs,
+    StatementPin,
     ensure_deliverable_transition,
     identity_hash,
 )
@@ -57,6 +60,7 @@ class DeliverableService:
         assembly: ContextAssembly,
         recorded_by: str | None = None,
         module_key: str | None = None,
+        structural_fingerprint: str | None = None,
     ) -> tuple[Deliverable, bool]:
         """Record one assembled output, returning it and whether it is new.
 
@@ -77,6 +81,17 @@ class DeliverableService:
         manifest = assembly.manifest
         description = describe_package(assembly)
         scope = "module" if module_key else manifest.scope
+        inputs = RenderInputs(
+            purpose=manifest.purpose,
+            scope=scope,
+            include_proposed=manifest.include_proposed,
+            ordering_contract=ORDERING_CONTRACT,
+            generator_version=manifest.generator_version,
+            package_schema=manifest.package_schema,
+            knowledge_revision=manifest.knowledge_revision,
+            module_key=module_key,
+            structural_fingerprint=structural_fingerprint,
+        )
         fingerprint = identity_hash(
             project_id,
             manifest.purpose,
@@ -125,6 +140,15 @@ class DeliverableService:
                     "warnings": list(manifest.warnings),
                 },
                 source_knowledge=list(manifest.source_knowledge),
+                # The pins and the inputs travel together or not at all. One
+                # without the other is not partially reproducible; it is
+                # unreproducible with extra detail.
+                statement_pins=[
+                    {"knowledge_id": knowledge_id, "version": version}
+                    for knowledge_id, version in manifest.statement_pins
+                ],
+                render_inputs=inputs.as_dict(),
+                publication_eligible=bool(manifest.statement_pins),
                 recorded_by=recorded_by,
                 recorded_at=datetime.now(UTC),
             )
@@ -252,4 +276,13 @@ def _as_deliverable(row: DeliverableRow) -> Deliverable:
         recorded_at=row.recorded_at,
         superseded_by=row.superseded_by,
         manifest=dict(row.manifest or {}),
+        statement_pins=tuple(
+            StatementPin(
+                knowledge_id=str(pin.get("knowledge_id", "")),
+                version=int(pin.get("version", 0)),
+            )
+            for pin in (row.statement_pins or [])
+            if pin.get("knowledge_id") and int(pin.get("version", 0)) >= 1
+        ),
+        render_inputs=RenderInputs.from_dict(dict(row.render_inputs or {})),
     )

@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy import text as text_sql
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType, Uuid
@@ -731,3 +732,17 @@ class DeliverableRow(Base):
     recorded_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     superseded_by: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    # N20.1. Nullable because rows recorded before this existed cannot have it
+    # and must not be given it: a fabricated pin would make an unprovable claim
+    # look proven.
+    statement_pins: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
+    render_inputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    publication_eligible: Mapped[bool] = mapped_column(
+        # `server_default` as well as `default`: a schema built from this
+        # mapping and one built by migration 0015 must agree about what an
+        # unspecified row means, and "ineligible" is the only safe answer.
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text_sql("false"),
+    )

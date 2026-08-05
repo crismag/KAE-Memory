@@ -837,6 +837,18 @@ def _deliverable_payload(deliverable: Any, current_revision: int) -> dict[str, A
         "superseded_by": deliverable.superseded_by,
         "rendered": False,
         "published": False,
+        # N20.1. Eligibility says the inputs exist to attempt reproduction; the
+        # artifact hashes remain the only thing that can say the attempt
+        # succeeded.
+        "publication_eligible": deliverable.publication_eligible,
+        "ineligibility_reason": deliverable.ineligibility_reason,
+        "statement_pins": [
+            {"knowledge_id": pin.knowledge_id, "version": pin.version}
+            for pin in deliverable.statement_pins
+        ],
+        "render_inputs": (
+            deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
+        ),
     }
 
 

@@ -960,6 +960,10 @@ class DeliverableResponse(BaseModel):
     superseded_by: str | None
     rendered: bool = False
     published: bool = False
+    publication_eligible: bool = False
+    ineligibility_reason: str | None = None
+    statement_pins: list[dict[str, Any]] = Field(default_factory=list)
+    render_inputs: dict[str, Any] | None = None
     recorded: bool | None = None
 
     @classmethod
@@ -992,6 +996,15 @@ class DeliverableResponse(BaseModel):
             manifest=dict(deliverable.manifest),
             recorded_by=deliverable.recorded_by,
             superseded_by=deliverable.superseded_by,
+            publication_eligible=deliverable.publication_eligible,
+            ineligibility_reason=deliverable.ineligibility_reason,
+            statement_pins=[
+                {"knowledge_id": pin.knowledge_id, "version": pin.version}
+                for pin in deliverable.statement_pins
+            ],
+            render_inputs=(
+                deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
+            ),
             recorded=created,
         )
 
