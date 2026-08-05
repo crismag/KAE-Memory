@@ -17,12 +17,13 @@ from sqlalchemy.orm import sessionmaker
 from .dependencies import (
     APP_VERSION,
     Settings,
+    build_embedder,
     build_engine,
     database_status,
     migration_revision,
 )
 from .errors import install_error_handlers
-from .routers import blueprint, readiness, workspace
+from .routers import blueprint, classification, pipeline, readiness, workspace
 from .schemas import HealthResponse
 
 DESCRIPTION = """
@@ -62,6 +63,10 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.session_factory = session_factory
+    # Built once, at construction. Per-request construction would make every
+    # search pay for it and would hide a provider credential failure inside an
+    # unrelated request rather than at startup.
+    app.state.embedder, app.state.embedder_name = build_embedder()
     if cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -76,6 +81,8 @@ def create_app(
     app.include_router(workspace.router)
     app.include_router(readiness.router)
     app.include_router(blueprint.router)
+    app.include_router(pipeline.router)
+    app.include_router(classification.router)
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:

@@ -1,6 +1,6 @@
 # ADR-0023 — HTTP and MCP as peer adapters
 
-**Status:** proposed, 2026-08-05. Target **N2** of
+**Status:** accepted, 2026-08-05. Target **N2** of
 `docs/09_development/NEXT_PHASE_CHECKLIST.md`. Extends ADR-0018; supersedes
 nothing.
 

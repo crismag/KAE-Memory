@@ -318,7 +318,9 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "type": "string",
                         "enum": ["proposed", "active", "resolved", "expired", "rejected"],
                     },
-                    "description": "Defaults to proposed and active - the current state of the work.",
+                    "description": (
+                        "Defaults to proposed and active - the current state of the work."
+                    ),
                 },
                 "kinds": {"type": "array", "items": {"type": "string"}},
                 "subject": {
