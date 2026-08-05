@@ -240,6 +240,78 @@ prevent.
   second integration fixture would let the two drift and double the cost of
   every later change to the pipeline.
 
+### Manual test, 2026-08-05 — **FAILED**, capability gap confirmed
+
+A project was created from one sentence: *"I want an inbox where I can dump
+thoughts and have them turned into useful things."* Every subsystem behaved
+correctly and the result was useless.
+
+    idea -> evidence recorded -> unclassified -> no candidate knowledge
+         -> assembly sees nothing -> empty package
+
+Readiness blocked nothing, which is the N34 principle working. The pipeline is
+sound. **What is missing is the interpretation that turns natural product
+language into something the pipeline can carry**, and no amount of retrying
+assembly produces it.
+
+Two walls, and the first is structural rather than a model problem:
+
+1. **`kae_submit_observation` queues no extraction.** Only
+   `kae_ingest_document` enqueues runs. A conversational idea therefore has no
+   path to candidate knowledge whatever the classifier does.
+2. **The rule-based classifier recognises requirement phrasing, not product
+   intent.** It left the sentence `unclassified` at zero confidence — correct
+   behaviour, and the honest failure T24 designed for.
+
+**The assistant demonstrated the target behaviour in the same session**, which
+makes this test a specification rather than only a defect report. What it did,
+and what N42-N45 must reproduce:
+
+- preserved the user's original statement verbatim;
+- interpreted natural product language semantically;
+- separated what was known from what was inferred;
+- created **reversible** assumptions, each with its consequence if wrong;
+- identified the material unknowns — the two that change the design;
+- distinguished important questions from deferrable ones;
+- produced useful preliminary context despite 0% readiness;
+- never presented an assumption as a confirmed fact.
+
+- [ ] **N42** — **Observation to extraction path.** `kae_submit_observation`
+  records evidence and enqueues nothing, so a conversational idea cannot become
+  a candidate however good the classifier is.
+  *Non-goals:* extracting *from* the classifier's output; auto-confirming
+  anything.
+  *Acceptance:* a submitted observation produces proposed candidates through
+  the same review model a document does. **Structural, and independent of
+  N43** — worth doing first because it is cheap and blocks the rest.
+
+- [ ] **N43** — **Model-backed semantic classifier.** Behind the existing
+  `ObservationClassifier` protocol, reporting `semantic_classification: true`
+  where the deterministic adapter reports false. Resolves
+  `OBSERVATION_CLASSIFICATION.md` §15 question 3.
+  *Acceptance:* the manual-test sentence classifies rather than returning
+  `unclassified`; degrades to the rule-based adapter when unavailable, and says
+  which ran.
+
+- [ ] **N44** — **Interpretation service: sparse language to preliminary
+  context.** The capability the manual test proved absent.
+  *Scope:* from a short natural-language statement, produce candidate
+  knowledge, reversible assumptions with consequences, material versus
+  deferrable questions, and a preliminary context package.
+  *Non-goals:* confirming anything; replacing the interview.
+  *Acceptance:* the eight demonstrated behaviours above, each testable. The
+  manual-test project produces a useful package from its single sentence.
+  *Depends on:* N42, N43, N35.
+
+- [ ] **N45** — **Assumption adapters.** N35 shipped the domain, the service,
+  and the table; **no adapter exposes any of it**, so assumptions cannot be
+  recorded, listed, or accepted from MCP or HTTP. The third "exists with no
+  caller" defect in this repository, after `supersede_older_versions` (T24) and
+  the unreachable qualification (N38) — enough repetition to treat as a pattern
+  rather than three accidents.
+  *Acceptance:* recording, listing, and accepting an assumption are reachable
+  from both adapters, with capability-registry entries.
+
 ### What the inspection found
 
 Three of the fifteen inspection points turned out already satisfied. Those need
