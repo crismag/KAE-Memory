@@ -16,26 +16,21 @@ through persistent engineering memory.
 
 ## Current phase
 
-**Implementation.** The persistent-memory claim is proven end to end.
+**Backend foundation complete; product integration and configuration controls
+are next.** The persistent-memory and acquisition-to-context paths are proven
+through application, worker, HTTP, and local MCP surfaces.
 
-The repository contains engineering specifications, domain contracts, database
-persistence for knowledge and for projects, sessions, messages and agent runs,
-application contracts, the product experience definition, the demonstration
-narrative, five accepted architecture decisions, and the execution roadmap.
-
-Current work is giving the three agent roles behaviour, so that a Requirements
-Agent and an Architecture Agent collaborate through that memory rather than
-through conversation.
+KAE-Memory is the headless knowledge service. KAE-Studio owns the product UI and
+interview experience. The embedded `frontend/` is legacy product work pending a
+dependency/value survey; new UI work does not belong in this repository.
 
 ## Repository status
 
-Completed: foundation, domain contracts, persistence for knowledge and for
-projects, sessions, messages and agent runs, product experience, demo planning,
-architecture decisions, and the development roadmap.
-
-Current: **M6 agent collaboration.** M5 is proven — one agent writes durable
-knowledge, its process ends, and another agent retrieves it in a separate run and
-session, reading only from the database.
+Completed: domain and persistence foundations, durable agents and recovery,
+semantic retrieval, knowledge review, readiness, clarification, ingestion,
+bounded context assembly, compact MCP responses, project-key resolution, and
+observation classification. The active work is split into focused contexts under
+[`docs/00_project/focus/`](docs/00_project/focus/).
 
 ## Implementation milestones
 
@@ -50,9 +45,9 @@ session, reading only from the database.
 | M6 | Agent Collaboration | ✔ |
 | M7 | Resilience and Recovery | ✔ |
 | M8 | Semantic Retrieval | ✔ |
-| M9 | Workspace and Reporting | ► current |
-| M10 | AWS Demonstration | open |
-| M11 | Demo Ready and Release | open |
+| M9 | Workspace and Reporting | ✔ |
+| M10 | AWS Demonstration assets | ✔ (real-instance proof outstanding) |
+| M11 | Demo Ready and Release | superseded by the T-register |
 
 Repository health, implementation readiness, open risks, and the immediate next
 task are in
@@ -60,20 +55,9 @@ task are in
 
 ## Immediate next action
 
-Implement the first product slice:
-
-```text
-User creates project
-  -> Submits idea
-  -> Persistent source capture          [done, M5]
-  -> Requirements Agent writes knowledge [done, M6]
-  -> Human confirmation                  [done, M5]
-  -> Architecture Agent retrieves it     [done, M6]
-```
-
-The proof is that the second agent's input is the first agent's confirmed output,
-recovered from the database rather than carried in process memory. That path is
-tested in `tests/application/test_cross_run_proof.py`.
+Read the [next-phase context](docs/00_project/NEXT_PHASE_FULL_CONTEXT.md), then
+choose one bounded focus: configuration controls, frontend separation survey,
+KAE-Studio integration, or one identified engine/proof gap.
 
 ## Development principle
 
@@ -93,12 +77,12 @@ given the entire package as a universal implementation prompt.
 ## Architecture overview
 
 ```text
-AI Product Discovery Workspace          user-visible product (not yet built)
+KAE-Studio                              user-visible product (separate repository)
         |
-Agent execution + Memory services       Requirements, Architecture, Review agents
-        |                               behind KAE contracts (not yet built)
-Application services                    project, knowledge, retrieval, blueprint
-        |                               (specified, not yet built)
+API / MCP / worker                      product-neutral control surfaces
+        |
+Agent execution + Memory services       implemented application capabilities
+        |
 Domain contracts                        projects, agents, knowledge items,
         |                               immutable versions, provenance,
         |                               lifecycle, typed relationships
@@ -144,9 +128,8 @@ and is not an approved deployment baseline.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, recovery after worker death, and the daemon loop
   behind `python -m kae_memory.worker`.
-- `frontend/` — the discovery workspace (ADR-0009): React, TypeScript, Vite,
-  React Router, TanStack Query, and a client generated from the API's own
-  OpenAPI document.
+- `frontend/` — the earlier discovery workspace implementation (ADR-0009), now
+  pending a dependency/value survey before removal in favour of KAE-Studio.
 - `src/kae_memory/api/` — the HTTP contract (ADR-0014): projects, sessions,
   messages, knowledge, runs, readiness, review findings, blockers,
   contradictions, blueprint generation and Markdown export, knowledge trace,
@@ -154,7 +137,7 @@ and is not an approved deployment baseline.
 - `src/kae_memory/domain/readiness.py` and `application/readiness_service.py` —
   the deterministic blueprint-readiness calculator, discovery blockers,
   contradiction resolution, area assignment, and append-only snapshots.
-- `migrations/` — ten revisions, `0001` (knowledge) through `0010`. Along the
+- `migrations/` — eleven revisions, `0001` (knowledge) through `0011`. Along the
   way: workspace and execution, lease ownership, chunks and the vector index,
   readiness and area links, message idempotency, and the knowledge review log.
 - `tests/` — 792 tests including the HTTP contract, the cross-run persistence
@@ -213,7 +196,7 @@ intentionally minimal — directories appear when a real file belongs in them.
 | Responsibility | Location |
 | --- | --- |
 | Python business logic, API, worker | `src/kae_memory/` |
-| Frontend source, when it begins | `frontend/` |
+| Legacy embedded frontend pending assessment | `frontend/` |
 | Safe committed defaults | [`config/`](config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`deploy/server/`](deploy/server/) |
