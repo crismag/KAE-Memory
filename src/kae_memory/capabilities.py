@@ -275,9 +275,41 @@ REGISTRY: tuple[Capability, ...] = (
         exposure=Exposure.AGENT_ONLY,
         mcp=("kae_get_module_context",),
         reason=(
-            "Reports a capability gap rather than answering, because modules are not "
-            "modelled (N16-N19). An HTTP route returning the same gap would be a "
-            "second place to maintain the same apology."
+            "The consumer is a coding agent implementing one module. Studio renders "
+            "the module graph rather than a bounded implementation package, and will "
+            "need an HTTP contract when it renders the package itself (N12)."
+        ),
+    ),
+    Capability(
+        key="module.define",
+        summary="Register a module as a proposed part of the system",
+        exposure=Exposure.AGENT_ONLY,
+        mcp=("kae_define_module",),
+        reason=(
+            "Modules are proposed by extraction and confirmed by a person. Studio's "
+            "curation flow is recordModuleDecision, which is a different act with "
+            "its own contract still to be reconciled (N12)."
+        ),
+    ),
+    Capability(
+        key="module.relate",
+        summary="Record a structural edge between modules, or to a statement",
+        exposure=Exposure.AGENT_ONLY,
+        mcp=("kae_relate_modules",),
+        reason=(
+            "The write path that was missing entirely. Same reason as module.define: "
+            "Studio's structural editing contract is unreconciled, and a route "
+            "written now would fix a shape that discussion has not settled."
+        ),
+    ),
+    Capability(
+        key="module.graph",
+        summary="Every module and the order they can be built in",
+        exposure=Exposure.AGENT_ONLY,
+        mcp=("kae_get_module_graph",),
+        reason=(
+            "Build order is what an implementing agent asks for. A Studio view of "
+            "the same graph is a rendering question, and rendering is Studio's."
         ),
     ),
     Capability(

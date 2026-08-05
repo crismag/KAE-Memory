@@ -83,9 +83,14 @@ class TestTheGapStaysAGap:
         assert "not available" in gap["message"]
 
     def test_the_original_contract_is_intact(self, gap: dict[str, Any]) -> None:
-        """A consumer reading only the old fields must still be correct."""
+        """A consumer reading only the old fields must still be correct.
 
-        assert "modules as a knowledge kind" in gap["missing_capabilities"]
+        The *reason* changed with N17-N19: modules are modelled now, so what is
+        missing is registration rather than the capability. The shape did not
+        change, which is what a consumer depends on.
+        """
+
+        assert "no modules are registered in this project" in gap["missing_capabilities"]
         assert gap["use_instead"]
         assert "Do not" in gap["guidance"]
 
@@ -117,13 +122,18 @@ class TestTheSubject:
         """
 
         assert gap["subject"]["status"] == "not_registered"
-        assert "nowhere to register one" in gap["subject"]["detail"]
+        assert "nothing to look up until one is registered" in gap["subject"]["detail"]
 
-    def test_next_steps_do_not_promise_a_workaround(self, gap: dict[str, Any]) -> None:
-        """Registering a module is a product change, and says so."""
+    def test_next_steps_name_the_way_out(self, gap: dict[str, Any]) -> None:
+        """Registering a module used to be impossible; now it is the first step.
+
+        The old wording said this was "a product change, not a configuration
+        one", which was true and is no longer. A next step that still said so
+        would send a caller to wait for work that has shipped.
+        """
 
         steps = " ".join(gap["next_steps"])
-        assert "product change, not a configuration one" in steps
+        assert "Register the module" in steps
 
 
 class TestWhatIsOfferedInstead:
