@@ -39,6 +39,7 @@ from kae_memory.application import (
 from kae_memory.domain.chunks import estimate_tokens
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.mcp import tools
+from kae_memory.mcp.response_policy import INTEGRITY_FIELDS
 from kae_memory.mcp.server import dispatch
 
 READ_TOOLS = (
@@ -49,7 +50,20 @@ READ_TOOLS = (
     "kae_get_open_decisions",
     "kae_get_readiness",
 )
-"""The enabled tools that only read. `kae_submit_observation` is excluded."""
+"""The enabled tools that only read. Every write is excluded.
+
+The surface is now fifteen tools, but the other reads either need a document
+argument or would materialise clarification questions, and materialising is a
+write in everything but name. Measuring a write by performing one would leave
+evidence behind in whatever project was measured.
+"""
+
+PROFILES = ("economy", "regular", "detailed")
+"""The three presets, measured together.
+
+T1 measured one shape because there was only one. What T5 has to show is the
+distance between them — a reduction is only demonstrated by the pair.
+"""
 
 _UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
 _BPE_ISH = re.compile(r"[A-Za-z]+|[0-9]+|[^\sA-Za-z0-9]")
@@ -190,14 +204,62 @@ def arguments_for(tool: str, project_id: str) -> dict[str, Any]:
     return {"project_id": project_id}
 
 
-def measure_project(context: tools.ToolContext, project_id: str) -> list[Measurement]:
-    """Measure every read tool against one project."""
+def measure_project(
+    context: tools.ToolContext, project_id: str, profile: str | None = None
+) -> list[Measurement]:
+    """Measure every read tool against one project, at one profile."""
 
     results = []
     for tool in READ_TOOLS:
-        payload = dispatch(context, tool, arguments_for(tool, project_id))
+        arguments = arguments_for(tool, project_id)
+        if profile is not None:
+            arguments["profile"] = profile
+        payload = dispatch(context, tool, arguments)
         results.append(measure(tool, payload))
     return results
+
+
+def integrity_paths(payload: Any, prefix: str = "") -> set[str]:
+    """Return every dotted path whose leaf is a registered integrity field."""
+
+    found: set[str] = set()
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            path = f"{prefix}{key}"
+            if key in INTEGRITY_FIELDS:
+                found.add(path)
+            found |= integrity_paths(value, f"{path}.")
+    elif isinstance(payload, list):
+        for element in payload:
+            found |= integrity_paths(element, prefix)
+    return found
+
+
+def survival(context: tools.ToolContext, project_id: str) -> list[tuple[str, int, list[str]]]:
+    """Return, per tool, how many integrity fields economy kept and which it lost.
+
+    The half of this measurement that matters. A response can always be made
+    smaller by deleting what carries meaning, so a size table on its own cannot
+    distinguish a reduction from a loss. A field withheld as part of a section
+    the response declared dropped is not counted as lost: that absence is
+    stated, and a caller can ask for it back.
+    """
+
+    rows = []
+    for tool in READ_TOOLS:
+        arguments = arguments_for(tool, project_id)
+        detailed = dispatch(context, tool, {**arguments, "profile": "detailed"})
+        economy = dispatch(context, tool, {**arguments, "profile": "economy"})
+        withheld = tuple(economy.get("truncation", {}).get("dropped", ()))
+        present = integrity_paths(detailed)
+        kept = integrity_paths(economy)
+        lost = sorted(
+            path
+            for path in present - kept
+            if not any(path.startswith(f"{section}.") for section in withheld)
+        )
+        rows.append((tool, len(present), lost))
+    return rows
 
 
 def main() -> int:
@@ -223,16 +285,23 @@ def main() -> int:
         project = context.memory.get_project(ProjectId(project_id))
         label = project.name if project else project_id
         print(f"\n=== {label} ({project_id}) ===")
-        print(
-            f"{'tool':<28}{'chars':>8}{'~tok/4':>8}{'~struct':>9}"
-            f"{'fields':>8}{'nodes':>7}{'ids':>6}{'dup ids':>9}{'dup text':>10}"
-        )
-        for row in measure_project(context, project_id):
+        for profile in PROFILES:
+            print(f"\n  profile: {profile}")
             print(
-                f"{row.tool:<28}{row.characters:>8}{row.tokens_chars_per_4:>8}"
-                f"{row.tokens_structural:>9}{row.top_level_fields:>8}{row.total_nodes:>7}"
-                f"{row.entity_ids:>6}{row.repeated_id_count:>9}{len(row.repeated_texts):>10}"
+                f"  {'tool':<28}{'chars':>8}{'~tok/4':>8}{'~struct':>9}"
+                f"{'fields':>8}{'nodes':>7}{'ids':>6}{'dup ids':>9}{'dup text':>10}"
             )
+            for row in measure_project(context, project_id, profile):
+                print(
+                    f"  {row.tool:<28}{row.characters:>8}{row.tokens_chars_per_4:>8}"
+                    f"{row.tokens_structural:>9}{row.top_level_fields:>8}{row.total_nodes:>7}"
+                    f"{row.entity_ids:>6}{row.repeated_id_count:>9}{len(row.repeated_texts):>10}"
+                )
+
+        print("\n  integrity fields at economy (present at detailed -> lost):")
+        for tool, present, lost in survival(context, project_id):
+            verdict = "all kept" if not lost else f"LOST {lost}"
+            print(f"    {tool:<28}{present:>4} present   {verdict}")
 
         briefing = dispatch(context, "kae_get_project_briefing", {"project_id": project_id})
         print("\n  kae_get_project_briefing — by field:")

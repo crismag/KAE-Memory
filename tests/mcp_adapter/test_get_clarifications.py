@@ -140,9 +140,29 @@ class TestIdempotence:
     ) -> None:
         _get(context, project_id=project_id)
 
-        second = _get(context, project_id=project_id, limit=50)
+        # `newly_asked` is diagnostic detail: whether *this* call materialised a
+        # question is tracing information, not part of answering it. Below that
+        # level the field is withheld, so asking for it is the only way to
+        # observe the idempotence it records.
+        second = _get(context, project_id=project_id, limit=50, detail="diagnostic")
 
         assert all(q["newly_asked"] is False for q in second["questions"])
+
+    def test_the_tracing_fields_are_withheld_by_default(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """These two were declared as `questions[]....` and so matched nothing.
+
+        Both shipped at every detail level while the field map said they did
+        not. Nothing failed — the compaction simply was not happening.
+        """
+
+        questions = _get(context, project_id=project_id)["questions"]
+
+        assert questions, "the project must raise questions or this proves nothing"
+        for question in questions:
+            assert "newly_asked" not in question
+            assert "knowledge_ids" not in question
 
     def test_no_duplicate_question_messages_accumulate(
         self, context: tools.ToolContext, project_id: str

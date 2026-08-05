@@ -313,7 +313,11 @@ def project(
     if dropped:
         kept["truncation"] = {
             "applied": True,
-            "dropped": sorted(dropped),
+            # Deduplicated: a field withheld from every element of a list is one
+            # withheld field, not one per element. Reporting it per element made
+            # a compacted readiness response *larger* than the full one, which
+            # is the reduction defeating itself.
+            "dropped": sorted(set(dropped)),
             "reason": f"detail={policy.detail.value}",
             "retrieve_with": f"the same call with detail={DetailLevel.DIAGNOSTIC.value}",
         }
