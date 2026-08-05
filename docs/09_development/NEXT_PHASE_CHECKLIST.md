@@ -191,15 +191,22 @@ the product around the gap.
   recommend, generate with assumptions, accept current knowledge, prepare
   package, publish, return to setup later. **Generation is never disabled by a
   score or a completion percentage.**
-- [ ] **N40** — **MCP generation-policy parameters.** Generation purpose,
-  maturity mode, whether provisional information may be included, whether KAE
-  may make reversible assumptions, acceptance of the knowledge boundary,
-  assumptions accepted, questions deferred, whether an override becomes a
-  default.
-  *Acceptance:* an agent never has to fake readiness or confirm uncertain
-  knowledge to make generation possible. **"Generate anyway" authorises
-  generation only** — never publication, destructive writes, or claimed
-  certainty.
+- [x] **N40** — Generation-policy contract — `domain/generation_policy.py`,
+  2026-08-05. **One field**, scoped to what N42 needed:
+  `generation_policy.discovery_extraction`, `on_submission` by default and
+  `disabled` as the per-call opt-out.
+
+  Room preserved without vocabulary invented. A dataclass takes a field without
+  changing a signature and an enum takes a value without changing a type, and a
+  test asserts the policy holds exactly one field today — so broadening it is a
+  decision rather than a drift. The wider vocabulary the product context
+  sketches arrives with the callers that need it.
+
+  **An unrecognised key is refused, not ignored.** Accepting one would let a
+  caller believe they configured behaviour they had not, and that failure
+  surfaces later as the system ignoring an instruction rather than immediately
+  as a rejected request.
+
 - [ ] **N15** — First vertical slice on real HTTP: project selection through
   first proposal review, with unavailable, queued, partial, proposed, and
   complete visibly distinct.
@@ -288,36 +295,26 @@ and what N42, N44, N45, N46 must reproduce:
 - produced useful preliminary context despite 0% readiness;
 - never presented an assumption as a confirmed fact.
 
-- [ ] **N42** — **Observation to extraction path.** The missing edge, and the
-  single change that would have carried most of this test.
+- [x] **N42** — Observation to extraction path — 2026-08-05. The missing edge.
+  `kae_submit_observation` now enqueues a discovery extraction run, so a
+  conversational statement can become a candidate through the same review model
+  a document does.
 
-  *Contract:*
-  - the observation stays **stored verbatim as evidence**, unchanged by
-    anything extraction later produces;
-  - submission **may enqueue a discovery extraction run**;
-  - the response **states whether extraction was queued**, and carries the run
-    identifier and status — a caller must be able to tell "queued", "skipped",
-    and "unavailable" apart without inferring from silence;
-  - extraction is **idempotent by observation**: a retried submission reuses
-    the run rather than paying for a second model call or producing a second
-    set of candidates;
-  - everything the model produces is **proposed**. Nothing is confirmed
-    implicitly, and no extraction result moves readiness on its own.
+  Contract as specified: the observation stays **verbatim**; the response says
+  **queued**, **skipped**, or refused, distinguishably, with the run identifier
+  and status — a policy choice must not look like a broken server; extraction is
+  **idempotent by the caller's key**, so a retry reuses the run rather than
+  paying for a second model call; and everything produced stays **proposed**,
+  with readiness unmoved.
 
-  *When it runs, and what it costs.* **Decided: on submission, one run per
-  observation, opt-out per call.** One model call per observation is the cost,
-  and it is the same shape ingestion already pays per chunk. The alternatives
-  were rejected: running on request makes the useful case the one a caller has
-  to know to ask for, and batching defers the interpretation past the moment a
-  person is looking at the answer. The opt-out exists for high-volume
-  telemetry-style observations where interpretation is waste — it is a
-  parameter, not a default, so the ordinary path stays useful without
-  configuration.
+  Runs `requirements.v1` until **N46** adds a discovery role. That prompt is
+  disciplined about not inventing and will read a sparse product sentence
+  thinly — correct behaviour for it, and the reason the edge alone does not
+  close the manual test.
 
-  *Non-goals:* extracting from the classifier's output; auto-confirming;
-  changing what `kae_ingest_document` does.
-  *Acceptance:* the scenario below.
-  **Independent of N43.**
+  **Decided and recorded:** on submission, one run per observation, opt-out per
+  call via `generation_policy.discovery_extraction: disabled`. One model call
+  per observation, the shape ingestion already pays per chunk.
 
 - [ ] **N46** — **Discovery extraction role.** `AgentRole` has REQUIREMENTS,
   ARCHITECTURE, REVIEW. None of them is "turn an idea into what we now know we

@@ -298,6 +298,22 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "overrides the classification."
                     ),
                 },
+                "generation_policy": {
+                    "type": "object",
+                    "properties": {
+                        "discovery_extraction": {
+                            "type": "string",
+                            "enum": ["on_submission", "disabled"],
+                            "description": (
+                                "Whether this observation is interpreted into "
+                                "candidate knowledge. Defaults to on_submission; "
+                                "`disabled` opts out for high-volume observations "
+                                "where interpretation is waste."
+                            ),
+                        }
+                    },
+                    "additionalProperties": False,
+                },
             },
             "required": ["project_id", "observation", "idempotency_key"],
             "additionalProperties": False,
@@ -992,6 +1008,7 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key", ""),
             arguments.get("source"),
             arguments.get("classification_hint"),
+            arguments.get("generation_policy"),
         ),
         "kae_answer_clarification": lambda: tools.kae_answer_clarification(
             context,
@@ -1311,6 +1328,7 @@ def build_server(context: tools.ToolContext) -> Any:
         idempotency_key: str,
         source: dict[str, Any] | None = None,
         classification_hint: str | None = None,
+        generation_policy: dict[str, Any] | None = None,
         project_id: str = "",
         project_key: str | None = None,
     ) -> dict[str, Any]:
@@ -1324,6 +1342,7 @@ def build_server(context: tools.ToolContext) -> Any:
                 "idempotency_key": idempotency_key,
                 "source": source,
                 "classification_hint": classification_hint,
+                "generation_policy": generation_policy,
             },
         )
 
