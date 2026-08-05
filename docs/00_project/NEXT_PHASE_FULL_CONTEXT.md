@@ -1,6 +1,7 @@
 # KAE-Memory Next-Phase Context
 
-**Baseline:** `main` at `49c713e` on 2026-08-05  
+**Baseline:** `main` at `49c713e` on 2026-08-05, the last code commit. The
+documentation commits after it, including this file, changed no behaviour.  
 **Status:** contributor handoff; verify the commit before implementation
 
 ## Purpose
@@ -53,10 +54,11 @@ The codebase contains:
 - T25.2 complete: tools accept `project_key` as a stateless alternative to
   `project_id`. Server-side active-project state remains conditional and absent.
 
-The last recorded full PostgreSQL quality evidence is 792 passing tests, 92%
-coverage, clean Ruff, format, and strict mypy. T24 subsequently added code and
-migration `0011`; rerun the current full gate before using the older count as a
-release claim.
+Quality evidence lives in one place: the repository-health table in
+[`CURRENT_PROJECT_STATE.md`](CURRENT_PROJECT_STATE.md). It is not restated here,
+because the figure that was restated here — 792 tests — had already been
+superseded twice when this file quoted it. Rerun the full gate before making a
+release claim, and record the result there.
 
 ## Provider posture
 
@@ -98,9 +100,16 @@ can orchestrate while Memory supplies durable context and write-back contracts.
 1. Establish governed backend configuration and service-message controls.
 2. Audit the embedded frontend, preserve useful requirements, and remove it from
    KAE-Memory when backend and demonstration dependencies are disproved.
-3. Integrate KAE-Studio through a thin real workflow rather than extending the
+3. Make the backend interfaces ready for a product client. The MCP surface
+   exposes substantially more of the application layer than HTTP `/v1` does, and
+   Studio is an HTTP client — so the adapter roles need an ADR, the
+   Studio-required services need HTTP contracts, and remote access needs an
+   authentication boundary. **This precedes item 4**: integrating Studio against
+   an interface that cannot reach retrieval, ingestion, clarification,
+   assembly, or classification would design the product around the gap.
+4. Integrate KAE-Studio through a thin real workflow rather than extending the
    old KAE-Memory UI.
-4. Keep genuine engine gaps explicit: module modelling and graph traversal,
+5. Keep genuine engine gaps explicit: module modelling and graph traversal,
    artifact rendering/publication, remote MCP tenancy/authentication, and live
    deployment proof are not complete.
 
@@ -110,6 +119,7 @@ can orchestrate while Memory supplies durable context and write-back contracts.
 | --- | --- | --- |
 | Configuration and messages | [`focus/CONFIGURATION_AND_MESSAGES.md`](focus/CONFIGURATION_AND_MESSAGES.md) | Auditing magic numbers, settings, loaders, validation, or backend messages |
 | Frontend separation | [`focus/FRONTEND_SEPARATION.md`](focus/FRONTEND_SEPARATION.md) | Assessing or removing `frontend/` and related build/deploy assumptions |
+| Backend interface readiness | [`focus/BACKEND_INTERFACE_READINESS.md`](focus/BACKEND_INTERFACE_READINESS.md) | Closing the MCP/HTTP capability gap, classification lifecycle, and the HTTP trust boundary |
 | Studio integration | [`focus/STUDIO_INTEGRATION.md`](focus/STUDIO_INTEGRATION.md) | Building the first product workflow across Studio and Memory |
 | Engine and proof gaps | [`focus/ENGINE_AND_PROOF_GAPS.md`](focus/ENGINE_AND_PROOF_GAPS.md) | Planning only the remaining backend capabilities or operational proofs |
 
@@ -133,4 +143,3 @@ Historical milestone, hackathon, and architecture documents remain useful as
 decision history. They are not the current queue. Where they disagree with this
 file, `CURRENT_PROJECT_STATE.md`, ADR-0022, or the live MCP checklist, treat the
 older claim as historical and update it before relying on it for implementation.
-
