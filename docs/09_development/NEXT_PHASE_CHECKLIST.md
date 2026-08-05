@@ -136,6 +136,68 @@ in a document.
 
 **Phase H is complete.**
 
+## Phase T — Test execution
+
+Opened 2026-08-05 after the suite became the development bottleneck: 25 full
+gates in one session at roughly six minutes each, against test bodies that take
+31 seconds in total.
+
+- [ ] **N47** — **Test execution architecture.**
+
+  *Measured, 2026-08-05, 1,340 tests in 277s:*
+
+  | Phase | Time | Share |
+  | --- | ---: | ---: |
+  | **setup** | **236s** | **86%** |
+  | call | 31s | 11% |
+  | teardown | 8s | 3% |
+
+  **The tests are fast. The fixtures are not.** 854 timed setups, mean **277ms**,
+  and the cause is one line: `factory` runs `TRUNCATE` across all 20 mapped
+  tables before every test. Schema creation is already session-scoped and is not
+  the problem.
+
+  By directory: `mcp_adapter` 107s, `api` 55s, `application` 50s, `persistence`
+  18s, everything else under 14s. The worst single file is
+  `test_adapter_parity.py` at 20.8s of setup — 107 parametrised cases each
+  paying a truncate to build an app whose OpenAPI table needs no data at all.
+
+  *Scope:*
+
+  1. **Per-test isolation by transaction rollback, not truncation.** The current
+     comment rejects rollback because "the application opens its own sessions
+     and commits them". That objection is answerable: binding the sessionmaker
+     to one connection inside an outer transaction, with a SAVEPOINT restarted
+     on each commit, preserves commit semantics from the application's view and
+     discards the work at test end. Expected 277ms → single-digit ms.
+  2. **Keep truncation available as an opt-in** for tests that genuinely need
+     real cross-connection commits — concurrency, idempotency-under-race,
+     anything asserting a unique index fires. Those exist and must keep working;
+     the marker names them rather than the default punishing everyone else.
+  3. **No database fixture for pure domain tests.** 21 files already take none.
+     Several domain-directory tests request `factory` for a service they
+     exercise; those are service tests and should say so.
+  4. **Markers**: `unit`, `db`, `contract`, `e2e`, `provider`, `migration`,
+     `slow`. Five exist; the split that matters is a default run excluding
+     `migration` and `provider` — the single slowest entry in the suite is a
+     7.3s migration teardown.
+  5. **Documented changed-area commands**, so "run the affected subset" is a
+     command someone can copy rather than a judgement call each time.
+  6. **Consolidation only where behaviour genuinely duplicates**, into curated
+     parameterised cases. **No regression test is removed without naming the
+     exact surviving test or contract that catches the same defect** — recorded
+     in the commit, not just believed.
+
+  *Targets:* focused developer tests under 30s; affected-area under 90s; full
+  PostgreSQL gate materially under 277s and run once per completed target.
+
+  *Non-goals:* deleting coverage to make a number; SQLite; skipping the database
+  for tests whose subject is persistence.
+
+  *Acceptance:* the measured setup share drops below 30%; failure messages still
+  name the violated behaviour; the CockroachDB, migration, and provider suites
+  still run on demand and at integration checkpoints.
+
 ## Phase I — Configuration and service messages
 
 Focus: [`focus/CONFIGURATION_AND_MESSAGES.md`](../00_project/focus/CONFIGURATION_AND_MESSAGES.md)
