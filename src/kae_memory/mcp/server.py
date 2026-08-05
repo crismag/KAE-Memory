@@ -24,6 +24,7 @@ from kae_memory.agents import provider
 from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
+from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
@@ -86,6 +87,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         retrieval=RetrievalService(factory, embedder),
         ingestion=IngestionService(factory),
         assembly=AssemblyService(factory),
+        classification=ClassificationService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -160,6 +162,17 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
                 "prose": {"type": "string", "enum": ["none", "minimal", "concise", "standard"]},
                 "max_output_tokens": {"type": "integer", "minimum": 1},
+                "tiers": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["durable", "operational", "evidence"]},
+                    "description": (
+                        "Retention tiers to include. Defaults to durable and "
+                        "operational; evidence-tier text is preserved and "
+                        "searchable but is not a claim about the project. "
+                        "Orthogonal to `detail`, which decides how much of an "
+                        "included tier is rendered."
+                    ),
+                },
             },
             "required": ["project_id"],
             "additionalProperties": False,
@@ -273,7 +286,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "observation": {"type": "string"},
                 "idempotency_key": {"type": "string", "maxLength": 200},
                 "source": {"type": "object", "additionalProperties": True},
-                "classification_hint": {"type": "string"},
+                "classification_hint": {
+                    "type": "string",
+                    "description": (
+                        "What the submitter believes this is. Recorded and "
+                        "compared against what the classifier found; it never "
+                        "overrides the classification."
+                    ),
+                },
             },
             "required": ["project_id", "observation", "idempotency_key"],
             "additionalProperties": False,
@@ -748,7 +768,7 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("description"),
         ),
         "kae_get_project_briefing": lambda: tools.kae_get_project_briefing(
-            context, arguments.get("project_id", "")
+            context, arguments.get("project_id", ""), arguments.get("tiers")
         ),
         "kae_get_module_context": lambda: tools.kae_get_module_context(
             context, arguments.get("project_id", ""), arguments.get("module", "")
@@ -956,6 +976,7 @@ def build_server(context: tools.ToolContext) -> Any:
         detail: str | None = None,
         prose: str | None = None,
         max_output_tokens: int | None = None,
+        tiers: list[str] | None = None,
         project_id: str = "",
         project_key: str | None = None,
     ) -> dict[str, Any]:
@@ -969,6 +990,7 @@ def build_server(context: tools.ToolContext) -> Any:
                 "detail": detail,
                 "prose": prose,
                 "max_output_tokens": max_output_tokens,
+                "tiers": tiers,
             },
         )
 

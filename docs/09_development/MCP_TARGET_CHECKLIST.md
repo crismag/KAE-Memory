@@ -233,24 +233,49 @@ focus, which does not exist and so cannot be relied on.
 
 ## Phase G — Observation classification
 
-**T24 — Classify and route submitted observations.** High priority, **deferred,
-awaiting scheduling. Implementation not authorised.** Design:
+**T24 — Classify and route submitted observations.** Authorised and implemented
+2026-08-05. Design:
 [`OBSERVATION_CLASSIFICATION.md`](../06_architecture/OBSERVATION_CLASSIFICATION.md).
 
 No existing target owned this. T19/T20 cover ingesting *documents* into proposed
 knowledge; neither classifies a submitted observation, separates retention
 tiers, records operational state, or filters briefings by tier.
 
-- [ ] **T24.1** — Deterministic extraction: dates, milestone and target IDs,
-  status words, action verbs
-- [ ] **T24.2** — Semantic classification into the §4 taxonomy, with confidence
-  and mixed-span support
-- [ ] **T24.3** — Operational records: milestone transitions, check-ins, tasks,
-  defects, test results
-- [ ] **T24.4** — Briefing filters by retention tier
-- [ ] **T24.5** — Resolve `classification_hint`: honour it or remove it
+- [x] **T24.1** — Deterministic extraction — `agents/observation_classifier.py`.
+  Dates, milestone/target/decision ids, PR numbers, status words, action verbs,
+  URLs, versions, environments. Finds fields and decides nothing: a date is
+  reported as a date with `date_role: unknown`, because which of historical,
+  effective, deadline, target, and check-in a bare date means is not
+  recoverable from the date.
+- [x] **T24.2** — Classification into the §4 taxonomy, with confidence and
+  mixed spans. **The shipped classifier is rule-based, not semantic, and says
+  so** — `semantic_classification: false` travels with every response, the same
+  way search reports a hash-derived embedder. Wording it does not recognise is
+  invisible to it, and a caller told otherwise would read `unclassified` as
+  "there was nothing there".
+- [x] **T24.3** — Operational records — `operational_updates`. Milestone
+  transitions, check-ins, tasks, deadlines, blockers, defects, risks, test
+  results, progress and ownership. A reported completion is a **proposed
+  transition** carrying `reported_status`, `current_status`, `transition_type`,
+  and `authority`; nothing an observation carries is execution evidence, so
+  nothing submitted can auto-confirm.
+- [x] **T24.4** — Briefing filters by retention tier — `tiers` on
+  `kae_get_project_briefing`. Durable and operational by default; evidence is
+  preserved, searchable, and excluded, because commentary is not a claim about
+  the project. An excluded tier is **named**, so an absent tier is never
+  mistaken for an empty one. Orthogonal to `detail`, and tested to stay so.
+- [x] **T24.5** — `classification_hint` **honoured, not obeyed**. It was
+  cosmetic: appended as a line inside the message body, routing nothing, read
+  again by nothing. It is now compared against what the classifier found and
+  reported as `agreed` — and it no longer contaminates the stored observation,
+  which is what makes a span into the text a span into what was stored. It
+  cannot override a classification: a hint that could would let a caller
+  promote a greeting to a requirement and make the taxonomy a suggestion.
 
-**Acceptance criteria**
+**Acceptance criteria** — all met. Two are met by construction rather than by
+policy: nothing submitted can auto-confirm a transition, because no observation
+carries execution evidence; and classified spans never reach `knowledge_items`,
+so readiness cannot move on classification.
 
 - One observation may produce several classified spans, each tracing to a real
   span of the stored text.
@@ -355,8 +380,8 @@ deferred, implementation work, operational, or project-specific.
 ### Deferred — not blockers
 
 Project and Session configuration tiers · per-tool vs per-call detail · draft vs
-registered context · `classification_hint` · observation classification (T24) ·
-project-focus implementation (T25).
+registered context. `classification_hint`, observation classification (T24),
+and project focus (T25) were resolved on 2026-08-05.
 
 ### Not architecture
 

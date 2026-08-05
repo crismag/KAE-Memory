@@ -514,3 +514,107 @@ class KnowledgeReviewEventRow(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ObservationClassificationRow(Base):
+    """One classified span of one submitted observation (T24).
+
+    Derived beside the observation, never over it. The observation stays in
+    ``messages`` exactly as submitted; every row here points back at it with a
+    real span, so a reviewer can see which words produced which candidate.
+
+    Deliberately not ``knowledge_items``. That table feeds readiness, and
+    routing a classified fragment into it would inflate coverage with text
+    nobody proposed as a requirement.
+    """
+
+    __tablename__ = "observation_classifications"
+    __table_args__ = (
+        # Idempotency by observation, classifier, version, and span — enforced
+        # here rather than by a read-then-insert, which races. Re-running the
+        # same classifier version over the same observation must produce no
+        # second row even if two workers retry at once.
+        UniqueConstraint(
+            "message_id",
+            "classifier_name",
+            "classifier_version",
+            "span_start",
+            "span_end",
+            name="uq_observation_classifications_span",
+        ),
+        Index("ix_observation_classifications_message", "message_id", "span_start"),
+        Index("ix_observation_classifications_project_tier", "project_id", "retention_tier"),
+        CheckConstraint("span_end > span_start", name="ck_observation_classifications_span"),
+        CheckConstraint(
+            "confidence >= 0 AND confidence <= 1",
+            name="ck_observation_classifications_confidence",
+        ),
+    )
+
+    classification_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("messages.message_id", ondelete="CASCADE"), nullable=False
+    )
+    classifier_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    classifier_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    semantic: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    classification: Mapped[str] = mapped_column(String(40), nullable=False)
+    retention_tier: Mapped[str] = mapped_column(String(20), nullable=False)
+    route: Mapped[str] = mapped_column(String(40), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    review_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    span_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    span_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
+    extracted_fields: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A classifier upgrade produces a new result set and marks the prior one
+    # superseded. Past classifications are never mutated: a reviewer's decision
+    # was made against what they saw.
+    superseded_by: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OperationalUpdateRow(Base):
+    """Where the work stands, as reported (T24.3).
+
+    Separate from knowledge because it answers a different question and decays
+    differently. A requirement is true until superseded; a milestone status is
+    true until the next one.
+
+    ``authority`` is the field that keeps a sentence from completing a
+    milestone. A reported completion is a *proposed transition* carrying what
+    was claimed, what is current, and who claimed it.
+    """
+
+    __tablename__ = "operational_updates"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "idempotency_key",
+            name="uq_operational_updates_project_idempotency",
+        ),
+        Index("ix_operational_updates_project_state", "project_id", "state"),
+        Index("ix_operational_updates_subject", "project_id", "subject"),
+    )
+
+    operational_update_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_id: Mapped[str] = mapped_column(
+        ForeignKey("messages.message_id", ondelete="CASCADE"), nullable=False
+    )
+    classification_id: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    subject: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    reported_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    current_status: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    transition_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    authority: Mapped[str] = mapped_column(String(40), nullable=False)
+    state: Mapped[str] = mapped_column(String(20), nullable=False)
+    verification: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    effective_date: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    date_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
