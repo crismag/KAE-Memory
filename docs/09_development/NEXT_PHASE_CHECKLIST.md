@@ -217,6 +217,29 @@ all inherit this rule: requiredness is evaluated against a requested capability,
 never globally. Designing them first would bake in the gate this phase exists to
 prevent.
 
+- [x] **N0-proof** — **Thin vertical proof** —
+  `tests/integration/test_thin_vertical_proof.py`, 2026-08-05. 21 tests, one
+  journey: sparse project → current knowledge → assemble → record → verify
+  reproduction and publication eligibility. **No publication**, deliberately.
+
+  Every subsystem it crosses was already tested and none of them had ever met.
+  1,235 tests proved each piece and nothing proved the seams — and what a suite
+  like that hides is not a broken part but six correct parts that disagree
+  about what they hand each other. It passed first run, which is evidence
+  rather than luck only because it asserts the principle rather than the
+  plumbing.
+
+  Six claims, each a stage: sparse knowledge is valid input; proposed knowledge
+  participates when the policy allows; missing information becomes a recorded
+  assumption rather than a failure; the user may accept the current knowledge
+  boundary; recording needs no publication target; and only reproduction,
+  integrity, and publication are blocked — each for its own reason, without
+  spreading.
+
+  **Extended, never replaced.** N20.2 and N36 add stages to this journey. A
+  second integration fixture would let the two drift and double the cost of
+  every later change to the pipeline.
+
 ### What the inspection found
 
 Three of the fifteen inspection points turned out already satisfied. Those need
