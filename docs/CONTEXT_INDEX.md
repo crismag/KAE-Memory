@@ -33,6 +33,23 @@ Nothing in this repository authorises implementation on its own. If the current
 state page and another document disagree, the current state page is correct and
 the other document needs updating.
 
+For next-phase work, load
+[`docs/00_project/NEXT_PHASE_FULL_CONTEXT.md`](00_project/NEXT_PHASE_FULL_CONTEXT.md)
+after the current state, then load exactly one focused action file:
+
+- [`focus/CONFIGURATION_AND_MESSAGES.md`](00_project/focus/CONFIGURATION_AND_MESSAGES.md)
+- [`focus/FRONTEND_SEPARATION.md`](00_project/focus/FRONTEND_SEPARATION.md)
+- [`focus/STUDIO_INTEGRATION.md`](00_project/focus/STUDIO_INTEGRATION.md)
+- [`focus/ENGINE_AND_PROOF_GAPS.md`](00_project/focus/ENGINE_AND_PROOF_GAPS.md)
+
+The full context is orientation, not a universal implementation prompt. The
+focus file defines the action boundary.
+
+The source audit and known stale documents are recorded in
+[`docs/00_project/CONTEXT_AUDIT_2026-08-05.md`](00_project/CONTEXT_AUDIT_2026-08-05.md).
+In particular, `project-model.yaml` still contains milestone-era status and must
+not override the current state or T-register until its own bounded regeneration.
+
 ## Terminology
 
 Use these terms as written. Do not introduce synonyms where one of these already
@@ -113,10 +130,9 @@ frontend framework or authorise implementation by themselves.
 - `docs/06_architecture/ARCHITECTURE_WORKPLAN.md` defines the remaining
   architecture questions, required outputs, and provisional restrictions.
 - `docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md` records the
-  proposed KAE–AWS–CockroachDB end-to-end architecture for requirements review,
-  ADR preparation, task decomposition, and hackathon planning. It is not an
-  approved implementation specification until the related requirements and
-  decisions are accepted.
+  historical KAE–AWS–CockroachDB hackathon topology. It predates selectable
+  providers (ADR-0022) and the KAE-Studio ownership boundary; use it as design
+  history, not as the current implementation baseline.
 
 ## Development and coding-agent context
 
