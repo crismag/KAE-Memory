@@ -386,8 +386,11 @@ class TestStageSixOnlyIntegrityBlocks:
         with factory() as session:
             session.execute(
                 text(
-                    "UPDATE deliverables SET statement_pins = NULL, render_inputs = NULL, "
-                    "publication_eligible = false WHERE deliverable_id = :id"
+                    # Nulling the inputs is the whole story now: eligibility is
+                    # derived from them, so there is no second field to keep in
+                    # step (revision 0018).
+                    "UPDATE deliverables SET statement_pins = NULL, "
+                    "render_inputs = NULL WHERE deliverable_id = :id"
                 ),
                 {"id": deliverable_id},
             )

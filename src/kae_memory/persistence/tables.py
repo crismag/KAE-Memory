@@ -15,7 +15,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy import text as text_sql
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import UserDefinedType, Uuid
@@ -711,6 +710,9 @@ class DeliverableRow(Base):
         Index("ix_deliverables_project_state", "project_id", "state"),
         Index("ix_deliverables_project_recorded", "project_id", "recorded_at"),
         CheckConstraint("knowledge_revision >= 0", name="ck_deliverables_revision"),
+        # No `publication_eligible` column: eligibility is derived from the
+        # render inputs and the statement pins, and a stored copy drifted from
+        # the derived one within a day of shipping (revision 0018).
     )
 
     deliverable_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
@@ -740,15 +742,6 @@ class DeliverableRow(Base):
     qualification: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     statement_pins: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     render_inputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
-    publication_eligible: Mapped[bool] = mapped_column(
-        # `server_default` as well as `default`: a schema built from this
-        # mapping and one built by migration 0015 must agree about what an
-        # unspecified row means, and "ineligible" is the only safe answer.
-        Boolean,
-        nullable=False,
-        default=False,
-        server_default=text_sql("false"),
-    )
 
 
 class AssumptionRow(Base):
