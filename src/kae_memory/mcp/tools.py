@@ -849,6 +849,11 @@ def _deliverable_payload(deliverable: Any, current_revision: int) -> dict[str, A
         "render_inputs": (
             deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
         ),
+        # What this was produced *for*, alongside what was produced (N38).
+        # Absent on deliverables recorded before qualification existed, and not
+        # invented for them: describing a package nobody described would be a
+        # claim rather than a record.
+        "qualification": deliverable.qualification,
     }
 
 

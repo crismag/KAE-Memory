@@ -735,6 +735,9 @@ class DeliverableRow(Base):
     # N20.1. Nullable because rows recorded before this existed cannot have it
     # and must not be given it: a fabricated pin would make an unprovable claim
     # look proven.
+    # N38. Nullable because a deliverable recorded before qualification existed
+    # has none, and inventing one would describe a package nobody described.
+    qualification: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     statement_pins: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     render_inputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     publication_eligible: Mapped[bool] = mapped_column(

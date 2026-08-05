@@ -964,6 +964,7 @@ class DeliverableResponse(BaseModel):
     ineligibility_reason: str | None = None
     statement_pins: list[dict[str, Any]] = Field(default_factory=list)
     render_inputs: dict[str, Any] | None = None
+    qualification: dict[str, Any] | None = None
     recorded: bool | None = None
 
     @classmethod
@@ -1005,6 +1006,7 @@ class DeliverableResponse(BaseModel):
             render_inputs=(
                 deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
             ),
+            qualification=deliverable.qualification,
             recorded=created,
         )
 

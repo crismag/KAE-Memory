@@ -240,6 +240,14 @@ class Deliverable:
     manifest: dict[str, Any] = field(default_factory=dict)
     statement_pins: tuple[StatementPin, ...] = ()
     render_inputs: RenderInputs | None = None
+    qualification: dict[str, Any] | None = None
+    """What this was produced *for*, and what a person accepted (N38).
+
+    Alongside the identity rather than inside it. Identity says what was
+    produced; this says what it was produced for and what a reader should know
+    before acting on it. Immutability describes the first and claims nothing
+    about completeness.
+    """
 
     def __post_init__(self) -> None:
         if not self.content_hash.strip():

@@ -370,15 +370,33 @@ regression evidence, not redesign.
   it is suitable for prototype implementation and is not evidence of production
   readiness, rather than being withheld.
 
-- [ ] **N38** — **Deliverable maturity and accepted sufficiency.**
-  *Scope:* intended use, generation mode, knowledge boundary, user-accepted
-  sufficiency (purpose, actor, time, what was disclosed), confirmed and
-  unconfirmed counts, material assumptions, open decisions, contradictions,
-  deferred questions, limitations, next actions.
-  *Acceptance:* **maturity describes evidence and intent — never permission.** A
-  provisional package is still immutable, reproducible, and publishable;
-  immutability describes identity, not completeness. Acceptance applies to one
-  generation and never marks questions resolved.
+- [x] **N38** — Deliverable maturity and accepted sufficiency —
+  `domain/maturity.py`, migration `0017`, 2026-08-05.
+
+  **Maturity is not a ladder.** No rank, no numeric level, no comparison, and
+  nothing that decides whether one maturity is "enough" — asserted by tests
+  that scan the module for `ORDER`, `RANK`, `LEVEL`, `sufficient`, `at_least`,
+  and `meets`. Each of those would be a gate with a friendly name, and this was
+  the most gate-shaped idea in the phase.
+
+  Every value says what it *means* in a sentence, because a label nobody can
+  act on gets treated as a rank. `production_review_candidate` says the
+  reviewer decides and that the label does not claim the review passed.
+
+  A mode **suggests** a maturity and requires none: a caller labelling a build
+  package exploratory has described their own output accurately.
+
+  **Accepted sufficiency is a record, not a permission.** It names the purpose,
+  the person, the time, and what was disclosed — and carries
+  `applies_to: this generation only` in the payload rather than leaving a
+  reader to assume it. There is deliberately no field marking a question
+  answered: an acceptance that could resolve questions would let "I'll proceed
+  anyway" quietly become "these are settled".
+
+  A deliverable resting on unconfirmed statements **must** carry the
+  qualification saying so; silence there is the package claiming more than its
+  evidence. Not backfilled onto older records — describing a package nobody
+  described would be a claim rather than a record.
 
 - [ ] **N20.2** — **Pin provisional context in reproduction.** Extends N20.1.
   *Scope:* pin assumption identities and versions, the confirmation state used,

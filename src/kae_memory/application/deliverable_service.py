@@ -40,6 +40,7 @@ from kae_memory.domain.deliverables import (
     identity_hash,
 )
 from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.maturity import DeliverableQualification
 from kae_memory.persistence.tables import DeliverableRow
 from kae_memory.persistence.transactions import run_transaction
 
@@ -61,6 +62,7 @@ class DeliverableService:
         recorded_by: str | None = None,
         module_key: str | None = None,
         structural_fingerprint: str | None = None,
+        qualification: DeliverableQualification | None = None,
     ) -> tuple[Deliverable, bool]:
         """Record one assembled output, returning it and whether it is new.
 
@@ -148,6 +150,7 @@ class DeliverableService:
                     for knowledge_id, version in manifest.statement_pins
                 ],
                 render_inputs=inputs.as_dict(),
+                qualification=qualification.as_dict() if qualification else None,
                 publication_eligible=bool(manifest.statement_pins),
                 recorded_by=recorded_by,
                 recorded_at=datetime.now(UTC),
@@ -285,4 +288,5 @@ def _as_deliverable(row: DeliverableRow) -> Deliverable:
             if pin.get("knowledge_id") and int(pin.get("version", 0)) >= 1
         ),
         render_inputs=RenderInputs.from_dict(dict(row.render_inputs or {})),
+        qualification=dict(row.qualification) if row.qualification else None,
     )
