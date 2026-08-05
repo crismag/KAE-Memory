@@ -85,10 +85,19 @@ Nothing in this layer detects it. Closing it needs identity MCP does not carry.
 
 **Status: closed 2026-08-04 at 675 tests and revision `0009`.**
 
-**Not re-verified since.** The suite is now 792 tests and the schema head is
-`0010`. The additions are MCP-surface tests, which are provider-independent,
-and revision `0006` (message idempotency), whose unique-constraint behaviour
-under concurrency is engine-specific and was exercised on PostgreSQL only.
+**Not re-verified since.** The suite has grown and the schema head is now
+`0011` — see the repository-health table in
+[`CURRENT_PROJECT_STATE.md`](../00_project/CURRENT_PROJECT_STATE.md) for the
+current figures rather than a count copied here.
+
+The gap has widened since this was written. The additions were MCP-surface
+tests, which are provider-independent, plus revision `0006` (message
+idempotency), whose unique-constraint behaviour under concurrency is
+engine-specific and was exercised on PostgreSQL only. Revision `0011` added two
+tables with their own unique constraints and check constraints, and those are
+engine-specific in the same way. **Three unverified constraint behaviours now
+sit behind this deferral rather than one.**
+
 Treat the parity below as the record of a run, not a standing guarantee — a
 CockroachDB pass takes seven and a half hours, so re-running it is a release
 decision rather than a routine one.

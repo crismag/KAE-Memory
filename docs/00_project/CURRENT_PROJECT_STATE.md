@@ -84,9 +84,14 @@ Assessed 2026-08-05 against the full gate, on PostgreSQL.
 | Gate | Result |
 | --- | --- |
 | `ruff check` | ✔ all checks passed |
-| `ruff format --check` | ✔ 256 files formatted |
-| `mypy --strict` | ✔ clean across 133 source files |
-| `pytest` | ✔ 792 passed, 92% coverage, against PostgreSQL 5432 |
+| `ruff format --check` | ✔ 273 files formatted |
+| `mypy --strict` | ✔ clean across 141 source files |
+| `pytest` | ✔ 901 passed, 92% coverage, against PostgreSQL 5432 |
+
+**This table is the single source for gate figures.** Other documents link here
+rather than restating a count: the previous figure of 792 survived two later
+runs in three separate files, because a number copied into prose is a number
+nobody updates.
 
 **PostgreSQL with pgvector is the default provider** (ADR-0022); CockroachDB is
 also supported. `KAE_DATABASE_PROVIDER` is mandatory and has no default,
