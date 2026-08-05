@@ -153,9 +153,9 @@ def test_readiness_names_the_scope_it_computed(context: tools.ToolContext, proje
 def test_list_projects_returns_real_projects(context: tools.ToolContext, project_id: str) -> None:
     payload = tools.kae_list_projects(context)
 
-    assert payload["count"] == 1
-    assert payload["projects"][0]["project_id"] == project_id
-    assert payload["projects"][0]["key"] == "ministry-reporting"
+    assert payload["total"] == 1
+    assert payload["results"][0]["project_id"] == project_id
+    assert payload["results"][0]["key"] == "ministry-reporting"
 
 
 def test_briefing_carries_the_knowledge_revision(
@@ -302,7 +302,9 @@ def test_resources_resolve_to_payloads(context: tools.ToolContext, project_id: s
 
     assert briefing["project"]["project_id"] == project_id
     assert readiness["scope"] == "project"
-    assert "findings" in decisions
+    # Open decisions now paginate: unknowns and findings arrive as one ordered
+    # page, each entry naming its `source`, rather than two parallel arrays.
+    assert decisions["results"] or decisions["total"] == 0
     assert "requirements" in requirements
 
 

@@ -392,7 +392,7 @@ class TestSearchEffect:
             {"project_id": project_id, "query": "SQS", "mode": "lexical"},
         )
 
-        assert result["count"] == 1
+        assert result["matched_chunks"] == 1
         assert CORRECTED in result["results"][0]["text"]
 
     def test_the_replaced_wording_is_no_longer_matched(
@@ -411,4 +411,4 @@ class TestSearchEffect:
             {"project_id": project_id, "query": "SNS", "mode": "lexical"},
         )
 
-        assert result["count"] == 0
+        assert result["matched_chunks"] == 0

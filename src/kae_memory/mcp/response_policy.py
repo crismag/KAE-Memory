@@ -19,7 +19,7 @@ profile, budget, or prose level removes them. An economy response that dropped
 reading it, which is worse than spending them.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any
@@ -140,6 +140,10 @@ SHORT_FORMS: Mapping[str, str] = {
     "module exists in this version.": ("Term match, not module membership."),
     "Nothing matched. This is a result, not a failure: no stored knowledge met "
     "the relevance threshold for this query.": ("No match; nothing met the threshold."),
+    # T4/ADR-0021: `note` is an integrity statement, so it shortens rather than
+    # disappearing at a lower prose level. `why` is explanatory and gates.
+    "Recorded verbatim as evidence. Nothing is confirmed by this call; a "
+    "person confirms what becomes project knowledge.": ("Recorded as evidence; not confirmed."),
     "These are unresolved. Do not choose an answer on the project's behalf; if "
     "one blocks the work, report it and stop.": (
         "Unresolved; do not answer on the project's behalf."
@@ -336,10 +340,27 @@ def _prune(
         if required is not None and not includes(policy.detail, required):
             dropped.append(path)
             continue
-        if isinstance(value, dict) and any(k.startswith(f"{path}.") for k in field_levels):
+        has_nested = any(k.startswith(f"{path}.") for k in field_levels)
+        if isinstance(value, dict) and has_nested:
             nested, nested_dropped = _prune(value, policy, field_levels, prefix=f"{path}.")
             kept[key] = nested
             dropped.extend(nested_dropped)
+            continue
+        if isinstance(value, list) and has_nested:
+            # A field map entry like `areas.confirmed` names a key inside every
+            # element, not a key on the list. Descending only into dicts would
+            # silently keep per-element fields that a detail level excludes,
+            # which is the quiet half of a pruning bug: the response looks
+            # compacted and is not.
+            elements: list[Any] = []
+            for element in value:
+                if not isinstance(element, dict):
+                    elements.append(element)
+                    continue
+                pruned, element_dropped = _prune(element, policy, field_levels, f"{path}.")
+                elements.append(pruned)
+                dropped.extend(element_dropped)
+            kept[key] = elements
             continue
         kept[key] = value
 
@@ -359,6 +380,73 @@ def within_budget(payload: Mapping[str, Any], policy: ResponsePolicy) -> bool:
     import json
 
     return estimate_tokens(json.dumps(payload, ensure_ascii=False)) <= policy.max_output_tokens
+
+
+DEFAULT_PAGE_SIZE = 20
+"""How many results a read returns when the caller does not say.
+
+Large enough to answer most questions in one call, small enough that a project
+with hundreds of statements does not arrive as a single unreadable response.
+"""
+
+MAX_PAGE_SIZE = 100
+"""The ceiling a caller cannot raise. A page is a budget, not a suggestion."""
+
+
+def paginate(
+    items: Sequence[Any],
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """Return one page of ``items`` in the wrapper ADR-0021 fixed.
+
+    ``{total, page, cursor, results}``. The shape was decided in ADR-0021
+    §Coordination so that T4 populates it rather than designing it, and so a
+    caller learns one wrapper instead of one per tool.
+
+    ``total`` is the full count *before* limiting, which is the number a caller
+    needs to decide whether to keep reading. Returning only the page size would
+    make "20 results" and "20 of 400 results" indistinguishable — the reading
+    that leads an agent to act on a fraction of a project believing it saw all
+    of it.
+
+    ``cursor`` is the offset of the next page, or ``None`` when the last page
+    has been reached. Absent means finished, not "unknown".
+    """
+
+    total = len(items)
+    size = DEFAULT_PAGE_SIZE if limit is None else max(1, min(limit, MAX_PAGE_SIZE))
+    offset = _offset(cursor)
+    window = list(items[offset : offset + size])
+    consumed = offset + len(window)
+
+    return {
+        "total": total,
+        "page": offset // size + 1,
+        "cursor": str(consumed) if consumed < total else None,
+        "results": window,
+    }
+
+
+def _offset(cursor: str | None) -> int:
+    """Read a cursor, refusing one that would silently start from the top.
+
+    A malformed cursor treated as zero would re-read the first page while the
+    caller believed it was advancing, so it is an error rather than a default.
+    """
+
+    if cursor is None or not str(cursor).strip():
+        return 0
+    try:
+        offset = int(cursor)
+    except (TypeError, ValueError):
+        raise InvalidPolicyError(
+            f"unusable cursor {cursor!r}: pass the value a previous response "
+            f"returned, or omit it to start from the beginning"
+        ) from None
+    if offset < 0:
+        raise InvalidPolicyError("cursor must not be negative")
+    return offset
 
 
 def _shorten(payload: dict[str, Any], prose: ProseLevel) -> dict[str, Any]:
@@ -401,7 +489,9 @@ def _prose(name: str) -> ProseLevel:
 
 
 __all__ = [
+    "DEFAULT_PAGE_SIZE",
     "INTEGRITY_FIELDS",
+    "MAX_PAGE_SIZE",
     "PROFILES",
     "SERVER_MAXIMUMS",
     "SHORT_FORMS",
@@ -414,6 +504,7 @@ __all__ = [
     "from_arguments",
     "from_environment",
     "includes",
+    "paginate",
     "project",
     "within_budget",
 ]

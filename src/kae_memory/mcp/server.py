@@ -97,7 +97,25 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "kae_list_projects",
         "description": "List the KAE projects this environment can read.",
-        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Page size. Defaults to 20; 100 is the ceiling.",
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": (
+                        "Continue from a previous response's cursor. Absent in a "
+                        "response means the last page was reached."
+                    ),
+                },
+            },
+            "additionalProperties": False,
+        },
     },
     {
         "name": "kae_create_project",
@@ -184,6 +202,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "cannot rank meaning."
                     ),
                 },
+                "cursor": {
+                    "type": "string",
+                    "description": "Continue from a previous response's cursor.",
+                },
                 "diagnostics": {
                     "type": "boolean",
                     "description": (
@@ -198,10 +220,28 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "kae_get_open_decisions",
-        "description": "Unresolved questions and findings that could affect the work.",
+        "description": (
+            "Unresolved questions and findings that could affect the work. "
+            "Paginated; `total` counts everything unresolved, not the page."
+        ),
         "inputSchema": {
             "type": "object",
-            "properties": {"project_id": {"type": "string"}},
+            "properties": {
+                "project_id": {"type": "string"},
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Page size. Defaults to 20; 100 is the ceiling.",
+                },
+                "cursor": {
+                    "type": "string",
+                    "description": (
+                        "Continue from a previous response's cursor. Absent in a "
+                        "response means the last page was reached."
+                    ),
+                },
+            },
             "required": ["project_id"],
             "additionalProperties": False,
         },
@@ -542,6 +582,19 @@ BRIEFING_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
     "readiness.explanation": response_policy.DetailLevel.DIAGNOSTIC,
     "readiness.projection": response_policy.DetailLevel.DIAGNOSTIC,
 }
+
+READINESS_FIELD_LEVELS: dict[str, response_policy.DetailLevel] = {
+    # ADR-0021 rule 15: the per-area confirmed/proposed counts are the
+    # arithmetic behind the percentage, not an answer to "what state is this
+    # in". A caller who wants to audit the number asks for it.
+    "areas.confirmed": response_policy.DetailLevel.DIAGNOSTIC,
+    "areas.proposed": response_policy.DetailLevel.DIAGNOSTIC,
+}
+"""What a readiness response withholds below `diagnostic`.
+
+`state` and `mandatory` stay at every level: they say whether an area is
+holding the project back, which is the question readiness exists to answer.
+"""
 """Which briefing fields a detail level withholds.
 
 Derived from the T1 measurements. `readiness.explanation` was 32% of the whole
@@ -579,6 +632,7 @@ updated".
 
 TOOL_FIELD_LEVELS: dict[str, dict[str, response_policy.DetailLevel]] = {
     "kae_get_project_briefing": BRIEFING_FIELD_LEVELS,
+    "kae_get_readiness": READINESS_FIELD_LEVELS,
     "kae_get_clarifications": CLARIFICATION_FIELD_LEVELS,
     "kae_answer_clarification": ANSWER_FIELD_LEVELS,
 }
@@ -593,7 +647,9 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
     """
 
     handlers = {
-        "kae_list_projects": lambda: tools.kae_list_projects(context),
+        "kae_list_projects": lambda: tools.kae_list_projects(
+            context, arguments.get("limit"), arguments.get("cursor")
+        ),
         "kae_ingest_document": lambda: tools.kae_ingest_document(
             context,
             arguments.get("project_id", ""),
@@ -628,9 +684,13 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("kinds"),
             str(arguments.get("mode", "auto")),
             bool(arguments.get("diagnostics", False)),
+            arguments.get("cursor"),
         ),
         "kae_get_open_decisions": lambda: tools.kae_get_open_decisions(
-            context, arguments.get("project_id", "")
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("limit"),
+            arguments.get("cursor"),
         ),
         "kae_get_readiness": lambda: tools.kae_get_readiness(
             context, arguments.get("project_id", "")
@@ -758,8 +818,8 @@ def build_server(context: tools.ToolContext) -> Any:
     # from the signature, so a ``**kwargs`` handler advertises one required
     # argument called "arguments" and every call fails validation.
 
-    def kae_list_projects() -> dict[str, Any]:
-        return dispatch(context, "kae_list_projects", {})
+    def kae_list_projects(limit: int | None = None, cursor: str | None = None) -> dict[str, Any]:
+        return dispatch(context, "kae_list_projects", {"limit": limit, "cursor": cursor})
 
     def kae_ingest_document(
         project_id: str,
@@ -835,6 +895,7 @@ def build_server(context: tools.ToolContext) -> Any:
         kinds: list[str] | None = None,
         mode: str = "auto",
         diagnostics: bool = False,
+        cursor: str | None = None,
     ) -> dict[str, Any]:
         return dispatch(
             context,
@@ -846,11 +907,18 @@ def build_server(context: tools.ToolContext) -> Any:
                 "kinds": kinds,
                 "mode": mode,
                 "diagnostics": diagnostics,
+                "cursor": cursor,
             },
         )
 
-    def kae_get_open_decisions(project_id: str) -> dict[str, Any]:
-        return dispatch(context, "kae_get_open_decisions", {"project_id": project_id})
+    def kae_get_open_decisions(
+        project_id: str, limit: int | None = None, cursor: str | None = None
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_open_decisions",
+            {"project_id": project_id, "limit": limit, "cursor": cursor},
+        )
 
     def kae_get_readiness(project_id: str) -> dict[str, Any]:
         return dispatch(context, "kae_get_readiness", {"project_id": project_id})

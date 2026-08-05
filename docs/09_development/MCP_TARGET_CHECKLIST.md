@@ -20,13 +20,25 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` complete
 - [x] **T1B** — Define MCP response profiles and consumption controls — [`MCP_RESPONSE_POLICY.md`](../06_architecture/MCP_RESPONSE_POLICY.md), 2026-08-03
 - [x] **T2** — Define compact MCP response conventions — `mcp/response_policy.py`, 2026-08-03
 - [x] **T2B** — Compact response conventions (style) —
-  [`ADR-0021`](../06_architecture/ADR-0021-COMPACT-RESPONSE-CONVENTIONS.md),
+  [`ADR-0021`](../../specifications/ADR/ADR-0021-compact-response-conventions.md),
   2026-08-03. T2 shipped the mechanism; this is the naming, nulls, ordering,
   and references half. Audit: 6 of 8 tools partial, none non-compliant
 - [x] **T3** — Trim `kae_get_project_briefing` — 12,199 → 3,634 chars (71%), 2026-08-03
-- [ ] **T4** — Apply pagination, limits, and detail levels to read tools. Must
-  honour ADR-0021 §Coordination: wrapper shape, the `count` split, per-area
-  counts at `diagnostic`, and the prose treatment of `why` and `note`
+- [x] **T4** — Apply pagination, limits, and detail levels to read tools —
+  2026-08-05. All four §Coordination items honoured: the `{total, page, cursor,
+  results}` wrapper on `kae_list_projects`, `kae_get_open_decisions`, and
+  `kae_search_knowledge`; `count` split into `matched_chunks` /
+  `matched_knowledge_items`; per-area counts moved to `diagnostic` (rule 15);
+  and `note` registered as a short form while `why` gates on prose.
+
+  `total` counts the collection, never the page — an agent that read twenty of
+  forty open decisions and believed it had seen them all would plan around a
+  project it only partly understood. An unreadable cursor is an error rather
+  than a silent restart from page one.
+
+  Found and fixed on the way: `_prune` descended into dicts but not into list
+  elements, so a field map entry naming a key inside every element was silently
+  ignored. The response looked compacted and was not.
 - [ ] **T5** — Verify token reduction without losing essential context
 
 ## Phase B — Embedding replacement
