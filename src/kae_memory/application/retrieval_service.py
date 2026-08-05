@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents.embedding import EmbeddingError, EmbeddingPort
+from kae_memory.agents.provider import ranks_by_meaning
 from kae_memory.domain.chunks import (
     EMBEDDING_VERSION,
     MAX_DISTANCE,
@@ -120,9 +121,14 @@ class RetrievalService:
         embedder: EmbeddingPort,
         policy: RetryPolicy | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        embedder_name: str = "deterministic",
     ) -> None:
         self._session_factory = session_factory
         self._embedder = embedder
+        # Named rather than inferred from the object, so a provider added later
+        # is non-semantic until it is listed as one. Guessing from a class name
+        # would let a new adapter advertise ranking it does not do.
+        self._embedder_name = embedder_name
         self._policy = policy or RetryPolicy()
         self._clock = clock
 
@@ -262,6 +268,37 @@ class RetrievalService:
             )
         )
         return tuple(_to_hit(hit, query) for hit in hits)
+
+    def best_effort(
+        self,
+        project_id: ProjectId,
+        query: str,
+        limit: int = 8,
+        kinds: Sequence[KnowledgeKind] | None = None,
+    ) -> tuple[tuple[SearchHit, ...], str]:
+        """Search the best way this deployment actually can, and say which way.
+
+        Whether a query should be answered by meaning or by words is a property
+        of the configured embedder, not of the transport that asked. It lived in
+        the MCP adapter, and an HTTP route that reached straight for `search`
+        returned nothing where MCP returned results — the same question, two
+        answers, which is the failure ADR-0023 exists to prevent.
+
+        Returning the mode alongside the hits is not optional. A caller that
+        cannot tell a lexical answer from a semantic one reads an empty result
+        as "the project does not know this" when it may mean "the words did not
+        match".
+        """
+
+        if ranks_by_meaning(self._embedder_name):
+            return self.search(project_id, query, limit=limit, kinds=kinds), "semantic"
+        return self.find(project_id, query, limit=limit, kinds=kinds), "lexical"
+
+    @property
+    def ranks_by_meaning(self) -> bool:
+        """Whether this deployment's embedder orders results by meaning."""
+
+        return ranks_by_meaning(self._embedder_name)
 
     def find(
         self,

@@ -15,9 +15,15 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.agents import provider as embedding_provider
+from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.blueprint_service import BlueprintService
+from kae_memory.application.clarification_service import ClarificationService
+from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.readiness_service import ReadinessService
+from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.persistence import providers
 
@@ -112,6 +118,48 @@ def get_review(request: Request) -> ReviewService:
     return ReviewService(factory)
 
 
+def get_retrieval(request: Request) -> RetrievalService:
+    """Return the request's retrieval service.
+
+    The embedder is built once at startup and reused, because building one per
+    request would make every search pay provider construction, and — for a real
+    provider — hide a credential failure inside an unrelated request.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return RetrievalService(
+        factory, request.app.state.embedder, embedder_name=request.app.state.embedder_name
+    )
+
+
+def get_ingestion(request: Request) -> IngestionService:
+    """Return the request's ingestion service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return IngestionService(factory)
+
+
+def get_assembly(request: Request) -> AssemblyService:
+    """Return the request's assembly service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return AssemblyService(factory)
+
+
+def get_clarification(request: Request) -> ClarificationService:
+    """Return the request's clarification service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ClarificationService(factory)
+
+
+def get_classification(request: Request) -> ClassificationService:
+    """Return the request's classification service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ClassificationService(factory)
+
+
 def get_session_factory(request: Request) -> sessionmaker[DbSession]:
     """Return the shared session factory."""
 
@@ -134,8 +182,24 @@ def database_status(session_factory: sessionmaker[DbSession]) -> str:
     return "up"
 
 
+def build_embedder(environ: dict[str, str] | None = None) -> tuple[object, str]:
+    """Return the configured embedder and its name.
+
+    Shared with the MCP server's construction rather than reimplemented, so the
+    two adapters cannot end up ranking by different models — which would make
+    the same query return different results depending on how it was asked.
+    """
+
+    return embedding_provider.build_embedder(environ if environ is not None else os.environ)
+
+
 Memory = Annotated[MemoryService, Depends(get_memory)]
 Readiness = Annotated[ReadinessService, Depends(get_readiness)]
 Review = Annotated[ReviewService, Depends(get_review)]
 Blueprints = Annotated[BlueprintService, Depends(get_blueprint)]
 SessionFactory = Annotated["sessionmaker[DbSession]", Depends(get_session_factory)]
+Retrieval = Annotated[RetrievalService, Depends(get_retrieval)]
+Ingestion = Annotated[IngestionService, Depends(get_ingestion)]
+Assembly = Annotated[AssemblyService, Depends(get_assembly)]
+Clarifications = Annotated[ClarificationService, Depends(get_clarification)]
+Classification = Annotated[ClassificationService, Depends(get_classification)]

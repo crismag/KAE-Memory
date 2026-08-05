@@ -26,6 +26,7 @@ from kae_memory.domain.errors import (
     InvalidIdentifierError,
     InvalidLifecycleTransitionError,
     InvalidRunTransitionError,
+    StaleVersionError,
 )
 
 _LOGGER = logging.getLogger("kae_memory.api")
@@ -65,6 +66,12 @@ def error_response(
 # gets 422. LookupError is what the application layer raises for a missing
 # aggregate, so it is the generic 404 rather than an internal failure.
 _STATUS_BY_TYPE: tuple[tuple[type[Exception], int, str], ...] = (
+    # Ordered most specific first. A stale version is a conflict, not an
+    # invariant violation: the caller's decision was valid when they made it,
+    # and the wording moved underneath them. 422 would tell them to fix their
+    # request; 409 tells them to re-read and decide again, which is what they
+    # actually have to do.
+    (StaleVersionError, 409, "version_conflict"),
     (InvalidLifecycleTransitionError, 409, "invalid_lifecycle_transition"),
     (InvalidRunTransitionError, 409, "invalid_run_transition"),
     (InvalidIdentifierError, 422, "invalid_identifier"),

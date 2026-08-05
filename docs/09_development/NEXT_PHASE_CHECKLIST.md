@@ -42,15 +42,36 @@ settling that.
   `de37cc4` before Phases C, D, E, T24, and T25.
 - [x] **N2** — Adapter ADR —
   [`ADR-0023`](../../specifications/ADR/ADR-0023-http-and-mcp-as-peer-adapters.md),
-  **proposed** 2026-08-05, awaiting acceptance. HTTP is Studio's transport, MCP
+  **accepted** 2026-08-05. HTTP is Studio's transport, MCP
   is the agent's, both adapt the same application services, and four exceptions
   are declared rather than left to be discovered. Records what it does *not*
   decide: the conversation scope question, briefing vs blueprint, and the three
   absent domain concepts a router must not invent.
-- [ ] **N3** — HTTP exposure of Studio-required services, one contract at a time.
-  Bounded responses, pagination where data grows, explicit revision identity,
-  honest queued and partial states. No lifecycle, validation, readiness, or
-  idempotency logic duplicated in a router.
+- [x] **N3** — HTTP exposure of Studio-required services — 2026-08-05. Ten
+  routes across two routers: search, document ingestion, clarification list and
+  answer, context assembly, knowledge reject and correct, operational state,
+  classifications, and settle. 28 routes to 38.
+
+  Contract decisions worth their reasons: ingestion is **202**, because nothing
+  has been read yet and a 201 would claim a readable resource exists; listing
+  clarifications is **POST**, because it materialises the questions it returns
+  and a GET that mutates is one a prefetch or retry performs again; assembly is
+  **GET**, because it is deterministic and creates nothing — and `package_id`
+  is explicitly not deliverable identity, which is a concept this repository
+  does not have and a router must not invent.
+
+  **The parity test found a real defect before merge.** MCP resolves to lexical
+  search when the embedder cannot rank by meaning; the new route reached
+  straight for the vector path and returned nothing where MCP returned results.
+  Whether to answer by meaning or by words is a property of the configured
+  embedder, not of the transport that asked, so it moved into
+  `RetrievalService.best_effort` rather than being copied into a second
+  adapter. `StaleVersionError` also gained a 409 mapping — it had been falling
+  through to a 500.
+
+  Still absent from HTTP by decision: project-scoped conversation reads (N13),
+  the briefing (matrix row 10 — a contract question, not a missing endpoint),
+  and anything requiring durable deliverables, modules, or publication.
 - [x] **N4** — Classification lifecycle closure — 2026-08-05. Three tools:
   `kae_get_operational_state` (filter by state, kind, subject; paged),
   `kae_get_classifications` (filter by tier; paged), and
