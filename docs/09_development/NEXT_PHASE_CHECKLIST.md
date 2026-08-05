@@ -280,16 +280,33 @@ regression evidence, not redesign.
   statement; the second read as a verdict on the project rather than a
   description of the document.
 
-- [ ] **N35** — **Assumption lifecycle and provenance.** A durable entity, not
-  a label.
-  *Scope:* identity, project, the gap it addresses, assumed value, reason,
-  evidence, confidence, consequence if wrong, scope, reversibility, acceptance,
-  whether authority was delegated, revisit trigger. Categories: user-stated,
-  KAE-inferred, KAE-recommended-and-accepted, KAE-temporary, imported,
-  template-inherited, unresolved alternative.
-  *Acceptance:* **a material assumption is never silently promoted to a
-  confirmed requirement** — the rule FR-005 already applies to knowledge.
-  **Blocks N20.2 and N37.**
+- [x] **N35** — Assumption lifecycle and provenance — `domain/assumptions.py`,
+  `application/assumption_service.py`, migration `0016`, 2026-08-05.
+
+  `StatementLabel.ASSUMPTION` was a label on an assembled statement. A label
+  cannot be pinned, disclosed, accepted, revisited, or reversed — it lives as
+  long as the payload that carried it, so a package generated from thin
+  knowledge disclosed its assumptions once and then forgot them.
+
+  **The forbidden promotion is prevented structurally, not procedurally.**
+  `AssumptionService` imports no `MemoryService`, holds no reference to
+  knowledge, and exposes no confirm — asserted against the module namespace.
+  Someone asked to "just promote accepted assumptions" would have to add a
+  dependency first, which is a visible change rather than a quiet one.
+  `accepted` is the furthest an assumption goes, and there is deliberately no
+  state meaning "became knowledge".
+
+  An assumption **must say why it was made**: without a reason a reader cannot
+  judge it, and an unjudgeable assumption is a guess with a record attached. An
+  accepted one **must name who accepted it**, for the same reason `reviewer` is
+  required on confirmation.
+
+  A **material** assumption — architectural, unsafe, or irreversible — cannot be
+  marked never-revisit. That is how a prototype default becomes a production
+  commitment nobody remembers making.
+
+  Retired and rejected are kept apart: retired means the gap was answered,
+  rejected means the guess was wrong, and a reader needs to tell those apart.
 
 - [ ] **N36** — **Question priority and disposition.** Applies to both
   clarifications and setup questions (N25), which keep their separate
