@@ -51,6 +51,13 @@ markers = [
     "postgresql: requires the PostgreSQL provider",
     "cockroachdb: requires the CockroachDB provider",
     "migration: exercises Alembic migrations",
+    # N47. `real_commits` opts out of rollback isolation for the few tests whose
+    # subject is a write being visible across connections — a unique index
+    # firing under concurrency, or a worker reading in its own session. Rollback
+    # cannot serve them, and truncation should not be everyone else's default.
+    "real_commits: needs writes visible across connections, not rolled back",
+    "slow: expensive enough to exclude from the developer loop",
+    "provider: calls or simulates an external provider",
 ]
 
 [tool.ruff]

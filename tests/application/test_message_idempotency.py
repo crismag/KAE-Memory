@@ -108,6 +108,7 @@ def test_same_key_from_a_different_actor_conflicts(factory: sessionmaker[Session
         )
 
 
+@pytest.mark.real_commits
 def test_concurrent_retries_create_exactly_one_record(factory: sessionmaker[Session]) -> None:
     """The constraint, not the lookup, is what makes this true.
 

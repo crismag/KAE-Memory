@@ -79,6 +79,51 @@ make frontend        # the workspace alone
 `make check` uses a **different** database on port 26258, in memory and truncated
 between tests, so running the suite never touches your development data.
 
+## Running tests by changed area
+
+The suite is fast enough to run whole (38s, 77s with coverage), but the loop
+that matters during implementation is smaller. Run the narrowest set that could
+detect what you just changed, expand once it passes, and run the whole gate once
+when the target is complete.
+
+| Changed | Run |
+| --- | --- |
+| A domain rule | `pytest tests/domain -q --no-cov` (~1s) |
+| An application service | `pytest tests/domain tests/application -q --no-cov` (~6s) |
+| An MCP tool | `pytest tests/mcp_adapter -q --no-cov` (~15s) |
+| An HTTP route or schema | `pytest tests/api -q --no-cov` (~10s) |
+| Either adapter's surface | add `tests/api/test_adapter_parity.py` — the registry fails on an unregistered tool or route |
+| Persistence or a mapping | `pytest tests/persistence -q --no-cov` |
+| A migration | `pytest -m migration -q --no-cov` |
+| Anything, before committing | `pytest -q` — the full gate, with coverage |
+
+Add `-p no:randomly` while iterating on one file; leave it off otherwise, since
+order randomisation is what catches tests that depend on each other.
+
+**Expensive suites run on demand, not in the loop.** CockroachDB parity takes
+around seven and a half hours and is a release decision; see
+[`DEFERRED_VERIFICATION.md`](DEFERRED_VERIFICATION.md).
+
+### Why tests are fast now, and the one marker that opts out
+
+Each test runs inside a transaction that is rolled back afterwards. Sessions the
+application opens join it and their commits become savepoints, so commit
+semantics are exactly what the application sees — the write lands, later reads
+find it — while the work is discarded at the end without rewriting twenty tables.
+
+A test whose subject is a write being visible **across connections** — a unique
+index firing under concurrency, a worker reading in its own session — marks
+itself:
+
+```python
+@pytest.mark.real_commits
+def test_concurrent_retries_create_exactly_one_record(...):
+```
+
+That test truncates before and after instead. Reach for the marker when a test
+fails with data it just wrote appearing absent, and not otherwise: it costs
+roughly 270ms, which is what every test used to cost.
+
 ## When it does not start
 
 | Message | Cause |
