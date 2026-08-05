@@ -26,7 +26,10 @@ from kae_memory.application.assembly_service import (
 )
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
-from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.classification_service import (
+    ClassificationService,
+    OperationalRecordNotFoundError,
+)
 from kae_memory.application.ingestion_service import (
     IngestionPolicy,
     IngestionResult,
@@ -53,7 +56,12 @@ from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId,
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind
-from kae_memory.domain.observation import RetentionTier
+from kae_memory.domain.observation import (
+    ACTIVE_STATES,
+    InvalidOperationalTransitionError,
+    OperationalState,
+    RetentionTier,
+)
 from kae_memory.domain.readiness import AreaResult, ReadinessSnapshot
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.mcp import response_policy
@@ -1143,6 +1151,180 @@ def _render_observation(observation: str, source: dict[str, Any] | None) -> str:
             lines.append("")
             lines.append("Source — " + "; ".join(parts))
     return "\n".join(lines)
+
+
+def kae_get_operational_state(
+    context: ToolContext,
+    project_id: str,
+    states: Sequence[str] | None = None,
+    kinds: Sequence[str] | None = None,
+    subject: str | None = None,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """Report where the work stands, as reported rather than as verified (N4).
+
+    Separate from the briefing on purpose. The briefing answers "what state is
+    this project in" and carries operational state as one section of that;
+    this answers "show me the blockers" or "what happened to M8", which is a
+    different question and needs filters and paging the briefing should not
+    grow.
+
+    Everything here is a **report**. `authority` says who claimed it and
+    `state` says whether anyone has accepted the claim; a record that is
+    `proposed` has been read by nobody.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.classification is None:
+        raise CapabilityUnavailableError(
+            "operational state is unavailable: no classifier is configured for "
+            "this server, so no observation has been classified or routed"
+        )
+
+    records = context.classification.operational_state(
+        project.id, states=states, kinds=kinds, subject=subject
+    )
+    page = response_policy.paginate(
+        [
+            {
+                "operational_update_id": record.operational_update_id,
+                "kind": record.kind,
+                "subject": record.subject,
+                "reported_status": record.reported_status,
+                "current_status": record.current_status,
+                "transition_type": record.transition_type,
+                "authority": record.authority,
+                "state": record.state,
+                "verification": record.verification,
+                "effective_date": record.effective_date,
+                "date_role": record.date_role,
+                "settlements": record.detail.get("settlements", []),
+            }
+            for record in records
+        ],
+        limit=limit,
+        cursor=cursor,
+    )
+    return {
+        "project_id": str(project.id),
+        **page,
+        "filters": {
+            "states": list(states) if states else [state.value for state in ACTIVE_STATES],
+            "kinds": list(kinds) if kinds else None,
+            "subject": subject,
+        },
+        "note": (
+            "Reported, not verified. A milestone is never completed because a "
+            "sentence said so; a proposed record is a claim nobody has accepted."
+        ),
+    }
+
+
+def kae_get_classifications(
+    context: ToolContext,
+    project_id: str,
+    tiers: Sequence[str] | None = None,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """List classified spans of this project's observations (N4).
+
+    Reading these was previously possible only through the briefing's tier
+    section, which cannot be filtered or paged. A reviewer working through what
+    a classifier produced needs both.
+
+    Each span carries the range of the stored observation it came from, so a
+    reader can check the classification against the words rather than against
+    the summary of them.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.classification is None:
+        raise CapabilityUnavailableError(
+            "classifications are unavailable: no classifier is configured for this server"
+        )
+
+    resolved = _requested_tiers(tiers) if tiers else None
+    rows = context.classification.classifications(project.id, resolved)
+    page = response_policy.paginate(list(rows), limit=limit, cursor=cursor)
+    return {
+        "project_id": str(project.id),
+        **page,
+        "semantic_classification": context.classification.semantic,
+        "classifier": context.classification.classifier_name,
+        "classifier_version": context.classification.classifier_version,
+        "tiers": [tier.value for tier in resolved] if resolved else "all",
+        "knowledge_changed": False,
+        "note": (
+            "Classification says what a span was, not whether it is true. "
+            "Nothing listed here is confirmed knowledge."
+        ),
+    }
+
+
+def kae_settle_operational_record(
+    context: ToolContext,
+    project_id: str,
+    operational_update_id: str,
+    state: str,
+    actor: str,
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Relay a person's decision about a reported operational record (N4).
+
+    The tool *relays* a decision; it does not make one — the same separation
+    `kae_confirm_knowledge` rests on. An agent that has not been told who is
+    settling cannot supply `actor`, and the audit trail never says a person
+    decided without naming which person.
+
+    Accepting a reported milestone completion still does not verify it. It
+    records that someone took responsibility for the claim, which is a
+    different and weaker thing, and the record keeps saying who reported it.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.classification is None:
+        raise CapabilityUnavailableError(
+            "operational records are unavailable: no classifier is configured for this server"
+        )
+    if not operational_update_id or not operational_update_id.strip():
+        raise InvalidArgumentError("operational_update_id is required")
+    if not actor or not actor.strip():
+        raise InvalidArgumentError(
+            "actor is required: settling an operational record is a decision, and a "
+            "decision nobody is named for cannot be audited"
+        )
+    try:
+        target = OperationalState(str(state).strip().lower())
+    except ValueError:
+        valid = ", ".join(s.value for s in OperationalState)
+        raise InvalidArgumentError(f"unknown state {state!r}; expected one of {valid}") from None
+
+    try:
+        record = context.classification.settle(
+            project.id, operational_update_id.strip(), target, actor.strip(), note
+        )
+    except OperationalRecordNotFoundError as error:
+        raise KnowledgeNotFoundError(str(error)) from error
+    except InvalidOperationalTransitionError as error:
+        raise InvalidStateTransitionError(str(error)) from error
+
+    return {
+        "operational_update_id": record.operational_update_id,
+        "kind": record.kind,
+        "subject": record.subject,
+        "state": record.state,
+        "reported_status": record.reported_status,
+        "authority": record.authority,
+        "verification": record.verification,
+        "settled_by": actor.strip(),
+        "knowledge_changed": False,
+        "note": (
+            "A decision was recorded about a reported claim. This does not verify "
+            "the claim, and it does not change project knowledge."
+        ),
+    }
 
 
 def kae_confirm_knowledge(

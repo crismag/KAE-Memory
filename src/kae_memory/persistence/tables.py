@@ -572,7 +572,12 @@ class ObservationClassificationRow(Base):
     # A classifier upgrade produces a new result set and marks the prior one
     # superseded. Past classifications are never mutated: a reviewer's decision
     # was made against what they saw.
-    superseded_by: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    #
+    # The *version* that retired this row, not a row id (revision 0012). One old
+    # classification is not replaced by one new one — a whole result set is
+    # retired when a classifier version changes, and "which version retired
+    # this" is the question a history view actually asks.
+    superseded_by_version: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

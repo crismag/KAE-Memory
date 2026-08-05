@@ -89,7 +89,7 @@ class ClassificationRepository:
 
         statement = select(ObservationClassificationRow).where(
             ObservationClassificationRow.project_id == str(project_id),
-            ObservationClassificationRow.superseded_by.is_(None),
+            ObservationClassificationRow.superseded_by_version.is_(None),
         )
         if tiers:
             statement = statement.where(
@@ -101,7 +101,11 @@ class ClassificationRepository:
         return tuple(rows)
 
     def supersede_older_versions(
-        self, message_id: MessageId, classifier_name: str, current_version: str, replacement: str
+        self,
+        message_id: MessageId,
+        classifier_name: str,
+        current_version: str,
+        replacement: str,
     ) -> int:
         """Mark earlier versions of one observation's classifications superseded.
 
@@ -116,9 +120,9 @@ class ClassificationRepository:
                 ObservationClassificationRow.message_id == str(message_id),
                 ObservationClassificationRow.classifier_name == classifier_name,
                 ObservationClassificationRow.classifier_version != current_version,
-                ObservationClassificationRow.superseded_by.is_(None),
+                ObservationClassificationRow.superseded_by_version.is_(None),
             )
-            .values(superseded_by=replacement)
+            .values(superseded_by_version=replacement)
         )
         return int(result.rowcount or 0)
 
@@ -176,15 +180,51 @@ class OperationalUpdateRepository:
     ) -> tuple[OperationalUpdateRow, ...]:
         """Return the records a briefing may show as current."""
 
+        return self.filtered(project_id, states=states)
+
+    def filtered(
+        self,
+        project_id: ProjectId,
+        states: Sequence[str] | None = None,
+        kinds: Sequence[str] | None = None,
+        subject: str | None = None,
+    ) -> tuple[OperationalUpdateRow, ...]:
+        """Return a project's operational records, newest first (N4).
+
+        Filtering happens in the query rather than in the caller. A read that
+        loads every record and discards most of them works until a project has
+        a year of them, and the first symptom is a slow briefing rather than an
+        obviously wrong one.
+        """
+
+        statement = select(OperationalUpdateRow).where(
+            OperationalUpdateRow.project_id == str(project_id)
+        )
+        if states:
+            statement = statement.where(OperationalUpdateRow.state.in_(list(states)))
+        if kinds:
+            statement = statement.where(OperationalUpdateRow.kind.in_(list(kinds)))
+        if subject:
+            statement = statement.where(OperationalUpdateRow.subject == subject)
         rows = self._session.scalars(
-            select(OperationalUpdateRow)
-            .where(
-                OperationalUpdateRow.project_id == str(project_id),
-                OperationalUpdateRow.state.in_(list(states)),
-            )
-            .order_by(OperationalUpdateRow.created_at.desc())
+            statement.order_by(OperationalUpdateRow.created_at.desc())
         ).all()
         return tuple(rows)
+
+    def get(self, project_id: ProjectId, operational_update_id: str) -> OperationalUpdateRow | None:
+        """Return one record, scoped to its project.
+
+        Scoped deliberately: an id alone would let a caller who guessed an
+        identifier act on another project's record, and project scope is the
+        boundary every other read in this repository respects.
+        """
+
+        return self._session.scalars(
+            select(OperationalUpdateRow).where(
+                OperationalUpdateRow.project_id == str(project_id),
+                OperationalUpdateRow.operational_update_id == operational_update_id,
+            )
+        ).first()
 
     def find_by_idempotency_key(
         self, project_id: ProjectId, idempotency_key: str

@@ -26,6 +26,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
+from typing import Any
 
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -38,11 +39,13 @@ from kae_memory.domain.identifiers import MessageId, ProjectId
 from kae_memory.domain.observation import (
     ACTIVE_STATES,
     ClassifiedSpan,
+    InvalidOperationalTransitionError,
     ObservationClass,
     OperationalState,
     RetentionTier,
     Route,
     TransitionAuthority,
+    ensure_operational_transition,
     is_verified_result,
 )
 from kae_memory.persistence.classification_repository import (
@@ -166,6 +169,8 @@ class ClassificationService:
                 hint=hint,
             )
 
+        self._supersede_earlier_versions(message_id)
+
         existing = self._existing(message_id)
         if existing:
             return ClassificationOutcome(
@@ -190,6 +195,29 @@ class ClassificationService:
             hint=hint,
             hint_agreed=_hint_agreed(hint, spans),
         )
+
+    def _supersede_earlier_versions(self, message_id: MessageId) -> int:
+        """Retire classifications this observation got from an older version (N4).
+
+        The mechanism existed from T24 and nothing called it, so the guarantee
+        the design records — "a classifier upgrade produces a new result set,
+        marks the prior one superseded, and preserves review history" — was
+        true of the repository and not of the system.
+
+        Rows are marked, never deleted. A reviewer's decision was made against
+        what they saw, and a history view has to be able to show which
+        classifier version produced it.
+        """
+
+        def operation(session: DbSession) -> int:
+            return ClassificationRepository(session).supersede_older_versions(
+                message_id,
+                self._classifier.name,
+                self._classifier.version,
+                replacement=self._classifier.version,
+            )
+
+        return run_transaction(self._session_factory, operation)
 
     def _existing(self, message_id: MessageId) -> bool:
         def operation(session: DbSession) -> bool:
@@ -284,31 +312,86 @@ class ClassificationService:
         return str(row.operational_update_id)
 
     def operational_state(
-        self, project_id: ProjectId, states: Sequence[str] | None = None
+        self,
+        project_id: ProjectId,
+        states: Sequence[str] | None = None,
+        kinds: Sequence[str] | None = None,
+        subject: str | None = None,
     ) -> tuple[OperationalRecord, ...]:
-        """Return what a briefing may show as the current state of the work."""
+        """Return operational records, defaulting to what a briefing may show.
+
+        The default is the active states, because that is what "the current
+        state of the work" means. Asking for a terminal state is allowed and
+        explicit — a caller reviewing what was rejected has to name it.
+        """
 
         wanted = list(states or [state.value for state in ACTIVE_STATES])
 
         def operation(session: DbSession) -> tuple[OperationalRecord, ...]:
-            rows = OperationalUpdateRepository(session).active(project_id, wanted)
-            return tuple(
-                OperationalRecord(
-                    operational_update_id=str(row.operational_update_id),
-                    kind=row.kind,
-                    subject=row.subject,
-                    reported_status=row.reported_status,
-                    current_status=row.current_status,
-                    transition_type=row.transition_type,
-                    authority=row.authority,
-                    state=row.state,
-                    verification=row.verification,
-                    effective_date=row.effective_date,
-                    date_role=row.date_role,
-                    detail=dict(row.detail or {}),
-                )
-                for row in rows
+            rows = OperationalUpdateRepository(session).filtered(
+                project_id, states=wanted, kinds=kinds, subject=subject
             )
+            return tuple(_as_record(row) for row in rows)
+
+        return run_transaction(self._session_factory, operation)
+
+    def settle(
+        self,
+        project_id: ProjectId,
+        operational_update_id: str,
+        target: OperationalState,
+        actor: str,
+        note: str | None = None,
+    ) -> OperationalRecord:
+        """Move one operational record to a permitted state (N4).
+
+        The command path the domain had been modelling with nothing able to
+        reach it. `ACTIVE`, `RESOLVED`, `EXPIRED`, and `REJECTED` were
+        reachable states no adapter could produce, so every record created by
+        classification stayed `proposed` for ever.
+
+        `actor` is required for the same reason `reviewer` is required on
+        knowledge confirmation: accepting a reported milestone transition is a
+        decision, and a decision nobody is named for is not attributable.
+        Nothing here auto-confirms — settling is a person's act relayed through
+        an adapter, not an inference from the text.
+        """
+
+        if not actor or not actor.strip():
+            raise InvalidOperationalTransitionError(
+                "an actor is required: settling an operational record is a decision, "
+                "and a decision nobody is named for cannot be audited"
+            )
+
+        def operation(session: DbSession) -> OperationalRecord:
+            repository = OperationalUpdateRepository(session)
+            row = repository.get(project_id, operational_update_id)
+            if row is None:
+                raise OperationalRecordNotFoundError(
+                    f"no operational record {operational_update_id!r} in this project"
+                )
+
+            current = OperationalState(row.state)
+            ensure_operational_transition(current, target)
+
+            row.state = target.value
+            detail = dict(row.detail or {})
+            # Append rather than overwrite: the settlement history is the
+            # audit trail, and a record that keeps only its latest decision
+            # cannot answer who changed their mind.
+            history = list(detail.get("settlements", []))
+            history.append(
+                {
+                    "from": current.value,
+                    "to": target.value,
+                    "actor": actor.strip(),
+                    "note": note,
+                }
+            )
+            detail["settlements"] = history
+            row.detail = detail
+            session.flush()
+            return _as_record(row)
 
         return run_transaction(self._session_factory, operation)
 
@@ -391,3 +474,26 @@ def _hint_agreed(hint: str | None, spans: Sequence[ClassifiedSpan]) -> bool | No
         return None
     normalised = hint.strip().lower()
     return any(span.classification.value == normalised for span in spans)
+
+
+class OperationalRecordNotFoundError(LookupError):
+    """No operational record with that id exists in this project."""
+
+
+def _as_record(row: Any) -> OperationalRecord:
+    """Map a stored row to the record shape callers read."""
+
+    return OperationalRecord(
+        operational_update_id=str(row.operational_update_id),
+        kind=row.kind,
+        subject=row.subject,
+        reported_status=row.reported_status,
+        current_status=row.current_status,
+        transition_type=row.transition_type,
+        authority=row.authority,
+        state=row.state,
+        verification=row.verification,
+        effective_date=row.effective_date,
+        date_role=row.date_role,
+        detail=dict(row.detail or {}),
+    )
