@@ -18,8 +18,11 @@ format-check:
 typecheck:
 	uv run mypy
 
-# Tests run against CockroachDB, never SQLite (ADR-0011). `test` starts the
-# local node if it is not already running, so a fresh clone needs one command.
+# Tests run against a real engine, never SQLite (ADR-0011).
+# KAE_TEST_DATABASE_PROVIDER selects it; PostgreSQL is the default provider
+# (ADR-0022) and CockroachDB is also supported. This target starts the local
+# CockroachDB node if it is not already running, so a fresh clone needs one
+# command for that path.
 test: test-db-up
 	uv run pytest
 

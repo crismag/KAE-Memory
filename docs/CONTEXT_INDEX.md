@@ -17,12 +17,17 @@ system rather than change it, that folder is the whole of what you need.
 Every human contributor and every coding agent reads this page before any other
 repository context. It records:
 
-- the current milestone and the M0–M11 milestone register;
+- the current position, and the M0–M11 register kept as history;
 - repository health, including which quality gates currently fail;
 - implementation readiness per area — what exists in code and what does not;
 - the current MVP, demo, and architectural direction;
 - the branch strategy;
 - the immediate next task.
+
+**Work is tracked by the T-numbered register** in
+[`09_development/MCP_TARGET_CHECKLIST.md`](09_development/MCP_TARGET_CHECKLIST.md).
+The milestones carried the project to M11 and are no longer the queue; the
+T-register says what happens next.
 
 Nothing in this repository authorises implementation on its own. If the current
 state page and another document disagree, the current state page is correct and

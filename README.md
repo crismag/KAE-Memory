@@ -154,17 +154,20 @@ and is not an approved deployment baseline.
 - `src/kae_memory/domain/readiness.py` and `application/readiness_service.py` —
   the deterministic blueprint-readiness calculator, discovery blockers,
   contradiction resolution, area assignment, and append-only snapshots.
-- `migrations/` — revisions `0001` (knowledge), `0002` (workspace and execution),
-  `0003` (lease ownership), `0004` (chunks and the vector index), and `0005`
-  (readiness, blockers, and area links).
-- `tests/` — 210 tests including the HTTP contract and the cross-run persistence proof, the
-  cross-session agent-collaboration proof, the kill-and-recovery proof, semantic
-  retrieval over a real vector index, and readiness scoring that cannot be
-  inflated by generating unconfirmed text.
+- `migrations/` — ten revisions, `0001` (knowledge) through `0010`. Along the
+  way: workspace and execution, lease ownership, chunks and the vector index,
+  readiness and area links, message idempotency, and the knowledge review log.
+- `tests/` — 792 tests including the HTTP contract, the cross-run persistence
+  proof, the cross-session agent-collaboration proof, the kill-and-recovery
+  proof, semantic retrieval over a real vector index, readiness scoring that
+  cannot be inflated by generating unconfirmed text, and the Demo V1 workflow
+  from document ingestion to an assembled context package.
 
-Semantic retrieval is built but not yet wired into the product path, and its
-ranking quality is unmeasured — the live evaluation needs Bedrock access that the
-current AWS identity lacks. Check
+Two things are genuinely absent. **Modules are not modelled** — there is no
+`module` knowledge kind, no general relationship write path, and no traversal,
+which is why `kae_get_module_context` reports a capability gap instead of
+inventing one. **Nothing renders or publishes an artifact** — assembly
+describes what a package would contain and stops there. Check
 `src/kae_memory/` before assuming any capability exists.
 
 ## Getting started
@@ -187,7 +190,8 @@ make check       # lint, format check, mypy strict, pytest
 ```
 
 `make check` passes: ruff, ruff format, mypy strict, and the full suite against
-the selected provider — 675 tests on PostgreSQL. No test contacts a model provider.
+the selected provider — 792 tests, 92% coverage on PostgreSQL. No test contacts
+a model provider.
 
 `make worker` runs the durable worker as a **separate process** from the API — it
 claims queued runs and executes them, so an enqueued run actually completes. It
