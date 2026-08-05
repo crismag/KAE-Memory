@@ -254,54 +254,110 @@ sound. **What is missing is the interpretation that turns natural product
 language into something the pipeline can carry**, and no amount of retrying
 assembly produces it.
 
-Two walls, and the first is structural rather than a model problem:
+**Revised diagnosis, 2026-08-05.** The first reading — "the classifier cannot
+interpret product language" — was wrong, and inspecting the code before
+implementing is what caught it.
 
-1. **`kae_submit_observation` queues no extraction.** Only
-   `kae_ingest_document` enqueues runs. A conversational idea therefore has no
-   path to candidate knowledge whatever the classifier does.
-2. **The rule-based classifier recognises requirement phrasing, not product
-   intent.** It left the sentence `unclassified` at zero confidence — correct
-   behaviour, and the honest failure T24 designed for.
+**Model-backed extraction already exists, is wired, and is reachable.**
+`BedrockExtractionAdapter` runs a Claude model behind `ExtractionPort`
+(ADR-0006), and the `requirements.v1` prompt already says: *"If the text implies
+something without stating it, record it as an assumption; if it raises a
+question it does not answer, record that as an unknown."* `KnowledgeKind`
+already carries `ASSUMPTION` and `UNKNOWN`, and every candidate must quote its
+source span verbatim.
+
+So KAE can already interpret language into candidates, assumptions, and
+unknowns. **It cannot be reached from a conversational observation.** Extraction
+is enqueued from exactly two places — `ingestion_service` for documents and
+`clarification_service` for answers. `kae_submit_observation` enqueues nothing.
+
+The failure is therefore **one missing edge in the graph**, plus a prompt tuned
+for requirement-bearing text rather than sparse product intent. Neither is a
+missing understanding capability.
 
 **The assistant demonstrated the target behaviour in the same session**, which
 makes this test a specification rather than only a defect report. What it did,
-and what N42-N45 must reproduce:
+and what N42, N44, N45, N46 must reproduce:
 
 - preserved the user's original statement verbatim;
 - interpreted natural product language semantically;
 - separated what was known from what was inferred;
 - created **reversible** assumptions, each with its consequence if wrong;
-- identified the material unknowns — the two that change the design;
+- identified the material unknowns;
 - distinguished important questions from deferrable ones;
 - produced useful preliminary context despite 0% readiness;
 - never presented an assumption as a confirmed fact.
 
-- [ ] **N42** — **Observation to extraction path.** `kae_submit_observation`
-  records evidence and enqueues nothing, so a conversational idea cannot become
-  a candidate however good the classifier is.
-  *Non-goals:* extracting *from* the classifier's output; auto-confirming
-  anything.
-  *Acceptance:* a submitted observation produces proposed candidates through
-  the same review model a document does. **Structural, and independent of
-  N43** — worth doing first because it is cheap and blocks the rest.
+- [ ] **N42** — **Observation to extraction path.** The missing edge, and the
+  single change that would have carried most of this test.
+
+  *Contract:*
+  - the observation stays **stored verbatim as evidence**, unchanged by
+    anything extraction later produces;
+  - submission **may enqueue a discovery extraction run**;
+  - the response **states whether extraction was queued**, and carries the run
+    identifier and status — a caller must be able to tell "queued", "skipped",
+    and "unavailable" apart without inferring from silence;
+  - extraction is **idempotent by observation**: a retried submission reuses
+    the run rather than paying for a second model call or producing a second
+    set of candidates;
+  - everything the model produces is **proposed**. Nothing is confirmed
+    implicitly, and no extraction result moves readiness on its own.
+
+  *When it runs, and what it costs.* **Decided: on submission, one run per
+  observation, opt-out per call.** One model call per observation is the cost,
+  and it is the same shape ingestion already pays per chunk. The alternatives
+  were rejected: running on request makes the useful case the one a caller has
+  to know to ask for, and batching defers the interpretation past the moment a
+  person is looking at the answer. The opt-out exists for high-volume
+  telemetry-style observations where interpretation is waste — it is a
+  parameter, not a default, so the ordinary path stays useful without
+  configuration.
+
+  *Non-goals:* extracting from the classifier's output; auto-confirming;
+  changing what `kae_ingest_document` does.
+  *Acceptance:* the scenario below.
+  **Independent of N43.**
+
+- [ ] **N46** — **Discovery extraction role.** `AgentRole` has REQUIREMENTS,
+  ARCHITECTURE, REVIEW. None of them is "turn an idea into what we now know we
+  are talking about".
+
+  `requirements.v1` extracts from "a stakeholder's own words" and is
+  deliberately disciplined about not inventing — correct for requirement-bearing
+  text, and it will yield little or nothing from one sentence of product intent.
+  That is the prompt working, not failing.
+
+  *Scope:* a `discovery.v1` role and prompt producing goals, actors,
+  assumptions, and unknowns from sparse product language, held to the same rules
+  as its sibling: quote the span verbatim, record inference as an assumption,
+  record an unanswered question as an unknown, never confirm.
+  *Non-goals:* a rule for any particular phrasing. The criterion is **semantic
+  handling of ordinary product conversation**, and a pattern for "I want…" would
+  pass the test while failing the requirement.
+  *Depends on:* N42 for the path to reach it.
 
 - [ ] **N43** — **Model-backed semantic classifier.** Behind the existing
   `ObservationClassifier` protocol, reporting `semantic_classification: true`
   where the deterministic adapter reports false. Resolves
   `OBSERVATION_CLASSIFICATION.md` §15 question 3.
-  *Acceptance:* the manual-test sentence classifies rather than returning
-  `unclassified`; degrades to the rule-based adapter when unavailable, and says
-  which ran.
 
-- [ ] **N44** — **Interpretation service: sparse language to preliminary
-  context.** The capability the manual test proved absent.
-  *Scope:* from a short natural-language statement, produce candidate
-  knowledge, reversible assumptions with consequences, material versus
-  deferrable questions, and a preliminary context package.
+  **Not a prerequisite for sparse conversational interpretation, and not on the
+  critical path.** Classification decides a *retention tier* (T24); extraction
+  produces *candidate knowledge*. They are separate paths over the same text,
+  and the first reading of this failure confused them. With N42 and N46 in
+  place, a sentence left `unclassified` no longer blocks anything.
+
+  *Value when it lands:* better tiering, and operational records from
+  observations that mention status. Neither is what this test failed on.
+
+- [ ] **N44** — **Preliminary context generation.** Composes what the others
+  produce into the package shape the assistant produced by hand.
+  *Scope:* candidate knowledge, reversible assumptions with consequences,
+  material versus deferrable questions, and a preliminary context package that
+  distinguishes known, assumed, and unknown throughout.
   *Non-goals:* confirming anything; replacing the interview.
-  *Acceptance:* the eight demonstrated behaviours above, each testable. The
-  manual-test project produces a useful package from its single sentence.
-  *Depends on:* N42, N43, N35.
+  *Depends on:* N42, N46, N45, N35, N36.
 
 - [ ] **N45** — **Assumption adapters.** N35 shipped the domain, the service,
   and the table; **no adapter exposes any of it**, so assumptions cannot be
@@ -311,6 +367,43 @@ and what N42-N45 must reproduce:
   rather than three accidents.
   *Acceptance:* recording, listing, and accepting an assumption are reachable
   from both adapters, with capability-registry entries.
+
+### The decisive acceptance scenario
+
+One ordinary sentence, submitted as an observation:
+
+> *"I want an inbox where I can dump thoughts and have them turned into useful
+> things."*
+
+After worker processing, proved **entirely through KAE state** — read from the
+database and the adapters, never from the surrounding session:
+
+1. the original observation exists **verbatim**;
+2. model-backed discovery extraction **ran**, identified by its run record;
+3. **useful** candidate knowledge was produced;
+4. every extracted item **traces to the observation** by provenance;
+5. inferred material is explicitly **proposed or assumed**, never confirmed;
+6. relevant unknowns and questions are **represented without their answers
+   being invented**;
+7. readiness **does not rise through confirmation** that nobody performed;
+8. preliminary assembly **can use** the resulting unconfirmed knowledge;
+9. the resulting context **distinguishes known, assumed, and unknown**.
+
+**What the test must not require.** No particular actor, assumption, question,
+or count. A test asserting "produces exactly two questions" would be asserting
+the model's taste rather than the product's behaviour, and would fail on a
+better answer. The requirement is **semantic usefulness plus epistemic
+integrity**.
+
+**What makes it proof rather than theatre.** Provenance and run identity. A
+candidate that traces to a stored message through a recorded extraction run
+cannot have come from the conversation around KAE — the assertion is against
+KAE's own state, and the run record says which adapter produced it.
+
+Running the same scenario against `DeterministicExtractionAdapter` stays useful
+as a model-path check, and is **not** the correctness criterion: "different or
+weaker output" is a comparison whose result depends on both sides, and the
+database provenance already answers the question on its own.
 
 ### What the inspection found
 
