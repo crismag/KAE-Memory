@@ -353,9 +353,7 @@ def render_markdown(blueprint: Blueprint) -> str:
     """
 
     status = (
-        "Implementation blueprint"
-        if blueprint.implementation_eligible
-        else "Draft blueprint — incomplete"
+        "Implementation blueprint" if blueprint.implementation_eligible else "Provisional blueprint"
     )
     lines = [
         f"# {blueprint.project_name}",
@@ -367,8 +365,9 @@ def render_markdown(blueprint: Blueprint) -> str:
 
     if not blueprint.implementation_eligible:
         lines += [
-            "> This blueprint is not authorised for implementation. Everything below",
-            "> traces to confirmed knowledge, but the gaps listed at the end are open.",
+            "> This blueprint is provisional. Everything below traces to confirmed",
+            "> knowledge; the gaps listed at the end are open and are disclosed rather",
+            "> than resolved. Use it, and read the gaps before treating it as settled.",
             "",
         ]
 

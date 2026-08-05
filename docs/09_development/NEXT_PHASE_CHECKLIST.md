@@ -251,18 +251,34 @@ regression evidence, not redesign.
 - **Wording.** `blueprint_service` emits "This blueprint is not authorised for
   implementation" — permission language for an advisory statement.
 
-- [ ] **N34** — **Progressive acquisition vocabulary and capability readiness.**
-  *Scope:* acquisition states; capability-specific readiness replacing any
-  single pass/fail reading — available, available with assumptions, available
-  with warnings, degraded, needs choice, needs authorization, blocked by
-  integrity, blocked by provider, unsupported. Each answers: what can be done
-  now, what improves with more information, which assumptions are required,
-  which operation is unavailable and why, and the next useful action.
-  *Non-goals:* removing the percentage — it stays as an indicator.
-  *Tests:* **regression evidence that a low score blocks nothing**, since it
-  currently does not and nothing stops that changing.
-  *Docs:* audit "blocked", "failed", "not ready", "insufficient", "not
-  authorised" in backend prose; reserve failure words for real failures.
+- [x] **N34** — Progressive acquisition vocabulary and capability readiness —
+  `domain/acquisition.py`, `application/capability_readiness_service.py`,
+  2026-08-05.
+
+  Readiness is now reported **per capability**. Nine states, split into those
+  an operation may proceed from and those it cannot — and **not one of the
+  blocking states is about knowledge quality.** They are choice, authorisation,
+  integrity, provider, and support: facts about an operation, never judgements
+  about how well understood a project is.
+
+  A blocked capability **must** name why and the next useful action, enforced
+  in the constructor. "Unavailable" alone leaves a caller unable to act, and a
+  dead end is not a state. `available_with_assumptions` must name the
+  assumptions, because a caller cannot accept what they were not shown.
+
+  `quality_never_blocks` is checked on every report rather than trusted. The
+  inspection found nothing currently gates generation on the percentage — that
+  is correct and was undefended, and a future check refusing to assemble below
+  a threshold would look reasonable in review and pass every existing test.
+
+  An unknown capability is **permitted**, not refused: a gap in the report must
+  not become a gate.
+
+  Wording fixed: "This blueprint is not authorised for implementation" became
+  "This blueprint is provisional", and "Draft blueprint — incomplete" became
+  "Provisional blueprint". The first was permission language for an advisory
+  statement; the second read as a verdict on the project rather than a
+  description of the document.
 
 - [ ] **N35** — **Assumption lifecycle and provenance.** A durable entity, not
   a label.
