@@ -27,6 +27,8 @@ from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.persistence import providers
 
+from .errors import not_found
+
 APP_VERSION = "0.1.0"
 
 
@@ -158,6 +160,29 @@ def get_classification(request: Request) -> ClassificationService:
 
     factory: sessionmaker[DbSession] = request.app.state.session_factory
     return ClassificationService(factory)
+
+
+def authorise_project(request: Request, project_id: str) -> None:
+    """Refuse a project this principal may not read (N5).
+
+    Deliberately a second check, after authentication and separate from it. A
+    token proves who is calling; whether they may read this project is a
+    different question, and answering both with one lookup is how a convenience
+    quietly becomes a security control.
+
+    A principal with no project scope may read every project — the restriction
+    is opt-in, because a token scoped to nothing would authenticate and do
+    nothing.
+    """
+
+    principal = getattr(request.state, "principal", None)
+    if principal is None:
+        return
+    if not principal.may_read(project_id):
+        # 404, not 403. Telling an unauthorised caller that a project exists is
+        # itself a disclosure, and the two responses are indistinguishable to
+        # someone who is simply wrong about the id.
+        raise not_found("project", project_id)
 
 
 def get_session_factory(request: Request) -> sessionmaker[DbSession]:

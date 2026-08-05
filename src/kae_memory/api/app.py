@@ -5,6 +5,7 @@ same application over different databases, with no import-time connection and no
 global state.
 """
 
+import os
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 
@@ -25,6 +26,7 @@ from .dependencies import (
 from .errors import install_error_handlers
 from .routers import blueprint, classification, pipeline, readiness, workspace
 from .schemas import HealthResponse
+from .security import AuthPolicy, TrustBoundaryMiddleware, resolve_policy
 
 DESCRIPTION = """
 Engineering memory for AI product discovery.
@@ -41,13 +43,18 @@ def create_app(
     session_factory: sessionmaker[DbSession],
     engine: Engine | None = None,
     cors_origins: Sequence[str] = (),
+    auth: AuthPolicy | None = None,
 ) -> FastAPI:
     """Return an application bound to ``session_factory``.
 
     ``cors_origins`` is empty by default. A browser on another origin cannot
-    reach this API unless a deployment names its origin explicitly — and doing so
-    exposes an API with no authentication, which ADR-0017 permits only behind a
-    network allowlist.
+    reach this API unless a deployment names its origin explicitly.
+
+    ``auth`` defaults to whatever the environment configures. A process on
+    loopback with no tokens runs unauthenticated, which is a developer's
+    laptop; the same process bound anywhere else refuses to start (N5,
+    ADR-0024). CORS is not authentication and never was — an allowlisted origin
+    still needs a token.
     """
 
     @asynccontextmanager
@@ -63,6 +70,12 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.session_factory = session_factory
+    policy = (
+        auth
+        if auth is not None
+        else resolve_policy(host=os.environ.get("KAE_API_HOST", "127.0.0.1"))
+    )
+    app.state.auth_policy = policy
     # Built once, at construction. Per-request construction would make every
     # search pay for it and would hide a provider credential failure inside an
     # unrelated request rather than at startup.
@@ -77,6 +90,7 @@ def create_app(
             allow_methods=["GET", "POST"],
             allow_headers=["content-type"],
         )
+    app.add_middleware(TrustBoundaryMiddleware, policy=policy)
     install_error_handlers(app)
     app.include_router(workspace.router)
     app.include_router(readiness.router)

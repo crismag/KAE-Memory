@@ -93,10 +93,30 @@ settling that.
   `superseded_by_version`. No data was lost, because nothing had ever written
   the column, which is the same fact from two directions: a column nothing
   writes is a column whose type nothing checks.
-- [ ] **N5** — HTTP trust boundary: authentication, project authorisation kept
-  separate from it, explicit CORS allowlists, request-size and rate and timeout
-  bounds, safe external errors with correlation ids. Local development may have
-  a documented development mode; **remote deployment fails closed.**
+- [x] **N5** — HTTP trust boundary —
+  [`ADR-0024`](../../specifications/ADR/ADR-0024-http-trust-boundary.md),
+  2026-08-05. Bearer tokens via `KAE_API_TOKENS`, constant-time comparison,
+  project authorisation applied **by path** so a route added later is covered
+  the day it is added. An unauthorised project returns 404, not 403 — telling a
+  caller a project exists is itself a disclosure.
+
+  **A process that would listen off-loopback without a token refuses to
+  start.** Not a warning: a warning about an unauthenticated public API is a
+  line in a log a deployment scrolls past, and the failure it predicts arrives
+  later as a request nobody was watching for. Supersedes ADR-0014's accepted
+  "no authentication" risk, whose mitigation was a network boundary a browser
+  client is designed to cross.
+
+  Also: 2 MB body ceiling refused before the body is read, and `X-Request-ID`
+  on every response including refusals.
+
+  **Not built, and stated rather than implied:** rate limiting (a token bucket
+  in one process is not a rate limit when two run, and it would imply abuse is
+  bounded when it is not — that belongs to whatever terminates TLS), timeouts
+  (the ASGI server's), and token rotation or expiry. Path-based authorisation
+  also cannot cover `/v1/knowledge/{id}`, `/v1/sessions/{id}`, or
+  `/v1/runs/{id}`, which name a resource whose project is only knowable after a
+  lookup; a scoped token still reaches those.
 - [ ] **N6** — Adapter parity tests: a declared capability registry that fails
   when something required on both adapters is exposed by only one. Behaviour
   parity, not envelope parity — transport serialisation may differ.
