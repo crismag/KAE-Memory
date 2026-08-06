@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Run the whole system locally: database, API, worker, and workspace.
+# Run the whole system locally: database, API, and worker.
 #
-# Everything is local and nothing is deployed. The API binds to loopback, the
-# database runs in Docker with a persistent volume, and the workspace is served
-# by Vite with a proxy so the browser sees one origin — the same shape ADR-0017
-# recommends for a real deployment, which means no CORS to configure here.
+# Everything is local and nothing is deployed. The API binds to loopback and the
+# database runs in Docker with a persistent volume.
 #
-# Ctrl-C stops all three processes. The database keeps running, on purpose: it
-# holds your projects, and restarting it every time would make "persistent
-# memory" a claim rather than something you can see.
+# **No UI, and that is the product.** KAE-Memory is a headless knowledge service
+# (ADR-0026); user interaction belongs to KAE-Studio. The workflow this gives
+# you is complete without a browser: the API on loopback, the MCP server for an
+# agent, and `/docs` for reading the surface.
+#
+# Ctrl-C stops both processes. The database keeps running, on purpose: it holds
+# your projects, and restarting it every time would make "persistent memory" a
+# claim rather than something you can see.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -18,7 +21,6 @@ DEV_DB_PORT=${DEV_DB_PORT:-26259}
 DEV_DB_VERSION=${DEV_DB_VERSION:-v26.2.1}
 DEV_DB_VOLUME=${DEV_DB_VOLUME:-kae-crdb-dev-data}
 API_PORT=${KAE_API_PORT:-8000}
-UI_PORT=${UI_PORT:-5173}
 
 export KAE_DATABASE_URL=${KAE_DATABASE_URL:-"cockroachdb+psycopg://root@localhost:${DEV_DB_PORT}/kae_dev?sslmode=disable"}
 export KAE_API_PORT=$API_PORT
@@ -27,17 +29,17 @@ export KAE_LOG_LEVEL=${KAE_LOG_LEVEL:-INFO}
 say() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-for tool in docker uv npm; do
+for tool in docker uv; do
   have "$tool" || { echo "$tool is required but not installed" >&2; exit 1; }
 done
 
 # Fail before starting anything rather than after. A port already in use used to
 # leave the API dead while the script printed a summary claiming it was up.
 port_busy() { (ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null) | grep -q ":$1 "; }
-for port in "$API_PORT" "$UI_PORT"; do
+for port in "$API_PORT"; do
   if port_busy "$port"; then
     echo "port $port is already in use — stop whatever holds it, or set" >&2
-    echo "KAE_API_PORT / UI_PORT to something else" >&2
+    echo "KAE_API_PORT to something else" >&2
     exit 1
   fi
 done
@@ -66,9 +68,6 @@ echo "ready — DB console at http://localhost:8081"
 say "migrations"
 uv run alembic upgrade head 2>&1 | grep -E 'Running upgrade|already at' || echo "schema current"
 
-say "frontend dependencies"
-[[ -d frontend/node_modules ]] || npm --prefix frontend ci
-
 PIDS=()
 cleanup() {
   echo
@@ -76,9 +75,7 @@ cleanup() {
   # SIGTERM, not SIGKILL: the worker's graceful path releases its lease so a run
   # in flight is immediately claimable rather than waiting out its expiry.
   #
-  # Descendants first. `npm run dev` spawns Vite as a child, and signalling only
-  # the npm wrapper leaves Vite holding the port — which then blocks the next
-  # start with a confusing "address already in use".
+  # Descendants too, in case a process spawned one.
   for pid in "${PIDS[@]:-}"; do
     pkill -TERM -P "$pid" 2>/dev/null || true
     kill -TERM "$pid" 2>/dev/null || true
@@ -106,17 +103,16 @@ for attempt in $(seq 1 30); do
   [[ $attempt -eq 30 ]] && { echo "the api did not become healthy" >&2; exit 1; }
 done
 
-say "workspace on http://localhost:$UI_PORT"
-npm --prefix frontend run dev -- --port "$UI_PORT" --strictPort & PIDS+=($!)
-
 cat <<EOF
 
-  Workspace   http://localhost:$UI_PORT
   API docs    http://127.0.0.1:$API_PORT/docs
   Health      http://127.0.0.1:$API_PORT/health
   DB console  http://localhost:8081
 
-  Ctrl-C stops the three processes and leaves the database running.
+  No UI: KAE-Memory is headless (ADR-0026). Point an MCP client at
+  \`kae-memory-mcp\`, or read the surface at /docs.
+
+  Ctrl-C stops both processes and leaves the database running.
 
 EOF
 

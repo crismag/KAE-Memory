@@ -20,9 +20,9 @@ through persistent engineering memory.
 are next.** The persistent-memory and acquisition-to-context paths are proven
 through application, worker, HTTP, and local MCP surfaces.
 
-KAE-Memory is the headless knowledge service. KAE-Studio owns the product UI and
-interview experience. The embedded `frontend/` is legacy product work pending a
-dependency/value survey; new UI work does not belong in this repository.
+KAE-Memory is a **headless knowledge service**. It serves two adapters — HTTP
+and MCP — and no user interface. KAE-Studio owns the product UI and interview
+experience, in its own repository (ADR-0026). UI work does not belong here.
 
 ## Repository status
 
@@ -56,7 +56,7 @@ task are in
 ## Immediate next action
 
 Read the [next-phase context](docs/00_project/NEXT_PHASE_FULL_CONTEXT.md), then
-choose one bounded focus: configuration controls, frontend separation survey,
+choose one bounded focus: configuration controls, Studio integration,
 KAE-Studio integration, or one identified engine/proof gap.
 
 ## Development principle
@@ -128,8 +128,6 @@ and is not an approved deployment baseline.
 - `src/kae_memory/worker/` — the durable worker: fenced claims, renewable leases,
   checkpoints after every step, recovery after worker death, and the daemon loop
   behind `python -m kae_memory.worker`.
-- `frontend/` — the earlier discovery workspace implementation (ADR-0009), now
-  pending a dependency/value survey before removal in favour of KAE-Studio.
 - `src/kae_memory/api/` — the HTTP contract (ADR-0014): projects, sessions,
   messages, knowledge, runs, readiness, review findings, blockers,
   contradictions, blueprint generation and Markdown export, knowledge trace,
@@ -196,7 +194,7 @@ intentionally minimal — directories appear when a real file belongs in them.
 | Responsibility | Location |
 | --- | --- |
 | Python business logic, API, worker | `src/kae_memory/` |
-| Legacy embedded frontend pending assessment | `frontend/` |
+| Recorded HTTP contract, guarded by a test | [`specifications/openapi.json`](specifications/openapi.json) |
 | Safe committed defaults | [`config/`](config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`deploy/server/`](deploy/server/) |

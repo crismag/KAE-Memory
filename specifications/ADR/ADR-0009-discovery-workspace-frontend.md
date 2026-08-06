@@ -1,6 +1,6 @@
 # ADR-0009 — Discovery workspace frontend technology
 
-- **Status:** accepted
+- **Status:** superseded by [ADR-0026](ADR-0026-kae-memory-is-headless.md), 2026-08-05
 - **Date:** 2026-07-27
 - **Closes:** OQ-011
 - **Blocks:** M9 — Workspace and Reporting

@@ -22,11 +22,11 @@ purpose: it holds your projects, and wiping them on every restart would make
 | CockroachDB | `localhost:26259`, console on `8081` | Also supported (ADR-0022). Docker, **persistent volume** — separate from the disposable test database on 26258 |
 | API | `127.0.0.1:8000` | Loopback only. It has no authentication (ADR-0014) |
 | Worker | — | Claims and executes queued runs |
-| Workspace | `localhost:5173` | Vite, proxying `/v1` and `/health` to the API |
 
-The workspace proxies the API, so the browser sees **one origin** — the same shape
-ADR-0017 recommends for a real deployment, which is why there is no CORS to
-configure here.
+**There is no UI, and that is the product.** KAE-Memory is headless (ADR-0026);
+user interaction belongs to KAE-Studio. The complete local workflow is the API
+on loopback, the worker behind it, and either `/docs` or an MCP client to drive
+them — no browser required and none provided.
 
 ## Walking the product
 
@@ -68,12 +68,11 @@ path declining to invent judgement, not a defect (ADR-0015).
 
 ```bash
 make check           # ruff, ruff format, mypy strict, pytest against the selected provider
-make openapi         # regenerate the OpenAPI document and the typed client
+make openapi         # rewrite the recorded OpenAPI document (a test compares it)
 make dev-db-down     # stop the development database, keep the data
 make dev-db-reset    # destroy the development data — not undoable
 make api             # the API alone
 make worker          # the worker alone
-make frontend        # the workspace alone
 ```
 
 `make check` uses a **different** database on port 26258, in memory and truncated
@@ -128,7 +127,7 @@ roughly 270ms, which is what every test used to cost.
 
 | Message | Cause |
 | --- | --- |
-| `port 8000 is already in use` | Something else holds it — often a previous run whose Vite child survived. `pkill -f kae_memory` and `pkill -f vite` |
+| `port 8000 is already in use` | Something else holds it — often a previous run. `pkill -f kae_memory` |
 | `the api exited during startup` | Read the log above it; usually the database is unreachable |
 | `"database": "down"` from `/health` | The container is not running: `docker ps | grep kae-crdb-dev` |
 | `migration_revision` is `null` | Migrations have not run; `make dev` runs them, or `uv run alembic upgrade head` |

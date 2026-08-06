@@ -293,14 +293,59 @@ Focus: [`focus/CONFIGURATION_AND_MESSAGES.md`](../00_project/focus/CONFIGURATION
 
 Focus: [`focus/FRONTEND_SEPARATION.md`](../00_project/focus/FRONTEND_SEPARATION.md)
 
-- [ ] **N9** — Survey what `frontend/` is load-bearing for — backend tests,
-  deployment assets, demonstration paths — and preserve the requirements worth
-  keeping. 24 tracked files; the 160M on disk is untracked `node_modules`.
-- [ ] **N10** — Supersede ADR-0009 before deletion. It is an accepted decision
-  for the embedded UI, and the Studio ownership boundary needs a decision that
-  replaces it rather than a commit that contradicts it.
-- [ ] **N11** — Remove the embedded frontend once N9 has disproved the
-  dependencies.
+- [x] **N9** — Frontend dependency survey —
+  [`FRONTEND_SEPARATION_SURVEY.md`](FRONTEND_SEPARATION_SURVEY.md), 2026-08-05.
+
+  Every dependency traced and disproved: **no backend test, migration,
+  deployment script, or documented workflow required `frontend/`.** The three
+  occurrences of the word in `src/` and `tests/` are prose in docstrings
+  explaining why a capability exists.
+
+  **One thing was load-bearing, and it was not the frontend.** CI regenerated
+  the OpenAPI document and diffed it against the checked-in copy — a guard
+  against a backend contract change nobody carried into the record, living in a
+  frontend directory for historical reasons. Deleting the directory would have
+  removed the only automated notice that the HTTP surface changed shape, during
+  the phase that adds routes to it.
+
+  Moved to `specifications/openapi.json` with
+  `tests/api/test_recorded_contract.py` as the guard — **stricter than what it
+  replaced**: whole-document comparison, in the command a developer already
+  runs, needing no Node toolchain.
+
+  The six panels' *requirements* are mapped to the adapter capabilities that
+  already serve them (N3, N6) and to Studio as their destination. The
+  implementation is not transferred; the focus file rules out copying the old UI
+  wholesale, and Studio has its own service interfaces already.
+
+- [x] **N10** — Supersede ADR-0009 —
+  [`ADR-0026`](../../specifications/ADR/ADR-0026-kae-memory-is-headless.md),
+  **accepted** 2026-08-05.
+
+  Most of ADR-0009 was never about React, and the ADR says which parts survive:
+  the application boundary (now between repositories rather than layers), "the
+  browser does not own the run", and the three-kinds-of-state observation —
+  *a chat-only interface would hide most of what KAE-Memory does, because the
+  memory, the provenance, and the recovery are all invisible in a transcript.*
+
+  It also carries forward ADR-0009's sharpest warning: vocabulary had drifted
+  three times, and hand-written TypeScript interfaces are never reconciled once
+  written. That risk did not disappear with the frontend — it crossed a
+  repository boundary, where it is harder to see. The recorded document and its
+  guard are the mitigation.
+
+- [x] **N11** — Remove the embedded frontend — 2026-08-05. 24 tracked files,
+  two Make targets, the `generate-client` half of `openapi`, and the CI
+  `frontend` job. The local development script runs the database, API and
+  worker and says out loud that the absence of a UI is the product.
+
+  Descriptions corrected in `README.md` and `LOCAL_DEVELOPMENT.md`:
+  KAE-Memory is a headless knowledge service.
+
+  **The loss is real and stated rather than glossed:** the six panels
+  demonstrated what the system does in a way no API response does, and Studio
+  does not exist yet as an integration. What replaces the demonstration is the
+  adapters, which is honest about what this repository contains.
 
 ## Phase K — Studio integration
 

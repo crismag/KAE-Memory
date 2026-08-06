@@ -1,0 +1,5506 @@
+{
+  "components": {
+    "schemas": {
+      "AcceptAssumptionRequest": {
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor"
+        ],
+        "title": "AcceptAssumptionRequest",
+        "type": "object"
+      },
+      "AnswerClarificationRequest": {
+        "description": "What a person said about a question \u2014 which is not always a decision.\n\n`disposition` defaults to `answered`. Anything else records the response and\nleaves the question open, because \"I don't know yet, pick something\nreasonable\" settles nothing and must not be stored as though it did.",
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "answer": {
+            "minLength": 1,
+            "title": "Answer",
+            "type": "string"
+          },
+          "assumption_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assumption Id"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/Disposition",
+            "default": "answered"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "answer"
+        ],
+        "title": "AnswerClarificationRequest",
+        "type": "object"
+      },
+      "AreaResultResponse": {
+        "properties": {
+          "confirmed_count": {
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
+          "contradicted": {
+            "title": "Contradicted",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "mandatory": {
+            "title": "Mandatory",
+            "type": "boolean"
+          },
+          "minimum_confirmed": {
+            "title": "Minimum Confirmed",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "proposed_count": {
+            "title": "Proposed Count",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "weight",
+          "mandatory",
+          "state",
+          "confirmed_count",
+          "proposed_count",
+          "minimum_confirmed",
+          "contradicted"
+        ],
+        "title": "AreaResultResponse",
+        "type": "object"
+      },
+      "AssemblyResponse": {
+        "description": "A bounded context, pinned to the revision it read.\n\n`package_id` is fresh per call and is **not** deliverable identity. A\ndurable deliverable is a concept this repository does not have, and a\nresponse that implied otherwise would invite a client to store an id that\nresolves to nothing.",
+        "properties": {
+          "guidance": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Guidance",
+            "type": "array"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "package": {
+            "additionalProperties": true,
+            "title": "Package",
+            "type": "object"
+          },
+          "sections": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "manifest",
+          "sections",
+          "package",
+          "knowledge_revision",
+          "guidance"
+        ],
+        "title": "AssemblyResponse",
+        "type": "object"
+      },
+      "AssignAreaRequest": {
+        "properties": {
+          "area_key": {
+            "title": "Area Key",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "area_key"
+        ],
+        "title": "AssignAreaRequest",
+        "type": "object"
+      },
+      "AssumedEntryResponse": {
+        "description": "One assumption, with what it would cost to be wrong.",
+        "properties": {
+          "accepted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted By"
+          },
+          "assumed_value": {
+            "title": "Assumed Value",
+            "type": "string"
+          },
+          "assumption_id": {
+            "title": "Assumption Id",
+            "type": "string"
+          },
+          "consequence": {
+            "title": "Consequence",
+            "type": "string"
+          },
+          "disclosure": {
+            "title": "Disclosure",
+            "type": "string"
+          },
+          "material": {
+            "title": "Material",
+            "type": "boolean"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reversible": {
+            "title": "Reversible",
+            "type": "boolean"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assumption_id",
+          "subject",
+          "assumed_value",
+          "reason",
+          "origin",
+          "consequence",
+          "state",
+          "reversible",
+          "material",
+          "accepted_by",
+          "disclosure"
+        ],
+        "title": "AssumedEntryResponse",
+        "type": "object"
+      },
+      "AssumptionListResponse": {
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionResponse"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "material_count": {
+            "title": "Material Count",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assumptions",
+          "total",
+          "omitted",
+          "material_count",
+          "note"
+        ],
+        "title": "AssumptionListResponse",
+        "type": "object"
+      },
+      "AssumptionResponse": {
+        "description": "One interpretation used in place of missing information.\n\n`material` and `consequence` travel together because \"we assumed\nPostgreSQL\" and \"we assumed single-tenant\" are not the same risk, and a\nlist that rendered them alike would bury the second among the first.",
+        "properties": {
+          "accepted_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted By"
+          },
+          "assumed_value": {
+            "title": "Assumed Value",
+            "type": "string"
+          },
+          "assumption_id": {
+            "title": "Assumption Id",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "consequence": {
+            "title": "Consequence",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "knowledge_changed": {
+            "default": false,
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "material": {
+            "title": "Material",
+            "type": "boolean"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "reversible": {
+            "title": "Reversible",
+            "type": "boolean"
+          },
+          "revisit": {
+            "title": "Revisit",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assumption_id",
+          "subject",
+          "assumed_value",
+          "reason",
+          "origin",
+          "consequence",
+          "material",
+          "confidence",
+          "reversible",
+          "revisit",
+          "state",
+          "accepted_by"
+        ],
+        "title": "AssumptionResponse",
+        "type": "object"
+      },
+      "BlockerResponse": {
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "summary",
+          "severity",
+          "status",
+          "area_key",
+          "owner",
+          "resolution_note",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "BlockerResponse",
+        "type": "object"
+      },
+      "BlueprintResponse": {
+        "description": "A blueprint, with its own limits attached rather than implied.",
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "draft_eligible": {
+            "title": "Draft Eligible",
+            "type": "boolean"
+          },
+          "implementation_eligible": {
+            "title": "Implementation Eligible",
+            "type": "boolean"
+          },
+          "missing_mandatory_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Mandatory Areas",
+            "type": "array"
+          },
+          "open_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Open Questions",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "readiness_percentage": {
+            "title": "Readiness Percentage",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionResponse"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "statement_count": {
+            "title": "Statement Count",
+            "type": "integer"
+          },
+          "unassigned_confirmed_count": {
+            "title": "Unassigned Confirmed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "complete",
+          "draft_eligible",
+          "implementation_eligible",
+          "readiness_percentage",
+          "statement_count",
+          "missing_mandatory_areas",
+          "open_questions",
+          "unassigned_confirmed_count",
+          "sections"
+        ],
+        "title": "BlueprintResponse",
+        "type": "object"
+      },
+      "CalculateReadinessRequest": {
+        "properties": {
+          "not_applicable_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Applicable Areas",
+            "type": "array"
+          }
+        },
+        "title": "CalculateReadinessRequest",
+        "type": "object"
+      },
+      "ClarificationListResponse": {
+        "description": "Open questions, and what a limit left out.\n\n`omitted` is distinct from a detail level's truncation: a caller needs to\ntell \"work you have not seen\" from \"detail we compacted away\".",
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ClarificationQuestionResponse"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "questions",
+          "total",
+          "omitted",
+          "note"
+        ],
+        "title": "ClarificationListResponse",
+        "type": "object"
+      },
+      "ClarificationQuestionResponse": {
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "clarification_id": {
+            "title": "Clarification Id",
+            "type": "string"
+          },
+          "finding_kind": {
+            "title": "Finding Kind",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clarification_id",
+          "question",
+          "finding_kind",
+          "severity"
+        ],
+        "title": "ClarificationQuestionResponse",
+        "type": "object"
+      },
+      "ClarificationResponse": {
+        "description": "An answer recorded, and the run scheduled to read it.\n\n`knowledge_changed` is false and stays false until a run reads the answer\nand a person confirms what it proposed. \"Answered\" must never read as \"the\nproject now knows this\".",
+        "properties": {
+          "answer_id": {
+            "title": "Answer Id",
+            "type": "string"
+          },
+          "assumption_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assumption Id"
+          },
+          "disposition": {
+            "title": "Disposition",
+            "type": "string"
+          },
+          "knowledge_changed": {
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "knowledge_state": {
+            "title": "Knowledge State",
+            "type": "string"
+          },
+          "question_id": {
+            "title": "Question Id",
+            "type": "string"
+          },
+          "question_settled": {
+            "title": "Question Settled",
+            "type": "boolean"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "answer_id",
+          "run_id",
+          "knowledge_changed",
+          "knowledge_state",
+          "replayed",
+          "disposition",
+          "question_settled"
+        ],
+        "title": "ClarificationResponse",
+        "type": "object"
+      },
+      "ClassificationListResponse": {
+        "description": "Classified spans.\n\n`semantic_classification` is false for the rule-based classifier. Wording it\ndoes not recognise is invisible to it, and a caller told otherwise would\nread an unclassified span as \"there was nothing there\".",
+        "properties": {
+          "classifications": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Classifications",
+            "type": "array"
+          },
+          "classifier": {
+            "title": "Classifier",
+            "type": "string"
+          },
+          "classifier_version": {
+            "title": "Classifier Version",
+            "type": "string"
+          },
+          "knowledge_changed": {
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "semantic_classification": {
+            "title": "Semantic Classification",
+            "type": "boolean"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "classifications",
+          "total",
+          "omitted",
+          "classifier",
+          "classifier_version",
+          "semantic_classification",
+          "knowledge_changed",
+          "note"
+        ],
+        "title": "ClassificationListResponse",
+        "type": "object"
+      },
+      "ContradictionResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "source_knowledge_item_id": {
+            "title": "Source Knowledge Item Id",
+            "type": "string"
+          },
+          "target_knowledge_item_id": {
+            "title": "Target Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "source_knowledge_item_id",
+          "target_knowledge_item_id"
+        ],
+        "title": "ContradictionResponse",
+        "type": "object"
+      },
+      "CorrectKnowledgeRequest": {
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reviewer": {
+            "minLength": 1,
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "content",
+          "reviewer"
+        ],
+        "title": "CorrectKnowledgeRequest",
+        "type": "object"
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateProjectRequest",
+        "type": "object"
+      },
+      "DeliverableListResponse": {
+        "properties": {
+          "deliverables": {
+            "items": {
+              "$ref": "#/components/schemas/DeliverableResponse"
+            },
+            "title": "Deliverables",
+            "type": "array"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deliverables",
+          "total",
+          "omitted",
+          "knowledge_revision",
+          "note"
+        ],
+        "title": "DeliverableListResponse",
+        "type": "object"
+      },
+      "DeliverableResponse": {
+        "description": "A durable record of an assembled output.\n\n`rendered` and `published` are present and always false. Their absence\nwould let a caller assume either happened; N20 records that an output\nexisted and deliberately performs no storage or publication side effect.",
+        "properties": {
+          "artifacts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "deliverable_id": {
+            "title": "Deliverable Id",
+            "type": "string"
+          },
+          "ineligibility_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ineligibility Reason"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "module": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module"
+          },
+          "provisional_context": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisional Context"
+          },
+          "publication_eligible": {
+            "default": false,
+            "title": "Publication Eligible",
+            "type": "boolean"
+          },
+          "published": {
+            "default": false,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "qualification": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualification"
+          },
+          "recorded": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded"
+          },
+          "recorded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By"
+          },
+          "render_inputs": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Render Inputs"
+          },
+          "rendered": {
+            "default": false,
+            "title": "Rendered",
+            "type": "boolean"
+          },
+          "reproduces_uncertainty": {
+            "default": false,
+            "title": "Reproduces Uncertainty",
+            "type": "boolean"
+          },
+          "rested_on_uncertainty": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rested On Uncertainty"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_knowledge": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Knowledge",
+            "type": "array"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "statement_pins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Statement Pins",
+            "type": "array"
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By"
+          },
+          "uncertainty_gap_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Gap Reason"
+          }
+        },
+        "required": [
+          "deliverable_id",
+          "purpose",
+          "scope",
+          "module",
+          "state",
+          "knowledge_revision",
+          "content_hash",
+          "stale",
+          "artifacts",
+          "source_knowledge",
+          "manifest",
+          "recorded_by",
+          "superseded_by"
+        ],
+        "title": "DeliverableResponse",
+        "type": "object"
+      },
+      "Disposition": {
+        "description": "What happened to a question.",
+        "enum": [
+          "open",
+          "suggested",
+          "answered",
+          "deferred",
+          "unknown_by_user",
+          "delegated",
+          "assumed_for_generation",
+          "no_longer_relevant",
+          "superseded"
+        ],
+        "title": "Disposition",
+        "type": "string"
+      },
+      "EnqueueRunRequest": {
+        "description": "``idempotency_key`` is required, not optional.\n\n``MemoryService`` deduplicates on it, so a client that retries a request it\nnever saw the answer to converges on one run instead of two. Making it\noptional would leave the one durable replay protection this API has to a\ncaller's discretion.",
+        "properties": {
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_context": {
+            "additionalProperties": true,
+            "title": "Input Context",
+            "type": "object"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          }
+        },
+        "required": [
+          "role",
+          "idempotency_key"
+        ],
+        "title": "EnqueueRunRequest",
+        "type": "object"
+      },
+      "FindingResponse": {
+        "description": "One quality finding.\n\nNo identifier, deliberately: findings are derived from state, not stored, so\nthere is nothing stable to address. A finding disappears when the condition\nthat produced it does (ADR-0015).",
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Knowledge Item Ids",
+            "type": "array"
+          },
+          "recommended_action": {
+            "title": "Recommended Action",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "severity",
+          "summary",
+          "recommended_action",
+          "area_key",
+          "knowledge_item_ids"
+        ],
+        "title": "FindingResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "FR-017. Reports without authentication and without leaking credentials.",
+        "properties": {
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "migration_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Revision"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "migration_revision",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "IngestDocumentRequest": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "document": {
+            "minLength": 1,
+            "title": "Document",
+            "type": "string"
+          },
+          "max_chunks": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Chunks"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "text"
+        ],
+        "title": "IngestDocumentRequest",
+        "type": "object"
+      },
+      "IngestionResponse": {
+        "description": "What an ingestion recorded, and what it did not.\n\nThree facts stay separate and only one of them is yes: text recorded,\nextraction queued, knowledge unchanged. A caller reading \"recorded\" as\n\"known\" would plan against statements no run has produced and no person has\nconfirmed.",
+        "properties": {
+          "chunks_recorded": {
+            "title": "Chunks Recorded",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "document": {
+            "title": "Document",
+            "type": "string"
+          },
+          "evidence_recorded": {
+            "title": "Evidence Recorded",
+            "type": "boolean"
+          },
+          "extraction_runs_queued": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Extraction Runs Queued",
+            "type": "array"
+          },
+          "idempotent_replay": {
+            "title": "Idempotent Replay",
+            "type": "boolean"
+          },
+          "knowledge_changed": {
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "truncated_chunks": {
+            "title": "Truncated Chunks",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "workflow_state": {
+            "title": "Workflow State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document",
+          "session_id",
+          "evidence_recorded",
+          "knowledge_changed",
+          "workflow_state",
+          "chunks_recorded",
+          "extraction_runs_queued",
+          "complete",
+          "truncated_chunks",
+          "idempotent_replay"
+        ],
+        "title": "IngestionResponse",
+        "type": "object"
+      },
+      "KnowledgeResponse": {
+        "description": "Carries every version, because history is the product.\n\nA knowledge item that only exposes its current text would make the audit\ntrail invisible to the interface that exists to show it.",
+        "properties": {
+          "current_content": {
+            "title": "Current Content",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "kind",
+          "lifecycle",
+          "current_content",
+          "versions"
+        ],
+        "title": "KnowledgeResponse",
+        "type": "object"
+      },
+      "KnowledgeReviewResponse": {
+        "description": "The outcome of a reviewed lifecycle decision.\n\n`replayed` separates \"your decision was applied\" from \"your decision\nalready held\". Both succeed and both return the same state, but a caller\nretrying after a timeout needs to know which happened before it tells a\nperson they confirmed something.",
+        "properties": {
+          "knowledge_id": {
+            "title": "Knowledge Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "knowledge_id",
+          "lifecycle",
+          "version",
+          "replayed"
+        ],
+        "title": "KnowledgeReviewResponse",
+        "type": "object"
+      },
+      "KnowledgeVersionResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "title": "Recorded At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "content",
+          "source",
+          "recorded_at"
+        ],
+        "title": "KnowledgeVersionResponse",
+        "type": "object"
+      },
+      "MessageResponse": {
+        "properties": {
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "message_type": {
+            "title": "Message Type",
+            "type": "string"
+          },
+          "sequence_number": {
+            "title": "Sequence Number",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "session_id",
+          "sequence_number",
+          "actor_type",
+          "message_type",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageResponse",
+        "type": "object"
+      },
+      "OpenSessionRequest": {
+        "properties": {
+          "session_type": {
+            "title": "Session Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_type"
+        ],
+        "title": "OpenSessionRequest",
+        "type": "object"
+      },
+      "OperationalRecordResponse": {
+        "description": "One operational fact, as reported.\n\n`authority` and `verification` are the fields that keep a sentence from\ncompleting a milestone. A response that dropped them would make \"someone\nsaid the tests passed\" indistinguishable from \"the tests passed\".",
+        "properties": {
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "current_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Status"
+          },
+          "date_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Role"
+          },
+          "effective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Date"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "operational_update_id": {
+            "title": "Operational Update Id",
+            "type": "string"
+          },
+          "reported_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reported Status"
+          },
+          "settlements": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Settlements",
+            "type": "array"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          },
+          "transition_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transition Type"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification"
+          }
+        },
+        "required": [
+          "operational_update_id",
+          "kind",
+          "subject",
+          "reported_status",
+          "current_status",
+          "transition_type",
+          "authority",
+          "state",
+          "verification",
+          "effective_date",
+          "date_role"
+        ],
+        "title": "OperationalRecordResponse",
+        "type": "object"
+      },
+      "OperationalStateResponse": {
+        "properties": {
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalRecordResponse"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "states": {
+            "items": {
+              "type": "string"
+            },
+            "title": "States",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total",
+          "omitted",
+          "states",
+          "note"
+        ],
+        "title": "OperationalStateResponse",
+        "type": "object"
+      },
+      "PreliminaryContextResponse": {
+        "description": "What a project knows, what it is guessing, and what nobody decided.\n\nFour separate collections rather than one annotated list. A reader who\ncannot tell a confirmed requirement from a plausible guess has a document\nthat is worse than nothing \u2014 the same document with the warning removed.",
+        "properties": {
+          "assumed": {
+            "items": {
+              "$ref": "#/components/schemas/AssumedEntryResponse"
+            },
+            "title": "Assumed",
+            "type": "array"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "deferrable_unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownEntryResponse"
+            },
+            "title": "Deferrable Unknowns",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "is_preliminary": {
+            "title": "Is Preliminary",
+            "type": "boolean"
+          },
+          "knowledge_changed": {
+            "default": false,
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "known": {
+            "items": {
+              "$ref": "#/components/schemas/PreliminaryStatementResponse"
+            },
+            "title": "Known",
+            "type": "array"
+          },
+          "material_unknowns": {
+            "items": {
+              "$ref": "#/components/schemas/UnknownEntryResponse"
+            },
+            "title": "Material Unknowns",
+            "type": "array"
+          },
+          "package_id": {
+            "title": "Package Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "proposed": {
+            "items": {
+              "$ref": "#/components/schemas/PreliminaryStatementResponse"
+            },
+            "title": "Proposed",
+            "type": "array"
+          },
+          "readiness_percentage": {
+            "title": "Readiness Percentage",
+            "type": "integer"
+          },
+          "stated_verbatim": {
+            "items": {
+              "$ref": "#/components/schemas/StatedEntryResponse"
+            },
+            "title": "Stated Verbatim",
+            "type": "array"
+          },
+          "statement_pins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Statement Pins",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "project_name",
+          "generated_at",
+          "knowledge_revision",
+          "readiness_percentage",
+          "is_preliminary",
+          "stated_verbatim",
+          "known",
+          "proposed",
+          "assumed",
+          "material_unknowns",
+          "deferrable_unknowns",
+          "package_id",
+          "content_hash",
+          "statement_pins",
+          "warnings"
+        ],
+        "title": "PreliminaryContextResponse",
+        "type": "object"
+      },
+      "PreliminaryStatementResponse": {
+        "description": "One statement in preliminary context, with both of its qualifiers.\n\n`label` says where authority comes from; `inclusion_class` says whether a\nperson has ruled. These were one field once, which made \"KAE inferred this\"\nand \"nobody has confirmed this\" the same word.",
+        "properties": {
+          "area_key": {
+            "title": "Area Key",
+            "type": "string"
+          },
+          "inclusion_class": {
+            "title": "Inclusion Class",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_id": {
+            "title": "Knowledge Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "knowledge_id",
+          "kind",
+          "text",
+          "area_key",
+          "version",
+          "lifecycle",
+          "label",
+          "inclusion_class"
+        ],
+        "title": "PreliminaryStatementResponse",
+        "type": "object"
+      },
+      "ProjectResponse": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "key",
+          "description",
+          "status"
+        ],
+        "title": "ProjectResponse",
+        "type": "object"
+      },
+      "RaiseBlockerRequest": {
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "severity": {
+            "default": "critical",
+            "title": "Severity",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary"
+        ],
+        "title": "RaiseBlockerRequest",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "description": "Everything needed to interrogate the number, never the number alone.\n\n``is_stale`` is computed against the project's current revision at read time,\nwhich is why it is not a stored status.",
+        "properties": {
+          "areas": {
+            "items": {
+              "$ref": "#/components/schemas/AreaResultResponse"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
+          "calculated_at": {
+            "format": "date-time",
+            "title": "Calculated At",
+            "type": "string"
+          },
+          "calculation_version": {
+            "title": "Calculation Version",
+            "type": "integer"
+          },
+          "critical_blocker_count": {
+            "title": "Critical Blocker Count",
+            "type": "integer"
+          },
+          "draft_eligible": {
+            "title": "Draft Eligible",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "implementation_eligible": {
+            "title": "Implementation Eligible",
+            "type": "boolean"
+          },
+          "is_stale": {
+            "title": "Is Stale",
+            "type": "boolean"
+          },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "missing_mandatory_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Mandatory Areas",
+            "type": "array"
+          },
+          "open_blocker_count": {
+            "title": "Open Blocker Count",
+            "type": "integer"
+          },
+          "percentage": {
+            "title": "Percentage",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "template_key": {
+            "title": "Template Key",
+            "type": "string"
+          },
+          "template_version": {
+            "title": "Template Version",
+            "type": "integer"
+          },
+          "unresolved_contradiction_count": {
+            "title": "Unresolved Contradiction Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "percentage",
+          "score",
+          "status",
+          "draft_eligible",
+          "implementation_eligible",
+          "missing_mandatory_areas",
+          "open_blocker_count",
+          "critical_blocker_count",
+          "unresolved_contradiction_count",
+          "knowledge_revision",
+          "template_key",
+          "template_version",
+          "calculation_version",
+          "is_stale",
+          "areas",
+          "calculated_at"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "RecordAssumptionRequest": {
+        "properties": {
+          "assumed_value": {
+            "minLength": 1,
+            "title": "Assumed Value",
+            "type": "string"
+          },
+          "confidence": {
+            "default": 0.5,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "consequence": {
+            "default": "rework",
+            "title": "Consequence",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "reversible": {
+            "default": true,
+            "title": "Reversible",
+            "type": "boolean"
+          },
+          "revisit": {
+            "default": "on_request",
+            "title": "Revisit",
+            "type": "string"
+          },
+          "subject": {
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "assumed_value",
+          "reason"
+        ],
+        "title": "RecordAssumptionRequest",
+        "type": "object"
+      },
+      "RecordContradictionRequest": {
+        "properties": {
+          "source_knowledge_item_id": {
+            "title": "Source Knowledge Item Id",
+            "type": "string"
+          },
+          "target_knowledge_item_id": {
+            "title": "Target Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_knowledge_item_id",
+          "target_knowledge_item_id"
+        ],
+        "title": "RecordContradictionRequest",
+        "type": "object"
+      },
+      "RecordDeliverableRequest": {
+        "properties": {
+          "include_proposed": {
+            "default": false,
+            "title": "Include Proposed",
+            "type": "boolean"
+          },
+          "purpose": {
+            "default": "implementation",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "recorded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recorded By"
+          }
+        },
+        "title": "RecordDeliverableRequest",
+        "type": "object"
+      },
+      "RecordMessageRequest": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_type": {
+            "default": "user",
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "content": {
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "message_type": {
+            "default": "input",
+            "title": "Message Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "RecordMessageRequest",
+        "type": "object"
+      },
+      "RejectKnowledgeRequest": {
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reason_code": {
+            "default": "other",
+            "title": "Reason Code",
+            "type": "string"
+          },
+          "reviewer": {
+            "minLength": 1,
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "reviewer"
+        ],
+        "title": "RejectKnowledgeRequest",
+        "type": "object"
+      },
+      "ResolveRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "title": "ResolveRequest",
+        "type": "object"
+      },
+      "ResolvedResponse": {
+        "description": "Whether the call changed anything.\n\n``False`` means it was already resolved, which is not an error \u2014 a retried\nresolution should be safe.",
+        "properties": {
+          "resolved": {
+            "title": "Resolved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "resolved"
+        ],
+        "title": "ResolvedResponse",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "description": "What a reviewer needs without inspecting the database (FR-015).",
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/FindingResponse"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "counts",
+          "findings"
+        ],
+        "title": "ReviewResponse",
+        "type": "object"
+      },
+      "RunResponse": {
+        "properties": {
+          "attempt_number": {
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "continuation_state": {
+            "additionalProperties": true,
+            "title": "Continuation State",
+            "type": "object"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "output_summary": {
+            "additionalProperties": true,
+            "title": "Output Summary",
+            "type": "object"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "role",
+          "status",
+          "attempt_number",
+          "idempotency_key",
+          "continuation_state",
+          "output_summary",
+          "error_code",
+          "error_message"
+        ],
+        "title": "RunResponse",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "description": "Search results, and an honest account of how they were found.\n\n`semantic_search_available` is false whenever no semantic embedding model\nis configured. A caller who believes a conceptual query was understood\nreads an empty result as \"the project does not know this\"; the truth may be\n\"the words did not match\", and only this field separates them.",
+        "properties": {
+          "indexing": {
+            "additionalProperties": true,
+            "title": "Indexing",
+            "type": "object"
+          },
+          "matched_chunks": {
+            "title": "Matched Chunks",
+            "type": "integer"
+          },
+          "matched_knowledge_items": {
+            "title": "Matched Knowledge Items",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SearchResultResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "search_mode": {
+            "title": "Search Mode",
+            "type": "string"
+          },
+          "semantic_search_available": {
+            "title": "Semantic Search Available",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "matched_chunks",
+          "matched_knowledge_items",
+          "search_mode",
+          "semantic_search_available",
+          "indexing"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "SearchResultResponse": {
+        "description": "One retrieval hit, with what justifies it.\n\n`lifecycle` is present on every hit because searchable and authoritative\nare different questions. A caller that treats a proposed statement as\nestablished fact is the failure this field exists to prevent, and dropping\nit to shorten the response would remove the only thing preventing it.",
+        "properties": {
+          "authoritative": {
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "distance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_id": {
+            "title": "Knowledge Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "matched_terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Matched Terms",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_id",
+          "kind",
+          "text",
+          "label",
+          "lifecycle",
+          "authoritative",
+          "why"
+        ],
+        "title": "SearchResultResponse",
+        "type": "object"
+      },
+      "SectionResponse": {
+        "properties": {
+          "area_key": {
+            "title": "Area Key",
+            "type": "string"
+          },
+          "area_name": {
+            "title": "Area Name",
+            "type": "string"
+          },
+          "statements": {
+            "items": {
+              "$ref": "#/components/schemas/StatementResponse"
+            },
+            "title": "Statements",
+            "type": "array"
+          }
+        },
+        "required": [
+          "area_key",
+          "area_name",
+          "statements"
+        ],
+        "title": "SectionResponse",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "type",
+          "status",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "SettleOperationalRequest": {
+        "properties": {
+          "actor": {
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "actor"
+        ],
+        "title": "SettleOperationalRequest",
+        "type": "object"
+      },
+      "StatedEntryResponse": {
+        "description": "One thing that was said, with who said it and how it reached KAE.",
+        "properties": {
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "message_type": {
+            "title": "Message Type",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "text",
+          "actor_type",
+          "message_type"
+        ],
+        "title": "StatedEntryResponse",
+        "type": "object"
+      },
+      "StatementResponse": {
+        "description": "One blueprint statement.\n\nCarries its knowledge item, so tracing it is one hop rather than a parallel\ntrace API over derived identifiers (ADR-0016). No statement lacks a label or\na trace target \u2014 FR-008's acceptance condition, and it holds structurally.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "knowledge_version": {
+            "title": "Knowledge Version",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "produced_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By Run Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "label",
+          "kind",
+          "knowledge_item_id",
+          "knowledge_version",
+          "source_message_id",
+          "produced_by_run_id"
+        ],
+        "title": "StatementResponse",
+        "type": "object"
+      },
+      "SupersedeDeliverableRequest": {
+        "properties": {
+          "replacement_id": {
+            "minLength": 1,
+            "title": "Replacement Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "replacement_id"
+        ],
+        "title": "SupersedeDeliverableRequest",
+        "type": "object"
+      },
+      "TraceResponse": {
+        "description": "A knowledge item's chain of custody: project, session, message, run, versions.",
+        "properties": {
+          "current_content": {
+            "title": "Current Content",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "produced_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By Run Id"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "session_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Session Ids",
+            "type": "array"
+          },
+          "source_message_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Message Ids",
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TraceStepResponse"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "used_by_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By Run Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "project_id",
+          "kind",
+          "lifecycle",
+          "current_content",
+          "produced_by_run_id",
+          "used_by_run_ids",
+          "source_message_ids",
+          "session_ids",
+          "steps"
+        ],
+        "title": "TraceResponse",
+        "type": "object"
+      },
+      "TraceStepResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relation",
+          "reference",
+          "detail"
+        ],
+        "title": "TraceStepResponse",
+        "type": "object"
+      },
+      "UnknownEntryResponse": {
+        "description": "One thing nobody has decided.",
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "clarification_id": {
+            "title": "Clarification Id",
+            "type": "string"
+          },
+          "disposition": {
+            "title": "Disposition",
+            "type": "string"
+          },
+          "finding_kind": {
+            "title": "Finding Kind",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clarification_id",
+          "question",
+          "area_key",
+          "severity",
+          "finding_kind",
+          "disposition"
+        ],
+        "title": "UnknownEntryResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WithdrawDeliverableRequest": {
+        "properties": {
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawDeliverableRequest",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "\nEngineering memory for AI product discovery.\n\n**This API has no authentication.** The MVP defers authentication, teams, and\nroles, so it is safe only behind a network boundary (ADR-0014).\n\nLong operations never hold a request open: enqueueing agent work returns `202`\nwith a durable run identifier, and the client polls the run.\n",
+    "title": "KAE-Memory",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "description": "FR-017. Unversioned on purpose: an operational probe should not move\nwhen the business contract does.\n\nReports ``degraded`` rather than ``ok`` when the database is unreachable,\nand never returns a connection string \u2014 the URL contains the password.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/knowledge/{item_id}/confirm": {
+      "post": {
+        "description": "Confirm a candidate.\n\nConfirmation is a human act. No agent performs it, which is why this is an\nendpoint and not a step inside a run.",
+        "operationId": "confirm_knowledge_v1_knowledge__item_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Knowledge",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/knowledge/{item_id}/trace": {
+      "get": {
+        "description": "Return a knowledge item's chain of custody.\n\nProject, the sessions and messages it came from, the run that produced it,\nthe runs that consumed it, and every version with its provenance \u2014 the answer\nto \"why does the blueprint say this?\"",
+        "operationId": "trace_knowledge_v1_knowledge__item_id__trace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Trace Knowledge",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "description": "List every project, newest first.",
+        "operationId": "list_projects_v1_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectResponse"
+                  },
+                  "title": "Response List Projects V1 Projects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Create a durable project, or return the one that already holds this key.\n\nIdempotent, matching `kae_create_project`. The two surfaces previously\ndisagreed: this endpoint created a second project keyed `name-2` while the\nMCP tool resolved to the existing one. The same request should not mean two\ndifferent things depending on which door it arrived through.\n\n``201`` when a project was created, ``200`` when an existing one was\nreturned, so a caller can tell without comparing identifiers.",
+        "operationId": "create_project_v1_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}": {
+      "get": {
+        "description": "Return one project.",
+        "operationId": "get_project_v1_projects__project_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/assumptions": {
+      "get": {
+        "description": "What this project is proceeding on without knowing.",
+        "operationId": "list_assumptions_v1_projects__project_id__assumptions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Active Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssumptionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Assumptions",
+        "tags": [
+          "pipeline"
+        ]
+      },
+      "post": {
+        "description": "Record what KAE proceeded on in place of information nobody supplied.\n\nProposed, whoever asked. Acceptance is a separate act by a named person,\nbecause a caller that could record one already accepted would be recording\na decision nobody made.",
+        "operationId": "record_assumption_v1_projects__project_id__assumptions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordAssumptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssumptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Assumption",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/assumptions/{assumption_id}/accept": {
+      "post": {
+        "description": "Relay a person taking responsibility for proceeding on an assumption.\n\nAccepting is not confirming. It records willingness to build on a guess,\nwhich is a weaker and more honest claim than believing it true.",
+        "operationId": "accept_assumption_v1_projects__project_id__assumptions__assumption_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "assumption_id",
+            "required": true,
+            "schema": {
+              "title": "Assumption Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptAssumptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssumptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Accept Assumption",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blockers": {
+      "get": {
+        "description": "List a project's blockers.",
+        "operationId": "list_blockers_v1_projects__project_id__blockers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "blocker_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Blocker Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BlockerResponse"
+                  },
+                  "title": "Response List Blockers V1 Projects  Project Id  Blockers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Blockers",
+        "tags": [
+          "readiness"
+        ]
+      },
+      "post": {
+        "description": "Record something that must be closed before a blueprint is credible.",
+        "operationId": "raise_blocker_v1_projects__project_id__blockers_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaiseBlockerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Raise Blocker",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blockers/{blocker_id}/resolve": {
+      "post": {
+        "description": "Close a blocker.",
+        "operationId": "resolve_blocker_v1_projects__project_id__blockers__blocker_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "blocker_id",
+            "required": true,
+            "schema": {
+              "title": "Blocker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Blocker",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blueprint": {
+      "get": {
+        "description": "Render confirmed knowledge as a blueprint.\n\nReturned even below the draft threshold, marked incomplete. Refusing would\ntell a user nothing about *what is missing*, and for an early project the\nmissing-area list is the most useful thing the blueprint can say.\n\nEvery statement is a confirmed knowledge item's own text. No model writes\nblueprint prose (ADR-0016), because generated connective text would be\nunattributable \u2014 the failure FR-008's labelling exists to prevent.",
+        "operationId": "get_blueprint_v1_projects__project_id__blueprint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueprintResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Blueprint",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/blueprint.md": {
+      "get": {
+        "description": "Export the same blueprint as Markdown (FR-008).\n\nA rendering of the same structure the JSON exposes, so the two cannot\ndisagree. Every statement keeps its label and knowledge identifier, so an\nexported document is as traceable as the API response.",
+        "operationId": "export_blueprint_v1_projects__project_id__blueprint_md_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/markdown": {},
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Blueprint",
+        "tags": [
+          "blueprint"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/clarifications": {
+      "post": {
+        "description": "Return the questions this project's findings justify asking.\n\n**POST, not GET.** A clarification derived from a finding has no identity\nuntil it is recorded, and answering one needs an identity, so this call\nmaterialises the questions it returns. That is a mutation, and a GET that\nmutates is a GET that a proxy, a prefetch, or a retry will perform again\nwithout anyone intending it.\n\nMaterialisation is idempotent by question: asking twice does not ask a\nperson twice.",
+        "operationId": "open_clarifications_v1_projects__project_id__clarifications_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClarificationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Clarifications",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/clarifications/{question_id}/answer": {
+      "post": {
+        "description": "Record an answer and queue the extraction it justifies.\n\nAn answer is evidence, not knowledge. The response says so: `knowledge_changed`\nstays false until a run reads the answer and a person confirms what it\nproposed. A caller reading \"answered\" as \"the project now knows this\" is the\none thing this loop must not imply.\n\nNor is every answer a decision. A disposition that does not settle the\nquestion records what was said and leaves it open, and the response reports\nthat in `question_settled` rather than making the caller infer it.",
+        "operationId": "answer_clarification_v1_projects__project_id__clarifications__question_id__answer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerClarificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClarificationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer Clarification",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/classifications": {
+      "get": {
+        "description": "Classified spans, each carrying the range of stored text it came from.\n\nA reader can check a classification against the words rather than against a\nsummary of them, which is the whole reason spans are stored as real offsets.",
+        "operationId": "classifications_v1_projects__project_id__classifications_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tiers",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tiers"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClassificationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classifications",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/context": {
+      "get": {
+        "description": "Assemble a bounded context, pinned to the knowledge revision it read.\n\nA GET because it is deterministic and creates nothing: the same project at\nthe same revision produces the same content hash. `package_id` is fresh per\ncall and is **not** deliverable identity \u2014 a durable deliverable is a\nconcept this repository does not have, and a route must not invent one.\n\nProposed statements are excluded unless asked for, and arrive labelled when\nthey are. An implementer who cannot tell a candidate from a confirmed\nstatement will build whichever they read first.",
+        "operationId": "assemble_context_v1_projects__project_id__context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "default": "implementation",
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_proposed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Proposed",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssemblyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assemble Context",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/contradictions": {
+      "post": {
+        "description": "Record that two knowledge items contradict each other.\n\nAn unresolved contradiction touching a mandatory area blocks readiness, which\nis what makes this more than an annotation.",
+        "operationId": "record_contradiction_v1_projects__project_id__contradictions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordContradictionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContradictionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Contradiction",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/contradictions/{relationship_id}/resolve": {
+      "post": {
+        "description": "Resolve a contradiction.\n\n``resolved: false`` means it was already settled. That is not an error \u2014 a\nretried resolution has to be safe \u2014 and the edge is never deleted, because a\ncontradiction that was raised and closed is part of the audit trail.",
+        "operationId": "resolve_contradiction_v1_projects__project_id__contradictions__relationship_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "relationship_id",
+            "required": true,
+            "schema": {
+              "title": "Relationship Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Contradiction",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/deliverables": {
+      "get": {
+        "description": "Recorded deliverables, newest first.\n\nThe port Studio's `listDeliverables` was blocked on. It could not be\nwritten before because assembly UUIDs are not identity, and a route that\ninvented one would have handed a client an id resolving to nothing.",
+        "operationId": "list_deliverables_v1_projects__project_id__deliverables_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "states",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "States"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverableListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Deliverables",
+        "tags": [
+          "pipeline"
+        ]
+      },
+      "post": {
+        "description": "Record what an assembly produced, as a durable deliverable (N20).\n\n**201, unlike assembly's GET.** Something durable now exists that a caller\ncan resolve by id later \u2014 which is exactly the difference between a\ndeliverable and an assembly, whose `package_id` is fresh per call because a\ncomputation should not hand out an identity that outlives it.\n\nIdempotent by content: recording the same output twice returns the same\ndeliverable, and `recorded` says which happened.\n\nNothing is rendered, stored, or published here. That is N21's concern and\nbelongs to whoever owns the destination.",
+        "operationId": "record_deliverable_v1_projects__project_id__deliverables_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordDeliverableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverableResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Deliverable",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/deliverables/{deliverable_id}": {
+      "get": {
+        "description": "One deliverable, scoped to its project.",
+        "operationId": "read_deliverable_v1_projects__project_id__deliverables__deliverable_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deliverable_id",
+            "required": true,
+            "schema": {
+              "title": "Deliverable Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverableResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Deliverable",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/deliverables/{deliverable_id}/supersede": {
+      "post": {
+        "description": "Mark a deliverable replaced by a later one.\n\nThe record survives. What was shipped stays readable, because the question\na deliverable answers is historical and a deleted answer answers nothing.",
+        "operationId": "supersede_deliverable_v1_projects__project_id__deliverables__deliverable_id__supersede_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deliverable_id",
+            "required": true,
+            "schema": {
+              "title": "Deliverable Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupersedeDeliverableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverableResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Supersede Deliverable",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw": {
+      "post": {
+        "description": "Mark a deliverable as one the project no longer stands behind.\n\nDistinct from superseded, which names a replacement. Withdrawn says there\nis none, and collapsing the two would leave a reader unable to tell \"there\nis a newer one\" from \"do not use this\".",
+        "operationId": "withdraw_deliverable_v1_projects__project_id__deliverables__deliverable_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deliverable_id",
+            "required": true,
+            "schema": {
+              "title": "Deliverable Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawDeliverableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliverableResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Withdraw Deliverable",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/documents": {
+      "post": {
+        "description": "Record a document as evidence and queue the extraction it needs.\n\n**202, not 201.** Nothing has been read yet. The text is durable and runs\nare queued; a worker turns them into candidates a person then reviews. A\n201 would say a resource was created that a caller can now read, and what\nexists at this point is a promise to read one.",
+        "operationId": "ingest_document_v1_projects__project_id__documents_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ingest Document",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge": {
+      "get": {
+        "description": "List a project's knowledge.\n\nUnfiltered by default. The workspace needs to show proposed candidates beside\nconfirmed knowledge, because the difference between them is the thing a user\nacts on.",
+        "operationId": "list_knowledge_v1_projects__project_id__knowledge_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lifecycle",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeResponse"
+                  },
+                  "title": "Response List Knowledge V1 Projects  Project Id  Knowledge Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Knowledge",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge/search": {
+      "get": {
+        "description": "Search a project's knowledge without loading the whole project.\n\nThe response names the mode that actually ran. When no semantic embedding\nmodel is configured the search is lexical, and saying so is not a detail:\na caller who believes a conceptual query was understood will read an empty\nresult as \"the project does not know this\" rather than \"the words did not\nmatch\".",
+        "operationId": "search_knowledge_v1_projects__project_id__knowledge_search_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Query",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kinds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kinds"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Knowledge",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge/{item_id}/correct": {
+      "post": {
+        "description": "Record corrected wording as a new version.\n\nThe prior version survives. A correction that overwrote what a reviewer read\nwould leave the audit trail describing a decision made about text that no\nlonger exists.",
+        "operationId": "correct_knowledge_v1_projects__project_id__knowledge__item_id__correct_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectKnowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Correct Knowledge",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge/{item_id}/reject": {
+      "post": {
+        "description": "Record a person's decision to refuse a candidate.\n\nHTTP had `confirm` and neither `reject` nor `correct`, which made review\none-sided: a reviewer could accept a proposal through this adapter and had\nto leave the adapter to refuse one.\n\n`expected_version` is required, not optional. A decision must not be applied\nto wording that changed after the reviewer read it, and the version is what\nties the two together.",
+        "operationId": "reject_knowledge_v1_projects__project_id__knowledge__item_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectKnowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Knowledge",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/operational-state": {
+      "get": {
+        "description": "Where the work stands, as reported.\n\nDefaults to the states a briefing may show as current. Asking for a\nterminal state is allowed and explicit: reviewing what was rejected is a\nreal question, and it should not be answered by accident.",
+        "operationId": "operational_state_v1_projects__project_id__operational_state_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "states",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "States"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kinds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kinds"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Operational State",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/operational-state/{record_id}/settle": {
+      "post": {
+        "description": "Relay a person's decision about a reported operational record.\n\nSettling is not verifying. It records that someone took responsibility for\na claim; the record keeps saying who reported it and whether anything\nverified it. `actor` is required for the same reason `reviewer` is on\nconfirmation \u2014 a decision nobody is named for cannot be audited.",
+        "operationId": "settle_v1_projects__project_id__operational_state__record_id__settle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettleOperationalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalRecordResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Settle",
+        "tags": [
+          "classification"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/preliminary-context": {
+      "get": {
+        "description": "Compose the most useful view this project's current state supports.\n\nA GET because it creates nothing and decides nothing. That is the property\nthat makes it safe at any readiness: it cannot confirm, cannot accept, and\ncannot promote, so there is no state in which producing it is a risk worth\nwithholding output over.\n\nDistinct from `/context`, which shows what a person confirmed \u2014 the right\ndefault for building against, and the wrong one for a project someone\ndescribed in a sentence yesterday. Here, known, proposed, assumed and\nunknown are four separate collections and never merge.",
+        "operationId": "preliminary_context_v1_projects__project_id__preliminary_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "purpose",
+            "required": false,
+            "schema": {
+              "default": "discovery",
+              "title": "Purpose",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreliminaryContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preliminary Context",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness": {
+      "get": {
+        "description": "Return the latest snapshot, calculating one if none exists.\n\nCalculating on first read rather than returning 404 means the workspace shows\na real zero for an untouched project instead of an error it would have to\nexplain.",
+        "operationId": "get_readiness_v1_projects__project_id__readiness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Readiness",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/areas": {
+      "post": {
+        "description": "Link a knowledge item to a discovery area.\n\nAn authoritative change: it alters which areas an item can cover, so the\nproject's knowledge revision advances and earlier snapshots go stale.",
+        "operationId": "assign_area_v1_projects__project_id__readiness_areas_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignAreaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Assign Area",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/calculate": {
+      "post": {
+        "description": "Recalculate and append a snapshot.\n\nAppends rather than replaces. Readiness history is how the product shows\nreadiness *moving* as knowledge is confirmed.",
+        "operationId": "calculate_readiness_v1_projects__project_id__readiness_calculate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateReadinessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Calculate Readiness",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/readiness/history": {
+      "get": {
+        "description": "Return snapshots oldest first.",
+        "operationId": "readiness_history_v1_projects__project_id__readiness_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReadinessResponse"
+                  },
+                  "title": "Response Readiness History V1 Projects  Project Id  Readiness History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Readiness History",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/review": {
+      "get": {
+        "description": "Return quality findings, most severe first (FR-015).\n\nDerived from operational data on every request rather than stored, so the\nfindings can never disagree with the state they describe. Acting on one means\nchanging that state \u2014 confirm the knowledge, assign the area, resolve the\ncontradiction \u2014 and the finding disappears.",
+        "operationId": "review_findings_v1_projects__project_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Review Findings",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/runs": {
+      "get": {
+        "description": "List a project's execution history, most recent first.",
+        "operationId": "list_runs_v1_projects__project_id__runs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunResponse"
+                  },
+                  "title": "Response List Runs V1 Projects  Project Id  Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Enqueue agent work and return immediately.\n\n**202, never 200.** The run is durable when this returns, but it has not\nstarted: a worker claims it. The browser does not own the run (ADR-0009), so\nclosing the tab cannot lose it.\n\nIdempotent on ``idempotency_key`` \u2014 a retried request converges on the\noriginal run rather than creating a second.",
+        "operationId": "enqueue_run_v1_projects__project_id__runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnqueueRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Run",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sessions": {
+      "get": {
+        "description": "List a project's sessions.",
+        "operationId": "list_sessions_v1_projects__project_id__sessions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionResponse"
+                  },
+                  "title": "Response List Sessions V1 Projects  Project Id  Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Open a working session.",
+        "operationId": "open_session_v1_projects__project_id__sessions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Session",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}": {
+      "get": {
+        "description": "Return one run. This is what a client polls while work proceeds.",
+        "operationId": "get_run_v1_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}/events": {
+      "get": {
+        "description": "Stream run progress as Server-Sent Events.\n\nA convenience over ``GET /v1/runs/{id}``, never a replacement for it.\nCorrectness must not depend on an uninterrupted browser connection\n(ADR-0009), so a client that misses the stream entirely can still read the\nsame state with an ordinary request.\n\nEmits the current state immediately, then on every change to status,\nattempt, checkpoint, or error. Closes when the run reaches a terminal\nstatus.",
+        "operationId": "stream_run_events_v1_runs__run_id__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Run Events",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/runs/{run_id}/knowledge": {
+      "get": {
+        "description": "Return the knowledge a run produced.\n\nOne run, one result: replaying a completed run returns its original output\nrather than producing a second set.",
+        "operationId": "knowledge_produced_by_v1_runs__run_id__knowledge_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeResponse"
+                  },
+                  "title": "Response Knowledge Produced By V1 Runs  Run Id  Knowledge Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Knowledge Produced By",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/close": {
+      "post": {
+        "description": "Close a session.",
+        "operationId": "close_session_v1_sessions__session_id__close_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Session",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/messages": {
+      "get": {
+        "description": "List a session's messages in submission order.",
+        "operationId": "list_messages_v1_sessions__session_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MessageResponse"
+                  },
+                  "title": "Response List Messages V1 Sessions  Session Id  Messages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Messages",
+        "tags": [
+          "workspace"
+        ]
+      },
+      "post": {
+        "description": "Record a message verbatim as source evidence.\n\nThe stored text is never rewritten by extraction, so the original wording\nstays available as the source of anything derived from it.",
+        "operationId": "record_message_v1_sessions__session_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Message",
+        "tags": [
+          "workspace"
+        ]
+      }
+    }
+  }
+}

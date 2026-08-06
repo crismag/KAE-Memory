@@ -4,7 +4,7 @@ TEST_DB_PORT      ?= 26258
 DEV_DB_CONTAINER  ?= kae-crdb-dev
 DEV_DB_VOLUME     ?= kae-crdb-dev-data
 
-.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker frontend frontend-install openapi dev dev-db-up dev-db-down dev-db-reset
+.PHONY: install lint format-check typecheck test check migrate migrate-down test-db-up test-db-down test-db-logs api worker openapi dev dev-db-up dev-db-down dev-db-reset
 
 install:
 	uv sync --extra dev --extra api
@@ -62,22 +62,16 @@ api:
 worker:
 	uv run python -m kae_memory.worker
 
-frontend-install:
-	npm --prefix frontend ci
-
-# The workspace, proxying /v1 and /health to the API on port 8000.
-frontend:
-	npm --prefix frontend run dev
-
-# Regenerate the OpenAPI document and the typed client from it. CI diffs the
-# result, so a backend contract change that skips this step fails the build.
+# Rewrites the recorded contract. A test compares it against what the
+# application serves, so run this when a route changes and commit the diff with
+# the change that caused it (N9). KAE-Memory serves no UI (ADR-0026); whoever
+# wants a client generates one from this document.
 openapi:
 	uv run python scripts/development/dump-openapi.py
-	npm --prefix frontend run generate-client
 
 # --- Local development -------------------------------------------------------
-# One command: database, migrations, API, worker, and workspace. Ctrl-C stops
-# the processes and leaves the database running.
+# One command: database, migrations, API, and worker. Ctrl-C stops the
+# processes and leaves the database running.
 dev:
 	@./scripts/development/run-local.sh
 
