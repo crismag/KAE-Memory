@@ -432,19 +432,41 @@ and what N42, N44, N45, N46 must reproduce:
   the model, and asserting "produces an actor" would assert the model's taste —
   failing on a better answer and passing on a worse one that happened to match.
 
-- [ ] **N43** — **Model-backed semantic classifier.** Behind the existing
-  `ObservationClassifier` protocol, reporting `semantic_classification: true`
-  where the deterministic adapter reports false. Resolves
+- [x] **N43** — Model-backed semantic classifier —
+  `agents/semantic_classifier.py`, 2026-08-05. Resolves
   `OBSERVATION_CLASSIFICATION.md` §15 question 3.
 
-  **Not a prerequisite for sparse conversational interpretation, and not on the
-  critical path.** Classification decides a *retention tier* (T24); extraction
-  produces *candidate knowledge*. They are separate paths over the same text,
-  and the first reading of this failure confused them. With N42 and N46 in
-  place, a sentence left `unclassified` no longer blocks anything.
+  Behind the existing `ObservationClassifier` protocol, reporting
+  `semantic_classification: true` where the deterministic adapter reports
+  false. Selected by `KAE_OBSERVATION_CLASSIFIER`, deterministic by default so
+  a cloned repository still walks the whole workflow with no account and no
+  bill.
 
-  *Value when it lands:* better tiering, and operational records from
-  observations that mention status. Neither is what this test failed on.
+  **Deliberately narrow, and it stayed narrow.** This decides a retention tier,
+  not what a project knows. Extraction produces candidate knowledge over the
+  same text and is a separate path; the first reading of the sparse-project
+  failure confused the two, and nothing here encourages that again.
+
+  Three properties do the work. **Offsets are never model-derived** — the
+  sentence split happens locally, the model sees numbered sentences, and a test
+  asserts the split matches the deterministic adapter's, because a span that
+  does not line up sends a reviewer to the wrong text. **An unrecognised class
+  becomes `unclassified`, not the nearest match**, which would file it
+  confidently in the wrong tier. **It degrades rather than blocks**, and the
+  degradation is visible: `last_degraded` distinguishes "the model read this
+  and could not tell" from "no model ran", which is the difference between an
+  honest `unclassified` and a silent lie about being semantic.
+
+  A missing region at startup is **refused**, not degraded — that is a
+  deployment which never had the capability, distinct from a call that lost it.
+
+  `describe()` now reports classification apart from embedding. A deployment
+  can rank by meaning and classify by rule; one capability must not answer for
+  the other.
+
+  *Value delivered:* better tiering, and operational records from observations
+  that mention status. As the target said, neither is what the manual test
+  failed on.
 
 - [x] **N44** — Preliminary context generation —
   `application/preliminary_context_service.py`, 2026-08-05.

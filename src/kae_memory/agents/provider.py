@@ -19,6 +19,8 @@ import os
 from collections.abc import Mapping
 
 from .embedding import DeterministicEmbeddingAdapter, EmbeddingPort
+from .observation_classifier import DeterministicObservationClassifier, ObservationClassifier
+from .semantic_classifier import BedrockObservationClassifier
 from .titan import TitanEmbeddingAdapter
 
 DETERMINISTIC = "deterministic"
@@ -30,6 +32,18 @@ _SEMANTIC_PROVIDERS = frozenset({TITAN})
 The deterministic adapter is absent by construction: it produces unit vectors
 that pass every structural check and rank at chance, so a response ranked by it
 must never be presented as semantic.
+"""
+
+
+CLASSIFIER_DETERMINISTIC = "deterministic"
+CLASSIFIER_SEMANTIC = "semantic"
+
+_SEMANTIC_CLASSIFIERS = frozenset({CLASSIFIER_SEMANTIC})
+"""Classifiers that read meaning rather than wording (N43).
+
+Separate from `_SEMANTIC_PROVIDERS`, which is about embeddings. A deployment
+can rank by meaning and classify by rule, or the reverse; collapsing the two
+would let one capability answer for the other.
 """
 
 
@@ -98,6 +112,55 @@ def build_embedder(environ: Mapping[str, str] | None = None) -> tuple[EmbeddingP
     )
 
 
+def classifier_name(environ: Mapping[str, str] | None = None) -> str:
+    """Return the configured observation classifier, without building it."""
+
+    environ = os.environ if environ is None else environ
+    value = environ.get("KAE_OBSERVATION_CLASSIFIER", CLASSIFIER_DETERMINISTIC)
+    return value.strip().lower() or CLASSIFIER_DETERMINISTIC
+
+
+def classifies_by_meaning(name: str) -> bool:
+    """Return whether this classifier reads meaning rather than wording."""
+
+    return name in _SEMANTIC_CLASSIFIERS
+
+
+def build_classifier(
+    environ: Mapping[str, str] | None = None,
+) -> tuple[ObservationClassifier, str]:
+    """Return the configured observation classifier and its name.
+
+    Raises on misconfiguration, like `build_embedder` and for the same reason:
+    a deployment that asked for semantic classification and silently received
+    rules would report `semantic_classification: false` correctly while nobody
+    understood why. That is separate from the *runtime* fallback the semantic
+    adapter performs when a configured provider fails mid-call — one is a
+    deployment that never had the capability, the other is a call that lost it,
+    and the second is reported per call rather than at startup.
+    """
+
+    environ = os.environ if environ is None else environ
+    name = classifier_name(environ)
+
+    if name == CLASSIFIER_DETERMINISTIC:
+        return DeterministicObservationClassifier(), name
+
+    if name == CLASSIFIER_SEMANTIC:
+        region = resolve_region(environ)
+        if not region:
+            raise ProviderConfigurationError(
+                "KAE_OBSERVATION_CLASSIFIER=semantic requires an AWS region via "
+                "AWS_REGION, AWS_DEFAULT_REGION, or the active AWS profile."
+            )
+        return BedrockObservationClassifier(region=region), name
+
+    raise ProviderConfigurationError(
+        f"unknown KAE_OBSERVATION_CLASSIFIER={name!r}. "
+        f"Valid: {CLASSIFIER_DETERMINISTIC}, {CLASSIFIER_SEMANTIC}"
+    )
+
+
 def describe(environ: Mapping[str, str] | None = None) -> dict[str, object]:
     """Return what a health check should say about embedding.
 
@@ -108,9 +171,14 @@ def describe(environ: Mapping[str, str] | None = None) -> dict[str, object]:
 
     environ = os.environ if environ is None else environ
     name = embedder_name(environ)
+    classifier = classifier_name(environ)
     described: dict[str, object] = {
         "provider": name,
         "ranks_by_meaning": ranks_by_meaning(name),
+        # Reported alongside, never folded into, the embedding answer. A
+        # deployment can rank by meaning and classify by rule.
+        "classifier": classifier,
+        "classifies_by_meaning": classifies_by_meaning(classifier),
     }
     if name == TITAN:
         region = resolve_region(environ)
@@ -122,8 +190,13 @@ def describe(environ: Mapping[str, str] | None = None) -> dict[str, object]:
 
 
 __all__ = [
+    "CLASSIFIER_DETERMINISTIC",
+    "CLASSIFIER_SEMANTIC",
     "DETERMINISTIC",
     "TITAN",
+    "build_classifier",
+    "classifier_name",
+    "classifies_by_meaning",
     "ProviderConfigurationError",
     "build_embedder",
     "describe",

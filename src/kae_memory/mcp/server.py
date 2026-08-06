@@ -82,6 +82,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
     engine = create_engine(url or database_url(), pool_pre_ping=True)
     factory = sessionmaker(engine)
     embedder, name = provider.build_embedder(os.environ)
+    classifier, _ = provider.build_classifier(os.environ)
     return tools.ToolContext(
         memory=MemoryService(factory),
         clarification=ClarificationService(factory),
@@ -91,7 +92,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         retrieval=RetrievalService(factory, embedder),
         ingestion=IngestionService(factory),
         assembly=AssemblyService(factory),
-        classification=ClassificationService(factory),
+        classification=ClassificationService(factory, classifier=classifier),
         modules=ModuleService(factory),
         deliverables=DeliverableService(factory),
         assumptions=AssumptionService(factory),

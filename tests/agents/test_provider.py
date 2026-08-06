@@ -135,6 +135,10 @@ class TestDescribe:
             "ranks_by_meaning": True,
             "region": "ca-central-1",
             "configured": True,
+            # Reported alongside embedding, never folded into it (N43). A
+            # deployment can rank by meaning and classify by rule.
+            "classifier": "deterministic",
+            "classifies_by_meaning": False,
         }
 
     def test_a_missing_region_reads_as_unconfigured(self) -> None:
@@ -148,4 +152,6 @@ class TestDescribe:
             "provider": "deterministic",
             "ranks_by_meaning": False,
             "configured": True,
+            "classifier": "deterministic",
+            "classifies_by_meaning": False,
         }

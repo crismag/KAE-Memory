@@ -162,7 +162,7 @@ def get_classification(request: Request) -> ClassificationService:
     """Return the request's classification service."""
 
     factory: sessionmaker[DbSession] = request.app.state.session_factory
-    return ClassificationService(factory)
+    return ClassificationService(factory, classifier=embedding_provider.build_classifier()[0])
 
 
 def authorise_project(request: Request, project_id: str) -> None:
