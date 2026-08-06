@@ -30,6 +30,7 @@ from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.module_service import ModuleService
+from kae_memory.application.preliminary_context_service import PreliminaryContextService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
@@ -94,6 +95,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         modules=ModuleService(factory),
         deliverables=DeliverableService(factory),
         assumptions=AssumptionService(factory),
+        preliminary=PreliminaryContextService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -664,6 +666,33 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_get_preliminary_context",
+        "description": (
+            "The most useful project context the current state supports, for a "
+            "project too sparse for kae_assemble_context to say much. Returns "
+            "what was stated verbatim, what a person confirmed, what was "
+            "proposed or assumed, and what nobody has decided — separately, "
+            "never merged. Never refuses: low readiness produces a thinner "
+            "context, not an error. Nothing is confirmed by being returned."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "purpose": {
+                    "type": "string",
+                    "enum": ["discovery", "architecture", "implementation"],
+                    "description": "Which areas to compose over. Defaults to discovery.",
+                },
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_get_clarifications",
         "description": (
             "Open questions this project's gaps justify asking a person, most "
@@ -1134,6 +1163,11 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("idempotency_key"),
             arguments.get("actor_id"),
         ),
+        "kae_get_preliminary_context": lambda: tools.kae_get_preliminary_context(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("purpose", "discovery"),
+        ),
         "kae_get_clarifications": lambda: tools.kae_get_clarifications(
             context,
             arguments.get("project_id", ""),
@@ -1350,6 +1384,21 @@ def build_server(context: tools.ToolContext) -> Any:
                 "text": text,
                 "max_chunks": max_chunks,
                 "actor_id": actor_id,
+            },
+        )
+
+    def kae_get_preliminary_context(
+        purpose: str = "discovery",
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_preliminary_context",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "purpose": purpose,
             },
         )
 
@@ -1815,6 +1864,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_create_project,
             kae_ingest_document,
             kae_assemble_context,
+            kae_get_preliminary_context,
             kae_get_project_briefing,
             kae_get_module_context,
             kae_search_knowledge,

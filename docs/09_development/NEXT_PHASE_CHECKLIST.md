@@ -446,13 +446,45 @@ and what N42, N44, N45, N46 must reproduce:
   *Value when it lands:* better tiering, and operational records from
   observations that mention status. Neither is what this test failed on.
 
-- [ ] **N44** — **Preliminary context generation.** Composes what the others
-  produce into the package shape the assistant produced by hand.
-  *Scope:* candidate knowledge, reversible assumptions with consequences,
-  material versus deferrable questions, and a preliminary context package that
-  distinguishes known, assumed, and unknown throughout.
-  *Non-goals:* confirming anything; replacing the interview.
-  *Depends on:* N42, N46, N45, N35, N36.
+- [x] **N44** — Preliminary context generation —
+  `application/preliminary_context_service.py`, 2026-08-05.
+
+  The composition the manual test was missing. Every subsystem held a piece —
+  candidates in one place, assumptions in another, questions in a third — and
+  assembly showed only confirmed knowledge, of which a one-sentence project has
+  none. Nothing put them together, so KAE had everything it needed to be useful
+  and was not.
+
+  Four collections that **never merge**: what was stated verbatim, what a
+  person confirmed, what was proposed or assumed, what nobody has decided. Not
+  one annotated list, because a reader under time pressure reads structure
+  before labels, and a document whose reader cannot tell a confirmed
+  requirement from a plausible guess is the same document with the warning
+  removed.
+
+  `stated_verbatim` carries the actor. An observation an agent relayed and a
+  sentence a person typed are not the same evidence, and flattening them would
+  overstate the second — which matters most here, where the relayed sentence is
+  often the only thing the project has.
+
+  **It reads and never writes**, which is what makes "never refuses" safe
+  rather than reckless: it cannot confirm, accept, or promote, so there is no
+  state where producing it is a risk. Low readiness produces a thinner context;
+  an unknown project is still a 404. Unknowns are split material versus
+  deferrable so ten helpful questions never make a project look blocked, and
+  material means "spend attention here first", never "stop".
+
+  It carries the assembly's statement pins, so a deliverable recorded from
+  preliminary context is reproducible in fact rather than in appearance
+  (N20.1).
+
+  Adapters both ways: `kae_get_preliminary_context` and
+  `GET /v1/projects/{id}/preliminary-context`, with `context.preliminary` in
+  the capability registry. The twenty-seventh tool, and a genuinely different
+  question from `kae_assemble_context` — that one answers "what has this
+  project settled", which for a sparse project is "nothing"; this one answers
+  "what can you usefully say anyway". Merging them would mean an assembly that
+  quietly included guesses.
 
 - [x] **N45** — Assumption adapters — 2026-08-05. Three tools and three routes:
   record, list, accept. The N35 model reached an adapter without being weakened

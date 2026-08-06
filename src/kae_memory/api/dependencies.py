@@ -24,6 +24,7 @@ from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
+from kae_memory.application.preliminary_context_service import PreliminaryContextService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
@@ -187,6 +188,13 @@ def authorise_project(request: Request, project_id: str) -> None:
         raise not_found("project", project_id)
 
 
+def get_preliminary(request: Request) -> PreliminaryContextService:
+    """Return the request's preliminary context service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return PreliminaryContextService(factory)
+
+
 def get_assumptions(request: Request) -> AssumptionService:
     """Return the request's assumption service."""
 
@@ -246,3 +254,4 @@ Clarifications = Annotated[ClarificationService, Depends(get_clarification)]
 Classification = Annotated[ClassificationService, Depends(get_classification)]
 Deliverables = Annotated[DeliverableService, Depends(get_deliverables)]
 Assumptions = Annotated[AssumptionService, Depends(get_assumptions)]
+Preliminary = Annotated[PreliminaryContextService, Depends(get_preliminary)]

@@ -811,6 +811,159 @@ class AssemblyResponse(BaseModel):
         )
 
 
+class PreliminaryStatementResponse(BaseModel):
+    """One statement in preliminary context, with both of its qualifiers.
+
+    `label` says where authority comes from; `inclusion_class` says whether a
+    person has ruled. These were one field once, which made "KAE inferred this"
+    and "nobody has confirmed this" the same word.
+    """
+
+    knowledge_id: str
+    kind: str
+    text: str
+    area_key: str
+    version: int
+    lifecycle: str
+    label: str
+    inclusion_class: str
+
+    @classmethod
+    def of(cls, statement: Any) -> "PreliminaryStatementResponse":
+        return cls(
+            knowledge_id=statement.knowledge_id,
+            kind=statement.kind,
+            text=statement.text,
+            area_key=statement.area_key,
+            version=statement.version,
+            lifecycle=statement.lifecycle,
+            label=statement.label,
+            inclusion_class=statement.inclusion_class,
+        )
+
+
+class StatedEntryResponse(BaseModel):
+    """One thing that was said, with who said it and how it reached KAE."""
+
+    message_id: str
+    text: str
+    actor_type: str
+    message_type: str
+
+
+class AssumedEntryResponse(BaseModel):
+    """One assumption, with what it would cost to be wrong."""
+
+    assumption_id: str
+    subject: str
+    assumed_value: str
+    reason: str
+    origin: str
+    consequence: str
+    state: str
+    reversible: bool
+    material: bool
+    accepted_by: str | None
+    disclosure: str
+    """Carries the consequence in the sentence, so no renderer can drop it."""
+
+
+class UnknownEntryResponse(BaseModel):
+    """One thing nobody has decided."""
+
+    clarification_id: str
+    question: str
+    area_key: str | None
+    severity: str
+    finding_kind: str
+    disposition: str
+
+
+class PreliminaryContextResponse(BaseModel):
+    """What a project knows, what it is guessing, and what nobody decided.
+
+    Four separate collections rather than one annotated list. A reader who
+    cannot tell a confirmed requirement from a plausible guess has a document
+    that is worse than nothing — the same document with the warning removed.
+    """
+
+    project_id: str
+    project_name: str
+    generated_at: datetime
+    knowledge_revision: int
+    readiness_percentage: int
+    is_preliminary: bool
+    stated_verbatim: list[StatedEntryResponse]
+    known: list[PreliminaryStatementResponse]
+    proposed: list[PreliminaryStatementResponse]
+    assumed: list[AssumedEntryResponse]
+    material_unknowns: list[UnknownEntryResponse]
+    deferrable_unknowns: list[UnknownEntryResponse]
+    package_id: str
+    content_hash: str
+    statement_pins: list[dict[str, Any]]
+    warnings: list[str]
+    knowledge_changed: bool = False
+
+    @classmethod
+    def of(cls, preliminary: Any) -> "PreliminaryContextResponse":
+        return cls(
+            project_id=preliminary.project_id,
+            project_name=preliminary.project_name,
+            generated_at=preliminary.generated_at,
+            knowledge_revision=preliminary.knowledge_revision,
+            readiness_percentage=preliminary.readiness_percentage,
+            is_preliminary=preliminary.is_preliminary,
+            stated_verbatim=[
+                StatedEntryResponse(
+                    message_id=entry.message_id,
+                    text=entry.text,
+                    actor_type=entry.actor_type,
+                    message_type=entry.message_type,
+                )
+                for entry in preliminary.stated_verbatim
+            ],
+            known=[PreliminaryStatementResponse.of(s) for s in preliminary.known],
+            proposed=[PreliminaryStatementResponse.of(s) for s in preliminary.proposed],
+            assumed=[
+                AssumedEntryResponse(
+                    assumption_id=entry.assumption_id,
+                    subject=entry.subject,
+                    assumed_value=entry.assumed_value,
+                    reason=entry.reason,
+                    origin=entry.origin,
+                    consequence=entry.consequence,
+                    state=entry.state,
+                    reversible=entry.reversible,
+                    material=entry.material,
+                    accepted_by=entry.accepted_by,
+                    disclosure=entry.disclosure,
+                )
+                for entry in preliminary.assumed
+            ],
+            material_unknowns=[_unknown(entry) for entry in preliminary.material_unknowns],
+            deferrable_unknowns=[_unknown(entry) for entry in preliminary.deferrable_unknowns],
+            package_id=preliminary.assembly.manifest.package_id,
+            content_hash=preliminary.assembly.manifest.content_hash,
+            statement_pins=[
+                {"knowledge_id": knowledge_id, "version": version}
+                for knowledge_id, version in preliminary.assembly.manifest.statement_pins
+            ],
+            warnings=list(preliminary.warnings),
+        )
+
+
+def _unknown(entry: Any) -> UnknownEntryResponse:
+    return UnknownEntryResponse(
+        clarification_id=entry.clarification_id,
+        question=entry.question,
+        area_key=entry.area_key,
+        severity=entry.severity,
+        finding_kind=entry.finding_kind,
+        disposition=entry.disposition,
+    )
+
+
 class AnswerClarificationRequest(BaseModel):
     """What a person said about a question — which is not always a decision.
 

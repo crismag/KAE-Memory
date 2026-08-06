@@ -45,6 +45,7 @@ from ..dependencies import (
     Deliverables,
     Ingestion,
     Memory,
+    Preliminary,
     Readiness,
     Retrieval,
 )
@@ -63,6 +64,7 @@ from ..schemas import (
     IngestDocumentRequest,
     IngestionResponse,
     KnowledgeReviewResponse,
+    PreliminaryContextResponse,
     RecordAssumptionRequest,
     RecordDeliverableRequest,
     RejectKnowledgeRequest,
@@ -263,6 +265,42 @@ def answer_clarification(
         assumption_id=body.assumption_id,
     )
     return ClarificationResponse.of(outcome)
+
+
+@router.get(
+    "/projects/{project_id}/preliminary-context",
+    response_model=PreliminaryContextResponse,
+)
+def preliminary_context(
+    project_id: str,
+    memory: Memory,
+    preliminary: Preliminary,
+    purpose: Annotated[str, Query()] = "discovery",
+) -> PreliminaryContextResponse:
+    """Compose the most useful view this project's current state supports.
+
+    A GET because it creates nothing and decides nothing. That is the property
+    that makes it safe at any readiness: it cannot confirm, cannot accept, and
+    cannot promote, so there is no state in which producing it is a risk worth
+    withholding output over.
+
+    Distinct from `/context`, which shows what a person confirmed — the right
+    default for building against, and the wrong one for a project someone
+    described in a sentence yesterday. Here, known, proposed, assumed and
+    unknown are four separate collections and never merge.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        chosen = AssemblyPurpose(purpose)
+    except ValueError as error:
+        valid = ", ".join(p.value for p in AssemblyPurpose)
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown purpose {purpose!r}; expected one of {valid}",
+        ) from error
+    return PreliminaryContextResponse.of(preliminary.compose(resolved, chosen))
 
 
 @router.get("/projects/{project_id}/context", response_model=AssemblyResponse)

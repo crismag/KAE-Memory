@@ -19,6 +19,7 @@ from typing import Any
 
 from kae_memory.agents.provider import ranks_by_meaning
 from kae_memory.application.assembly_service import (
+    AssembledStatement,
     AssemblyPurpose,
     AssemblyService,
     ContextAssembly,
@@ -39,6 +40,11 @@ from kae_memory.application.ingestion_service import (
 )
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.module_service import ModuleNotFoundError, ModuleService
+from kae_memory.application.preliminary_context_service import (
+    PreliminaryContext,
+    PreliminaryContextService,
+    UnknownEntry,
+)
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import (
     MAX_DISTANCE,
@@ -116,6 +122,7 @@ class ToolContext:
         modules: ModuleService | None = None,
         deliverables: DeliverableService | None = None,
         assumptions: AssumptionService | None = None,
+        preliminary: PreliminaryContextService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -129,6 +136,7 @@ class ToolContext:
         self.modules = modules
         self.deliverables = deliverables
         self.assumptions = assumptions
+        self.preliminary = preliminary
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -2509,6 +2517,145 @@ def _ingestion_payload(
             "Then kae_get_project_briefing shows what was proposed, and a person "
             "confirms it with kae_confirm_knowledge.",
         ],
+    }
+
+
+def kae_get_preliminary_context(
+    context: ToolContext,
+    project_id: str,
+    purpose: str = "discovery",
+) -> dict[str, Any]:
+    """Compose the most useful view a sparse project supports (N44).
+
+    Distinct from `kae_assemble_context`, which shows what a person has
+    confirmed. That is the right default for building against and the wrong one
+    for a project where nobody has confirmed anything yet — which is the
+    ordinary state of a project someone described in a sentence yesterday.
+
+    Four things are returned separately and are **never merged**: what was
+    stated verbatim, what has been confirmed, what was proposed or assumed, and
+    what nobody has decided. A reader who cannot tell a confirmed requirement
+    from a plausible guess has a document that is worse than nothing — it is the
+    same document with the warning removed.
+
+    This never refuses. Low readiness produces a thinner context, never an
+    error: incomplete project knowledge is a normal project condition, and
+    withholding output over it is the gate this system does not have.
+
+    Nothing here is confirmed by producing it. Reading is not deciding.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.preliminary is None:
+        raise CapabilityUnavailableError(
+            capability="preliminary context",
+            missing=["preliminary_context_service"],
+            use_instead=["kae_assemble_context", "kae_get_project_briefing"],
+        )
+
+    try:
+        chosen = AssemblyPurpose(purpose)
+    except ValueError:
+        raise InvalidArgumentError(
+            f"unknown purpose {purpose!r}. Choose one of: "
+            f"{', '.join(sorted(p.value for p in AssemblyPurpose))}"
+        ) from None
+
+    preliminary = context.preliminary.compose(project.id, chosen)
+    return _preliminary_payload(preliminary)
+
+
+def _preliminary_payload(preliminary: PreliminaryContext) -> dict[str, Any]:
+    """Render preliminary context with its epistemic boundaries intact."""
+
+    return {
+        "project_id": preliminary.project_id,
+        "project_name": preliminary.project_name,
+        "generated_at": preliminary.generated_at.isoformat(),
+        "knowledge_revision": preliminary.knowledge_revision,
+        "readiness_percentage": preliminary.readiness_percentage,
+        "is_preliminary": preliminary.is_preliminary,
+        # First, because everything below is derived from it, and a preliminary
+        # context is far likelier to be wrong in its interpretation than in its
+        # transcription. A reader who can see the sentence can catch that.
+        "stated_verbatim": [
+            {
+                "message_id": entry.message_id,
+                "text": entry.text,
+                # Relayed by an agent or typed by a person: not the same
+                # evidence, and a payload that flattened them would overstate
+                # the second.
+                "actor_type": entry.actor_type,
+                "message_type": entry.message_type,
+            }
+            for entry in preliminary.stated_verbatim
+        ],
+        "known": [_statement_payload(s) for s in preliminary.known],
+        "proposed": [_statement_payload(s) for s in preliminary.proposed],
+        "assumed": [
+            {
+                "assumption_id": entry.assumption_id,
+                "subject": entry.subject,
+                "assumed_value": entry.assumed_value,
+                "reason": entry.reason,
+                "origin": entry.origin,
+                "consequence": entry.consequence,
+                "state": entry.state,
+                "reversible": entry.reversible,
+                "material": entry.material,
+                "accepted_by": entry.accepted_by,
+                # Carries the consequence in the sentence itself. "We assumed
+                # single-tenant" invites a nod; the same line with "multi-tenancy
+                # would be architectural rework" invites a decision.
+                "disclosure": entry.disclosure,
+            }
+            for entry in preliminary.assumed
+        ],
+        "material_unknowns": [_unknown_payload(u) for u in preliminary.material_unknowns],
+        "deferrable_unknowns": [_unknown_payload(u) for u in preliminary.deferrable_unknowns],
+        "package_id": preliminary.assembly.manifest.package_id,
+        "content_hash": preliminary.assembly.manifest.content_hash,
+        # Same pins the assembly read, so a deliverable recorded from this is
+        # reproducible in fact rather than in appearance (N20.1).
+        "statement_pins": [
+            {"knowledge_id": knowledge_id, "version": version}
+            for knowledge_id, version in preliminary.assembly.manifest.statement_pins
+        ],
+        "warnings": list(preliminary.warnings),
+        "knowledge_changed": False,
+        "note": (
+            "Nothing here is confirmed by being returned. Proposed statements "
+            "are candidates and assumptions are guesses; a person confirms what "
+            "becomes project knowledge."
+        ),
+    }
+
+
+def _statement_payload(statement: AssembledStatement) -> dict[str, Any]:
+    return {
+        "knowledge_id": statement.knowledge_id,
+        "kind": statement.kind,
+        "text": statement.text,
+        "area_key": statement.area_key,
+        "version": statement.version,
+        "lifecycle": statement.lifecycle,
+        # Two separate words that were one for too long: `label` says where
+        # authority comes from, `inclusion_class` says whether a person ruled.
+        "label": statement.label,
+        "inclusion_class": statement.inclusion_class,
+    }
+
+
+def _unknown_payload(unknown: UnknownEntry) -> dict[str, Any]:
+    return {
+        "clarification_id": unknown.clarification_id,
+        "question": unknown.question,
+        "area_key": unknown.area_key,
+        "severity": unknown.severity,
+        "finding_kind": unknown.finding_kind,
+        # Someone was already asked and did not decide. Different from nobody
+        # having been asked, and the difference must survive into the document.
+        "disposition": unknown.disposition,
     }
 
 

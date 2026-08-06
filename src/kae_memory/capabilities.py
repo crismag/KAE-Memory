@@ -165,6 +165,13 @@ REGISTRY: tuple[Capability, ...] = (
         http=("GET /v1/projects/{project_id}/context",),
     ),
     Capability(
+        key="context.preliminary",
+        summary="Compose the useful preliminary view of a project too sparse to assemble",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_preliminary_context",),
+        http=("GET /v1/projects/{project_id}/preliminary-context",),
+    ),
+    Capability(
         key="readiness.read",
         summary="Report how well understood a project is",
         exposure=Exposure.BOTH,

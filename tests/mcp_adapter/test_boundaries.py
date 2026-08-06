@@ -206,15 +206,24 @@ def test_the_tool_surface_stays_small() -> None:
     reached it, which is how "I do not know yet, choose something reasonable"
     had nowhere to go — the third no-caller gap in this repository, and the one
     manual testing hit twice.
+
+    N44 added one, and it is a genuinely different question rather than a
+    variant of `kae_assemble_context`. That tool answers "what has this project
+    settled", which for a project described in one sentence is "nothing".
+    Preliminary context answers "what is the most useful thing you can say
+    anyway", and the two must not be one tool: an assembly that quietly
+    included guesses would be the failure this repository spends most of its
+    invariants preventing.
     """
 
-    assert len(TOOL_DEFINITIONS) == 26
+    assert len(TOOL_DEFINITIONS) == 27
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
         "kae_list_projects",
         "kae_get_project_briefing",
         "kae_get_module_context",
+        "kae_get_preliminary_context",
         "kae_search_knowledge",
         "kae_get_open_decisions",
         "kae_get_readiness",
