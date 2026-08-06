@@ -14,6 +14,17 @@ Type=exec
 User=kae
 Group=kae
 WorkingDirectory=/opt/kae-memory
+# libpq probes $HOME for an optional client certificate, ~/.pgpass, and a
+# service file. ProtectHome=true masks /home, so those probes return EACCES
+# rather than ENOENT — and libpq treats a permission error as fatal where a
+# missing file is fine. TLS connections then fail with "could not open
+# certificate file ... Permission denied", which reads like a certificate
+# problem and is a sandboxing one.
+#
+# Pointing HOME at a directory the service can actually read fixes every one of
+# those probes at once, and keeps ProtectHome=true. Only reached with TLS, which
+# is why local development never sees it.
+Environment=HOME=/var/lib/kae-memory
 EnvironmentFile=/etc/kae-memory/api.env
 ExecStart=/opt/kae-memory/.venv/bin/python -m kae_memory.api
 Restart=always

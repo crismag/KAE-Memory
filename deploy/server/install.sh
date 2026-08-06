@@ -9,6 +9,9 @@ set -euo pipefail
 APP_DIR=${APP_DIR:-/opt/kae-memory}
 ENV_DIR=${ENV_DIR:-/etc/kae-memory}
 LOG_DIR=${LOG_DIR:-/var/log/kae-memory}
+# $HOME for the service: libpq reads optional files from it and ProtectHome
+# masks /home. See the note in services/kae-api.service.
+STATE_DIR=${STATE_DIR:-/var/lib/kae-memory}
 SERVICE_USER=${SERVICE_USER:-kae}
 REPO_URL=${REPO_URL:-https://github.com/crismag/KAE-Memory.git}
 
@@ -25,7 +28,7 @@ say "service user"
 id -u "$SERVICE_USER" >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin "$SERVICE_USER"
 
 say "directories"
-install -d -o "$SERVICE_USER" -g "$SERVICE_USER" "$APP_DIR" "$LOG_DIR"
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" "$APP_DIR" "$LOG_DIR" "$STATE_DIR"
 install -d -o root -g root -m 750 "$ENV_DIR"
 
 say "application source"
