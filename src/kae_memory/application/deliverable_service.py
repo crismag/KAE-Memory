@@ -28,10 +28,15 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.application.assembly_service import ContextAssembly, describe_package
+from kae_memory.application.assumption_service import AssumptionService
+from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.review_service import FindingKind
 from kae_memory.domain.deliverables import (
     ORDERING_CONTRACT,
     ArtifactRecord,
+    AssumptionPin,
+    ProvisionalContext,
+    QuestionPin,
     Deliverable,
     DeliverableId,
     DeliverableState,
@@ -59,8 +64,19 @@ class DeliverableNotFoundError(LookupError):
 class DeliverableService:
     """Record assembled outputs durably, and read them back."""
 
-    def __init__(self, session_factory: sessionmaker[DbSession]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[DbSession],
+        assumptions: AssumptionService | None = None,
+        clarifications: ClarificationService | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        # Held here rather than asked of each adapter. N38 shipped a model no
+        # caller constructed and every deliverable carried `qualification:
+        # null`; a provisional context each router had to remember to pass
+        # would fail the same way, and would fail silently.
+        self._assumptions = assumptions or AssumptionService(session_factory)
+        self._clarifications = clarifications or ClarificationService(session_factory)
 
     def record(
         self,
@@ -97,6 +113,7 @@ class DeliverableService:
         # `qualification: null` — the same "exists with no caller" defect this
         # repository has now hit twice.
         qualification = qualification or _describe_qualification(assembly, mode, maturity, accepted)
+        provisional = self._provisional(project_id, assembly, mode)
         scope = "module" if module_key else manifest.scope
         inputs = RenderInputs(
             purpose=manifest.purpose,
@@ -166,6 +183,7 @@ class DeliverableService:
                 ],
                 render_inputs=inputs.as_dict(),
                 qualification=qualification.as_dict() if qualification else None,
+                provisional_context=provisional.as_dict(),
                 recorded_by=recorded_by,
                 recorded_at=datetime.now(UTC),
             )
@@ -183,6 +201,53 @@ class DeliverableService:
             return _as_deliverable(row), True
 
         return run_transaction(self._session_factory, operation)
+
+    def _provisional(
+        self, project_id: ProjectId, assembly: ContextAssembly, mode: GenerationMode
+    ) -> ProvisionalContext:
+        """Capture the uncertainty this package was generated under (N20.2).
+
+        Read **now**, at generation, and never again. Everything here changes:
+        an assumption gets accepted, a question gets answered, a contradiction
+        gets resolved. Reading any of it at reproduction time would restate what
+        the package meant then in terms of what is true today — which is the
+        precise way an old deliverable quietly becomes a claim nobody made.
+
+        Deferred questions are included. A question someone could not answer is
+        part of what this package rested on, and it is held back from the asking
+        list rather than from the record (N36).
+        """
+
+        state = assembly.manifest.confirmation_state
+        assumptions = self._assumptions.list_for_project(project_id, active_only=True)
+        questions = self._clarifications.open_questions(project_id, include_deferred=True)
+        return ProvisionalContext(
+            mode=mode.value,
+            confirmed=state.confirmed,
+            proposed=state.proposed,
+            contested=state.contested,
+            assumption_pins=tuple(
+                AssumptionPin(
+                    assumption_id=str(assumption.id),
+                    # The state at generation. A package that rested on a guess
+                    # nobody had taken responsibility for said something weaker
+                    # than the same bytes after someone accepted it.
+                    state=assumption.state.value,
+                    material=assumption.material,
+                )
+                for assumption in assumptions
+            ),
+            question_pins=tuple(
+                QuestionPin(
+                    clarification_id=str(question.id),
+                    disposition=question.disposition.value,
+                )
+                for question in questions
+            ),
+            unresolved_gap_areas=tuple(
+                gap.area_key or "" for gap in assembly.manifest.unresolved_critical_gaps
+            ),
+        )
 
     def list_for_project(
         self, project_id: ProjectId, states: Sequence[str] | None = None
@@ -293,6 +358,7 @@ def _as_deliverable(row: DeliverableRow) -> Deliverable:
         recorded_at=row.recorded_at,
         superseded_by=row.superseded_by,
         manifest=dict(row.manifest or {}),
+        provisional_context=ProvisionalContext.from_dict(row.provisional_context),
         statement_pins=tuple(
             StatementPin(
                 knowledge_id=str(pin.get("knowledge_id", "")),

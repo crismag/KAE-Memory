@@ -742,6 +742,10 @@ class DeliverableRow(Base):
     qualification: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     statement_pins: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     render_inputs: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # N20.2. Nullable and never backfilled: reconstructing it from today's
+    # assumption states would file what the package would mean now under what
+    # it meant then, which is the one thing a historical record must not do.
+    provisional_context: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
 
 class AssumptionRow(Base):

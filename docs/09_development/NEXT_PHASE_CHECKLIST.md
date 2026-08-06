@@ -727,14 +727,34 @@ regression evidence, not redesign.
   evidence. Not backfilled onto older records — describing a package nobody
   described would be a claim rather than a record.
 
-- [ ] **N20.2** — **Pin provisional context in reproduction.** Extends N20.1.
-  *Scope:* pin assumption identities and versions, the confirmation state used,
-  open decisions represented, relevant clarification state, and the generation
-  mode — alongside the statement pins and render inputs already captured.
-  *Acceptance:* **historical reproduction never consults current knowledge.** A
-  provisional package reproduces its uncertainty exactly; an improved package is
-  a new deliverable and never overwrites an old identity.
-  *Depends on:* N35, N38.
+- [x] **N20.2** — Pin provisional context in reproduction — migration `0019`,
+  2026-08-05.
+
+  N20.1 made a package reproduce the same **bytes**. This makes it reproduce
+  the same **claim**. A package generated with open questions and an unaccepted
+  assumption rested on guesswork; the identical bytes, read after those were
+  settled, read as a settled document, and nothing recorded the difference.
+
+  Pinned: the generation mode, the confirmation split, each active assumption
+  **at the state it was in**, each unresolved question **with its disposition**,
+  and the unresolved gap areas. Assumptions have no version numbers — they have
+  a lifecycle, and which state a package rested on is the thing that changes
+  what it meant. A question nobody had been asked and a question someone could
+  not answer are both unresolved and are not the same uncertainty (N36).
+
+  The constructor lives in `DeliverableService`, not in each adapter. N38
+  shipped a model no caller built and every deliverable carried `qualification:
+  null`; a field each router had to remember would fail the same way and fail
+  silently.
+
+  Nullable and **not backfilled**. Reconstructing a historical record from
+  today's assumption states would file what a package would mean now under what
+  it meant then — the exact failure the target names.
+
+  **Reported apart from `publication_eligible`.** A pre-N20.2 record can still
+  be re-rendered byte for byte, and withdrawing that would be a capability lost
+  to a bookkeeping change; `reproduces_uncertainty` answers the separate
+  question of whether it can say how much of itself was guesswork.
 
 ## Phase M — Preliminary setup and project configuration
 

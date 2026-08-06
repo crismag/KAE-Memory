@@ -1135,6 +1135,21 @@ class DeliverableResponse(BaseModel):
     statement_pins: list[dict[str, Any]] = Field(default_factory=list)
     render_inputs: dict[str, Any] | None = None
     qualification: dict[str, Any] | None = None
+    provisional_context: dict[str, Any] | None = None
+    """What this package rested on (N20.2). `None` where it was never captured.
+
+    Absent rather than empty: "generated under no uncertainty" and "we did not
+    record the uncertainty" are different claims, and only the first reassures.
+    """
+    rested_on_uncertainty: bool | None = None
+    reproduces_uncertainty: bool = False
+    """Whether the *claim* can be reproduced, not only the bytes (N20.2).
+
+    Separate from `publication_eligible`: a record from before this existed can
+    still be re-rendered identically, and refusing to publish it would withdraw
+    a capability it genuinely has.
+    """
+    uncertainty_gap_reason: str | None = None
     recorded: bool | None = None
 
     @classmethod
@@ -1177,6 +1192,18 @@ class DeliverableResponse(BaseModel):
                 deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
             ),
             qualification=deliverable.qualification,
+            provisional_context=(
+                deliverable.provisional_context.as_dict()
+                if deliverable.provisional_context
+                else None
+            ),
+            rested_on_uncertainty=(
+                deliverable.provisional_context.rested_on_uncertainty
+                if deliverable.provisional_context
+                else None
+            ),
+            reproduces_uncertainty=deliverable.reproduces_uncertainty,
+            uncertainty_gap_reason=deliverable.uncertainty_gap_reason,
             recorded=created,
         )
 

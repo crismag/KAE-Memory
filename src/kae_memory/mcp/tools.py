@@ -1022,6 +1022,24 @@ def _deliverable_payload(deliverable: Any, current_revision: int) -> dict[str, A
         "render_inputs": (
             deliverable.render_inputs.as_dict() if deliverable.render_inputs else None
         ),
+        # N20.2. What this rested on, not only what it rendered. Statement pins
+        # make a package reproduce the same bytes; this makes it reproduce the
+        # same claim, which is weaker than the bytes look once the questions it
+        # was generated under have been answered.
+        "provisional_context": (
+            deliverable.provisional_context.as_dict() if deliverable.provisional_context else None
+        ),
+        "rested_on_uncertainty": (
+            deliverable.provisional_context.rested_on_uncertainty
+            if deliverable.provisional_context
+            else None
+        ),
+        # Separate from publication_eligible on purpose. A pre-N20.2 record can
+        # still be re-rendered byte for byte; what it cannot do is say how much
+        # of itself was guesswork, and refusing to publish it would withdraw a
+        # capability it genuinely has.
+        "reproduces_uncertainty": deliverable.reproduces_uncertainty,
+        "uncertainty_gap_reason": deliverable.uncertainty_gap_reason,
         # What this was produced *for*, alongside what was produced (N38).
         # Absent on deliverables recorded before qualification existed, and not
         # invented for them: describing a package nobody described would be a

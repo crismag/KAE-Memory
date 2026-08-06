@@ -188,6 +188,148 @@ class RenderInputs:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class AssumptionPin:
+    """One assumption, at the state it was in when the package was generated.
+
+    Assumptions have no version numbers — they have a lifecycle, and the thing
+    that changes what a package meant is *which* state it was in. A package
+    generated while an assumption was merely proposed rested on a guess nobody
+    had taken responsibility for; the same package a week later, after someone
+    accepted it, rested on something different. Reading the current state would
+    silently rewrite the first into the second.
+    """
+
+    assumption_id: str
+    state: str
+    material: bool
+
+    def __post_init__(self) -> None:
+        if not self.assumption_id.strip():
+            raise DomainInvariantError("an assumption pin needs an identifier")
+
+
+@dataclass(frozen=True, slots=True)
+class QuestionPin:
+    """One unresolved question, as it stood when the package was generated.
+
+    The disposition matters as much as the identity (N36): a package generated
+    while a question was merely unasked is a different claim from one generated
+    after someone said "I don't know yet". Both are unresolved and they are not
+    the same uncertainty.
+    """
+
+    clarification_id: str
+    disposition: str
+
+    def __post_init__(self) -> None:
+        if not self.clarification_id.strip():
+            raise DomainInvariantError("a question pin needs an identifier")
+
+
+@dataclass(frozen=True, slots=True)
+class ProvisionalContext:
+    """The uncertainty a package was generated under (N20.2).
+
+    Statement pins and render inputs make a package reproduce the same *bytes*.
+    This makes it reproduce the same *claim*. A package generated with four
+    open questions and two unaccepted assumptions said something weaker than
+    the same bytes say after those were settled, and a reader who cannot see
+    which one they are holding will read the stronger version.
+
+    **Historical reproduction never consults current knowledge.** Every field
+    here is captured at generation and read back verbatim, so an improved
+    package is a new deliverable rather than an old one that quietly improved.
+    """
+
+    mode: str
+    confirmed: int
+    proposed: int
+    contested: int
+    assumption_pins: tuple[AssumptionPin, ...] = ()
+    question_pins: tuple[QuestionPin, ...] = ()
+    unresolved_gap_areas: tuple[str, ...] = ()
+
+    @property
+    def rested_on_uncertainty(self) -> bool:
+        """Whether anything unsettled shaped this package.
+
+        Recorded as a property rather than a stored flag: a stored copy of a
+        derived fact drifted from the derivation within a day of shipping the
+        last one (revision 0018).
+        """
+
+        return bool(
+            self.proposed
+            or self.contested
+            or self.assumption_pins
+            or self.question_pins
+            or self.unresolved_gap_areas
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "mode": self.mode,
+            "confirmed": self.confirmed,
+            "proposed": self.proposed,
+            "contested": self.contested,
+            "assumption_pins": [
+                {"assumption_id": pin.assumption_id, "state": pin.state, "material": pin.material}
+                for pin in self.assumption_pins
+            ],
+            "question_pins": [
+                {"clarification_id": pin.clarification_id, "disposition": pin.disposition}
+                for pin in self.question_pins
+            ],
+            "unresolved_gap_areas": list(self.unresolved_gap_areas),
+        }
+
+    @classmethod
+    def from_dict(cls, stored: dict[str, Any] | None) -> ProvisionalContext | None:
+        """Rebuild from a stored record, or ``None`` if it was never captured.
+
+        A partial capture is treated as absent, for the same reason
+        `RenderInputs` does: a subset would let a deliverable claim it can
+        reproduce its uncertainty when it cannot, and a claim that cannot be
+        honoured is worse than an admitted gap.
+        """
+
+        required = ("mode", "confirmed", "proposed", "contested")
+        if not stored or any(field not in stored for field in required):
+            return None
+        return cls(
+            mode=str(stored["mode"]),
+            confirmed=int(stored["confirmed"]),
+            proposed=int(stored["proposed"]),
+            contested=int(stored["contested"]),
+            assumption_pins=tuple(
+                AssumptionPin(
+                    assumption_id=str(pin["assumption_id"]),
+                    state=str(pin.get("state", "")),
+                    material=bool(pin.get("material", False)),
+                )
+                for pin in stored.get("assumption_pins", ())
+            ),
+            question_pins=tuple(
+                QuestionPin(
+                    clarification_id=str(pin["clarification_id"]),
+                    disposition=str(pin.get("disposition", "open")),
+                )
+                for pin in stored.get("question_pins", ())
+            ),
+            unresolved_gap_areas=tuple(
+                str(area) for area in stored.get("unresolved_gap_areas", ())
+            ),
+        )
+
+
+PROVISIONAL_MISSING = (
+    "recorded before provisional context was captured (N20.2): the assumptions, "
+    "open questions and confirmation state this package rested on cannot be "
+    "proven, so reproducing it would restate its content under today's certainty"
+)
+
+
 LEGACY_INELIGIBLE = (
     "recorded before render inputs were captured (N20.1): the exact statement "
     "versions and rendering options it used cannot be proven, so re-rendering "
@@ -253,6 +395,13 @@ class Deliverable:
     statement_pins: tuple[StatementPin, ...] = ()
     render_inputs: RenderInputs | None = None
     qualification: dict[str, Any] | None = None
+    provisional_context: ProvisionalContext | None = None
+    """The uncertainty this was generated under (N20.2).
+
+    `None` for records written before it was captured. Absent rather than
+    empty: "generated under no uncertainty" and "we did not record the
+    uncertainty" are different claims, and only the first is reassuring.
+    """
     """What this was produced *for*, and what a person accepted (N38).
 
     Alongside the identity rather than inside it. Identity says what was
@@ -329,6 +478,29 @@ class Deliverable:
         if self.render_inputs is None:
             return LEGACY_INELIGIBLE
         return PINS_MISSING
+
+    @property
+    def reproduces_uncertainty(self) -> bool:
+        """Whether this can be reproduced as the *claim* it was, not only the bytes.
+
+        Kept separate from `publication_eligible` deliberately. A package whose
+        statements and render inputs are pinned can be re-rendered byte for
+        byte, and that remains true for a record from before N20.2 — refusing
+        to publish it would withdraw a capability it genuinely has.
+
+        What it cannot do is say how much of itself was guesswork at the time.
+        Republishing it under today's certainty is not a rendering failure; it
+        is a claim nobody made, which is why this reports separately rather
+        than folding into eligibility.
+        """
+
+        return self.provisional_context is not None
+
+    @property
+    def uncertainty_gap_reason(self) -> str | None:
+        """Why the original uncertainty cannot be proven, or ``None``."""
+
+        return None if self.reproduces_uncertainty else PROVISIONAL_MISSING
 
 
 def identity_hash(
