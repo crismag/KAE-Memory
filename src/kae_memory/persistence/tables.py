@@ -902,3 +902,41 @@ class PublicationTargetRow(Base):
     connection_id: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PublicationAttemptRow(Base):
+    """One attempt to write one deliverable to one target (N29).
+
+    Append-oriented: a retry is a new row, never an update. "It failed twice and
+    then worked" is exactly the history an operator needs when it fails a third
+    time, and an overwriting design destroys it.
+
+    Separate from `deliverables` because an attempt is an event and a
+    deliverable is a record of an output that exists. A failed attempt must
+    never modify an immutable record, and must never make a provider outage
+    look like a property of the document.
+    """
+
+    __tablename__ = "publication_attempts"
+    __table_args__ = (
+        Index("ix_publication_attempts_deliverable", "deliverable_id", "requested_at"),
+        Index("ix_publication_attempts_project", "project_id", "state"),
+    )
+
+    attempt_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    deliverable_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    package_hash: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    package_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # What was written, never how to reach it with a signature. There is no
+    # column for a download URL, on purpose.
+    external_reference: Mapped[str | None] = mapped_column(Text, nullable=True)
+    verification_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    error_category: Mapped[str] = mapped_column(String(40), nullable=False, default="none")
+    error_detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    requested_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

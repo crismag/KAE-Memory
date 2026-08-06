@@ -1098,76 +1098,65 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   Withdrawn is distinct from superseded: "there is a newer one" and "do not use
   this" are different facts, and collapsing them would leave a reader unable to
   tell which they were being told. **Studio's `listDeliverables` is unblocked.**
-- [ ] **N21** — **Renderer and hash verification.** Provider-neutral, no
-  destination. Split out of the former "rendering and publication" so that the
-  contract exists before any provider defines the domain.
+- [x] **N21** — Renderer and hash verification —
+  `application/render_service.py`, 2026-08-05. Provider-neutral, no destination,
+  no credential, no filesystem — deliberately before any provider, because a
+  renderer built inside the first one would have taken its shape and the second
+  would have had to argue out of assumptions nobody wrote down.
 
-  *Purpose:* turn a recorded deliverable into bytes, and prove those bytes match
-  the N20 manifest and per-artifact hashes.
-  *Scope:* deterministic renderer; verification against `content_hash` per
-  artifact and for the package; explicit failure when reproduction cannot be
-  proven.
-  *Non-goals:* writing anywhere, any provider, any credential, any target.
-  *Depends on:* **N20.1** (below) — without version pinning, reproduction is
-  unprovable for any deliverable whose knowledge has moved.
-  *Acceptance:* rendering the same deliverable twice is byte-identical;
-  verification fails loudly rather than publishing mismatched content; nothing
-  is written to disk, object storage, or a repository.
-  *Tests:* determinism; hash match; deliberate mismatch refused; a deliverable
-  whose source knowledge changed refuses rather than silently re-rendering.
-  *Registry:* one capability, agent + product, no provider terms.
+  **Deterministic:** no clock, no random source, no current knowledge. A
+  generator banner and a timestamp would each be true and would each make two
+  renders of one deliverable differ, which makes the hash useless for the one
+  thing it is for.
 
-- [x] **N20.1** — Pin every input a deliverable was rendered from —
-  `domain/deliverables.py`, migration `0015`, 2026-08-05.
+  **`render` reports, `verify` insists.** A publication path calls the second,
+  because a caller who has to remember to check `verified` is a caller who
+  eventually will not.
 
-  **Statements are pinned as `(knowledge_id, version)`.** Knowledge versions are
-  immutable and append-only, which is what makes a pin a promise rather than a
-  hope: the version it names still exists, unchanged, however far the statement
-  has moved. A test corrects a statement and asserts the earlier deliverable's
-  pins and hash are unmoved.
+  A deliverable recorded without pins refuses **before producing anything**: it
+  stays readable and is not renderable, because bytes under its identity could
+  not be shown to be the bytes it recorded. And
+  `is_still_reproducible` is kept as a separate question — routinely false for
+  a project that moved on, which is not a fault in the deliverable.
 
-  **Statements were not the only input.** `render_inputs` captures purpose,
-  scope, `include_proposed`, the ordering contract, generator version, package
-  schema, knowledge revision, module key, and — for module scope — a structural
-  fingerprint of the graph that decided what the scope contained. A partial set
-  is treated as absent: reproduction needs every input, and a subset would let
-  a deliverable claim eligibility it cannot honour.
+- [x] **N29** — Publication attempt history — `domain/publication.py`, migration
+  `0021`, 2026-08-05. Append-oriented and separate from the deliverable. Storing
+  an attempt on the deliverable would mean a failed publication writing to an
+  immutable record, and would make "we could not reach S3" look like a property
+  of the document.
 
-  **Artifact hashes remain the final proof.** Eligibility says the inputs exist
-  to attempt reproduction; only the hash says the attempt succeeded, and the
-  two are reported separately so neither is mistaken for the other.
+  Every path through `publish` records, including the refusals: an attempt
+  nobody wrote down is an operational fact that exists only in someone's
+  memory. A retry is a **new row**, never a reopening — "it failed twice and
+  then worked" is exactly the history an operator needs on the third failure.
 
-  **Nothing was backfilled.** Legacy rows stay readable and are explicitly
-  `publication_eligible: false` with a reason that says what is missing and why
-  it matters. A fabricated pin would make an unprovable claim look proven, which
-  is worse than an absent one. `publication_eligible` carries a `server_default`
-  as well as a mapping default, so a metadata-built schema and a migrated one
-  agree that an unspecified row is ineligible.
+  Three failure states because three remedies: `verification_failed` is a
+  correctness problem, `failed` an operations problem, `cancelled` a person.
+  `integrity` is deliberately **not retryable** — the same deliverable produces
+  the same mismatch, and a retry loop turns one problem into a sustained one.
 
-- [ ] **N29** — **Publication attempt history.** Append-oriented records
-  separate from the immutable deliverable.
+  **No column for a download URL.** A presigned URL is a credential with a
+  timer; stored, it is useless when read and dangerous until then. The domain
+  refuses an `external_reference` carrying a signature.
 
-  *Scope:* requested target, provider, status, attempt history, verification
-  result, package hash and size, external reference, error category, actor
-  provenance, timestamps. States: requested, rendering, verification_failed,
-  publishing, published, failed, cancelled.
-  *Non-goals:* provider execution; storing expiring download URLs.
-  *Acceptance:* a failed attempt never marks the deliverable invalid; retry is
-  possible; the deliverable's own state is untouched by publication outcomes.
-  *Tests:* failure isolation; retry idempotence; no URL persisted.
-
-- [ ] **N30** — **Local filesystem provider.** The simplest contract proof, and
+- [x] **N30** — Local filesystem provider —
+  `application/providers/local.py`, 2026-08-05. The contract proof, and
   explicitly not the permanent architecture.
 
-  *Scope:* publication root from trusted runtime configuration; target stores a
-  safe relative location beneath it; absolute and traversal paths refused;
-  staged or atomic writes; defined collision behaviour; rendered files verified
-  against N20 hashes before the write is accepted.
-  *Non-goals:* browser download — a hosted user choosing "download" is not
-  server-local publication and needs its own delivery mechanism.
-  *Acceptance:* nothing is written outside the configured root under any input;
-  the capability can be disabled in hosted deployments.
-  *Tests:* traversal, absolute path, symlink escape, collision, disabled mode.
+  Three defences, and the third is the one that holds: the location comes from
+  the **target**, not the request; traversal and absolute paths are refused by
+  inspection so the error says what was wrong; and the resolved path is checked
+  against the resolved root **after symlinks** — which stops asking what the
+  string looks like and asks where the file would actually go. A symlink-escape
+  test proves the difference.
+
+  Staged then renamed, so a crash leaves the previous content rather than half
+  the new content. A collision is refused unless `overwrite` means it. The
+  reference recorded is relative to the root, because an absolute path in a
+  durable record is a fact about one machine and will be read on another.
+
+  Disableable, and a disabled provider is a **configuration** outcome rather
+  than a failure. Explicitly not a browser download.
 
 - [ ] **N31** — **S3-compatible provider.** Private objects, server-configured
   bucket and allowed prefix, immutable or versioned keys, encryption, runtime
