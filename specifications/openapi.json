@@ -1888,6 +1888,106 @@
         "title": "ProjectResponse",
         "type": "object"
       },
+      "PublicationTargetListResponse": {
+        "properties": {
+          "knowledge_changed": {
+            "default": false,
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationTargetResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "results",
+          "total"
+        ],
+        "title": "PublicationTargetListResponse",
+        "type": "object"
+      },
+      "PublicationTargetResponse": {
+        "description": "One registered destination, described without the means to reach it.\n\n`unavailable_reason` rather than a bare boolean: \"I never set this up\", \"it\nstopped working\", and \"somebody turned it off\" have three different\nremedies, and a caller given only the boolean has to guess.",
+        "properties": {
+          "authorization": {
+            "title": "Authorization",
+            "type": "string"
+          },
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "configuration": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Configuration",
+            "type": "object"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          }
+        },
+        "required": [
+          "target_id",
+          "name",
+          "provider",
+          "purpose",
+          "is_default",
+          "enabled",
+          "available",
+          "unavailable_reason",
+          "authorization",
+          "configuration"
+        ],
+        "title": "PublicationTargetResponse",
+        "type": "object"
+      },
       "RaiseBlockerRequest": {
         "properties": {
           "area_key": {
@@ -2577,6 +2677,207 @@
           "actor"
         ],
         "title": "SettleOperationalRequest",
+        "type": "object"
+      },
+      "SetupGapResponse": {
+        "description": "One thing setup is missing, and whether it stops anything.",
+        "properties": {
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "capability": {
+            "title": "Capability",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "next_action": {
+            "title": "Next Action",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "capability",
+          "blocking",
+          "reason",
+          "next_action"
+        ],
+        "title": "SetupGapResponse",
+        "type": "object"
+      },
+      "SetupQuestionListResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "knowledge_changed": {
+            "default": false,
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/SetupQuestionResponse"
+            },
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "questions",
+          "count"
+        ],
+        "title": "SetupQuestionListResponse",
+        "type": "object"
+      },
+      "SetupQuestionResponse": {
+        "description": "One question about configuration. Never a clarification.",
+        "properties": {
+          "becomes_default": {
+            "title": "Becomes Default",
+            "type": "boolean"
+          },
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "disposition": {
+            "title": "Disposition",
+            "type": "string"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "setup_question_id": {
+            "title": "Setup Question Id",
+            "type": "string"
+          },
+          "suggested_answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Answer"
+          },
+          "suggestion_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Evidence"
+          }
+        },
+        "required": [
+          "setup_question_id",
+          "purpose",
+          "question",
+          "field",
+          "blocking",
+          "suggested_answer",
+          "suggestion_evidence",
+          "becomes_default",
+          "disposition"
+        ],
+        "title": "SetupQuestionResponse",
+        "type": "object"
+      },
+      "SetupStateResponse": {
+        "description": "What a project is configured to do, apart from what it knows.\n\nNever merged with readiness. A project with a clear brief and no\nauthorisation is fully understood and cannot publish; averaging those into\none number produces a figure that is wrong about both.",
+        "properties": {
+          "blocks_anything": {
+            "title": "Blocks Anything",
+            "type": "boolean"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "disclosures": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Disclosures",
+            "type": "array"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/SetupGapResponse"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "knowledge_changed": {
+            "default": false,
+            "title": "Knowledge Changed",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "setup_state": {
+            "title": "Setup State",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/PublicationTargetResponse"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "unknown_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknown Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "setup_state",
+          "blocks_anything",
+          "gaps",
+          "configuration",
+          "unknown_fields",
+          "disclosures",
+          "targets"
+        ],
+        "title": "SetupStateResponse",
         "type": "object"
       },
       "StatedEntryResponse": {
@@ -4778,6 +5079,49 @@
         ]
       }
     },
+    "/v1/projects/{project_id}/publication-targets": {
+      "get": {
+        "description": "Where this project may publish, including where it currently cannot.\n\nUnavailable targets are included. A target that vanished when its\nauthorisation expired would take the decision with it.",
+        "operationId": "publication_targets_v1_projects__project_id__publication_targets_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationTargetListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publication Targets",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
     "/v1/projects/{project_id}/readiness": {
       "get": {
         "description": "Return the latest snapshot, calculating one if none exists.\n\nCalculating on first read rather than returning 404 means the workspace shows\na real zero for an untouched project instead of an error it would have to\nexplain.",
@@ -5229,6 +5573,102 @@
         "summary": "Open Session",
         "tags": [
           "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/setup": {
+      "get": {
+        "description": "Report what this project is configured to do.\n\nDeliberately a different route from `/readiness`, and the separation is the\npoint: setup readiness and knowledge readiness answer different questions,\nand a client that could read one as the other would tell a person a\nwell-understood project can publish.\n\nNever refuses over sparse knowledge. Every blocking gap names an unmade\nchoice, a missing authorisation, an integrity failure, an unavailable\nprovider, or an unsupported feature.",
+        "operationId": "setup_state_v1_projects__project_id__setup_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Setup State",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/setup/questions": {
+      "get": {
+        "description": "Unsettled questions about configuration, never about the product.\n\nA GET, unlike `/clarifications`. A setup question is recorded when someone\ndecides to ask it; there is nothing to materialise on read, so nothing here\nmutates.",
+        "operationId": "setup_questions_v1_projects__project_id__setup_questions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "blocking_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Blocking Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupQuestionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Setup Questions",
+        "tags": [
+          "pipeline"
         ]
       }
     },

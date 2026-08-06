@@ -28,6 +28,7 @@ from kae_memory.application.preliminary_context_service import PreliminaryContex
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
+from kae_memory.application.setup_service import SetupService
 from kae_memory.persistence import providers
 
 from .errors import not_found
@@ -188,6 +189,13 @@ def authorise_project(request: Request, project_id: str) -> None:
         raise not_found("project", project_id)
 
 
+def get_setup(request: Request) -> SetupService:
+    """Return the request's preliminary setup service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return SetupService(factory)
+
+
 def get_preliminary(request: Request) -> PreliminaryContextService:
     """Return the request's preliminary context service."""
 
@@ -255,3 +263,4 @@ Classification = Annotated[ClassificationService, Depends(get_classification)]
 Deliverables = Annotated[DeliverableService, Depends(get_deliverables)]
 Assumptions = Annotated[AssumptionService, Depends(get_assumptions)]
 Preliminary = Annotated[PreliminaryContextService, Depends(get_preliminary)]
+Setup = Annotated[SetupService, Depends(get_setup)]

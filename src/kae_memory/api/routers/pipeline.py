@@ -27,6 +27,7 @@ from kae_memory.application.assembly_service import AssemblyPurpose, describe_pa
 from kae_memory.application.assumption_service import AssumptionNotFoundError
 from kae_memory.application.deliverable_service import DeliverableNotFoundError
 from kae_memory.application.ingestion_service import IngestionPolicy
+from kae_memory.application.setup_service import SetupService
 from kae_memory.domain.assumptions import (
     Consequence,
     InvalidAssumptionTransitionError,
@@ -50,6 +51,7 @@ from ..dependencies import (
     Preliminary,
     Readiness,
     Retrieval,
+    Setup,
 )
 from ..errors import ApiError, not_found
 from ..schemas import (
@@ -67,10 +69,16 @@ from ..schemas import (
     IngestionResponse,
     KnowledgeReviewResponse,
     PreliminaryContextResponse,
+    PublicationTargetListResponse,
+    PublicationTargetResponse,
     RecordAssumptionRequest,
     RecordDeliverableRequest,
     RejectKnowledgeRequest,
     SearchResponse,
+    SetupGapResponse,
+    SetupQuestionListResponse,
+    SetupQuestionResponse,
+    SetupStateResponse,
     SupersedeDeliverableRequest,
     WithdrawDeliverableRequest,
 )
@@ -272,6 +280,123 @@ def answer_clarification(
         assumption_id=body.assumption_id,
     )
     return ClarificationResponse.of(outcome)
+
+
+@router.get("/projects/{project_id}/setup", response_model=SetupStateResponse)
+def setup_state(project_id: str, memory: Memory, setup: Setup) -> SetupStateResponse:
+    """Report what this project is configured to do.
+
+    Deliberately a different route from `/readiness`, and the separation is the
+    point: setup readiness and knowledge readiness answer different questions,
+    and a client that could read one as the other would tell a person a
+    well-understood project can publish.
+
+    Never refuses over sparse knowledge. Every blocking gap names an unmade
+    choice, a missing authorisation, an integrity failure, an unavailable
+    provider, or an unsupported feature.
+    """
+
+    resolved = _project(project_id, memory)
+    readiness = setup.readiness(resolved)
+    configuration = setup.configuration(resolved)
+    return SetupStateResponse(
+        project_id=str(resolved),
+        setup_state=readiness.state.value,
+        blocks_anything=readiness.blocks_anything,
+        gaps=[
+            SetupGapResponse(
+                field=gap.field_name,
+                capability=gap.capability,
+                blocking=gap.blocking,
+                reason=gap.reason,
+                next_action=gap.next_action,
+            )
+            for gap in readiness.gaps
+        ],
+        configuration=configuration.as_dict(),
+        unknown_fields=list(configuration.unknown_fields()),
+        disclosures=[
+            {"field": value.field_name, "value": value.value, "state": value.state.value}
+            for value in configuration.disclosures()
+        ],
+        targets=[_target_response(setup, resolved, target) for target in setup.targets(resolved)],
+    )
+
+
+@router.get("/projects/{project_id}/setup/questions", response_model=SetupQuestionListResponse)
+def setup_questions(
+    project_id: str,
+    memory: Memory,
+    setup: Setup,
+    blocking_only: Annotated[bool, Query()] = False,
+) -> SetupQuestionListResponse:
+    """Unsettled questions about configuration, never about the product.
+
+    A GET, unlike `/clarifications`. A setup question is recorded when someone
+    decides to ask it; there is nothing to materialise on read, so nothing here
+    mutates.
+    """
+
+    resolved = _project(project_id, memory)
+    questions = setup.open_questions(resolved, blocking_only=blocking_only)
+    return SetupQuestionListResponse(
+        project_id=str(resolved),
+        questions=[
+            SetupQuestionResponse(
+                setup_question_id=str(question.id),
+                purpose=question.purpose.value,
+                question=question.question,
+                field=question.field_name,
+                blocking=question.blocking,
+                suggested_answer=question.suggested_answer,
+                suggestion_evidence=question.suggestion_evidence,
+                becomes_default=question.becomes_default,
+                disposition=question.disposition.value,
+            )
+            for question in questions
+        ],
+        count=len(questions),
+    )
+
+
+@router.get(
+    "/projects/{project_id}/publication-targets",
+    response_model=PublicationTargetListResponse,
+)
+def publication_targets(
+    project_id: str, memory: Memory, setup: Setup
+) -> PublicationTargetListResponse:
+    """Where this project may publish, including where it currently cannot.
+
+    Unavailable targets are included. A target that vanished when its
+    authorisation expired would take the decision with it.
+    """
+
+    resolved = _project(project_id, memory)
+    targets = setup.targets(resolved)
+    return PublicationTargetListResponse(
+        project_id=str(resolved),
+        results=[_target_response(setup, resolved, target) for target in targets],
+        total=len(targets),
+    )
+
+
+def _target_response(
+    setup: SetupService, project_id: ProjectId, target: Any
+) -> PublicationTargetResponse:
+    authorization = setup.authorization_for(project_id, target.connection_id)
+    return PublicationTargetResponse(
+        target_id=str(target.id),
+        name=target.name,
+        provider=target.provider.value,
+        purpose=target.purpose.value,
+        is_default=target.is_default,
+        enabled=target.enabled,
+        available=target.available(authorization),
+        unavailable_reason=target.unavailable_reason(authorization),
+        authorization=authorization.value,
+        configuration=dict(target.configuration or {}),
+    )
 
 
 @router.get(

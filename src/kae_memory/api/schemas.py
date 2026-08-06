@@ -965,6 +965,87 @@ def _unknown(entry: Any) -> UnknownEntryResponse:
     )
 
 
+class SetupGapResponse(BaseModel):
+    """One thing setup is missing, and whether it stops anything."""
+
+    field: str
+    capability: str
+    blocking: bool
+    reason: str
+    next_action: str
+
+
+class PublicationTargetResponse(BaseModel):
+    """One registered destination, described without the means to reach it.
+
+    `unavailable_reason` rather than a bare boolean: "I never set this up", "it
+    stopped working", and "somebody turned it off" have three different
+    remedies, and a caller given only the boolean has to guess.
+    """
+
+    target_id: str
+    name: str
+    provider: str
+    purpose: str
+    is_default: bool
+    enabled: bool
+    available: bool
+    unavailable_reason: str | None
+    authorization: str
+    configuration: dict[str, str]
+    """Credential-free by construction, not by redaction on the way out."""
+
+
+class SetupStateResponse(BaseModel):
+    """What a project is configured to do, apart from what it knows.
+
+    Never merged with readiness. A project with a clear brief and no
+    authorisation is fully understood and cannot publish; averaging those into
+    one number produces a figure that is wrong about both.
+    """
+
+    project_id: str
+    setup_state: str
+    blocks_anything: bool
+    gaps: list[SetupGapResponse]
+    configuration: dict[str, Any]
+    unknown_fields: list[str]
+    disclosures: list[dict[str, Any]]
+    targets: list[PublicationTargetResponse]
+    knowledge_changed: bool = False
+
+
+class SetupQuestionResponse(BaseModel):
+    """One question about configuration. Never a clarification."""
+
+    setup_question_id: str
+    purpose: str
+    question: str
+    field: str
+    blocking: bool
+    suggested_answer: str | None
+    suggestion_evidence: str | None
+    """Travels with the suggestion or not at all. Without it a person can only
+    judge whether to trust the machine."""
+
+    becomes_default: bool
+    disposition: str
+
+
+class SetupQuestionListResponse(BaseModel):
+    project_id: str
+    questions: list[SetupQuestionResponse]
+    count: int
+    knowledge_changed: bool = False
+
+
+class PublicationTargetListResponse(BaseModel):
+    project_id: str
+    results: list[PublicationTargetResponse]
+    total: int
+    knowledge_changed: bool = False
+
+
 class AnswerClarificationRequest(BaseModel):
     """What a person said about a question — which is not always a decision.
 

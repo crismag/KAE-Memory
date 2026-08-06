@@ -919,74 +919,93 @@ Phase I (N7, N8) governs **system and deployment** configuration. Nothing in the
 register covered **project** configuration or **per-operation overrides**, which
 is the gap this phase fills.
 
-- [ ] **N24** — **Preliminary setup domain and vocabulary.**
-  *Purpose:* name the stage and its states before anything implements it.
-  *Scope:* setup states — not started, discovering, needs input, sufficient to
-  begin acquisition, ready for generation, ready for publication, degraded;
-  the inference policy as a typed rule rather than prose (adopt and disclose /
-  propose / ask / defer / block); provenance and confidence on every inferred
-  value.
-  *Non-goals:* asking anything; any provider; any UI.
-  *Acceptance:* setup readiness is reported **separately from knowledge
-  readiness**, and names the exact unavailable capability and the next useful
-  action. An unknown publication target does not block repository analysis; a
-  missing primary source does block repository acquisition.
-  *Tests:* each state reachable; blocking and non-blocking questions separated;
-  no inferred credential or authorisation, ever.
+- [x] **N24** — Preliminary setup domain and vocabulary — `domain/setup.py`,
+  2026-08-05.
 
-- [ ] **N25** — **Setup-question lifecycle.**
-  *Decision required first:* whether these reuse the clarification model with a
-  purpose field, or need their own. **Evidence says they need their own.**
-  `Clarification` is derived from a `Finding` and has no identity until
-  materialised; it carries `finding_kind`, `severity`, and `knowledge_ids`, and
-  is answerable only through the finding that produced it. A setup question has
-  no finding, targets a configuration field rather than a statement, and must
-  record whether its answer becomes the project default. Forcing it in would
-  distort both lifecycles, which the product context explicitly forbids.
-  *Scope must preserve:* purpose, blocking status, suggested answer, evidence
-  for the suggestion, confirmed answer, project association, configuration
-  field affected, answer provenance, whether it becomes the default, whether it
-  may be revisited.
-  *Tests:* a setup question never appears in the clarification queue and vice
-  versa; answering one updates configuration and not knowledge.
+  Two readinesses, and the reason this exists is that they had been one.
+  Knowledge readiness asks how well understood a project is and never blocks;
+  setup readiness asks whether the machinery a requested operation needs is in
+  place, and genuinely can be unavailable. A project with a clear brief and no
+  GitHub authorisation is fully understood and cannot publish; averaging the
+  two produces a number wrong about both.
 
-- [ ] **N26** — **Typed project configuration projection.**
-  *Constraint from Phase O:* every field must support unknown, inferred,
-  suggested, confirmed, provisional, deferred, inherited, overridden, and
-  unavailable-because-disabled. **A project must be creatable with almost none
-  of it populated** — `primary_repository` is unknown for an idea, and
-  `default_publication_target` stays unknown until the first publication.
-  *Purpose:* publication must not search natural-language knowledge at runtime
-  to decide where to write files.
-  *Scope:* a validated typed record distinct from knowledge statements;
-  derivation from confirmed knowledge where appropriate; explicit separation of
-  descriptive knowledge, governed preference, deployment configuration, secrets,
-  and per-operation override.
-  *Non-goals:* storing credentials in any of these; a settings UI.
-  *Acceptance:* "the project uses `crismag/KAE-Studio`" may exist as knowledge,
-  and publication reads a validated target record instead.
-  *Tests:* a knowledge statement naming a repository never routes a
-  publication; secrets are refused at the boundary.
+  `InferencePolicy` is the adopt / propose / ask / defer / block rule as a type
+  rather than as prose, because the line between adopting a value and asking
+  about one moves a little with each implementation when it is written in
+  sentences. `NEVER_INFERRED` refuses a credential at **every** policy: a
+  credential is granted, never worked out.
 
-- [ ] **N27** — **Publication target registry and default resolution.**
-  *Scope:* zero or more targets per project; at most one default per purpose or
-  deliverable class; availability and authorisation state; provider-neutral
-  identity with safe provider-specific configuration and **no raw credentials**;
-  `target_id` optional on a request, resolving to the project default.
-  *Acceptance:* a request carrying a bucket, repository coordinate, or absolute
-  path is refused; an override never silently becomes the default.
-  *Tests:* default resolution; override isolation; unauthorised target refused;
-  disabled provider refused.
-  *Registry:* product + agent read, product-only default management.
+  Nine `ValueState`s, and the ones that look redundant matter most. `unknown`
+  and `deferred` both mean no value — a gap versus a decision not to have one —
+  and a system that conflates them keeps asking about the second.
 
-- [ ] **N28** — **Provider authorisation and connection boundary.**
-  Separate from publication execution, deliberately.
-  *Scope:* connection records, authorisation state, and the trust boundary that
-  keeps GitHub, S3, and filesystem credentials in the runtime layer.
-  *Non-goals:* publishing anything; exposing a credential to Studio or to an
-  agent under any response shape.
-  *Acceptance:* an unauthorised target is visible as unavailable with a reason,
-  and cannot be published to.
+  `blocks(capability)` is per capability, so expired S3 credentials stop
+  publication and not generation.
+
+- [x] **N25** — Setup-question lifecycle — `domain/setup_questions.py`,
+  2026-08-05. **Its own model**, and the register's evidence held up: a
+  clarification is derived from a finding and answerable only through it; a
+  setup question has no finding, targets a configuration field, and records
+  whether its answer becomes the project default. Forcing them together would
+  need a discriminator plus four columns meaning nothing for half the rows.
+
+  What is **shared** is the N36 disposition vocabulary. "I don't know yet,
+  choose something reasonable" is exactly as valid about a publication target as
+  about a requirement, and a second, subtly different version of a distinction
+  that took a manual-test failure to get right would have been worse than the
+  duplication.
+
+  A suggestion travels with its evidence or is refused. Without it a person can
+  only judge whether to trust the machine.
+
+- [x] **N26** — Typed project configuration — `domain/project_configuration.py`,
+  2026-08-05. One row per field rather than a wide row: a field carries a state,
+  evidence, a derivation, and who confirmed it, which is a record rather than a
+  value — and adding a field becomes data rather than a migration.
+
+  Derivation from knowledge is legitimate **once, deliberately, recorded**
+  (`derived_from_knowledge_id`). What is not is publication searching prose at
+  the moment bytes are written, which is the failure this target names.
+
+  A project is creatable with none of it populated, and that is the ordinary
+  state. An unrecognised field is refused rather than created: a misspelling
+  would configure nothing and look configured.
+
+- [x] **N27** — Publication target registry — `domain/publication_targets.py`,
+  2026-08-05. Provider-neutral identity, credential-free configuration, at most
+  one default per purpose — enforced by a partial unique index rather than a
+  read-then-write, because two concurrent "make this the default" calls would
+  both find none.
+
+  `ensure_no_inline_destination` refuses a request naming a bucket, repository,
+  or path. That rule is what makes authorisation mean anything: a request able
+  to name its own destination would let the check run against a registered
+  target while the bytes went somewhere else, and every audit afterwards would
+  describe the wrong place.
+
+  `make_default` is explicit and defaults to false. An override that silently
+  became the default is the same failure one step earlier.
+
+- [x] **N28** — Provider authorisation boundary — 2026-08-05. A connection is
+  separate from a target because a target is a **product decision** and a
+  connection is a runtime permission. A token expiring must not erase a decision
+  about where to publish; asking someone to re-choose a destination they already
+  chose is how a system teaches people to ignore it.
+
+  **There is no credential column.** Not filtered on the way out — absent. A
+  field that exists gets serialised eventually, by a response written in a hurry
+  by someone who did not know it was there. `credential_reference` names where a
+  credential lives and is refused if it looks like one.
+
+  Five authorisation states, because the remedies differ: never granted needs a
+  decision, revoked needs someone to find out why, expired is routine, and
+  unverified is honest — a connection nobody has exercised is not a working one,
+  and reporting it as granted moves the failure to publication time.
+
+  Adapters both ways: `kae_get_setup_state`, `kae_get_setup_questions`,
+  `kae_list_publication_targets`, and three GET routes, with `setup.read`,
+  `setup.questions`, and `publication.targets` in the capability registry. A
+  test asserts the serialised body contains no credential on either adapter.
 
 ## Phase L — Rendering, publication, and proof
 

@@ -53,6 +53,7 @@ from kae_memory.application.retrieval_service import (
     SearchMode,
 )
 from kae_memory.application.review_service import Finding, ReviewService
+from kae_memory.application.setup_service import SetupService
 from kae_memory.domain.assumptions import (
     AssumptionOrigin,
     Consequence,
@@ -125,6 +126,7 @@ class ToolContext:
         deliverables: DeliverableService | None = None,
         assumptions: AssumptionService | None = None,
         preliminary: PreliminaryContextService | None = None,
+        setup: SetupService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -139,6 +141,7 @@ class ToolContext:
         self.deliverables = deliverables
         self.assumptions = assumptions
         self.preliminary = preliminary
+        self.setup = setup
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -2526,6 +2529,189 @@ def _ingestion_payload(
             "Then kae_get_project_briefing shows what was proposed, and a person "
             "confirms it with kae_confirm_knowledge.",
         ],
+    }
+
+
+def kae_get_setup_state(
+    context: ToolContext,
+    project_id: str,
+) -> dict[str, Any]:
+    """Report what this project is **configured** to do, apart from what it knows.
+
+    Two different readinesses, and neither can stand in for the other. A project
+    with a clear brief and no authorisation is fully understood and cannot
+    publish; one with a working connection and a single sentence can publish
+    something thin. Merging them into a number would be wrong about both.
+
+    **Knowledge sparsity never appears here.** Every blocking gap names an
+    unmade choice, a missing authorisation, an integrity failure, an unavailable
+    provider, or an unsupported feature — the five reasons anything may be
+    refused. A gap reading "not enough is known" would be the readiness gate
+    this system deliberately does not have.
+
+    Read `blocks` per capability rather than the state alone: an expired S3
+    authorisation stops publication and not generation, and reporting one
+    project-wide verdict would stop both.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.setup is None:
+        raise CapabilityUnavailableError(
+            capability="preliminary setup",
+            missing=[message("refusal.capability_unconfigured", capability="setup")],
+            use_instead=["kae_get_readiness"],
+        )
+
+    readiness = context.setup.readiness(project.id)
+    configuration = context.setup.configuration(project.id)
+    targets = context.setup.targets(project.id)
+    return {
+        "project_id": str(project.id),
+        "setup_state": readiness.state.value,
+        # Named apart from `readiness_percentage` on purpose. A caller reading
+        # one as the other would conclude a well-understood project can publish.
+        "blocks_anything": readiness.blocks_anything,
+        "gaps": [
+            {
+                "field": gap.field_name,
+                "capability": gap.capability,
+                "blocking": gap.blocking,
+                "reason": gap.reason,
+                "next_action": gap.next_action,
+            }
+            for gap in readiness.gaps
+        ],
+        "configuration": configuration.as_dict(),
+        "unknown_fields": list(configuration.unknown_fields()),
+        # Values KAE worked out and put into use. The same rule as an
+        # assumption: a reader who cannot tell those from what a person decided
+        # will read the first as the second.
+        "disclosures": [
+            {"field": value.field_name, "value": value.value, "state": value.state.value}
+            for value in configuration.disclosures()
+        ],
+        "targets": [_target_payload(context, project.id, target) for target in targets],
+        "knowledge_changed": False,
+        "note": (
+            "Setup readiness is not knowledge readiness. Nothing here says how "
+            "well understood this project is, and low knowledge never blocks."
+        ),
+    }
+
+
+def kae_get_setup_questions(
+    context: ToolContext,
+    project_id: str,
+    blocking_only: bool = False,
+) -> dict[str, Any]:
+    """Return unsettled questions about **configuration**, never about the product.
+
+    A separate queue from `kae_get_clarifications`, and separate on evidence
+    rather than taste: a clarification is derived from a finding and answerable
+    only through it; a setup question has no finding, targets a configuration
+    field, and records whether its answer becomes the project default.
+
+    They also read differently to a person. "What should this product do?" and
+    "where should this publish?" are different conversations, and interleaving
+    them makes both worse.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.setup is None:
+        raise CapabilityUnavailableError(
+            capability="preliminary setup",
+            missing=[message("refusal.capability_unconfigured", capability="setup")],
+            use_instead=["kae_get_clarifications"],
+        )
+
+    questions = context.setup.open_questions(project.id, blocking_only=blocking_only)
+    return {
+        "project_id": str(project.id),
+        "questions": [
+            {
+                "setup_question_id": str(question.id),
+                "purpose": question.purpose.value,
+                "question": question.question,
+                "field": question.field_name,
+                "blocking": question.blocking,
+                # A suggestion travels with its evidence or not at all. Without
+                # it a person can only judge whether to trust the machine.
+                "suggested_answer": question.suggested_answer,
+                "suggestion_evidence": question.suggestion_evidence,
+                "becomes_default": question.becomes_default,
+                "disposition": question.disposition.value,
+            }
+            for question in questions
+        ],
+        "count": len(questions),
+        "knowledge_changed": False,
+        "note": (
+            "These configure the project. Answering one changes configuration "
+            "and never project knowledge, and they never appear in the "
+            "clarification queue."
+        ),
+    }
+
+
+def kae_list_publication_targets(
+    context: ToolContext,
+    project_id: str,
+) -> dict[str, Any]:
+    """List where this project may publish, including where it currently cannot.
+
+    Unavailable targets are **included**. A target that vanished when its
+    authorisation expired would take the decision with it, and asking a person
+    to choose a destination they already chose is how a system teaches people
+    to ignore it.
+
+    No credential appears in this response, because none exists to appear: a
+    target carries provider configuration and a connection carries a *reference*
+    to where a credential lives (N28).
+    """
+
+    project = resolve_project(context, project_id)
+    if context.setup is None:
+        raise CapabilityUnavailableError(
+            capability="publication targets",
+            missing=[message("refusal.capability_unconfigured", capability="setup")],
+        )
+
+    targets = context.setup.targets(project.id)
+    return {
+        "project_id": str(project.id),
+        "results": [_target_payload(context, project.id, target) for target in targets],
+        "total": len(targets),
+        "knowledge_changed": False,
+        "note": (
+            "A publication request names a target_id or nothing, never a bucket, "
+            "repository, or path. A request that could name its own destination "
+            "would make every authorisation check advisory."
+        ),
+    }
+
+
+def _target_payload(context: ToolContext, project_id: Any, target: Any) -> dict[str, Any]:
+    """Render one target with why it cannot be used, if it cannot.
+
+    `unavailable_reason` rather than a bare `available: false`: "I never set
+    this up", "it stopped working", and "somebody turned it off" have three
+    different remedies, and a caller given only the boolean has to guess.
+    """
+
+    assert context.setup is not None
+    authorization = context.setup.authorization_for(project_id, target.connection_id)
+    return {
+        "target_id": str(target.id),
+        "name": target.name,
+        "provider": target.provider.value,
+        "purpose": target.purpose.value,
+        "is_default": target.is_default,
+        "enabled": target.enabled,
+        "available": target.available(authorization),
+        "unavailable_reason": target.unavailable_reason(authorization),
+        "authorization": authorization.value,
+        # Credential-free by construction, not by filtering here.
+        "configuration": dict(target.configuration or {}),
     }
 
 

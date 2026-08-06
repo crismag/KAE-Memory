@@ -207,6 +207,13 @@ def test_the_tool_surface_stays_small() -> None:
     had nowhere to go — the third no-caller gap in this repository, and the one
     manual testing hit twice.
 
+    N24-N28 added three reads, and each is a question about **configuration**
+    rather than about the product: what this project is set up to do, what
+    configuration questions are outstanding, and where it may publish. Setup
+    readiness and knowledge readiness are separate questions, and a single tool
+    answering both would let a caller conclude that a well-understood project
+    can publish.
+
     N44 added one, and it is a genuinely different question rather than a
     variant of `kae_assemble_context`. That tool answers "what has this project
     settled", which for a project described in one sentence is "nothing".
@@ -216,7 +223,7 @@ def test_the_tool_surface_stays_small() -> None:
     invariants preventing.
     """
 
-    assert len(TOOL_DEFINITIONS) == 27
+    assert len(TOOL_DEFINITIONS) == 30
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -224,6 +231,9 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_get_project_briefing",
         "kae_get_module_context",
         "kae_get_preliminary_context",
+        "kae_get_setup_state",
+        "kae_get_setup_questions",
+        "kae_list_publication_targets",
         "kae_search_knowledge",
         "kae_get_open_decisions",
         "kae_get_readiness",

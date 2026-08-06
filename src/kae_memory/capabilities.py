@@ -172,6 +172,27 @@ REGISTRY: tuple[Capability, ...] = (
         http=("GET /v1/projects/{project_id}/preliminary-context",),
     ),
     Capability(
+        key="setup.read",
+        summary="Report what a project is configured to do, apart from what it knows",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_setup_state",),
+        http=("GET /v1/projects/{project_id}/setup",),
+    ),
+    Capability(
+        key="setup.questions",
+        summary="List unsettled questions about configuration, not about the product",
+        exposure=Exposure.BOTH,
+        mcp=("kae_get_setup_questions",),
+        http=("GET /v1/projects/{project_id}/setup/questions",),
+    ),
+    Capability(
+        key="publication.targets",
+        summary="List where a project may publish, and why it currently cannot",
+        exposure=Exposure.BOTH,
+        mcp=("kae_list_publication_targets",),
+        http=("GET /v1/projects/{project_id}/publication-targets",),
+    ),
+    Capability(
         key="readiness.read",
         summary="Report how well understood a project is",
         exposure=Exposure.BOTH,

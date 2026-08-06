@@ -34,6 +34,7 @@ from kae_memory.application.preliminary_context_service import PreliminaryContex
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
+from kae_memory.application.setup_service import SetupService
 from kae_memory.mcp import response_policy, tools
 from kae_memory.mcp.errors import safe_error
 
@@ -97,6 +98,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         deliverables=DeliverableService(factory),
         assumptions=AssumptionService(factory),
         preliminary=PreliminaryContextService(factory),
+        setup=SetupService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -694,6 +696,76 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_get_setup_state",
+        "description": (
+            "What this project is configured to do, reported apart from what it "
+            "knows. Setup readiness and knowledge readiness are different "
+            "questions and neither substitutes for the other. Knowledge "
+            "sparsity never appears here: every blocking gap names an unmade "
+            "choice, a missing authorisation, an integrity failure, an "
+            "unavailable provider, or an unsupported feature. Read the gaps per "
+            "capability — an expired authorisation stops publication, not "
+            "generation."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_get_setup_questions",
+        "description": (
+            "Unsettled questions about how this project is configured — where "
+            "deliverables go, which repository it reads. A separate queue from "
+            "kae_get_clarifications, which asks about the product itself. "
+            "Answering one changes configuration and never project knowledge. A "
+            "suggestion always arrives with the evidence for it."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "blocking_only": {
+                    "type": "boolean",
+                    "description": "Only questions that currently stop an operation.",
+                },
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_list_publication_targets",
+        "description": (
+            "Where this project may publish, including targets it currently "
+            "cannot use and why. Unavailable ones are listed rather than hidden: "
+            "an expired authorisation is not a reason to forget a decision about "
+            "where to publish. No credential appears, because none is stored — a "
+            "connection holds a reference to where one lives."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
+                "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
+                "max_output_tokens": {"type": "integer", "minimum": 1},
+            },
+            "required": ["project_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_get_clarifications",
         "description": (
             "Open questions this project's gaps justify asking a person, most "
@@ -1169,6 +1241,19 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("project_id", ""),
             arguments.get("purpose", "discovery"),
         ),
+        "kae_get_setup_state": lambda: tools.kae_get_setup_state(
+            context,
+            arguments.get("project_id", ""),
+        ),
+        "kae_get_setup_questions": lambda: tools.kae_get_setup_questions(
+            context,
+            arguments.get("project_id", ""),
+            bool(arguments.get("blocking_only", False)),
+        ),
+        "kae_list_publication_targets": lambda: tools.kae_list_publication_targets(
+            context,
+            arguments.get("project_id", ""),
+        ),
         "kae_get_clarifications": lambda: tools.kae_get_clarifications(
             context,
             arguments.get("project_id", ""),
@@ -1386,6 +1471,41 @@ def build_server(context: tools.ToolContext) -> Any:
                 "max_chunks": max_chunks,
                 "actor_id": actor_id,
             },
+        )
+
+    def kae_get_setup_state(
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_setup_state",
+            {"project_id": project_id, "project_key": project_key},
+        )
+
+    def kae_get_setup_questions(
+        blocking_only: bool = False,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_get_setup_questions",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "blocking_only": blocking_only,
+            },
+        )
+
+    def kae_list_publication_targets(
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_list_publication_targets",
+            {"project_id": project_id, "project_key": project_key},
         )
 
     def kae_get_preliminary_context(
@@ -1866,6 +1986,9 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_ingest_document,
             kae_assemble_context,
             kae_get_preliminary_context,
+            kae_get_setup_state,
+            kae_get_setup_questions,
+            kae_list_publication_targets,
             kae_get_project_briefing,
             kae_get_module_context,
             kae_search_knowledge,

@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -780,4 +781,124 @@ class AssumptionRow(Base):
     accepted_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     delegated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     supersedes: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SetupQuestionRow(Base):
+    """One question about how a project is configured (N25).
+
+    **Deliberately not a `message`.** A clarification is derived from a finding
+    and answerable only through it; a setup question has no finding, targets a
+    configuration field, and records whether its answer becomes the project
+    default. Forcing them together would need a discriminator plus four columns
+    meaning nothing for half the rows.
+    """
+
+    __tablename__ = "setup_questions"
+    __table_args__ = (
+        # One question per field per project. Asking someone the same thing
+        # twice is what the clarification queue already learned to avoid.
+        UniqueConstraint("project_id", "field_name", name="uq_setup_questions_field"),
+        Index("ix_setup_questions_project", "project_id", "disposition"),
+    )
+
+    setup_question_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(40), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    field_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    blocking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    suggested_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    suggestion_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    policy: Mapped[str] = mapped_column(String(40), nullable=False)
+    disposition: Mapped[str] = mapped_column(String(40), nullable=False)
+    answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    answered_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    becomes_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    revisitable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProjectConfigurationRow(Base):
+    """One configured field, with how it came to have a value (N26).
+
+    One row per field rather than one wide row per project: a field carries a
+    state, evidence, a derivation, and who confirmed it — a record, not a value.
+    Adding a field is data rather than a migration.
+
+    **No credential column exists**, and the domain refuses a field name that
+    looks like one. A column that existed would be serialised by some response
+    eventually.
+    """
+
+    __tablename__ = "project_configuration"
+
+    project_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    field_name: Mapped[str] = mapped_column(String(120), primary_key=True)
+    value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    evidence: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    derived_from_knowledge_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confirmed_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ProviderConnectionRow(Base):
+    """Permission to reach one provider, without the means of doing so (N28).
+
+    `credential_reference` names *where* a credential is — an environment
+    variable, a secret-manager path. There is no column for the credential
+    itself, on purpose: a field that exists gets serialised, and the response
+    that leaks it is written by someone who did not know it was there.
+    """
+
+    __tablename__ = "provider_connections"
+    __table_args__ = (Index("ix_provider_connections_project", "project_id", "provider"),)
+
+    connection_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    credential_reference: Mapped[str | None] = mapped_column(String(400), nullable=True)
+    authorized_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
+class PublicationTargetRow(Base):
+    """A registered destination, described without the means to reach it (N27).
+
+    Separate from the connection because a target is a **product decision** and
+    a connection is a runtime permission. A token expiring must not erase a
+    decision about where to publish, and re-asking someone to choose a
+    destination they already chose is how a system teaches people to ignore it.
+    """
+
+    __tablename__ = "publication_targets"
+    __table_args__ = (
+        UniqueConstraint("project_id", "name", name="uq_publication_targets_name"),
+        Index("ix_publication_targets_project", "project_id", "purpose"),
+        # At most one default per purpose, by index rather than read-then-write:
+        # two concurrent "make this the default" calls would both find none.
+        Index(
+            "uq_publication_targets_default",
+            "project_id",
+            "purpose",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+    )
+
+    target_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(40), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(40), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    configuration: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    connection_id: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
