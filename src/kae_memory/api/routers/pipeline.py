@@ -246,6 +246,10 @@ def answer_clarification(
     stays false until a run reads the answer and a person confirms what it
     proposed. A caller reading "answered" as "the project now knows this" is the
     one thing this loop must not imply.
+
+    Nor is every answer a decision. A disposition that does not settle the
+    question records what was said and leaves it open, and the response reports
+    that in `question_settled` rather than making the caller infer it.
     """
 
     resolved = _project(project_id, memory)
@@ -255,6 +259,8 @@ def answer_clarification(
         body.answer,
         actor_id=body.actor_id,
         idempotency_key=body.idempotency_key,
+        disposition=body.disposition,
+        assumption_id=body.assumption_id,
     )
     return ClarificationResponse.of(outcome)
 

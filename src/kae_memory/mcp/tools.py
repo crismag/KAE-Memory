@@ -54,6 +54,7 @@ from kae_memory.domain.assumptions import (
     RevisitTrigger,
 )
 from kae_memory.domain.chunks import strip_metadata_prefix
+from kae_memory.domain.dispositions import Disposition, DispositionError, settles
 from kae_memory.domain.errors import (
     AlreadyAnsweredError,
     DomainInvariantError,
@@ -2184,6 +2185,7 @@ def kae_get_clarifications(
     context: ToolContext,
     project_id: str,
     limit: int | None = None,
+    include_deferred: bool = False,
 ) -> dict[str, Any]:
     """Return the open questions this project's gaps justify asking a person.
 
@@ -2199,6 +2201,11 @@ def kae_get_clarifications(
     Only gaps a person can answer are returned. Work queues — "confirm these
     candidates" — are not questions, and offering them here would spend the one
     resource this loop exists to spend carefully.
+
+    A question someone deferred or could not answer is **still unresolved and
+    is not asked again** unless `include_deferred` asks for it. It is counted
+    either way, in `deferred`, so "not asked again" never quietly becomes "no
+    longer owed".
     """
 
     project = resolve_project(context, project_id)
@@ -2210,11 +2217,19 @@ def kae_get_clarifications(
         )
     bound = _clarification_limit(limit)
 
-    questions = context.clarification.open_questions(project.id, limit=bound)
+    questions = context.clarification.open_questions(
+        project.id, limit=bound, include_deferred=include_deferred
+    )
+    awaiting = context.clarification.awaiting_a_person(project.id)
     return {
         "project_id": str(project.id),
         "questions": [_render_question(question) for question in questions],
         "count": len(questions),
+        # Unresolved, but already put to someone who did not decide. Held back
+        # from the asking list rather than dropped: a person who said "I don't
+        # know yet" should not be asked again on the next call, and the project
+        # should not pretend the question went away.
+        "deferred": len(awaiting),
         "knowledge_revision": context.readiness.knowledge_revision(project.id),
         # Not "truncation": that name belongs to the response policy, which
         # uses it for fields a detail level dropped. Two different omissions
@@ -2250,6 +2265,10 @@ def _render_question(question: OpenQuestion) -> dict[str, Any]:
         "area_key": question.area_key,
         "knowledge_ids": list(question.knowledge_ids),
         "status": "open",
+        # Open, and not necessarily untouched. A question someone deferred is
+        # still owed; reporting only "open" would lose that someone was already
+        # asked and said they did not know (N36).
+        "disposition": question.disposition.value,
         "asked_at": question.asked_at.isoformat(),
         "newly_asked": question.newly_asked,
     }
@@ -2283,10 +2302,12 @@ def kae_answer_clarification(
     project_id: str,
     clarification_id: str,
     answer: str | None = None,
+    disposition: str = "answered",
+    assumption_id: str | None = None,
     idempotency_key: str | None = None,
     actor_id: str | None = None,
 ) -> dict[str, Any]:
-    """Record a person's answer to an open question, verbatim.
+    """Record what a person said about an open question, verbatim.
 
     The answer is **evidence**, not knowledge. It is stored exactly as given and
     handed to the requirements agent like any other input; what that produces is
@@ -2297,6 +2318,14 @@ def kae_answer_clarification(
     answer was accepted, extraction was scheduled, and **no knowledge has
     changed yet**. A caller that reads the first as the third would believe the
     project knows something nobody has confirmed.
+
+    A fourth thing stays separate too: `disposition`. "I don't know yet, pick
+    something reasonable but don't make it permanent" is a real answer to a real
+    question, and it is not a decision. Recording it as one would put a choice
+    in the project that nobody made; discarding it would lose what the person
+    actually said. Only `answered` closes the question — every other disposition
+    is recorded and **leaves it open**, so the queue keeps saying what is
+    genuinely undecided.
     """
 
     project = resolve_project(context, project_id)
@@ -2313,6 +2342,13 @@ def kae_answer_clarification(
             "answer is required: an empty answer records that someone was asked "
             "and says nothing about what they know"
         )
+    try:
+        chosen = Disposition(str(disposition).strip().lower())
+    except ValueError:
+        valid = ", ".join(value.value for value in Disposition)
+        raise InvalidArgumentError(
+            f"unknown disposition {disposition!r}; expected one of {valid}"
+        ) from None
 
     try:
         recorded = context.clarification.answer(
@@ -2321,7 +2357,11 @@ def kae_answer_clarification(
             answer,
             actor_id=actor_id,
             idempotency_key=idempotency_key,
+            disposition=chosen,
+            assumption_id=assumption_id,
         )
+    except DispositionError as error:
+        raise InvalidArgumentError(str(error)) from None
     except LookupError as error:
         raise KnowledgeNotFoundError(str(error)) from None
     except AlreadyAnsweredError as error:
@@ -2333,7 +2373,13 @@ def kae_answer_clarification(
     return {
         "clarification_id": clarification_id,
         "answer_id": str(recorded.answer.id),
-        "status": "answered",
+        "status": chosen.value,
+        # The question's own state, not the response's. These differ precisely
+        # when they matter: a deferred question is answered *and* still open.
+        "disposition": chosen.value,
+        "question_settled": settles(chosen),
+        "still_open": not settles(chosen),
+        "assumption_id": assumption_id,
         # Explicit rather than inferred. A caller should not have to work out
         # from `knowledge_changed: false` and a run id where this actually is.
         "workflow_state": progress.state.value,
@@ -2350,6 +2396,14 @@ def kae_answer_clarification(
             "Extraction runs when a worker picks up the queued run.",
             "What it produces is proposed knowledge, not confirmed knowledge.",
             "A person confirms it with kae_confirm_knowledge.",
+            *(
+                []
+                if settles(chosen)
+                else [
+                    "This question stays open: what was recorded is not a decision.",
+                    "It will be asked again, and answering it later is not a correction.",
+                ]
+            ),
         ],
     }
 

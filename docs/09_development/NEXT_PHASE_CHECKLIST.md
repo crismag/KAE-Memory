@@ -601,16 +601,43 @@ regression evidence, not redesign.
   Retired and rejected are kept apart: retired means the gap was answered,
   rejected means the guess was wrong, and a reader needs to tell those apart.
 
-- [ ] **N36** — **Question priority and disposition.** Applies to both
-  clarifications and setup questions (N25), which keep their separate
-  identities.
-  *Scope:* classification by consequence — helpful, important, deferred,
-  capability-blocking, authorization-blocking, integrity-blocking; dispositions
-  — open, suggested, answered, deferred, unknown-by-user, delegated, assumed for
-  this generation, no longer relevant, superseded.
-  *Acceptance:* **"I don't know" is a preserved answer, not an absent one**, and
-  is not re-asked until a trigger fires. Ten helpful questions never make a
-  project look blocked.
+- [x] **N36** — Question priority and disposition — `domain/dispositions.py`,
+  2026-08-05.
+
+  A response and a settlement are different events, and the clarification
+  lifecycle had only the second. The manual test that produced this target hit
+  it exactly: "I don't know yet. Recommend something reasonable for a prototype,
+  but don't make it a permanent project decision" had no representation.
+  Recording it as an answer writes a decision nobody made; recording nothing
+  loses both the recommendation and the fact that anyone was asked.
+
+  `settles()` names the three dispositions that close a question — answered, no
+  longer relevant, superseded — and it is **stated rather than derived**, so
+  adding a disposition is a decision about whether it closes anything.
+
+  Both halves of the acceptance criterion are wired, and they pull opposite
+  ways. A non-settling response leaves the question **unresolved** — it never
+  leaves `awaiting_a_person` and is counted in the tool's `deferred`. It is also
+  **not asked again**: `open_questions` holds it back unless `include_deferred`
+  asks for it, because a person who says "I don't know yet" and is asked the
+  same thing next call learns to stop reading the list. Held back, not dropped.
+
+  The default idempotency key had to change with it. Keying every response on
+  the question alone made the later decision collide with the earlier deferral,
+  which would have made deferring a trap; non-settling responses now key on what
+  was said. A second *different* decision for one question still conflicts.
+
+  `blocks()` carries the priority half: helpful, important and deferred never
+  block, and only capability, authorization and integrity do — asserted as
+  exactly three so that widening the set is a decision rather than a drift. This
+  is the readiness gate N34 rejected, and this file is where it would have crept
+  back in.
+
+  Adapters: `disposition` and `assumption_id` on `kae_answer_clarification` and
+  on `POST .../clarifications/{id}/answer`, with `question_settled` in both
+  responses so no caller infers it. Delegating without an assumption id is
+  refused — a recommendation nobody recorded is one nobody can revisit, which is
+  the thing the person asked not to happen.
 
 - [x] **N37** — Mode-aware assembly — `domain/generation.py`, 2026-08-05.
 

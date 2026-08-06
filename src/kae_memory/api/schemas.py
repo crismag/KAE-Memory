@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
 from kae_memory.application.review_service import Finding
+from kae_memory.domain.dispositions import Disposition, settles
 from kae_memory.domain.execution import AgentRun
 from kae_memory.domain.models import KnowledgeItem, Project
 from kae_memory.domain.readiness import AreaResult, Blocker, ReadinessSnapshot
@@ -680,6 +681,10 @@ class ClarificationResponse(BaseModel):
     knowledge_changed: bool
     knowledge_state: str
     replayed: bool
+    disposition: str
+    question_settled: bool
+    """False when the response did not decide the question. It stays open."""
+    assumption_id: str | None = None
 
     @classmethod
     def of(cls, answered: Any) -> "ClarificationResponse":
@@ -690,6 +695,9 @@ class ClarificationResponse(BaseModel):
             knowledge_changed=False,
             knowledge_state="unchanged_until_extraction_and_confirmation",
             replayed=answered.replayed,
+            disposition=answered.disposition.value,
+            question_settled=settles(answered.disposition),
+            assumption_id=answered.assumption_id,
         )
 
 
@@ -804,7 +812,16 @@ class AssemblyResponse(BaseModel):
 
 
 class AnswerClarificationRequest(BaseModel):
+    """What a person said about a question — which is not always a decision.
+
+    `disposition` defaults to `answered`. Anything else records the response and
+    leaves the question open, because "I don't know yet, pick something
+    reasonable" settles nothing and must not be stored as though it did.
+    """
+
     answer: str = Field(min_length=1)
+    disposition: Disposition = Disposition.ANSWERED
+    assumption_id: str | None = None
     actor_id: str | None = None
     idempotency_key: str | None = None
 

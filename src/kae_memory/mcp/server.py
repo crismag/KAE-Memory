@@ -671,7 +671,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "id that kae_answer_clarification can answer; safe to call again, "
             "because questions are keyed on what they are about rather than "
             "their wording. Returns only gaps a person can answer, never review "
-            "work such as confirming candidates."
+            "work such as confirming candidates. A question someone deferred or "
+            "could not answer is still unresolved and is not asked again unless "
+            "include_deferred asks for it; the deferred count reports it either "
+            "way."
         ),
         "inputSchema": {
             "type": "object",
@@ -681,6 +684,14 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "type": "integer",
                     "minimum": 1,
                     "description": "Default 10. The response reports what a bound left out.",
+                },
+                "include_deferred": {
+                    "type": "boolean",
+                    "description": (
+                        "Include questions already put to someone who did not "
+                        "decide. Off by default: asking again on every call is "
+                        "what makes a person stop reading the list."
+                    ),
                 },
                 "profile": {"type": "string", "enum": ["economy", "regular", "detailed"]},
                 "detail": {"type": "string", "enum": ["summary", "standard", "diagnostic"]},
@@ -698,7 +709,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "that produces is proposed knowledge a person still confirms. The "
             "response reports the answer accepted, extraction scheduled, and "
             "knowledge unchanged — three separate facts. Supply an "
-            "idempotency_key so a retry cannot record a second answer."
+            "idempotency_key so a retry cannot record a second answer. Use "
+            "disposition when the person did not decide: 'I don't know yet' is "
+            "unknown_by_user, 'you choose for now' is delegated, 'not now' is "
+            "deferred. Only 'answered' closes the question; every other "
+            "disposition is recorded and leaves it open, so do not report a "
+            "deferred question as settled."
         ),
         "inputSchema": {
             "type": "object",
@@ -709,6 +725,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "description": "The id returned by kae_get_clarifications.",
                 },
                 "answer": {"type": "string", "minLength": 1},
+                "disposition": {
+                    "type": "string",
+                    "enum": [
+                        "answered",
+                        "deferred",
+                        "unknown_by_user",
+                        "delegated",
+                        "assumed_for_generation",
+                        "no_longer_relevant",
+                    ],
+                    "description": (
+                        "What happened to the question. Defaults to answered. "
+                        "delegated and assumed_for_generation require "
+                        "assumption_id — a recommendation nobody recorded is "
+                        "one nobody can revisit."
+                    ),
+                },
+                "assumption_id": {
+                    "type": "string",
+                    "description": (
+                        "The assumption standing in for the missing answer, from "
+                        "kae_record_assumption. Required for delegated and "
+                        "assumed_for_generation."
+                    ),
+                },
                 "idempotency_key": {"type": "string", "maxLength": 200},
                 "actor_id": {
                     "type": "string",
@@ -1088,6 +1129,8 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("project_id", ""),
             arguments.get("clarification_id", ""),
             arguments.get("answer"),
+            arguments.get("disposition") or "answered",
+            arguments.get("assumption_id"),
             arguments.get("idempotency_key"),
             arguments.get("actor_id"),
         ),
@@ -1095,6 +1138,7 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             context,
             arguments.get("project_id", ""),
             arguments.get("limit"),
+            bool(arguments.get("include_deferred", False)),
         ),
         "kae_correct_knowledge": lambda: tools.kae_correct_knowledge(
             context,

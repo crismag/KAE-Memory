@@ -26,10 +26,12 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from hashlib import sha256
 
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.dispositions import Disposition, ensure_disposition, settles
 from kae_memory.domain.errors import AlreadyAnsweredError, IdempotencyConflictError
 from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import AgentRunId, MessageId, ProjectId, SessionId
@@ -44,6 +46,8 @@ ASKS_ABOUT = "asks_about"
 """Metadata key naming what a question concerns."""
 
 ANSWERS = "answers_message_id"
+DISPOSITION = "disposition"
+ASSUMPTION = "assumption_id"
 """Metadata key linking an answer back to its question."""
 
 
@@ -128,6 +132,12 @@ class OpenQuestion:
     knowledge_ids: tuple[str, ...] = ()
     newly_asked: bool = False
     """Whether this call created the question rather than finding it already asked."""
+    disposition: Disposition = Disposition.OPEN
+    """The last thing anyone said about it. `open` means nobody has responded.
+
+    A question can carry a non-settling disposition and still be unanswered:
+    "I don't know yet" is a response, not a decision (N36).
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +152,14 @@ class AnsweredClarification:
     question: Message
     answer: Message
     run_id: AgentRunId
+    disposition: Disposition = Disposition.ANSWERED
+    """What happened to the question, not only that something was recorded (N36).
+
+    Only some dispositions settle it. `unknown_by_user`, `delegated`, and
+    `assumed_for_generation` record that the conversation moved on without the
+    question being decided, and the queue must keep saying so.
+    """
+    assumption_id: str | None = None
     replayed: bool = False
     """Whether this returns an answer already recorded rather than a new one."""
 
@@ -195,7 +213,11 @@ class ClarificationService:
         return question
 
     def open_questions(
-        self, project_id: ProjectId, session_id: SessionId | None = None, limit: int | None = None
+        self,
+        project_id: ProjectId,
+        session_id: SessionId | None = None,
+        limit: int | None = None,
+        include_deferred: bool = False,
     ) -> tuple[OpenQuestion, ...]:
         """Return answerable questions, materialising any not yet asked.
 
@@ -207,18 +229,26 @@ class ClarificationService:
         Safe to call repeatedly. Questions are keyed on their subject, so
         re-deriving one already asked returns the existing message rather than
         asking a person the same thing twice.
+
+        A question someone responded to without settling — deferred, unknown,
+        delegated — is **still open and not asked again** unless
+        ``include_deferred`` says to. Both halves matter: closing it would
+        record a decision nobody made, and re-offering it every call would make
+        "I don't know yet" cost the person the same question forever.
         """
 
-        already = {
-            str(message.metadata.get(ANSWERS))
-            for message in self._all_messages(project_id)
-            if message.message_type is MessageType.ANSWER
-        }
+        responded = self._dispositions(project_id)
 
         found: list[OpenQuestion] = []
         for clarification in self.pending(project_id):
             question, created = self._materialise(project_id, clarification, session_id)
-            if str(question.id) in already:
+            disposition = responded.get(str(question.id), Disposition.OPEN)
+            if settles(disposition):
+                continue
+            # Unsettled but responded to. It is still owed, and asking again
+            # every time someone lists questions is how a person learns to stop
+            # reading the list. A caller who wants it says so (N36).
+            if disposition is not Disposition.OPEN and not include_deferred:
                 continue
             found.append(
                 OpenQuestion(
@@ -230,9 +260,39 @@ class ClarificationService:
                     area_key=clarification.area_key,
                     knowledge_ids=clarification.knowledge_ids,
                     newly_asked=created,
+                    disposition=disposition,
                 )
             )
         return tuple(found[:limit] if limit is not None else found)
+
+    def _dispositions(self, project_id: ProjectId) -> dict[str, Disposition]:
+        """The last thing said about each question that anyone responded to.
+
+        Last, not first: a question someone deferred and later decided is
+        settled, and reading the deferral would keep it open forever.
+        """
+
+        latest: dict[str, Disposition] = {}
+        for message in sorted(self._all_messages(project_id), key=lambda m: m.created_at):
+            if message.message_type is not MessageType.ANSWER:
+                continue
+            asked = str(message.metadata.get(ANSWERS))
+            latest[asked] = Disposition(str(message.metadata.get(DISPOSITION, "answered")))
+        return latest
+
+    def awaiting_a_person(self, project_id: ProjectId) -> tuple[OpenQuestion, ...]:
+        """Questions responded to without being decided.
+
+        Separated from :meth:`open_questions` so that "not asked again" never
+        becomes "not visible". A deferred question is owed; it is simply not
+        owed *right now*.
+        """
+
+        return tuple(
+            question
+            for question in self.open_questions(project_id, include_deferred=True)
+            if question.disposition is not Disposition.OPEN
+        )
 
     def _materialise(
         self,
@@ -357,19 +417,27 @@ class ClarificationService:
         text: str,
         actor_id: str | None = None,
         idempotency_key: str | None = None,
+        disposition: Disposition = Disposition.ANSWERED,
+        assumption_id: str | None = None,
     ) -> AnsweredClarification:
-        """Record an answer verbatim and enqueue extraction over it.
+        """Record what happened to a question, and enqueue extraction over it.
 
-        The answer goes through the requirements agent like any other input, so
-        what it yields is a candidate a human confirms. Routing it anywhere else
-        would let this loop write knowledge on a person's behalf.
+        The response goes through extraction like any other input, so what it
+        yields is a candidate a human confirms. Routing it anywhere else would
+        let this loop write knowledge on a person's behalf.
+
+        **A disposition that does not settle the question leaves it open.**
+        "I don't know yet, choose something reasonable" is a real response and
+        closing the question on it would be false — nobody decided anything.
+        Losing the response would be worse. Recording both is the point.
         """
 
         question = self._owned_question(project_id, question_id)
         if not text.strip():
             raise ValueError("an answer must not be empty")
+        ensure_disposition(disposition, answer=text, assumption_id=assumption_id)
 
-        key = idempotency_key or f"answer:{question_id}"
+        key = idempotency_key or _default_answer_key(question_id, disposition, text)
         recorded = self._existing_answer(question)
         if recorded is not None:
             if recorded.idempotency_key == key:
@@ -378,6 +446,8 @@ class ClarificationService:
                     answer=recorded,
                     run_id=self._extraction_run_for(project_id, key),
                     replayed=True,
+                    disposition=disposition,
+                    assumption_id=assumption_id,
                 )
             raise AlreadyAnsweredError(
                 f"question {question_id} was already answered. A retry of the same "
@@ -394,6 +464,8 @@ class ClarificationService:
             idempotency_key=key,
             metadata={
                 ANSWERS: str(question_id),
+                DISPOSITION: disposition.value,
+                ASSUMPTION: assumption_id or "",
                 # Carried forward so the subject survives on the answer even
                 # once the finding that prompted it has been resolved away.
                 ASKS_ABOUT: dict(question.metadata.get(ASKS_ABOUT, {})),
@@ -414,12 +486,21 @@ class ClarificationService:
         )
 
     def _existing_answer(self, question: Message) -> Message | None:
-        """Return the answer already recorded against ``question``, if any."""
+        """Return the **settling** answer recorded against ``question``, if any.
+
+        A response that did not settle the question — deferred, unknown,
+        delegated — is recorded and does not count here. Treating one as an
+        answer would mean a person who said "I don't know yet" could never come
+        back and say what they decided, which is the opposite of what deferring
+        is for.
+        """
 
         for message in self._memory.messages_for_session(question.session_id):
             if message.message_type is not MessageType.ANSWER:
                 continue
-            if str(message.metadata.get(ANSWERS)) == str(question.id):
+            if str(message.metadata.get(ANSWERS)) != str(question.id):
+                continue
+            if settles(Disposition(str(message.metadata.get(DISPOSITION, "answered")))):
                 return message
         return None
 
@@ -461,6 +542,10 @@ class ClarificationService:
             str(message.metadata.get(ANSWERS))
             for message in messages
             if message.message_type is MessageType.ANSWER
+            # Only a settling disposition takes a question out of the queue.
+            # A queue that cannot tell "deferred" from "answered" stops saying
+            # what is genuinely undecided, and then nobody trusts it.
+            and settles(Disposition(str(message.metadata.get(DISPOSITION, "answered"))))
         }
         return tuple(
             message
@@ -528,3 +613,23 @@ __all__ = [
     "OpenQuestion",
     "questions_for",
 ]
+
+
+def _default_answer_key(question_id: MessageId, disposition: Disposition, text: str) -> str:
+    """The key a caller who supplied none would have wanted.
+
+    A settling answer keys on the question alone: there is one decision, and a
+    retry of it must not record a second.
+
+    A response that settles nothing cannot key that way, because the question is
+    still open and a person may respond to it more than once — deferring today
+    and deciding tomorrow is the whole point of the disposition. Keying those on
+    the question would make the later decision collide with the earlier "I don't
+    know". So they key on what was actually said, which still collapses a
+    genuine retry and still keeps two distinct responses distinct.
+    """
+
+    if settles(disposition):
+        return f"answer:{question_id}"
+    digest = sha256(text.strip().encode()).hexdigest()[:12]
+    return f"answer:{question_id}:{disposition.value}:{digest}"
