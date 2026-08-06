@@ -177,7 +177,7 @@ def test_doctor_fails_without_a_configured_provider() -> None:
 def test_the_tool_surface_stays_small() -> None:
     """A large surface degrades agent behaviour and couples clients.
 
-    Twenty-three tools, and the list is enumerated rather than counted so that
+    Twenty-six tools, and the list is enumerated rather than counted so that
     adding one is a deliberate edit here. `kae_create_project` was added because an
     agent could submit an observation about a project but could not bring one
     into being, which made the surface unusable without a second channel. The
@@ -201,9 +201,14 @@ def test_the_tool_surface_stays_small() -> None:
     listing what was recorded. Neither renders or publishes anything — an
     assembly is a computation whose id is fresh per call, and a deliverable is
     the durable record that the output existed.
+
+    N45 added three. The assumption model shipped with N35 and no adapter
+    reached it, which is how "I do not know yet, choose something reasonable"
+    had nowhere to go — the third no-caller gap in this repository, and the one
+    manual testing hit twice.
     """
 
-    assert len(TOOL_DEFINITIONS) == 23
+    assert len(TOOL_DEFINITIONS) == 26
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
         "kae_create_project",
@@ -213,6 +218,9 @@ def test_the_tool_surface_stays_small() -> None:
         "kae_search_knowledge",
         "kae_get_open_decisions",
         "kae_get_readiness",
+        "kae_record_assumption",
+        "kae_list_assumptions",
+        "kae_accept_assumption",
         "kae_record_deliverable",
         "kae_list_deliverables",
         "kae_define_module",

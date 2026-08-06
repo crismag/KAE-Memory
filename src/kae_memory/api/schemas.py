@@ -1033,3 +1033,85 @@ class DeliverableListResponse(BaseModel):
                 "is still what was produced; it is no longer what the project now says."
             ),
         )
+
+
+# -- assumptions (N45) -----------------------------------------------------
+
+
+class RecordAssumptionRequest(BaseModel):
+    subject: str = Field(min_length=1)
+    assumed_value: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    consequence: str = "rework"
+    confidence: float = Field(default=0.5, ge=0, le=1)
+    reversible: bool = True
+    revisit: str = "on_request"
+    evidence: list[str] = Field(default_factory=list)
+
+
+class AcceptAssumptionRequest(BaseModel):
+    actor: str = Field(min_length=1)
+
+
+class AssumptionResponse(BaseModel):
+    """One interpretation used in place of missing information.
+
+    `material` and `consequence` travel together because "we assumed
+    PostgreSQL" and "we assumed single-tenant" are not the same risk, and a
+    list that rendered them alike would bury the second among the first.
+    """
+
+    assumption_id: str
+    subject: str
+    assumed_value: str
+    reason: str
+    origin: str
+    consequence: str
+    material: bool
+    confidence: float
+    reversible: bool
+    revisit: str
+    state: str
+    accepted_by: str | None
+    evidence: list[str] = Field(default_factory=list)
+    knowledge_changed: bool = False
+
+    @classmethod
+    def of(cls, assumption: Any) -> "AssumptionResponse":
+        return cls(
+            assumption_id=str(assumption.id),
+            subject=assumption.subject,
+            assumed_value=assumption.assumed_value,
+            reason=assumption.reason,
+            origin=assumption.origin.value,
+            consequence=assumption.consequence.value,
+            material=assumption.material,
+            confidence=round(assumption.confidence, 2),
+            reversible=assumption.reversible,
+            revisit=assumption.revisit.value,
+            state=assumption.state.value,
+            accepted_by=assumption.accepted_by,
+            evidence=list(assumption.evidence),
+        )
+
+
+class AssumptionListResponse(BaseModel):
+    assumptions: list[AssumptionResponse]
+    total: int
+    omitted: int
+    material_count: int
+    note: str
+
+    @classmethod
+    def of(cls, records: Sequence[Any], limit: int) -> "AssumptionListResponse":
+        shown = list(records)[:limit]
+        return cls(
+            assumptions=[AssumptionResponse.of(record) for record in shown],
+            total=len(records),
+            omitted=max(0, len(records) - len(shown)),
+            material_count=sum(1 for record in records if record.material),
+            note=(
+                "Assumptions are not knowledge. A material one must be disclosed "
+                "wherever the output it shaped is disclosed."
+            ),
+        )

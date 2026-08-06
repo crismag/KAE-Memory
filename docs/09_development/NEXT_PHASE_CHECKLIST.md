@@ -454,14 +454,24 @@ and what N42, N44, N45, N46 must reproduce:
   *Non-goals:* confirming anything; replacing the interview.
   *Depends on:* N42, N46, N45, N35, N36.
 
-- [ ] **N45** — **Assumption adapters.** N35 shipped the domain, the service,
-  and the table; **no adapter exposes any of it**, so assumptions cannot be
-  recorded, listed, or accepted from MCP or HTTP. The third "exists with no
-  caller" defect in this repository, after `supersede_older_versions` (T24) and
-  the unreachable qualification (N38) — enough repetition to treat as a pattern
-  rather than three accidents.
-  *Acceptance:* recording, listing, and accepting an assumption are reachable
-  from both adapters, with capability-registry entries.
+- [x] **N45** — Assumption adapters — 2026-08-05. Three tools and three routes:
+  record, list, accept. The N35 model reached an adapter without being weakened
+  on the way.
+
+  Recorded **proposed**, whoever asks — a caller able to record one already
+  accepted would be recording a decision nobody made. Accepting names a person
+  and is **not** confirming: it says someone is willing to build on a guess,
+  which is a weaker and more honest claim than believing it true.
+
+  Tests assert the FR-005 promotion is still impossible **across the adapter
+  seam**, not only inside the service that structurally cannot perform it.
+
+  This is what the manual test hit twice. *"I don't know yet. Recommend
+  something reasonable for a prototype, but don't make it a permanent project
+  decision"* had nowhere to go: answering the clarification would have closed
+  it, and the record designed for exactly that case was unreachable. Half of
+  that is now fixed; the other half is **N36**, which must let a disposition
+  answer a question without closing it.
 
 ### The decisive acceptance scenario
 

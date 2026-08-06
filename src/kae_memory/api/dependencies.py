@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents import provider as embedding_provider
 from kae_memory.application.assembly_service import AssemblyService
+from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
@@ -186,6 +187,13 @@ def authorise_project(request: Request, project_id: str) -> None:
         raise not_found("project", project_id)
 
 
+def get_assumptions(request: Request) -> AssumptionService:
+    """Return the request's assumption service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return AssumptionService(factory)
+
+
 def get_deliverables(request: Request) -> DeliverableService:
     """Return the request's deliverable service."""
 
@@ -237,3 +245,4 @@ Assembly = Annotated[AssemblyService, Depends(get_assembly)]
 Clarifications = Annotated[ClarificationService, Depends(get_clarification)]
 Classification = Annotated[ClassificationService, Depends(get_classification)]
 Deliverables = Annotated[DeliverableService, Depends(get_deliverables)]
+Assumptions = Annotated[AssumptionService, Depends(get_assumptions)]

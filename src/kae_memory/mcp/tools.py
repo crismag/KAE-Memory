@@ -24,6 +24,7 @@ from kae_memory.application.assembly_service import (
     ContextAssembly,
     describe_package,
 )
+from kae_memory.application.assumption_service import AssumptionNotFoundError, AssumptionService
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
 from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
 from kae_memory.application.classification_service import (
@@ -46,6 +47,12 @@ from kae_memory.application.retrieval_service import (
     SearchMode,
 )
 from kae_memory.application.review_service import Finding, ReviewService
+from kae_memory.domain.assumptions import (
+    AssumptionOrigin,
+    Consequence,
+    InvalidAssumptionTransitionError,
+    RevisitTrigger,
+)
 from kae_memory.domain.chunks import strip_metadata_prefix
 from kae_memory.domain.errors import (
     AlreadyAnsweredError,
@@ -107,6 +114,7 @@ class ToolContext:
         classification: ClassificationService | None = None,
         modules: ModuleService | None = None,
         deliverables: DeliverableService | None = None,
+        assumptions: AssumptionService | None = None,
     ) -> None:
         self.memory = memory
         self.blueprint = blueprint
@@ -119,6 +127,7 @@ class ToolContext:
         self.classification = classification
         self.modules = modules
         self.deliverables = deliverables
+        self.assumptions = assumptions
         self.embedder_name = embedder_name
         # The deployment default. A per-call override resolves against it in
         # `dispatch`, so a tool never reads configuration itself.
@@ -604,6 +613,159 @@ def _tier_report(
         ]
 
     return report
+
+
+def kae_record_assumption(
+    context: ToolContext,
+    project_id: str,
+    subject: str,
+    assumed_value: str,
+    reason: str,
+    consequence: str = "rework",
+    confidence: float = 0.5,
+    reversible: bool = True,
+    revisit: str = "on_request",
+    evidence: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    """Record what KAE proceeded on in place of information nobody supplied.
+
+    An assumption is how "I do not know yet, choose something reasonable"
+    becomes a durable record rather than a sentence in a conversation. It is
+    **proposed**, whoever asked: acceptance is a person taking responsibility,
+    and a caller that could record one already accepted would be recording a
+    decision nobody made.
+
+    Nothing here creates knowledge. The assumption service holds no reference
+    to `MemoryService` and exposes no confirm, so the promotion FR-005 forbids
+    is prevented by what this path cannot reach rather than by what it declines
+    to do.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.assumptions is None:
+        raise CapabilityUnavailableError(
+            capability="assumptions",
+            missing=["an assumption service is not configured for this server"],
+        )
+    try:
+        recorded = context.assumptions.record(
+            project.id,
+            subject=subject,
+            assumed_value=assumed_value,
+            reason=reason,
+            origin=AssumptionOrigin.KAE_RECOMMENDED_ACCEPTED
+            if evidence
+            else AssumptionOrigin.KAE_INFERRED,
+            consequence=Consequence(consequence),
+            confidence=confidence,
+            reversible=reversible,
+            revisit=RevisitTrigger(revisit),
+            evidence=evidence,
+        )
+    except ValueError as error:
+        raise InvalidArgumentError(str(error)) from error
+    except DomainInvariantError as error:
+        raise InvalidArgumentError(str(error)) from error
+
+    return {
+        "project_id": str(project.id),
+        **_assumption_payload(recorded),
+        "knowledge_changed": False,
+        "note": (
+            "Recorded as a proposed assumption. It is not knowledge and does not "
+            "move readiness; a person accepts responsibility for it, or answers "
+            "the question it stands in for."
+        ),
+    }
+
+
+def kae_list_assumptions(
+    context: ToolContext,
+    project_id: str,
+    active_only: bool = True,
+    limit: int | None = None,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """List what this project is currently proceeding on without knowing."""
+
+    project = resolve_project(context, project_id)
+    if context.assumptions is None:
+        raise CapabilityUnavailableError(
+            capability="assumptions",
+            missing=["an assumption service is not configured for this server"],
+        )
+
+    records = context.assumptions.list_for_project(project.id, active_only=active_only)
+    page = response_policy.paginate(
+        [_assumption_payload(record) for record in records], limit=limit, cursor=cursor
+    )
+    return {
+        "project_id": str(project.id),
+        **page,
+        "material_count": sum(1 for record in records if record.material),
+        "knowledge_changed": False,
+        "note": (
+            "Assumptions are not knowledge. A material one must be disclosed "
+            "wherever the output it shaped is disclosed."
+        ),
+    }
+
+
+def kae_accept_assumption(
+    context: ToolContext,
+    project_id: str,
+    assumption_id: str,
+    actor: str,
+) -> dict[str, Any]:
+    """Relay a person taking responsibility for proceeding on an assumption.
+
+    Accepting is not confirming. It records that someone is willing to build on
+    a guess, which is a weaker and more honest claim than believing it true, and
+    the assumption stays revisitable.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.assumptions is None:
+        raise CapabilityUnavailableError(
+            capability="assumptions",
+            missing=["an assumption service is not configured for this server"],
+        )
+    try:
+        accepted = context.assumptions.accept(project.id, assumption_id, actor)
+    except AssumptionNotFoundError as error:
+        raise KnowledgeNotFoundError(str(error)) from error
+    except InvalidAssumptionTransitionError as error:
+        raise InvalidStateTransitionError(str(error)) from error
+    except ValueError as error:
+        raise InvalidArgumentError(str(error)) from error
+
+    return {
+        "project_id": str(project.id),
+        **_assumption_payload(accepted),
+        "knowledge_changed": False,
+        "note": (
+            "Accepted, not confirmed. A person took responsibility for proceeding "
+            "on this; it did not become project knowledge."
+        ),
+    }
+
+
+def _assumption_payload(assumption: Any) -> dict[str, Any]:
+    return {
+        "assumption_id": str(assumption.id),
+        "subject": assumption.subject,
+        "assumed_value": assumption.assumed_value,
+        "reason": assumption.reason,
+        "origin": assumption.origin.value,
+        "consequence": assumption.consequence.value,
+        "material": assumption.material,
+        "confidence": round(assumption.confidence, 2),
+        "reversible": assumption.reversible,
+        "revisit": assumption.revisit.value,
+        "state": assumption.state.value,
+        "accepted_by": assumption.accepted_by,
+        "evidence": list(assumption.evidence),
+    }
 
 
 def kae_define_module(
