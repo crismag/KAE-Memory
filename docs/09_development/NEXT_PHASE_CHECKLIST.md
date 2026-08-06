@@ -529,6 +529,25 @@ and what N42, N44, N45, N46 must reproduce:
 
 ### The decisive acceptance scenario
 
+**Met, as an automated proof** — `tests/mcp_adapter/test_sparse_project_journey.py`,
+2026-08-05. One sentence, one question nobody could answer, one reversible
+recommendation, a preliminary context, and a deliverable that pins both the
+bytes and the uncertainty. 22 assertions, all against KAE's own state.
+
+The model-backed step is proved by **provenance rather than by output**: the
+discovery run exists, names the stored message it will read, and is selected by
+role rather than by position. What that run eventually produces is a candidate,
+and asserting anything about its wording would be asserting a model's taste.
+Running the same journey against a live provider stays useful as a model-path
+check and is not the correctness criterion.
+
+The eight epistemic conditions below are each an assertion in that file, and
+three of them are the ones worth naming: nothing is confirmed anywhere along
+the path, the recorded assumption never becomes a knowledge statement, and
+readiness never moves. Those are the failures a system like this actually has —
+not producing nothing, but producing something and quietly overstating it.
+
+
 One ordinary sentence, submitted as an observation:
 
 > *"I want an inbox where I can dump thoughts and have them turned into useful
