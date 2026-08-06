@@ -1158,27 +1158,74 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   Disableable, and a disabled provider is a **configuration** outcome rather
   than a failure. Explicitly not a browser download.
 
-- [ ] **N31** — **S3-compatible provider.** Private objects, server-configured
-  bucket and allowed prefix, immutable or versioned keys, encryption, runtime
-  credentials. Short-lived download URLs generated on demand and **never
-  persisted**. Repeated publication of one deliverable is idempotent.
+- [ ] **N31** — **S3-compatible provider.** *Not built — blocked on live
+  validation*, 2026-08-05. Private objects, server-configured bucket and allowed
+  prefix, immutable or versioned keys, encryption, runtime credentials.
+  Short-lived download URLs generated on demand and **never persisted**.
+  Repeated publication of one deliverable is idempotent.
   *Non-goals:* public ACLs; caller-supplied buckets or endpoints.
 
-- [ ] **N32** — **GitHub publication provider.** Default mode creates or updates
-  a dedicated branch and draft pull request. Commit to a configured branch is
-  opt-in; **direct commit to the default branch needs explicit project *and*
-  system authorisation**. Records repository, commit SHA, branch, path, and pull
+  **Why unchecked rather than written against a fake client.** The acceptance
+  criteria that matter here — idempotent re-publication, server-side
+  encryption, versioned keys — are statements about what S3 does, not about
+  what our code sends. An adapter tested only against a stub proves the request
+  shape and nothing else, and shipping it would put a `Provider.S3` target in
+  front of users that has never reached a bucket.
+
+  **Everything around it is done.** The target registry, the authorisation
+  boundary, the attempt history, verification, and the refusal path all exist:
+  registering an S3 target today produces a recorded attempt with
+  `error_category: provider` and the message "not implemented in this version",
+  which is the honest answer.
+
+  *Needs:* an AWS account, a bucket, and a person willing to run it.
+
+- [ ] **N32** — **GitHub publication provider.** *Not built — blocked on live
+  validation*, 2026-08-05. Default mode creates or updates a dedicated branch
+  and draft pull request. Commit to a configured branch is opt-in; **direct
+  commit to the default branch needs explicit project *and* system
+  authorisation**. Records repository, commit SHA, branch, path, and pull
   request. Existing user edits are never silently overwritten; conflict and
   changed-base behaviour is explicit.
-  *Depends on:* **N28** — authorisation is a separate boundary from execution.
+  *Depends on:* **N28** — done; authorisation is a separate boundary from
+  execution, and the connection model is in place.
 
-- [ ] **N22** — Remote MCP tenancy and authentication. Distinct from N5, which
-  is the HTTP boundary.
+  **Why unchecked.** The same reason as N31, more sharply: "existing user edits
+  are never silently overwritten" and "changed-base behaviour is explicit" are
+  claims about how git and the GitHub API behave under concurrent edits. A
+  fake client would let us assert we send the right request to a service that
+  is not there, and the failure this target exists to prevent — quietly
+  destroying someone's commit — is exactly the one a stub cannot reproduce.
+
+  *Needs:* a repository, a token, and a person to watch the first pull request.
+
+- [ ] **N22** — Remote MCP tenancy and authentication. *Not built — blocked on
+  a deployment*, 2026-08-05. Distinct from N5, which is the HTTP boundary.
+
+  The MCP server runs over stdio, where the trust boundary is the process: the
+  agent and the server share a machine and a user. Remote MCP replaces that
+  with a network, and every question N5 answered for HTTP — who is calling,
+  which projects they may see, what a token grants — reopens with different
+  answers, because an MCP session is long-lived where an HTTP request is not.
+
+  Implementable without external services and **not verifiable** without a
+  deployment: the failure mode is a session that outlives its authorisation,
+  and a single-process test cannot produce one honestly.
 - [ ] **N23** — **End-to-end acquisition-to-publication proof**, in deployment.
-  Widened from "live deployment proof": the product criterion is a complete
-  journey — create project, connect sources, confirm preliminary setup, acquire
-  knowledge, organise modules, assemble, record, render, verify, publish
-  through the remembered default, and open the result in Studio.
+  *Not built — blocked on deployment and Studio*, 2026-08-05. The product
+  criterion is a complete journey: create project, connect sources, confirm
+  preliminary setup, acquire knowledge, organise modules, assemble, record,
+  render, verify, publish through the remembered default, and open the result
+  in Studio.
+
+  **Every step except the last two exists and is proved in-process.** The
+  journey through record → render → verify → publish is covered by
+  `tests/application/test_render_and_publish.py` against the local provider,
+  and the acquisition half by
+  `tests/mcp_adapter/test_sparse_project_journey.py`. What remains is genuinely
+  the deployment: a real database, a real target, and Studio at the other end.
+
+  A test cannot supply the last of those, and this target is not a test.
 - [x] **N41** — Sparse-project generation proof —
   `tests/mcp_adapter/test_sparse_generation_scenarios.py`, 2026-08-05. All
   eight, end to end, 20 assertions.
