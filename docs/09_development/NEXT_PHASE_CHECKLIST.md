@@ -1179,12 +1179,25 @@ Focus: [`focus/ENGINE_AND_PROOF_GAPS.md`](../00_project/focus/ENGINE_AND_PROOF_G
   journey — create project, connect sources, confirm preliminary setup, acquire
   knowledge, organise modules, assemble, record, render, verify, publish
   through the remembered default, and open the result in Studio.
-- [ ] **N41** — **Sparse-project generation proof.** The eight acceptance
-  scenarios from the progressive-acquisition context, end to end: a
-  one-sentence idea, a partial questionnaire, an existing repository with weak
-  documentation, contradictory sources, no publication target, "generate now"
-  with important questions open, reproducing a historical provisional
-  deliverable, and a real hard block that stays narrow.
+- [x] **N41** — Sparse-project generation proof —
+  `tests/mcp_adapter/test_sparse_generation_scenarios.py`, 2026-08-05. All
+  eight, end to end, 20 assertions.
+
+  **The eighth is the one that keeps the other seven honest.** A system that
+  never blocks is not principled, it is careless. An unauthorised GitHub target
+  genuinely blocks publication — and the test asserts it blocks *nothing else*:
+  the same project still composes preliminary context and still records a
+  deliverable. A block that widened would be the rejected readiness gate
+  arriving through the setup door.
+
+  The other seven each assert the same shape from a different starting point:
+  something useful comes out, nothing is presented as confirmed, and what is
+  missing is disclosed rather than used as a reason. Scenario five is the
+  clearest — no publication target configured, and the only blocked capability
+  is publication.
+
+  Nothing asserts a model's taste. No count of questions, no wording, no
+  particular assumption.
 
 ## Dependencies outside this repository
 
