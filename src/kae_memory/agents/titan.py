@@ -12,6 +12,8 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
+from kae_memory.messages import message
+
 from .embedding import (
     EMBEDDING_DIMENSIONS,
     TITAN_V2_MODEL,
@@ -44,7 +46,7 @@ class TitanEmbeddingAdapter:
                 import boto3
             except ImportError as error:  # pragma: no cover - depends on extras
                 raise EmbeddingProviderUnavailableError(
-                    "the bedrock extra is not installed: uv sync --extra bedrock"
+                    message("environment.bedrock_extra_missing")
                 ) from error
             self._client = boto3.client("bedrock-runtime", region_name=self._region)
         return self._client

@@ -25,6 +25,7 @@ from enum import StrEnum
 from typing import Any
 
 from kae_memory.domain.chunks import estimate_tokens
+from kae_memory.settings import settings
 
 
 class DetailLevel(StrEnum):
@@ -390,15 +391,22 @@ def within_budget(payload: Mapping[str, Any], policy: ResponsePolicy) -> bool:
     return estimate_tokens(json.dumps(payload, ensure_ascii=False)) <= policy.max_output_tokens
 
 
-DEFAULT_PAGE_SIZE = 20
+DEFAULT_PAGE_SIZE: int = settings().value("response.default_page_size")
 """How many results a read returns when the caller does not say.
 
-Large enough to answer most questions in one call, small enough that a project
-with hundreds of statements does not arrive as a single unreadable response.
+Governed (N7). The number lives in `settings/defaults.toml`, its range and
+rationale in the catalog, and a deployment overrides it with
+`KAE_DEFAULT_PAGE_SIZE`. Read once at import because the setting's contract is
+`reload: restart`.
 """
 
-MAX_PAGE_SIZE = 100
-"""The ceiling a caller cannot raise. A page is a budget, not a suggestion."""
+MAX_PAGE_SIZE: int = settings().value("response.max_page_size")
+"""The ceiling a caller cannot raise. A page is a budget, not a suggestion.
+
+**One number, read by both adapters.** This and the HTTP router's page bound
+were the same value written twice with the same docstring, which is how two
+adapters come to disagree about a limit without anyone changing either.
+"""
 
 
 def paginate(

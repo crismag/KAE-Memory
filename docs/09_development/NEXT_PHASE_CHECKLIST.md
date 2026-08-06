@@ -225,11 +225,69 @@ gates in one session at roughly six minutes each, against test bodies that take
 
 Focus: [`focus/CONFIGURATION_AND_MESSAGES.md`](../00_project/focus/CONFIGURATION_AND_MESSAGES.md)
 
-- [ ] **N7** — Audit settings, loaders, validation, and effective-value
-  resolution; establish governed backend configuration.
-- [ ] **N8** — Backend service messages under the same governance. Not a
-  mechanical centralisation of every numeric literal, which the orientation file
-  explicitly rules out.
+- [x] **N7** — Governed backend configuration — `src/kae_memory/settings/`,
+  [`CONFIGURATION_INVENTORY.md`](CONFIGURATION_INVENTORY.md), 2026-08-05.
+
+  The value lives in `defaults.toml`, the contract in `catalog.py`: stable
+  dotted key, type, unit, rationale, scope, reload behaviour, override
+  variable, range, optional non-overridable ceiling, and the cost of changing
+  it. A catalog entry with no committed value is refused, and so is a value out
+  of range — **at construction**, because the first call that reads a setting
+  is reliably the one furthest from anyone who could fix it.
+
+  Precedence is three layers: coded ceiling, environment, committed default.
+  The administrative and project-level layers the focus file reserves are
+  **deliberately absent** — both need an authorisation model this repository
+  does not have, and the plumbing before the authority is a system overridable
+  by whoever reaches it first.
+
+  An out-of-range override is **refused, not clamped**: a caller silently given
+  a different number than they asked for will debug everything except the
+  number. An exported-but-empty variable is not an override.
+
+  **The audit found a real defect.** `MAX_PAGE_SIZE` in the MCP response policy
+  and `MAX_PAGE` in the HTTP router were the same number written twice with the
+  same docstring, and nothing would have noticed them diverging. One governed
+  value now, and a test asserts the two are the same object rather than merely
+  equal.
+
+  `explain()` reports where every effective value came from, and
+  `unknown_overrides()` reports `KAE_*` variables that govern nothing — a
+  variable nothing reads is worse than no variable, because someone sets it,
+  watches nothing change, and concludes the setting is broken.
+
+  **TOML rather than the YAML the placement table names.** `tomllib` is in the
+  standard library and read-only, which is the exact shape of a file the
+  application never writes; YAML would have added a dependency to gain nothing.
+
+  Migrated: the pagination and response-limit slice, chosen because T4/T5
+  already test its contract. Classified and **not** migrated, with reasons in
+  the inventory: security ceilings, tokeniser constants, readiness thresholds,
+  worker and ingestion knobs, provider selection, and every secret.
+
+- [x] **N8** — Backend service messages — `src/kae_memory/messages.py`,
+  2026-08-05.
+
+  Narrow on purpose, and the focus file's ruling-out of mechanical
+  centralisation is the reason: four hundred keys nobody reads, plus a message
+  you cannot understand without opening a second file, is a worse problem than
+  the one it solves. A test bounds the catalog at twenty entries so growth is a
+  decision rather than a habit.
+
+  What earned a stable key: the **integrity notes** both adapters say, the
+  **cross-adapter refusals**, and the **environment failures**. Each integrity
+  note is a caveat about what a response does *not* establish, which is why
+  drift there is not cosmetic — an adapter that softened its copy would claim
+  more than KAE knows.
+
+  They had already drifted. Three copies of "Reported, not verified" existed
+  and two ended differently; the capability refusal had eight near-identical
+  copies. Neither divergence was a decision.
+
+  **One split rather than a merge.** The two classification notes looked like
+  drift and were not: a read cannot change an operational status and must not
+  deny having done so, because a caveat about an action nobody took reads as
+  reassurance about the wrong thing.
 
 ## Phase J — Frontend separation
 

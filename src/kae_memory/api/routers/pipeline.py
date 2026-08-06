@@ -37,6 +37,8 @@ from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.mcp import response_policy
+from kae_memory.messages import message
 
 from ..dependencies import (
     Assembly,
@@ -75,8 +77,13 @@ from ..schemas import (
 
 router = APIRouter(prefix="/v1", tags=["pipeline"])
 
-MAX_PAGE = 100
-"""The ceiling a caller cannot raise. A page is a budget, not a suggestion."""
+MAX_PAGE: int = response_policy.MAX_PAGE_SIZE
+"""The ceiling a caller cannot raise. A page is a budget, not a suggestion.
+
+Not a second constant. This was `100` written here and `100` written in the MCP
+response policy, with the same docstring — two adapters holding one limit, and
+nothing that would have noticed them diverging (N7).
+"""
 
 
 def _project(project_id: str, memory: Memory) -> ProjectId:
@@ -298,7 +305,7 @@ def preliminary_context(
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "invalid_argument",
-            f"unknown purpose {purpose!r}; expected one of {valid}",
+            message("refusal.unknown_purpose", purpose=purpose, valid=valid),
         ) from error
     return PreliminaryContextResponse.of(preliminary.compose(resolved, chosen))
 
@@ -332,7 +339,7 @@ def assemble_context(
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "invalid_argument",
-            f"unknown purpose {purpose!r}; expected one of {valid}",
+            message("refusal.unknown_purpose", purpose=purpose, valid=valid),
         ) from error
 
     assembled = assembly.assemble(resolved, selected, include_proposed=include_proposed)

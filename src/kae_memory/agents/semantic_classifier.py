@@ -40,6 +40,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from kae_memory.domain.observation import ClassifiedSpan, ObservationClass, Span
+from kae_memory.messages import message
 
 from .observation_classifier import (
     DeterministicObservationClassifier,
@@ -185,7 +186,7 @@ class BedrockObservationClassifier:
                 from anthropic import AnthropicBedrockMantle
             except ImportError as error:  # pragma: no cover - depends on extras
                 raise SemanticClassificationError(
-                    "the bedrock extra is not installed: uv sync --extra bedrock"
+                    message("environment.bedrock_extra_missing")
                 ) from error
             self._client = AnthropicBedrockMantle(aws_region=self._region)
         return self._client

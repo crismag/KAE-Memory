@@ -9,6 +9,8 @@ fixture-only demonstration run without it installed.
 
 from typing import Any
 
+from kae_memory.messages import message
+
 from .extraction import (
     EXTRACTION_SCHEMA,
     SCHEMA_VERSION,
@@ -61,7 +63,7 @@ class BedrockExtractionAdapter:
                 from anthropic import AnthropicBedrockMantle
             except ImportError as error:  # pragma: no cover - depends on extras
                 raise ProviderUnavailableError(
-                    "the bedrock extra is not installed: uv sync --extra bedrock"
+                    message("environment.bedrock_extra_missing")
                 ) from error
             self._client = AnthropicBedrockMantle(aws_region=self._region)
         return self._client

@@ -96,6 +96,8 @@ from kae_memory.mcp.errors import (
     VersionConflictError,
 )
 from kae_memory.mcp.response_policy import PROFILES, ResponsePolicy, ResponseProfile
+from kae_memory.messages import message
+from kae_memory.settings import settings
 
 
 class ToolContext:
@@ -606,10 +608,7 @@ def _tier_report(
             }
             for record in records
         ]
-        report["operational_note"] = (
-            "Reported, not verified. A milestone is never completed because a "
-            "sentence said so; these are proposed transitions."
-        )
+        report["operational_note"] = message("integrity.operational_reported")
 
     if RetentionTier.EVIDENCE in requested:
         report["evidence"] = [
@@ -654,7 +653,7 @@ def kae_record_assumption(
     if context.assumptions is None:
         raise CapabilityUnavailableError(
             capability="assumptions",
-            missing=["an assumption service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="assumption")],
         )
     try:
         recorded = context.assumptions.record(
@@ -701,7 +700,7 @@ def kae_list_assumptions(
     if context.assumptions is None:
         raise CapabilityUnavailableError(
             capability="assumptions",
-            missing=["an assumption service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="assumption")],
         )
 
     records = context.assumptions.list_for_project(project.id, active_only=active_only)
@@ -737,7 +736,7 @@ def kae_accept_assumption(
     if context.assumptions is None:
         raise CapabilityUnavailableError(
             capability="assumptions",
-            missing=["an assumption service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="assumption")],
         )
     try:
         accepted = context.assumptions.accept(project.id, assumption_id, actor)
@@ -796,7 +795,7 @@ def kae_define_module(
     if context.modules is None:
         raise CapabilityUnavailableError(
             capability="modules",
-            missing=["a module service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="module")],
         )
     if not key or not key.strip() or not name or not name.strip():
         raise InvalidArgumentError("a module needs a key and a name")
@@ -838,7 +837,7 @@ def kae_relate_modules(
     if context.modules is None:
         raise CapabilityUnavailableError(
             capability="modules",
-            missing=["a module service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="module")],
         )
 
     try:
@@ -881,7 +880,7 @@ def kae_get_module_graph(context: ToolContext, project_id: str) -> dict[str, Any
     if context.modules is None:
         raise CapabilityUnavailableError(
             capability="modules",
-            missing=["a module service is not configured for this server"],
+            missing=[message("refusal.capability_unconfigured", capability="module")],
         )
 
     modules = context.modules.list_modules(project.id)
@@ -1741,11 +1740,7 @@ def _classification_payload(
         "evidence_only": len(evidence),
         "unclassified": len(outcome.unclassified_spans),
         "knowledge_changed": False,
-        "note": (
-            "Classification says what a span was, not whether it is true. "
-            "Nothing here is confirmed knowledge, and no operational status "
-            "changed: a reported transition is a proposal."
-        ),
+        "note": message("integrity.classification_no_status_change"),
     }
     if operational and not outcome.operational_ids and not outcome.replayed:
         classification["warnings"] = [
@@ -1849,10 +1844,7 @@ def kae_get_operational_state(
             "kinds": list(kinds) if kinds else None,
             "subject": subject,
         },
-        "note": (
-            "Reported, not verified. A milestone is never completed because a "
-            "sentence said so; a proposed record is a claim nobody has accepted."
-        ),
+        "note": message("integrity.operational_reported"),
     }
 
 
@@ -1891,10 +1883,7 @@ def kae_get_classifications(
         "classifier_version": context.classification.classifier_version,
         "tiers": [tier.value for tier in resolved] if resolved else "all",
         "knowledge_changed": False,
-        "note": (
-            "Classification says what a span was, not whether it is true. "
-            "Nothing listed here is confirmed knowledge."
-        ),
+        "note": message("integrity.classification_not_truth"),
     }
 
 
@@ -2198,12 +2187,14 @@ def kae_correct_knowledge(
     }
 
 
-CLARIFICATION_LIMIT = 10
+CLARIFICATION_LIMIT: int = settings().value("clarifications.default_limit")
 """How many open questions one call returns by default.
 
 A gap list is a work queue, and handing back forty at once produces neither a
-review nor a plan. The cap is a default rather than a maximum so a caller that
-genuinely wants the whole queue can say so.
+review nor a plan. A default rather than a maximum, so a caller that genuinely
+wants the whole queue can say so.
+
+Governed (N7): `KAE_CLARIFICATION_LIMIT` overrides it.
 """
 
 
@@ -2575,8 +2566,11 @@ def kae_get_preliminary_context(
         chosen = AssemblyPurpose(purpose)
     except ValueError:
         raise InvalidArgumentError(
-            f"unknown purpose {purpose!r}. Choose one of: "
-            f"{', '.join(sorted(p.value for p in AssemblyPurpose))}"
+            message(
+                "refusal.unknown_purpose",
+                purpose=purpose,
+                valid=", ".join(sorted(p.value for p in AssemblyPurpose)),
+            )
         ) from None
 
     preliminary = context.preliminary.compose(project.id, chosen)
@@ -2711,8 +2705,11 @@ def kae_assemble_context(
         chosen = AssemblyPurpose(purpose)
     except ValueError:
         raise InvalidArgumentError(
-            f"unknown purpose {purpose!r}. Choose one of: "
-            f"{', '.join(sorted(p.value for p in AssemblyPurpose))}"
+            message(
+                "refusal.unknown_purpose",
+                purpose=purpose,
+                valid=", ".join(sorted(p.value for p in AssemblyPurpose)),
+            )
         ) from None
 
     assembly = context.assembly.assemble(project.id, chosen, include_proposed=include_proposed)

@@ -22,6 +22,7 @@ from kae_memory.domain.execution import AgentRun
 from kae_memory.domain.models import KnowledgeItem, Project
 from kae_memory.domain.readiness import AreaResult, Blocker, ReadinessSnapshot
 from kae_memory.domain.workspace import Message, Session
+from kae_memory.messages import message
 
 
 class HealthResponse(BaseModel):
@@ -1035,10 +1036,7 @@ class OperationalStateResponse(BaseModel):
             total=len(records),
             omitted=max(0, len(records) - len(shown)),
             states=list(states) if states else ["proposed", "active"],
-            note=(
-                "Reported, not verified. A milestone is never completed because a "
-                "sentence said so; a proposed record is a claim nobody has accepted."
-            ),
+            note=message("integrity.operational_reported"),
         )
 
 
@@ -1077,10 +1075,7 @@ class ClassificationListResponse(BaseModel):
             classifier_version=version,
             semantic_classification=semantic,
             knowledge_changed=False,
-            note=(
-                "Classification says what a span was, not whether it is true. "
-                "Nothing listed here is confirmed knowledge."
-            ),
+            note=message("integrity.classification_not_truth"),
         )
 
 

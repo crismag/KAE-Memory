@@ -1,0 +1,24 @@
+# Committed product defaults (N7).
+#
+# Values only. What each one means, what range is sane, and which environment
+# variable overrides it live in `catalog.py` — a value here with no entry there
+# is refused at startup, and so is an entry there with no value here. Keeping
+# them in step by failing is what stops this file from drifting into a list of
+# numbers nobody dares change.
+#
+# **Never secrets, never provider selection, never connection strings.** Those
+# are deployment facts and belong in the environment. A committed file is read
+# by everyone who clones the repository.
+#
+# Every value here is a safe default. A deployment that changes nothing gets a
+# working system.
+
+[response]
+# How many results a read returns when the caller does not say.
+default_page_size = 20
+# The ceiling a caller cannot raise, on both adapters.
+max_page_size = 100
+
+[clarifications]
+# How many open questions one call returns by default.
+default_limit = 10
