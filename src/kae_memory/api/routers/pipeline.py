@@ -24,15 +24,23 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query, status
 
 from kae_memory.application.assembly_service import AssemblyPurpose, describe_package
+from kae_memory.application.assumption_service import AssumptionNotFoundError
 from kae_memory.application.deliverable_service import DeliverableNotFoundError
 from kae_memory.application.ingestion_service import IngestionPolicy
+from kae_memory.domain.assumptions import (
+    Consequence,
+    InvalidAssumptionTransitionError,
+    RevisitTrigger,
+)
 from kae_memory.domain.deliverables import InvalidDeliverableTransitionError
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.models import KnowledgeKind
 
 from ..dependencies import (
     Assembly,
+    Assumptions,
     Clarifications,
     Deliverables,
     Ingestion,
@@ -42,8 +50,11 @@ from ..dependencies import (
 )
 from ..errors import ApiError, not_found
 from ..schemas import (
+    AcceptAssumptionRequest,
     AnswerClarificationRequest,
     AssemblyResponse,
+    AssumptionListResponse,
+    AssumptionResponse,
     ClarificationListResponse,
     ClarificationResponse,
     CorrectKnowledgeRequest,
@@ -52,6 +63,7 @@ from ..schemas import (
     IngestDocumentRequest,
     IngestionResponse,
     KnowledgeReviewResponse,
+    RecordAssumptionRequest,
     RecordDeliverableRequest,
     RejectKnowledgeRequest,
     SearchResponse,
@@ -440,3 +452,88 @@ def withdraw_deliverable(
     except InvalidDeliverableTransitionError as error:
         raise ApiError(status.HTTP_409_CONFLICT, "invalid_state_transition", str(error)) from error
     return DeliverableResponse.of(deliverable, readiness.knowledge_revision(resolved))
+
+
+@router.post(
+    "/projects/{project_id}/assumptions",
+    response_model=AssumptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_assumption(
+    project_id: str,
+    body: RecordAssumptionRequest,
+    memory: Memory,
+    assumptions: Assumptions,
+) -> AssumptionResponse:
+    """Record what KAE proceeded on in place of information nobody supplied.
+
+    Proposed, whoever asked. Acceptance is a separate act by a named person,
+    because a caller that could record one already accepted would be recording
+    a decision nobody made.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        recorded = assumptions.record(
+            resolved,
+            subject=body.subject,
+            assumed_value=body.assumed_value,
+            reason=body.reason,
+            consequence=Consequence(body.consequence),
+            confidence=body.confidence,
+            reversible=body.reversible,
+            revisit=RevisitTrigger(body.revisit),
+            evidence=body.evidence,
+        )
+    except (ValueError, DomainInvariantError) as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return AssumptionResponse.of(recorded)
+
+
+@router.get("/projects/{project_id}/assumptions", response_model=AssumptionListResponse)
+def list_assumptions(
+    project_id: str,
+    memory: Memory,
+    assumptions: Assumptions,
+    active_only: Annotated[bool, Query()] = True,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 20,
+) -> AssumptionListResponse:
+    """What this project is proceeding on without knowing."""
+
+    resolved = _project(project_id, memory)
+    return AssumptionListResponse.of(
+        assumptions.list_for_project(resolved, active_only=active_only), limit
+    )
+
+
+@router.post(
+    "/projects/{project_id}/assumptions/{assumption_id}/accept",
+    response_model=AssumptionResponse,
+)
+def accept_assumption(
+    project_id: str,
+    assumption_id: str,
+    body: AcceptAssumptionRequest,
+    memory: Memory,
+    assumptions: Assumptions,
+) -> AssumptionResponse:
+    """Relay a person taking responsibility for proceeding on an assumption.
+
+    Accepting is not confirming. It records willingness to build on a guess,
+    which is a weaker and more honest claim than believing it true.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        accepted = assumptions.accept(resolved, assumption_id, body.actor)
+    except AssumptionNotFoundError as error:
+        raise not_found("assumption", assumption_id) from error
+    except InvalidAssumptionTransitionError as error:
+        raise ApiError(status.HTTP_409_CONFLICT, "invalid_state_transition", str(error)) from error
+    except ValueError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return AssumptionResponse.of(accepted)

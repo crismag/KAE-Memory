@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from kae_memory import config as database_config
 from kae_memory.agents import provider
 from kae_memory.application.assembly_service import AssemblyService
+from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
@@ -92,6 +93,7 @@ def build_context(url: str | None = None) -> tools.ToolContext:
         classification=ClassificationService(factory),
         modules=ModuleService(factory),
         deliverables=DeliverableService(factory),
+        assumptions=AssumptionService(factory),
         embedder_name=name,
         response_policy=response_policy.from_environment(os.environ),
     )
@@ -362,6 +364,77 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "limit": {"type": "integer", "minimum": 1, "maximum": 100},
                 "cursor": {"type": "string"},
             },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_record_assumption",
+        "description": (
+            "Record what KAE proceeded on in place of information nobody "
+            "supplied. Proposed, never accepted: a person takes responsibility "
+            "separately. Not knowledge, and it does not move readiness."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "subject": {"type": "string", "minLength": 1},
+                "assumed_value": {"type": "string", "minLength": 1},
+                "reason": {"type": "string", "minLength": 1},
+                "consequence": {
+                    "type": "string",
+                    "enum": ["cosmetic", "rework", "architectural", "unsafe"],
+                },
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "reversible": {"type": "boolean"},
+                "revisit": {
+                    "type": "string",
+                    "enum": [
+                        "never",
+                        "on_request",
+                        "before_build",
+                        "before_production",
+                        "on_conflicting_evidence",
+                    ],
+                },
+                "evidence": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["subject", "assumed_value", "reason"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_list_assumptions",
+        "description": (
+            "What this project is proceeding on without knowing. A material "
+            "assumption must be disclosed wherever the output it shaped is."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "active_only": {"type": "boolean"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                "cursor": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "kae_accept_assumption",
+        "description": (
+            "Relay a person taking responsibility for proceeding on an "
+            "assumption. Accepting is not confirming: it does not make the "
+            "assumption true and does not create knowledge."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "assumption_id": {"type": "string", "minLength": 1},
+                "actor": {"type": "string", "minLength": 1},
+            },
+            "required": ["assumption_id", "actor"],
             "additionalProperties": False,
         },
     },
@@ -1057,6 +1130,31 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
             arguments.get("limit"),
             arguments.get("cursor"),
         ),
+        "kae_record_assumption": lambda: tools.kae_record_assumption(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("subject", ""),
+            arguments.get("assumed_value", ""),
+            arguments.get("reason", ""),
+            arguments.get("consequence", "rework"),
+            float(arguments.get("confidence", 0.5)),
+            bool(arguments.get("reversible", True)),
+            arguments.get("revisit", "on_request"),
+            arguments.get("evidence"),
+        ),
+        "kae_list_assumptions": lambda: tools.kae_list_assumptions(
+            context,
+            arguments.get("project_id", ""),
+            bool(arguments.get("active_only", True)),
+            arguments.get("limit"),
+            arguments.get("cursor"),
+        ),
+        "kae_accept_assumption": lambda: tools.kae_accept_assumption(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("assumption_id", ""),
+            arguments.get("actor", ""),
+        ),
         "kae_define_module": lambda: tools.kae_define_module(
             context,
             arguments.get("project_id", ""),
@@ -1384,6 +1482,71 @@ def build_server(context: tools.ToolContext) -> Any:
             },
         )
 
+    def kae_record_assumption(
+        subject: str,
+        assumed_value: str,
+        reason: str,
+        consequence: str = "rework",
+        confidence: float = 0.5,
+        reversible: bool = True,
+        revisit: str = "on_request",
+        evidence: list[str] | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_record_assumption",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "subject": subject,
+                "assumed_value": assumed_value,
+                "reason": reason,
+                "consequence": consequence,
+                "confidence": confidence,
+                "reversible": reversible,
+                "revisit": revisit,
+                "evidence": evidence,
+            },
+        )
+
+    def kae_list_assumptions(
+        active_only: bool = True,
+        limit: int | None = None,
+        cursor: str | None = None,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_list_assumptions",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "active_only": active_only,
+                "limit": limit,
+                "cursor": cursor,
+            },
+        )
+
+    def kae_accept_assumption(
+        assumption_id: str,
+        actor: str,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_accept_assumption",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "assumption_id": assumption_id,
+                "actor": actor,
+            },
+        )
+
     def kae_define_module(
         key: str,
         name: str,
@@ -1618,6 +1781,9 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_reject_knowledge,
             kae_record_deliverable,
             kae_list_deliverables,
+            kae_record_assumption,
+            kae_list_assumptions,
+            kae_accept_assumption,
             kae_define_module,
             kae_relate_modules,
             kae_get_module_graph,

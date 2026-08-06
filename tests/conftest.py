@@ -27,6 +27,10 @@ import sqlalchemy as sa
 from alembic.config import Config
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+
+from kae_memory.persistence import providers
+from kae_memory.persistence.providers import DatabaseProvider
+from kae_memory.persistence.tables import Base
 from tests.support.database import (
     DatabaseTestSettings,
     DatabaseUnavailableError,
@@ -35,10 +39,6 @@ from tests.support.database import (
     selected_provider,
     with_database,
 )
-
-from kae_memory.persistence import providers
-from kae_memory.persistence.providers import DatabaseProvider
-from kae_memory.persistence.tables import Base
 
 DATABASE_MARKERS = {"database", "database_contract", "migration"}
 """Markers whose tests need a live database."""

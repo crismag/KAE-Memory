@@ -382,6 +382,27 @@ REGISTRY: tuple[Capability, ...] = (
         ),
     ),
     Capability(
+        key="assumption.record",
+        summary="Record what KAE proceeded on in place of missing information",
+        exposure=Exposure.BOTH,
+        mcp=("kae_record_assumption",),
+        http=("POST /v1/projects/{project_id}/assumptions",),
+    ),
+    Capability(
+        key="assumption.list",
+        summary="What a project is proceeding on without knowing",
+        exposure=Exposure.BOTH,
+        mcp=("kae_list_assumptions",),
+        http=("GET /v1/projects/{project_id}/assumptions",),
+    ),
+    Capability(
+        key="assumption.accept",
+        summary="Relay a person taking responsibility for an assumption",
+        exposure=Exposure.BOTH,
+        mcp=("kae_accept_assumption",),
+        http=("POST /v1/projects/{project_id}/assumptions/{assumption_id}/accept",),
+    ),
+    Capability(
         key="embedding.reembed",
         summary="Migrate stored knowledge to a new embedding version",
         exposure=Exposure.INTERNAL,
