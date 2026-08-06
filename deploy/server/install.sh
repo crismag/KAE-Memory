@@ -9,7 +9,6 @@ set -euo pipefail
 APP_DIR=${APP_DIR:-/opt/kae-memory}
 ENV_DIR=${ENV_DIR:-/etc/kae-memory}
 LOG_DIR=${LOG_DIR:-/var/log/kae-memory}
-WEB_DIR=${WEB_DIR:-/var/www/kae-memory}
 SERVICE_USER=${SERVICE_USER:-kae}
 REPO_URL=${REPO_URL:-https://github.com/crismag/KAE-Memory.git}
 
@@ -28,7 +27,6 @@ id -u "$SERVICE_USER" >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nolo
 say "directories"
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" "$APP_DIR" "$LOG_DIR"
 install -d -o root -g root -m 750 "$ENV_DIR"
-install -d "$WEB_DIR"
 
 say "application source"
 if [[ -d $APP_DIR/.git ]]; then
@@ -64,8 +62,10 @@ Installed. Before starting:
 
   1. set KAE_DATABASE_URL in $ENV_DIR/api.env and $ENV_DIR/worker.env
   2. run migrations:  sudo -u $SERVICE_USER $APP_DIR/.venv/bin/alembic -c $APP_DIR/alembic.ini upgrade head
-  3. deploy the frontend build to $WEB_DIR (see deploy/static-site/README.md)
-  4. systemctl enable --now kae-api kae-worker
+  3. systemctl enable --now kae-api kae-worker
 
-The API has no authentication (ADR-0014). Do not expose port 8000 publicly.
+KAE-Memory serves no UI (ADR-0026): user interaction belongs to KAE-Studio.
+
+Set KAE_API_TOKENS before exposing this off loopback. The process refuses to
+start if it would listen on a non-loopback address without one (ADR-0024).
 EOF

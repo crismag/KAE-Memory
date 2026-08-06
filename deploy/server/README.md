@@ -61,7 +61,7 @@ thirty-second expiry wait — the exact behaviour the handler exists to avoid.
 
 **One** example configuration for the proxy actually chosen for the first
 deployment — not parallel Nginx, Apache, and Caddy variants. It should forward to
-the API, serve or forward the frontend, be HTTPS-ready, route health checks, and
+the API, be HTTPS-ready, route health checks, and
 set a reasonable request-size limit.
 
 ## Constraints

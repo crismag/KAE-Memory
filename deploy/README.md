@@ -24,12 +24,10 @@ small AWS-specific integrations   deploy/aws/
 | Responsibility | Location |
 | --- | --- |
 | Python business logic, API, worker | [`../src/kae_memory/`](../src/kae_memory/) |
-| Frontend source | `frontend/`, when implementation begins (ADR-0009) |
 | Safe committed defaults | [`../config/`](../config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`server/`](server/) |
 | EC2 bootstrap and IAM | [`aws/ec2/`](aws/ec2/) |
-| Static frontend hosting | [`static-site/`](static-site/) |
 | SQS creation and queue policy | `aws/sqs/`, if OQ-017 is ever decided |
 | Local developer command | `scripts/`, when scripts exist |
 | Deployment and recovery procedure | [`../operations/runbooks/`](../operations/runbooks/) |
@@ -80,6 +78,8 @@ just slower and less deliberate than it should look in a demonstration.
 Service files, install and deploy scripts, and reverse-proxy configuration are
 added in M10, once the worker is a process too.
 
-**The API has no authentication** (ADR-0014). The MVP defers it, so any
+**The API authenticates with bearer tokens** (ADR-0024), and refuses to start
+if it would listen off loopback without `KAE_API_TOKENS` set. Superseded the
+MVP's deferred-authentication position. Any
 deployment must keep the API behind a network boundary. It binds to loopback
 unless `KAE_API_HOST` says otherwise, which is a default, not a defence.

@@ -1,9 +1,8 @@
-# nginx, same-origin: this server serves the built frontend *and* proxies the
-# API, so the browser sees one origin and no CORS is needed.
+# nginx in front of the KAE-Memory API.
 #
-# That is the recommended shape (ADR-0017). The alternative — frontend on
-# external static hosting, API reachable directly — exposes an API with no
-# authentication to the public internet and requires a security-group allowlist.
+# KAE-Memory serves no UI (ADR-0026) — this proxies the API and nothing else.
+# A browser client is KAE-Studio's, hosted separately, and reaches this over
+# authenticated HTTPS with CORS configured via KAE_CORS_ORIGINS.
 #
 # Copy to /etc/nginx/sites-available/kae.conf, adjust server_name, add a
 # certificate, and enable.
@@ -12,20 +11,11 @@ server {
     listen 80;
     server_name kae.example.com;
 
-    # Terminate TLS here in a real deployment. Serving an unauthenticated API
-    # over plaintext puts the database password's blast radius on the wire.
+    # Terminate TLS here in a real deployment. Bearer tokens over plaintext are
+    # bearer tokens on the wire.
     # return 301 https://$host$request_uri;
 
-    root /var/www/kae-memory;
-    index index.html;
-
     client_max_body_size 2m;
-
-    # The workspace is a client-side router (ADR-0009): unknown paths are
-    # application routes, not missing files.
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
 
     location /v1/ {
         proxy_pass http://127.0.0.1:8000;

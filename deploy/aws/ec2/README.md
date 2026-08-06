@@ -15,7 +15,7 @@ profiles collapse into one shape.
 | Size | `t3.small` is sufficient — two Python processes and nginx; the database is elsewhere |
 | Storage | 20 GB gp3. No durable state lives here |
 | Instance profile | Required, see below. **No access keys** |
-| Public IP | Needed only if the frontend is hosted elsewhere |
+| Public IP | Needed for KAE-Studio, hosted separately (ADR-0026), to reach the API |
 
 The instance is disposable by design: CockroachDB Cloud holds everything durable,
 so replacing the host loses nothing. That is what makes the recovery
