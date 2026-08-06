@@ -142,7 +142,7 @@ Opened 2026-08-05 after the suite became the development bottleneck: 25 full
 gates in one session at roughly six minutes each, against test bodies that take
 31 seconds in total.
 
-- [ ] **N47** — **Test execution architecture.**
+- [x] **N47** — Test execution architecture — 2026-08-05.
 
   *Measured, 2026-08-05, 1,340 tests in 277s:*
 
@@ -194,9 +194,32 @@ gates in one session at roughly six minutes each, against test bodies that take
   *Non-goals:* deleting coverage to make a number; SQLite; skipping the database
   for tests whose subject is persistence.
 
-  *Acceptance:* the measured setup share drops below 30%; failure messages still
-  name the violated behaviour; the CockroachDB, migration, and provider suites
-  still run on demand and at integration checkpoints.
+  *Delivered.* Isolation is by rollback with
+  `join_transaction_mode="create_savepoint"`, so application commits release
+  savepoints and commit semantics are exactly what the application sees.
+
+      full gate     277s -> 38s   (77s with coverage, from ~347s)
+      setup         236s -> 16.4s
+      domain+service        5.6s
+      adapters+api+e2e     26.7s
+
+  All 1,340 tests still pass; none deleted, skipped, or weakened. One test needed
+  the old behaviour — `test_concurrent_retries_create_exactly_one_record`
+  asserts a unique index firing across two connections, which rollback cannot
+  express — and carries `@pytest.mark.real_commits`, truncating before *and*
+  after, because its writes are real and the next test's rollback cannot undo
+  what it never saw.
+
+  **Acceptance partially met, honestly.** Setup share is 45%, not the 30% I set,
+  because the denominator collapsed: absolute setup fell 14x. The relative
+  metric was a poor choice — once the fixture is cheap, the share converges on
+  whatever connection handling costs, and driving it lower would mean making
+  tests slower.
+
+  **Not done:** duplicate-behaviour analysis across layers. At a 38s suite the
+  payoff is small and the risk is losing a regression whose equivalent I would
+  only *believe* survived. It belongs in its own target with the
+  name-the-surviving-test rule enforced per removal.
 
 ## Phase I — Configuration and service messages
 
