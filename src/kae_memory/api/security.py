@@ -38,6 +38,13 @@ from starlette.responses import JSONResponse, Response
 from .errors import error_response
 
 LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def _is_true(value: str) -> bool:
+    """Deliberately narrow. An opt-out from authentication should take a value
+    someone typed on purpose, not any non-empty string a stray export left."""
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 """Interfaces a developer's process may bind to without a token."""
 
 PUBLIC_PATHS = frozenset({"/health", "/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"})
@@ -115,12 +122,37 @@ def resolve_policy(environ: dict[str, str] | None = None, host: str = "127.0.0.1
             projects=frozenset(p.strip() for p in scopes.split(",") if p.strip()),
         )
 
+    # The interface the process binds to is not the interface a user reaches.
+    #
+    # This guard was written for a service listening on a public address, and
+    # it works there. It does not fire for the shape ADR-0024 actually
+    # recommends: nginx terminating TLS and the API bound to loopback. In that
+    # deployment `exposed` is false however public the proxy is, so a missing
+    # `KAE_API_TOKENS` produced an API that started cleanly, reported healthy,
+    # and accepted every request from the internet.
+    #
+    # So loopback no longer implies development. A deployment that genuinely
+    # wants no authentication says so, and says it somewhere a reviewer reading
+    # the environment can see.
     exposed = host not in LOOPBACK
-    if exposed and not tokens:
+    unauthenticated = _is_true(source.get("KAE_ALLOW_UNAUTHENTICATED", ""))
+
+    if not tokens and not unauthenticated:
         raise InsecureDeploymentError(
-            f"refusing to listen on {host!r} without authentication: set KAE_API_TOKENS, "
-            f"or bind to loopback for local development. An unauthenticated API on a "
-            f"non-loopback interface exposes every project it can read."
+            f"refusing to start on {host!r} without authentication: set KAE_API_TOKENS.\n"
+            f"Binding to loopback is not a reason to skip it — a reverse proxy in front of "
+            f"a loopback listener is a public API, and this process cannot see the "
+            f"difference.\n"
+            f"For local development with no authentication, set "
+            f"KAE_ALLOW_UNAUTHENTICATED=1 deliberately."
+        )
+
+    if exposed and unauthenticated:
+        # The opt-out is for a developer's own machine. Off-loopback it would be
+        # an unauthenticated public API with a note attached.
+        raise InsecureDeploymentError(
+            f"refusing to listen on {host!r} with KAE_ALLOW_UNAUTHENTICATED set: "
+            f"the opt-out exists for loopback development, not for an exposed interface."
         )
 
     return AuthPolicy(tokens=tokens, required=bool(tokens))

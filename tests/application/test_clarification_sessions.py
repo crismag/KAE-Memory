@@ -70,25 +70,38 @@ class TestOneSessionPerBatch:
 
         assert len(_sessions(client, project_id)) == before
 
-    def test_an_existing_conversation_is_not_joined_by_the_route(
-        self, client: TestClient, project_id: str
-    ) -> None:
-        """Recorded rather than asserted as correct.
+    def test_an_open_conversation_is_joined(self, client: TestClient, project_id: str) -> None:
+        """Questions go where the person is, not beside them.
 
-        The service takes a `session_id`; the HTTP route does not offer one, so
-        questions land in a session of their own even when a conversation is
-        already open. That is why a client cannot assume "the project's session"
-        means one thing — it has to ask which session holds the transcript it
-        cares about.
-
-        Not changed here: whether the route should carry it is a contract
-        question, and D5 needed the session count bounded, not the route
-        widened."""
+        The failure this replaced: a project whose transcript was split in two,
+        the person's own message in one half and everything asked of them in the
+        other, each half looking complete on its own."""
 
         client.post(f"/v1/projects/{project_id}/sessions", json={"session_type": "discovery"})
         _list_questions(client, project_id)
 
-        assert len(_sessions(client, project_id)) == 2
+        assert len(_sessions(client, project_id)) == 1
+
+    def test_a_message_and_the_questions_share_a_transcript(
+        self, client: TestClient, project_id: str
+    ) -> None:
+        """The whole point, end to end: what a person said and what they were
+        asked are one conversation."""
+
+        opened = client.post(
+            f"/v1/projects/{project_id}/sessions", json={"session_type": "discovery"}
+        ).json()
+        session_id = str(opened["id"])
+        client.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={"content": "Notes become tasks.", "actor_type": "user", "message_type": "input"},
+        )
+        _list_questions(client, project_id)
+
+        stored = client.get(f"/v1/sessions/{session_id}/messages").json()
+        kinds = {m["actor_type"] for m in stored}
+
+        assert {"user", "system"} <= kinds
 
     def test_the_questions_are_all_in_it(self, client: TestClient, project_id: str) -> None:
         questions = _list_questions(client, project_id)

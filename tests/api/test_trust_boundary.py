@@ -65,14 +65,20 @@ class TestExposureFailsClosed:
         with pytest.raises(InsecureDeploymentError) as raised:
             resolve_policy({}, host="0.0.0.0")
 
-        assert "refusing to listen" in str(raised.value)
+        message = str(raised.value)
+        assert "0.0.0.0" in message
+        assert "KAE_API_TOKENS" in message
 
-    def test_loopback_without_tokens_is_allowed(self) -> None:
-        """A developer's laptop is not a deployment."""
+    def test_loopback_without_tokens_is_refused(self) -> None:
+        """This asserted the opposite, and the belief behind it was the defect.
 
-        policy = resolve_policy({}, host="127.0.0.1")
+        "A developer's laptop is not a deployment" is true and does not follow
+        from the bind address: nginx in front of a loopback listener is a public
+        API, and the process cannot tell that apart from a laptop. A laptop now
+        says so explicitly — see `tests/api/test_auth_cannot_fail_open.py`."""
 
-        assert policy.enabled is False
+        with pytest.raises(InsecureDeploymentError):
+            resolve_policy({}, host="127.0.0.1")
 
     def test_binding_off_loopback_with_tokens_is_allowed(self) -> None:
         policy = resolve_policy({"KAE_API_TOKENS": f"studio:{TOKEN}"}, host="0.0.0.0")

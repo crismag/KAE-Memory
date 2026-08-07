@@ -594,20 +594,39 @@ def _as_clarification(finding: Finding) -> Clarification:
 
 
 class _LazySession:
-    """The session a batch of questions is asked in, opened at most once.
+    """The session a batch of questions is asked in — the conversation's own.
 
-    Lazy because listing questions that have all been asked before should not
-    create a session to record nothing in.
+    Resolved in three steps, in this order:
+
+    1. the session the caller named;
+    2. the project's existing session, if it has one;
+    3. a new one.
+
+    Step 2 is the part that matters. A clarification is a question put to a
+    person, so it belongs in the conversation they are having — not beside it.
+    Opening a fresh session for questions produced a project whose transcript
+    was split in two, with the person's own message in one half and everything
+    asked of them in the other, and each half looking complete.
+
+    Lazy because listing questions that have all been asked before has nothing
+    to record, and a session opened to store nothing is the same defect smaller.
     """
 
-    def __init__(self, memory: "MemoryService", project_id: ProjectId, given: SessionId | None) -> None:
+    def __init__(
+        self, memory: "MemoryService", project_id: ProjectId, given: SessionId | None
+    ) -> None:
         self._memory = memory
         self._project_id = project_id
         self._id = given
 
     def id(self) -> SessionId:
         if self._id is None:
-            self._id = self._memory.open_session(self._project_id, SessionType.DISCOVERY).id
+            existing = self._memory.sessions_for_project(self._project_id)
+            self._id = (
+                existing[0].id
+                if existing
+                else self._memory.open_session(self._project_id, SessionType.DISCOVERY).id
+            )
         return self._id
 
 

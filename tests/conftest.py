@@ -22,7 +22,14 @@ from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
 
+import os
+
 import pytest
+
+# The suite builds apps with no tokens. That is the local-development shape and
+# it is now opt-in rather than implied by the bind address, so the suite opts
+# in — deliberately, in one place, rather than each test discovering it.
+os.environ.setdefault("KAE_ALLOW_UNAUTHENTICATED", "1")
 import sqlalchemy as sa
 from alembic.config import Config
 from sqlalchemy.engine import Engine

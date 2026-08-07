@@ -61,9 +61,32 @@ stated as executably proven. **`decide`** — needs a human decision.
 
 ## S1 — Blocks deployment or a stability claim
 
-### F-001 — A reverse-proxy deployment can run unauthenticated
+### F-001 — A reverse-proxy deployment can run unauthenticated — **FIXED 2026-08-07**
 
-**Severity S1 · Gate `deploy`, `release` · Security**
+**Severity S1 · was gate `deploy`, `release` · Security**
+
+**Resolved.** The default is now refusal: no tokens means the process does not
+start, on any interface. Loopback is no longer read as development, because a
+reverse proxy in front of a loopback listener is a public API and the process
+cannot see the difference.
+
+A deployment that genuinely wants no authentication sets
+`KAE_ALLOW_UNAUTHENTICATED=1` — deliberately, in a variable a reviewer reading
+the environment can see, refused off-loopback, and refused for any value that is
+not an explicit affirmative so a stray export cannot disable authentication.
+Tokens win over the opt-out where both are set.
+
+23 regression tests in `tests/api/test_auth_cannot_fail_open.py`, including the
+exact F-001 shape. One superseded test was rewritten rather than deleted: it
+asserted that loopback without tokens was allowed, and the belief behind it —
+"a developer's laptop is not a deployment" — is true and does not follow from
+the bind address. That was the defect.
+
+**This no longer blocks DEP-D4.** The original finding follows, for the record.
+
+---
+
+**Original finding**
 
 `build_auth_policy` refuses to start when bound off-loopback without tokens, and
 raises on a malformed `KAE_API_TOKENS` entry. Both guards work. The hole is the
