@@ -192,6 +192,34 @@ Hybrid ranking is the durable answer, not a different constant. Tracked as VG-2.
 
 ---
 
+### F-016 — Sign-in rate limiting has no home yet
+
+**Severity S3 · Gate `release` · Security**
+
+Studio's identity is one operator password, so an unlimited sign-in endpoint on
+a public address is worth limiting. It currently is not.
+
+**An attempt at the proxy was removed rather than loosened.** nginx sees a URI,
+not an outcome: the same location serves `GET /api/session`, which the app calls
+on every page load to ask whether a session is still valid. Limiting it
+throttled ordinary use, and a rate-limited `503` carries no CORS headers, so the
+browser blocks it, the fetch throws, and the app reports the backend as
+unreachable. Excluding the method with a `map` on `$request_method` did not take
+effect in this nginx build.
+
+It cost real time to diagnose because it degrades under load only: single
+requests pass, a browser session fails intermittently, and every symptom points
+away from the proxy.
+
+**Where it belongs:** Studio, which knows the difference between a failed
+password and a session check without inspecting a URI, and can count failures
+per principal rather than per address.
+
+**Until then** the protection is the password: 24 random characters, against
+which an unthrottled attacker still gets nowhere. Acceptable for a
+single-operator deployment under active development; not acceptable for a
+release.
+
 ## S3 — Limitations, documentable as they are
 
 ### F-006 — Modules are MCP-only, and the reasons are recorded per capability
