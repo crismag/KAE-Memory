@@ -239,9 +239,20 @@ class ClarificationService:
 
         responded = self._dispositions(project_id)
 
+        # One session for the whole batch, opened lazily and only if something
+        # actually needs asking.
+        #
+        # Each `_materialise` used to open its own when the caller named none,
+        # so listing ten questions produced ten sessions holding one message
+        # each. Session count then tracked the number of clarifications rather
+        # than the number of conversations, and "the project's session" stopped
+        # meaning anything — which is how a client writing a message and a
+        # client reading the transcript ended up in different ones.
+        batch = _LazySession(self._memory, project_id, session_id)
+
         found: list[OpenQuestion] = []
         for clarification in self.pending(project_id):
-            question, created = self._materialise(project_id, clarification, session_id)
+            question, created = self._materialise(project_id, clarification, batch)
             disposition = responded.get(str(question.id), Disposition.OPEN)
             if settles(disposition):
                 continue
@@ -298,7 +309,7 @@ class ClarificationService:
         self,
         project_id: ProjectId,
         clarification: Clarification,
-        session_id: SessionId | None,
+        session: "_LazySession",
     ) -> tuple[Message, bool]:
         """Return the durable question for ``clarification``, asking if needed.
 
@@ -314,7 +325,9 @@ class ClarificationService:
         if existing is not None:
             return existing, False
         try:
-            return self.ask(project_id, clarification, session_id=session_id), True
+            # `session.id()` only here: a question already asked returns above,
+            # and opening a session to record nothing is the original defect.
+            return self.ask(project_id, clarification, session_id=session.id()), True
         except IdempotencyConflictError:
             recorded = self._memory.message_by_idempotency_key(project_id, key)
             if recorded is None:  # pragma: no cover - the key just conflicted
@@ -578,6 +591,24 @@ def _as_clarification(finding: Finding) -> Clarification:
         area_key=finding.area_key,
         knowledge_ids=tuple(str(item) for item in finding.knowledge_item_ids),
     )
+
+
+class _LazySession:
+    """The session a batch of questions is asked in, opened at most once.
+
+    Lazy because listing questions that have all been asked before should not
+    create a session to record nothing in.
+    """
+
+    def __init__(self, memory: "MemoryService", project_id: ProjectId, given: SessionId | None) -> None:
+        self._memory = memory
+        self._project_id = project_id
+        self._id = given
+
+    def id(self) -> SessionId:
+        if self._id is None:
+            self._id = self._memory.open_session(self._project_id, SessionType.DISCOVERY).id
+        return self._id
 
 
 def _question_key(clarification: Clarification) -> str:
