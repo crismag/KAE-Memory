@@ -189,7 +189,6 @@ Docker, Kubernetes, or infrastructure-as-code framework is introduced — see
 
 ## Repository context
 
-- [`project-model.yaml`](project-model.yaml) — durable source of project state.
 - [`specifications/`](specifications/) — domain, memory, retrieval, agent
   execution, API, and database specifications with architecture decisions.
 
