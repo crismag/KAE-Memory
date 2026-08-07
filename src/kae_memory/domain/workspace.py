@@ -56,6 +56,45 @@ class MessageType(StrEnum):
     REVIEW_FINDING = "review_finding"
 
 
+class MessagePurpose(StrEnum):
+    """What the caller says a message is *for*, declared before interpretation.
+
+    Distinct from `ObservationClass`, which is what a span turns out to *be*
+    once classified. This is an input and that is an outcome, and conflating
+    them would mean asking a model whether a connectivity check was a
+    connectivity check.
+
+    The problem it solves: recording a message enqueues discovery extraction,
+    unconditionally. A browser suite proving the round trip works therefore
+    wrote twelve copies of one test sentence into a project's candidate
+    knowledge, and nothing in the system could have known not to. There was no
+    way to say "store this, do not interpret it".
+
+    **Deliberately three.** More values would need someone to choose between
+    them correctly under time pressure, and the only distinction that changes
+    behaviour is whether this is the project speaking.
+    """
+
+    PROJECT_INPUT = "project_input"
+    """Somebody talking about the project. Interpreted. **The default**, because
+    any other default silently stops interpreting real conversations — a failure
+    that looks like extraction being broken."""
+
+    DIAGNOSTIC = "diagnostic"
+    """A health check, a round-trip proof, a deployment smoke test. Stored,
+    attributed, and never interpreted."""
+
+    CONVERSATION_CONTROL = "conversation_control"
+    """Steering rather than content — "start over", "go back to the last
+    question". Real to the transcript, not a claim about the project."""
+
+
+#: Purposes whose messages reach extraction. One entry, and that is the point:
+#: a reader can see at a glance what is interpreted, rather than reconstructing
+#: it from a chain of negations.
+INTERPRETED_PURPOSES: frozenset[MessagePurpose] = frozenset({MessagePurpose.PROJECT_INPUT})
+
+
 @dataclass(frozen=True, slots=True)
 class Session:
     """A bounded period of work belonging to one project."""
@@ -102,6 +141,23 @@ class Message:
     agent_run_id: AgentRunId | None = None
     idempotency_key: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    purpose: MessagePurpose = MessagePurpose.PROJECT_INPUT
+    """Why this was recorded. See `MessagePurpose`.
+
+    Defaulted rather than required, unlike most fields here, because every
+    message written before this existed was project input and saying so is
+    accurate rather than convenient.
+    """
+
+    @property
+    def is_interpreted(self) -> bool:
+        """Whether extraction should read this message.
+
+        A property rather than a check at each call site: there are three
+        callers today and the answer must not be able to differ between them.
+        """
+
+        return self.purpose in INTERPRETED_PURPOSES
 
     def __post_init__(self) -> None:
         if self.sequence_number < 1:

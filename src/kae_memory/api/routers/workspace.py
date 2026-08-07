@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import AgentRunId, KnowledgeItemId, ProjectId, SessionId
 from kae_memory.domain.lifecycle import LifecycleState
-from kae_memory.domain.workspace import ActorType, MessageType, SessionType
+from kae_memory.domain.workspace import ActorType, MessagePurpose, MessageType, SessionType
 
 from ..dependencies import Memory, SessionFactory
 from ..errors import not_found
@@ -120,6 +120,17 @@ def record_message(session_id: str, body: RecordMessageRequest, memory: Memory) 
     already derived, and extracting from it would let a model's output re-enter
     as evidence for the next inference — a loop that manufactures confidence
     from nothing but its own prior output.
+
+    **And only messages the caller says are about the project** (EM-2). This
+    route used to interpret every human message unconditionally, so a browser
+    suite proving the round trip works wrote twelve copies of one test sentence
+    into a project's candidate knowledge. Nothing could have known not to:
+    there was no way to say "store this, do not interpret it". A `diagnostic`
+    or `conversation_control` message is still recorded, still attributed, and
+    still visible in the transcript — it simply produces no candidates.
+
+    The gate is on the caller's declaration, never on the words. A genuine
+    requirement about testing software is project input and is extracted.
     """
 
     session = memory.get_session(SessionId(session_id))
@@ -134,9 +145,10 @@ def record_message(session_id: str, body: RecordMessageRequest, memory: Memory) 
         message_type=parse_enum(MessageType, body.message_type, "message_type"),
         actor_id=body.actor_id,
         idempotency_key=body.idempotency_key,
+        purpose=parse_enum(MessagePurpose, body.purpose, "purpose"),
     )
 
-    if actor_type is ActorType.USER and not record.replayed:
+    if actor_type is ActorType.USER and record.message.is_interpreted and not record.replayed:
         # After the message is durable, and never in the same breath: evidence
         # capture must not depend on the queue being writable, and a submission
         # that failed because extraction could not be enqueued would lose the

@@ -26,6 +26,7 @@ from kae_memory.domain.models import Project, ProvenanceLink, ProvenanceLinkType
 from kae_memory.domain.workspace import (
     ActorType,
     Message,
+    MessagePurpose,
     MessageType,
     ProjectStatus,
     Session,
@@ -178,6 +179,7 @@ class MessageRepository:
                 created_at=message.created_at,
                 idempotency_key=message.idempotency_key,
                 payload_fingerprint=fingerprint,
+                purpose=message.purpose.value,
             )
         )
 
@@ -596,7 +598,22 @@ def _message_to_domain(row: MessageRow) -> Message:
         agent_run_id=AgentRunId(row.agent_run_id) if row.agent_run_id else None,
         idempotency_key=row.idempotency_key,
         metadata=dict(row.message_metadata or {}),
+        # NULL means the row predates EM-2, and those messages were project
+        # input. An unrecognised value is *not* treated the same way: it means a
+        # caller declared something this version does not understand, and
+        # guessing "interpret it" would extract from a message somebody
+        # deliberately marked.
+        purpose=_purpose_of(row.purpose),
     )
+
+
+def _purpose_of(stored: str | None) -> MessagePurpose:
+    if stored is None:
+        return MessagePurpose.PROJECT_INPUT
+    try:
+        return MessagePurpose(stored)
+    except ValueError:
+        return MessagePurpose.CONVERSATION_CONTROL
 
 
 def _run_to_domain(row: AgentRunRow) -> AgentRun:

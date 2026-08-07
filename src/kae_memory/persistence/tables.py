@@ -257,6 +257,10 @@ class MessageRow(Base):
     #: SHA-256 over the normalised payload. Sameness is decided by comparing
     #: this, never by comparing free text.
     payload_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: What the caller declared this message was for (EM-2). NULL on every row
+    #: written before the column existed, and read as `project_input` — which
+    #: is what those messages were.
+    purpose: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
 class KnowledgeRelationshipRow(Base):

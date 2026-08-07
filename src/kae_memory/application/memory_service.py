@@ -59,6 +59,7 @@ from kae_memory.domain.models import (
 from kae_memory.domain.workspace import (
     ActorType,
     Message,
+    MessagePurpose,
     MessageType,
     Session,
     SessionType,
@@ -449,6 +450,7 @@ class MemoryService:
         agent_run_id: AgentRunId | None = None,
         idempotency_key: str | None = None,
         metadata: Mapping[str, Any] | None = None,
+        purpose: MessagePurpose = MessagePurpose.PROJECT_INPUT,
     ) -> MessageRecord:
         """Persist a submission verbatim as source evidence.
 
@@ -486,6 +488,7 @@ class MemoryService:
                 content=content,
                 created_at=moment,
                 actor_id=actor_id,
+                purpose=purpose,
                 agent_run_id=agent_run_id,
                 idempotency_key=idempotency_key,
                 metadata=dict(metadata or {}),

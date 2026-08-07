@@ -99,6 +99,12 @@ class RecordMessageRequest(BaseModel):
     #: Supply to make a retry safe. The same key with the same payload returns
     #: the original record; the same key with different content is a conflict.
     idempotency_key: str | None = Field(default=None, max_length=200)
+    #: What this message is for (EM-2). `project_input` is interpreted and is
+    #: the default; `diagnostic` and `conversation_control` are stored, marked,
+    #: and never extracted from. Health checks and round-trip proofs should say
+    #: `diagnostic` — otherwise their text becomes candidate project knowledge,
+    #: which is how twelve copies of one test sentence entered a real project.
+    purpose: str = "project_input"
 
 
 class MessageResponse(BaseModel):
