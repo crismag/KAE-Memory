@@ -59,11 +59,11 @@ class TestOnlySomeDispositionsSettle:
         """Adding a disposition must be a decision about whether it closes a
         question, not a default inherited from where it was declared."""
 
-        assert SETTLES == {
+        assert {
             Disposition.ANSWERED,
             Disposition.NO_LONGER_RELEVANT,
             Disposition.SUPERSEDED,
-        }
+        } == SETTLES
 
 
 class TestARecordedDispositionMustBeUsable:
@@ -116,8 +116,8 @@ class TestPriorityIsAboutBlocking:
         """Stated out loud so that broadening it is a decision. Every addition
         here is a new way for the system to refuse to generate."""
 
-        assert BLOCKING_PRIORITIES == {
+        assert {
             QuestionPriority.CAPABILITY_BLOCKING,
             QuestionPriority.AUTHORIZATION_BLOCKING,
             QuestionPriority.INTEGRITY_BLOCKING,
-        }
+        } == BLOCKING_PRIORITIES

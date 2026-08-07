@@ -18,11 +18,10 @@ happened once here, when Alembic resolved that variable ahead of the throwaway
 database a fixture had built.
 """
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 from uuid import uuid4
-
-import os
 
 import pytest
 

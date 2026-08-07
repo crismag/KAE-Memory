@@ -64,8 +64,7 @@ class TestTheInterfaceReferenceIsCurrent:
         )
 
         assert result.returncode == 0, (
-            f"{result.stdout}{result.stderr}\n"
-            "The interface reference and its sources disagree."
+            f"{result.stdout}{result.stderr}\nThe interface reference and its sources disagree."
         )
 
     def test_every_declared_tool_is_documented(self) -> None:

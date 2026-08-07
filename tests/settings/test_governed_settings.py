@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from kae_memory.settings import CATALOG, Settings, SettingError, Source, unknown_overrides
+from kae_memory.settings import CATALOG, SettingError, Settings, Source, unknown_overrides
 from kae_memory.settings.catalog import BY_KEY
 
 PAGE = "response.default_page_size"
@@ -42,7 +42,7 @@ class TestTheCommittedDefaultApplies:
         """At startup, not on first read. The call that first reads a setting
         is reliably the one furthest from anyone who could fix it."""
 
-        with pytest.raises(SettingError, match="absent from defaults.toml"):
+        with pytest.raises(SettingError, match=r"absent from defaults.toml"):
             Settings(environ={}, defaults={"response": {"default_page_size": 20}})
 
 
@@ -65,7 +65,7 @@ class TestAnOverrideIsCheckedRatherThanTrusted:
         """ "KAE_DEFAULT_PAGE_SIZE=lots is not an integer" is actionable;
         "invalid setting" sends someone to read the code."""
 
-        with pytest.raises(SettingError, match="KAE_DEFAULT_PAGE_SIZE|response.default_page_size"):
+        with pytest.raises(SettingError, match=r"KAE_DEFAULT_PAGE_SIZE|response.default_page_size"):
             Settings(environ={"KAE_DEFAULT_PAGE_SIZE": "lots"})
 
     def test_a_fractional_count_is_refused_rather_than_truncated(self) -> None:
@@ -83,7 +83,7 @@ class TestAnOverrideIsCheckedRatherThanTrusted:
         """A caller silently given a different number than they asked for will
         debug everything except the number."""
 
-        with pytest.raises(SettingError, match="ceiling|maximum"):
+        with pytest.raises(SettingError, match=r"ceiling|maximum"):
             Settings(environ={"KAE_DEFAULT_PAGE_SIZE": "5000"})
 
     def test_an_empty_variable_is_not_an_override(self) -> None:
@@ -201,9 +201,9 @@ class TestOneNumberReachesBothAdapters:
     def test_both_come_from_the_governed_setting(self) -> None:
         from kae_memory.mcp.response_policy import MAX_PAGE_SIZE
 
-        assert MAX_PAGE_SIZE == Settings(environ={}).value(CEILING)
+        assert Settings(environ={}).value(CEILING) == MAX_PAGE_SIZE
 
     def test_the_clarification_limit_is_governed(self) -> None:
         from kae_memory.mcp.tools import CLARIFICATION_LIMIT
 
-        assert CLARIFICATION_LIMIT == Settings(environ={}).value("clarifications.default_limit")
+        assert Settings(environ={}).value("clarifications.default_limit") == CLARIFICATION_LIMIT

@@ -21,7 +21,6 @@ import pytest
 from kae_memory.agents.observation_classifier import DeterministicObservationClassifier
 from kae_memory.agents.provider import (
     CLASSIFIER_DETERMINISTIC,
-    CLASSIFIER_SEMANTIC,
     ProviderConfigurationError,
     build_classifier,
     classifier_name,
@@ -77,7 +76,7 @@ class _Client:
     def __init__(self, *outcomes: Any) -> None:
         self.messages = _Messages(*outcomes)
 
-    def with_options(self, **_: Any) -> "_Client":
+    def with_options(self, **_: Any) -> _Client:
         return self
 
 

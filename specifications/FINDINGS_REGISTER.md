@@ -16,19 +16,32 @@ Actionable findings are public issues on this repository. **F-001 is not**, and
 must not be filed while it stands — this repository is public and the finding
 describes an unauthenticated-access path. It is tracked here and privately.
 
+**Resolved in substance, still open on GitHub.** The filing token can create
+issues and not modify them, so nothing below can be closed from here.
+[#80](https://github.com/crismag/KAE-Memory/issues/80) (F-002),
+[#86](https://github.com/crismag/KAE-Memory/issues/86) (F-011),
+[#87](https://github.com/crismag/KAE-Memory/issues/87) (F-012),
+[#88](https://github.com/crismag/KAE-Memory/issues/88) (F-013),
+[#89](https://github.com/crismag/KAE-Memory/issues/89) and
+[#90](https://github.com/crismag/KAE-Memory/issues/90) are all closed as of
+2026-08-07, though not all the same way. F-002, F-011, F-012 and F-013 are
+answered by new tests in `tests/integration/`. **F-014 is withdrawn** — the
+claim was wrong about the code. **F-015 needed nothing** — proof already existed
+and this register had not found it. All five still need closing by hand.
+
 | Finding | Issue |
 |---|---|
-| F-002 cross-session continuity | [#80](https://github.com/crismag/KAE-Memory/issues/80) |
+| ~~F-002 cross-session continuity~~ **resolved** | [#80](https://github.com/crismag/KAE-Memory/issues/80) |
 | F-003 CockroachDB parity | [#81](https://github.com/crismag/KAE-Memory/issues/81) |
 | F-004 reviewer identity | [#83](https://github.com/crismag/KAE-Memory/issues/83) |
 | F-005 retrieval threshold | [#82](https://github.com/crismag/KAE-Memory/issues/82) |
 | F-006 / N12 module curation | [#85](https://github.com/crismag/KAE-Memory/issues/85) |
 | F-008 fixture-fallback visibility | [#84](https://github.com/crismag/KAE-Memory/issues/84) |
-| F-011 direct-write bypass | [#86](https://github.com/crismag/KAE-Memory/issues/86) |
-| F-012 project isolation | [#87](https://github.com/crismag/KAE-Memory/issues/87) |
-| F-013 dependency cycles | [#88](https://github.com/crismag/KAE-Memory/issues/88) |
-| F-014 fixture fallback modes | [#89](https://github.com/crismag/KAE-Memory/issues/89) |
-| F-015 idempotency under concurrency | [#90](https://github.com/crismag/KAE-Memory/issues/90) |
+| ~~F-011 direct-write bypass~~ **resolved** | [#86](https://github.com/crismag/KAE-Memory/issues/86) |
+| ~~F-012 project isolation~~ **resolved** | [#87](https://github.com/crismag/KAE-Memory/issues/87) |
+| ~~F-013 dependency cycles~~ **resolved** | [#88](https://github.com/crismag/KAE-Memory/issues/88) |
+| ~~F-014 fixture fallback modes~~ **withdrawn — claim was wrong** | [#89](https://github.com/crismag/KAE-Memory/issues/89) |
+| ~~F-015 idempotency under concurrency~~ **already proven** | [#90](https://github.com/crismag/KAE-Memory/issues/90) |
 
 **The issues carry no labels.** The token that filed them can create issues and
 not modify them — `addLabelsToLabelable` and `addComment` are both refused — so
@@ -136,19 +149,43 @@ and it is narrower and more specific.
 
 ## S2 — Materially affects users
 
-### F-002 — Cross-session continuity is unproven end to end
+### F-002 — Cross-session continuity is unproven end to end — ~~open~~ **resolved 2026-08-07**
 
 **Severity S2 · Gate `validate`**
 
-The claim the product turns on — a later session knows what an earlier one
-established — has no end-to-end test. The parts are tested; the composition is
-not.
+**The original finding overstated the gap.** It said the claim "has no
+end-to-end test". It had one: `tests/agents/test_collaboration.py` (AT-006) runs
+a requirements agent in a discovery session, confirms a rule, discards the
+process, and has an architecture agent in a *second* session derive from
+confirmed knowledge alone. That is the composition, and it passed the whole time.
 
-**Evidence:** E4, inferred from tested components. **Affects:**
-`docs/examples/cross-session-continuity.md`, `docs/index.md`, README.
-**Disposition:** describe continuity from the evidence that exists — durable
-storage, retrieval, and context assembly are each tested — and **do not present
-it as executably proven** until the validation phase records a transcript.
+What was genuinely missing is the other half of continuity — the part about
+*not* carrying things forward — and the last hop to a consumer.
+
+**Closed by**
+[`tests/integration/test_cross_session_continuity.py`](../tests/integration/test_cross_session_continuity.py).
+A first session records a message, extracts three statements, and a person
+confirms two and rejects one. A second session — new service instances, a new
+session record, nothing carried in memory — then reads the project through the
+ordinary path, **without naming the first session or its run**.
+
+It covers only what AT-006 does not, so the two do not overlap:
+
+* the rejected statement does **not** come back — continuity that resurrects
+  discarded candidates silently undoes a person's decision, which is worse than
+  no continuity at all;
+* the rejection is still readable *as a decision*, so the second session can
+  tell "we said no to this" from "nobody has considered this";
+* provenance survives, so a later reader can distinguish agreement from
+  assertion;
+* it reaches the **assembled package**, not just a database query — the consumer
+  is an agent reading assembled context, so that last hop is part of the claim.
+
+**Consequence:** continuity may now be described as executably proven. The
+qualification previously required in `docs/index.md` and the README no longer
+applies. [#80](https://github.com/crismag/KAE-Memory/issues/80) is resolved in
+substance; the filing token cannot close issues (see *Tracking*), so it needs a
+minute in the web UI.
 
 ### F-003 — CockroachDB is unverified at the current schema head
 
@@ -191,6 +228,37 @@ window between the worst genuine match (0.840) and nearest noise (0.847) is
 Hybrid ranking is the durable answer, not a different constant. Tracked as VG-2.
 
 ---
+
+### F-017 — CI's lint and format gates were failing, and had been silently — **FIXED 2026-08-07**
+
+**Severity S3 · Gate `release` · Tooling**
+
+`ruff check .` reported 16 errors and `ruff format --check .` named three files,
+so two of CI's four gates were red before any of this session's work. Nothing in
+the code had changed to cause it.
+
+**The cause is an unpinned linter.** `pyproject.toml` asked for `ruff>=0.6` and
+resolved 0.16, which added rules (`RUF043` among them) that the existing code
+had never been written against. A dependency range that admits new rules makes
+the build a function of when it last resolved, and "the gate went red on its own"
+is indistinguishable from "someone broke it" once it has been red for a while.
+
+The three unformatted files were all from the most recent commits, which is the
+other half of it: once a gate is red for an unrelated reason, it stops reporting
+the related ones.
+
+**Fixed.** All 16 resolved and everything formatted. `RUF002` is now ignored with
+a reason — it flags en dashes in docstrings as confusable characters, and in
+prose like `N30–N32` the en dash is correct typography; the rule exists for
+homoglyphs in identifiers. The three `RUF043` sites became raw strings, which
+says the metacharacters are intended rather than escaping them and changing what
+matches. One nested `if` was flattened by naming the condition. No behaviour
+changed: 1728 tests pass, mypy is clean.
+
+**Not done, and worth a decision:** the range is still `ruff>=0.6`. Pinning it
+makes the gate reproducible and moves upgrades into a deliberate step; leaving
+it means this recurs on some future release. That is a workflow preference, so
+it is recorded rather than chosen.
 
 ### F-016 — Sign-in rate limiting has no home yet
 
@@ -300,21 +368,58 @@ because it was not under `docs/`.
 
 ---
 
-## S4 — Reasonable, unconfirmed
+## S4 — Reasonable, unconfirmed — ~~open~~ **checked 2026-08-07**
 
-Each needs a focused check in the validation phase. **None may be stated as fact
-until then.**
+Each claim's "confirm by" column has been run rather than argued, in
+[`tests/integration/test_unproven_claims.py`](../tests/integration/test_unproven_claims.py).
+**Four held. One did not.**
 
-| # | Claim | Basis | Confirm by |
-|---|---|---|---|
-| F-011 | Direct database writes bypass domain invariants | Transitions live in Python, not the schema | Write one; assert the resulting state is invalid |
-| F-012 | Projects are isolated on every read and write | Repositories are project-scoped | Two projects, similar records, assert no bleed |
-| F-013 | Dependency cycles are prevented | `module_service.py` appears to check | Attempt a cycle |
-| F-014 | Extraction always falls back to a fixture without a model | Observed once | Run with no model access; check the run summary |
-| F-015 | Idempotency holds under concurrency | Unique constraints exist; exercised on PostgreSQL only | Concurrent duplicate submissions |
+| # | Claim | Outcome |
+|---|---|---|
+| F-011 | Direct database writes bypass domain invariants | **Confirmed.** A `rejected → validated` transition the domain refuses is accepted by the table, and the resulting row is indistinguishable from honest confirmed knowledge downstream |
+| F-012 | Projects are isolated on every read and write | **Confirmed**, including the case that would actually leak: two projects holding *identical* text, where a global collapse key would have merged them |
+| F-013 | Dependency cycles are prevented | **Confirmed** for direct and three-hop cycles; the refusal leaves no partial edge behind, and a diamond is correctly still allowed |
+| F-014 | Extraction always falls back to a fixture without a model | **Wrong — see below** |
+| F-015 | Idempotency holds under concurrency | **Was already proven.** The register missed an existing test — see below |
 
-**F-011 matters most.** It is ADR-0027's central premise, and it is currently
-reasoned rather than demonstrated.
+**F-011 matters most, and it holds.** It is ADR-0027's central premise: going
+around the application contracts really does lose the invariants, so the ADR is
+describing a live gap rather than a theoretical one. The test is written to be
+deleted if a future schema constraint closes it — a database that enforces the
+transition beats a document asking people to.
+
+### F-015 was already proven, and the register did not know
+
+`tests/application/test_message_idempotency.py` has run eight concurrent
+submissions of one idempotency key against the real engine since ADR-0018, and
+asserts something **stricter** than this register asked for: exactly one
+submission creates the record and the other seven resolve to a replay. Not "one
+row survived" — one *writer* won and the rest were told so.
+
+Nothing was added for F-015. A duplicate was written, found redundant on
+reading the existing suite, and removed. Recorded because the failure here was
+the register's, not the code's: an S4 entry was opened for a claim that had
+executable proof, which is the same error as leaving a real gap unlisted, run
+the other way.
+
+### F-014 was not a finding, it was a misreading
+
+The claim — "extraction *always falls back* to a fixture without a model" —
+describes silent degradation, and that is not what the code does:
+
+* the deterministic fixture is the **default**; Bedrock is opt-in through
+  `KAE_EXTRACTION=bedrock`;
+* an opt-in that cannot be satisfied **raises** (`default_extractor` refuses
+  without a resolvable region) rather than quietly returning the fixture;
+* the only component that degrades is the **reviewer**, and it labels itself in
+  the run summary as `offline_by_kind_after_reviewer_error`.
+
+So there was no silent fallback to disprove. There is a safe default and a loud
+failure, which is the better behaviour and was simply never written down. The
+original note was formed by reading `agents/deterministic.py` and inferring the
+worker's policy from it. **This does not weaken F-008**, which says something
+different and true: a run *can* complete on the fixture, and the run summary is
+the only place that says so.
 
 ---
 

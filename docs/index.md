@@ -92,7 +92,6 @@ Each is a real constraint on what you can rely on:
 
 | | |
 |---|---|
-| Cross-session continuity is not proven end to end | [#80](https://github.com/crismag/KAE-Memory/issues/80) |
 | Retrieval threshold fitted to a small corpus | [#82](https://github.com/crismag/KAE-Memory/issues/82) |
 | Reviewer identity is unattested | [#83](https://github.com/crismag/KAE-Memory/issues/83) |
 | Extraction can run without a model, visibly only in the run record | [#84](https://github.com/crismag/KAE-Memory/issues/84) |

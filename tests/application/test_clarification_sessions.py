@@ -52,9 +52,7 @@ def _list_questions(client: TestClient, project_id: str) -> list[dict[str, objec
 
 
 class TestOneSessionPerBatch:
-    def test_many_questions_share_one_session(
-        self, client: TestClient, project_id: str
-    ) -> None:
+    def test_many_questions_share_one_session(self, client: TestClient, project_id: str) -> None:
         questions = _list_questions(client, project_id)
         assert len(questions) > 1, "a fresh project should have several open areas"
 
