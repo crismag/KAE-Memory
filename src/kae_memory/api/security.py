@@ -45,6 +45,8 @@ def _is_true(value: str) -> bool:
     someone typed on purpose, not any non-empty string a stray export left."""
 
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 """Interfaces a developer's process may bind to without a token."""
 
 PUBLIC_PATHS = frozenset({"/health", "/docs", "/redoc", "/openapi.json", "/docs/oauth2-redirect"})

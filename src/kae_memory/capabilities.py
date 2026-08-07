@@ -263,7 +263,9 @@ REGISTRY: tuple[Capability, ...] = (
             "POST /v1/projects/{project_id}/contradictions",
             "POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve",
         ),
-        reason="Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it.",
+        reason=(
+            "Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it."
+        ),
     ),
     Capability(
         key="observation.submit",

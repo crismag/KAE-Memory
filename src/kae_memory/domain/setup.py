@@ -141,13 +141,13 @@ def ensure_inferable(field_name: str, policy: InferencePolicy) -> None:
     """
 
     lowered = field_name.lower()
-    if any(fragment in lowered for fragment in NEVER_INFERRED):
-        if policy is not InferencePolicy.BLOCK:
-            raise SetupError(
-                f"{field_name} cannot be inferred under {policy.value}: a credential "
-                f"or authorisation is granted, never worked out. Use "
-                f"{InferencePolicy.BLOCK.value} and ask."
-            )
+    names_a_secret = any(fragment in lowered for fragment in NEVER_INFERRED)
+    if names_a_secret and policy is not InferencePolicy.BLOCK:
+        raise SetupError(
+            f"{field_name} cannot be inferred under {policy.value}: a credential "
+            f"or authorisation is granted, never worked out. Use "
+            f"{InferencePolicy.BLOCK.value} and ask."
+        )
 
 
 class ValueState(StrEnum):

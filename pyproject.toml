@@ -67,6 +67,11 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+# Docstrings here are prose, and an en dash in "N30-N32" or a spaced clause is
+# deliberate typography rather than a confusable-character mistake. RUF002 is
+# aimed at homoglyphs in identifiers; applied to prose it only ever asks for the
+# writing to be made worse.
+ignore = ["RUF002"]
 
 [tool.mypy]
 python_version = "3.12"

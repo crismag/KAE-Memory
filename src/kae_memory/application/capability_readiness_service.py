@@ -97,7 +97,9 @@ class CapabilityReadinessService:
                 f"readiness is {percentage}%, so the assembled context will be thin "
                 f"and will carry more open questions than confirmed statements"
             ),
-            next_action="generate now and read the disclosed gaps, or answer the important questions first",
+            next_action=(
+                "generate now and read the disclosed gaps, or answer the important questions first"
+            ),
             improves_with=("answers to the questions marked important",),
         )
 
