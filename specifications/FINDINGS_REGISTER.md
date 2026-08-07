@@ -10,6 +10,38 @@ one is not. Nothing here is normalised, and nothing is closed by being described
 It is also the handoff. When work returns to Studio–CIE–KAE productisation, this
 is the list that goes with it — with evidence, impact, and priority attached.
 
+## Tracking
+
+Actionable findings are public issues on this repository. **F-001 is not**, and
+must not be filed while it stands — this repository is public and the finding
+describes an unauthenticated-access path. It is tracked here and privately.
+
+| Finding | Issue |
+|---|---|
+| F-002 cross-session continuity | [#80](https://github.com/crismag/KAE-Memory/issues/80) |
+| F-003 CockroachDB parity | [#81](https://github.com/crismag/KAE-Memory/issues/81) |
+| F-004 reviewer identity | [#83](https://github.com/crismag/KAE-Memory/issues/83) |
+| F-005 retrieval threshold | [#82](https://github.com/crismag/KAE-Memory/issues/82) |
+| F-006 / N12 module curation | [#85](https://github.com/crismag/KAE-Memory/issues/85) |
+| F-008 fixture-fallback visibility | [#84](https://github.com/crismag/KAE-Memory/issues/84) |
+| F-011 direct-write bypass | [#86](https://github.com/crismag/KAE-Memory/issues/86) |
+| F-012 project isolation | [#87](https://github.com/crismag/KAE-Memory/issues/87) |
+| F-013 dependency cycles | [#88](https://github.com/crismag/KAE-Memory/issues/88) |
+| F-014 fixture fallback modes | [#89](https://github.com/crismag/KAE-Memory/issues/89) |
+| F-015 idempotency under concurrency | [#90](https://github.com/crismag/KAE-Memory/issues/90) |
+
+**The issues carry no labels.** The token that filed them can create issues and
+not modify them — `addLabelsToLabelable` and `addComment` are both refused — so
+severity, gate and the `finding` label could not be applied. The `finding` and
+`verification` labels exist and are unused. Applying them needs a token with
+issue-write scope, or a few minutes in the web UI. **Severity and gate for every
+finding live in this file**, which is where they were going to be authoritative
+anyway; the labels would have made them filterable, not knowable.
+
+F-007 is resolved. F-009 and F-010 are documentation work and stay in the
+[documentation plan](documentation-plan/DOCUMENTATION_MANIFEST.md) rather than
+becoming issues — filing writing tasks as defects makes both harder to read.
+
 ## Severity
 
 | | Meaning |
@@ -239,9 +271,11 @@ reasoned rather than demonstrated.
 
 | # | Decision | Blocks |
 |---|---|---|
-| D1 | How deep may the public deployment guide go, given the working example is private? | Depth of `docs/operations/deployment.md` |
-| D2 | Is any version or interface stability claimed? | README, `docs/index.md` — documentation implies stability by existing |
-| D3 | Should F-001 be filed publicly, or handled privately until fixed? | Issue creation. **Recommendation: privately.** This repository is public |
+| ~~D1~~ | **Decided 2026-08-07.** A provider-neutral public deployment and operations guide, describing supported topology, configuration, migrations, startup and health — without exposing or recreating private deployment automation | `docs/operations/` proceeds |
+| ~~D2~~ | **Decided 2026-08-07.** **No stability or backward-compatibility guarantee at this stage**, stated explicitly rather than left to inference | README and `docs/index.md` say so plainly |
+| ~~D3~~ | **Decided 2026-08-07.** F-001 stays private until remediated. Not filed as a public issue | Remaining actionable gaps become public issues |
+
+All open decisions are answered. What remains is work, not direction.
 
 *(D3 — `reembedding_service` — withdrawn 2026-08-07; the registry already
 answered it. Numbering closed up.)*
@@ -258,7 +292,7 @@ ready", "stable", or "fully supported" may appear:
 - **F-004** resolved or explicitly accepted in writing
 - **F-011** demonstrated rather than reasoned
 - **F-003** either re-verified or the compatibility claim withdrawn
-- **D2** answered
+- **D2** — answered: no guarantee is claimed, and documentation says so
 
 Until then, documentation describes what exists and what it does not. **That is
 not a lesser thing to publish — a system whose limitations are written down is
