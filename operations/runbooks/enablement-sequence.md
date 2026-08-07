@@ -195,11 +195,13 @@ Summary:
 
 1. CockroachDB Cloud database and SQL user. Scheme is
    `cockroachdb+psycopg://`, not `postgresql://`.
-2. IAM **role** from `deploy/aws/ec2/iam-policy.example.json`, and an instance
+2. IAM **role** granting Secrets Manager read on the instance's own prefix and
+   CloudWatch logs, and an instance
    profile from it. **No access keys on the instance.**
-3. Launch Ubuntu 24.04, `t3.small`, that instance profile,
-   `deploy/aws/ec2/user-data.sh` as user data, and a security group where **port
-   8000 is closed** and 22 is limited to your address.
+3. Launch Ubuntu 24.04, `t3.small`, that instance profile, and a security group
+   where **port 8000 is closed** and 22 is limited to your address. Install with
+   [`deploy/server/install.sh`](../../deploy/server/install.sh); this repository
+   ships no AWS-specific provisioning assets.
 4. Fill `/etc/kae-memory/{api,worker}.env`, run migrations, enable both units.
 5. Put nginx in front of the API rather than exposing port 8000. ADR-0024
    requires the process to refuse to start off-loopback without tokens, so the

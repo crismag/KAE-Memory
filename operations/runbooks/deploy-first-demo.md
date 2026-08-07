@@ -31,11 +31,13 @@ Note the **scheme**: `cockroachdb+psycopg`, not `postgresql`. The dialect matter
 
 1. **Enable Bedrock model access** for Titan Text Embeddings V2, and Claude if
    you want live extraction. Per region, in the console. IAM alone is not enough.
-2. Create an IAM role from `deploy/aws/ec2/iam-policy.example.json` and an
+2. Create an IAM role granting the instance what it needs — Secrets Manager
+   read on its own prefix, and CloudWatch logs — and an
    instance profile from it.
-3. Launch Ubuntu 24.04, `t3.small`, with that instance profile, the security
-   group from `deploy/aws/ec2/README.md`, and `deploy/aws/ec2/user-data.sh` as
-   user data.
+3. Launch Ubuntu 24.04, `t3.small`, with that instance profile and a security
+   group where port 8000 is closed and 22 is limited to your address. Install
+   with [`deploy/server/install.sh`](../../deploy/server/install.sh); this
+   repository ships no AWS-specific provisioning assets.
 
 **Port 8000 stays closed.** The API has no authentication.
 

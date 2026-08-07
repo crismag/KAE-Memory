@@ -18,7 +18,19 @@ unchanged, one has widened, and one can no longer be settled here.
 
 ## VG-1 — CockroachDB Cloud schema state
 
-**Status: unresolved, and no longer settleable from this repository.**
+**Status: retired by architectural decision, 2026-08-07. Not proven.**
+
+The historical CockroachDB Cloud environment is no longer an active operational
+dependency, and recreating it solely to answer a historical question is not
+required. The gate closes because the question stopped mattering, **not because
+the schema was verified** — that distinction is the whole reason this entry
+stays rather than being deleted.
+
+Any future CockroachDB compatibility claim must be verified against a currently
+available, intentionally provisioned environment. This retirement transfers to
+no such claim.
+
+The record of what was at risk follows.
 
 **The claim at risk.** That a specific CockroachDB Cloud cluster's schema and
 data survived a migration-test defect, since fixed. The defect: the migration
@@ -27,7 +39,7 @@ test pointed Alembic at a throwaway database, but `migrations/env.py` resolved
 loaded a downgrade ran against whatever that variable named — and then passed,
 because it inspected the empty throwaway and found no tables.
 
-**Why it is still open.** The cluster is disabled after exhausting its request
+**Why it could not be answered.** The cluster is disabled after exhausting its request
 allowance and refuses connections outright. Whether its schema survived earlier
 runs is unknown and unverifiable while it stays that way. A question does not
 stop having an answer because the work moved elsewhere.
@@ -37,17 +49,16 @@ that cluster held is not the only copy — 218 rows across 13 tables were copied
 and verified table by table. A total loss of that cluster would cost the
 cluster, not the work.
 
-**Evidence required to close:** connectivity restored, a read-only inspection of
-the migration revision and schema, pending migrations applied deliberately, and
-the provider-specific integration tests run against it.
+**What would have been required to answer it:** connectivity restored, a
+read-only inspection of the migration revision and schema, pending migrations
+applied deliberately, and the provider-specific integration tests run against
+it. None of this was done, and the entry does not claim otherwise.
 
 **This cannot be closed by pointing at PostgreSQL.** That verifies PostgreSQL.
 
-**Decision needed:** whether that cluster is ever restored. If it is not, this
-gate is retired by decision rather than answered by evidence, and should be
-recorded as such — see *Unresolved decisions* in the Phase 1C report. The
-guard that prevented the loss is in place either way (`tests/conftest.py`
-requires `test` in the database name).
+**Decided 2026-08-07:** the cluster is not restored. The guard that prevented
+the loss is in place regardless (`tests/conftest.py` requires `test` in the
+database name), and the dataset was copied and verified before this was taken.
 
 ---
 
@@ -99,7 +110,23 @@ identity reaches the review path.
 
 ## VG-4 — CockroachDB integration breadth
 
-**Status: open, and wider than when it was last measured.**
+**Status: open. Conditional release gate, 2026-08-07.**
+
+Cross-provider parity matters only where CockroachDB compatibility is claimed.
+The suite is therefore run **before**, and not otherwise:
+
+- claiming support for a new CockroachDB-compatible release;
+- changing provider-specific behaviour;
+- publishing or renewing a CockroachDB compatibility guarantee;
+- shipping a change that could affect cross-provider behaviour.
+
+It is not run for documentation work, and was not run for Phase 2A planning.
+
+**What this means for what may be written:** documentation may say CockroachDB
+is a *selectable provider* (ADR-0022) and that parity was demonstrated at
+revision `0009` on 2026-08-04. It may not describe CockroachDB as verified at
+the current schema head. The wider the gap below grows, the more carefully that
+sentence has to be written.
 
 **The claim at risk.** That "both providers are supported" (ADR-0022) holds for
 the current schema, not only for the one it was measured against.
