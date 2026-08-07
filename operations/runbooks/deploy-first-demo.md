@@ -59,21 +59,11 @@ Healthy output names the applied revision:
 `"database":"down"` means the connection string is wrong or the cluster's IP
 allowlist excludes the instance. A null revision means migrations have not run.
 
-## 4. Frontend
+## 4. Walk the demonstration
 
-Same-origin — recommended:
-
-```bash
-npm --prefix frontend ci && npm --prefix frontend run build
-rsync -a frontend/dist/ ubuntu@INSTANCE:/tmp/kae-dist/
-ssh ubuntu@INSTANCE 'sudo rsync -a --delete /tmp/kae-dist/ /var/www/kae-memory/'
-```
-
-Split-origin, on external hosting: build with `VITE_API_BASE_URL`, set
-`KAE_CORS_ORIGINS` on the API, and read the warning in
-`deploy/static-site/README.md` first.
-
-## 5. Walk the demonstration
+KAE-Memory serves no interface of its own (ADR-0026). Drive it through an MCP
+client or the HTTP API; a browser workspace is KAE-Studio's, in its own
+repository, and is not deployed from here.
 
 Create a project, open a session, submit an idea, watch the requirements run
 complete, confirm knowledge, assign areas, run the Review agent, read the

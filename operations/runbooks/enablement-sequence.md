@@ -7,14 +7,15 @@ diagnosed two stages late costs more than the wait.
 
 | Stage | What it enables | Needs |
 | --- | --- | --- |
-| 1 | The whole product, locally, offline | Docker, Python, Node |
+| 1 | KAE-Memory locally, offline | Docker, Python |
 | 2 | AWS credentials on your machine | AWS account |
 | 3 | Live extraction and embeddings | Bedrock model access |
 | 4 | Retrieval quality proven | Stage 3 |
 | 5 | Deployed on EC2 | Stages 2–4 |
 
-Stage 6 — the frontend on external hosting — is **deliberately last and
-optional**. Read the warning before you do it.
+Five stages. There is no frontend stage: KAE-Memory ships no interface and
+builds none (ADR-0026). What a person looks at belongs to KAE-Studio, in its own
+repository, and is not deployed from here.
 
 ---
 
@@ -28,7 +29,6 @@ Decide this once, now, because getting it wrong is the expensive mistake.
 | AWS access on EC2 | **Instance role.** No keys at all | Any file on the instance |
 | Database connection string, local | `.env` (gitignored) or the shell | Anywhere tracked by git |
 | Database connection string, EC2 | `/etc/kae-memory/*.env`, root-owned, `0640` | The application directory |
-| Anything on the frontend host | **Nothing.** Static assets hold no secrets | Any build-time variable except the API URL |
 
 **`~/.aws/credentials` is the right place for local development** — it is outside
 the repository, the AWS SDK finds it without configuration, and it is the
@@ -59,7 +59,8 @@ make install
 make dev
 ```
 
-**Gate.** <http://localhost:5173> loads; you can create a project, submit an
+**Gate.** `curl localhost:8000/health` reports `status: ok` with a migration
+revision. Through the API or an MCP client you can create a project, submit an
 idea, watch a run reach `succeeded`, confirm knowledge, assign an area, see
 readiness move, and trace a blueprint statement back to your own words.
 
@@ -200,40 +201,25 @@ Summary:
    `deploy/aws/ec2/user-data.sh` as user data, and a security group where **port
    8000 is closed** and 22 is limited to your address.
 4. Fill `/etc/kae-memory/{api,worker}.env`, run migrations, enable both units.
-5. Build the frontend and copy it to `/var/www/kae-memory` — nginx serves it and
-   proxies the API, so the browser sees one origin and the API is never directly
-   reachable.
+5. Put nginx in front of the API rather than exposing port 8000. ADR-0024
+   requires the process to refuse to start off-loopback without tokens, so the
+   reverse proxy terminates TLS and the API binds to `127.0.0.1`.
 
-**Gate.** `curl localhost:8000/health` on the instance reports `status: ok` with
-the expected migration revision, and the workspace loads over the instance's
-public address.
+**Gate.** On the instance, `curl localhost:8000/health` reports `status: ok`
+with the expected migration revision, and an authenticated request from off the
+instance reaches the API through the proxy while an unauthenticated one is
+refused.
 
 **Then tear it down.** The API has no authentication.
 
 ---
 
-## Stage 6 — Frontend on external hosting (optional)
+## Not covered here
 
-Only if you specifically want the frontend on Hostinger rather than on the EC2
-instance.
+**Serving a user interface.** KAE-Memory is headless (ADR-0026). A deployment of
+KAE-Studio is a separate procedure in a separate repository, and folding it in
+here would make this runbook describe a component it does not install.
 
-> **This publishes an API with no authentication.** The MVP defers authentication
-> (ADR-0014); a browser on another origin being able to reach the API means
-> anyone can. ADR-0017 permits this shape **only** behind a security-group
-> allowlist, **only** for a bounded demonstration.
-
-1. `VITE_API_BASE_URL=https://your-api-host npm --prefix frontend run build`
-2. `KAE_CORS_ORIGINS=https://your-frontend-domain` on the API. It defaults to
-   empty, so an unconfigured deployment fails closed.
-3. **Restrict the security group** to the addresses that need it. CORS is a
-   browser convention and stops nothing else.
-4. Upload `frontend/dist/` **contents** and add the SPA rewrite rule — see
-   the static-site deployment notes, which are held outside this repository.
-   Without it, every refresh on a sub-route returns 404.
-5. Serve the API over HTTPS; a browser on an HTTPS page refuses to call an HTTP
-   API.
-
-**Gate.** The hosted workspace loads, `/health` succeeds from the browser
-console, and a direct link to `/projects/{id}` still works after a refresh.
-
-Same-origin on EC2 avoids all of this. Prefer it unless you have a reason.
+**Authentication configuration.** ADR-0024 makes tokens mandatory off-loopback.
+The mechanism is not documented in this runbook yet — recorded as a gap rather
+than sketched from memory.

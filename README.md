@@ -139,11 +139,13 @@ describes what a package would contain and stops there. Check
 
 ```bash
 make install     # uv sync --extra dev --extra api
-make dev         # database, migrations, API, worker, and workspace
+make dev         # database, migrations, API, and worker
 ```
 
-Then open <http://localhost:5173>. Nothing needs AWS and no credentials are
-required — extraction runs offline against a fixture.
+The API is then on <http://localhost:8000> — `/health` for status, `/docs` for
+the routes. Nothing needs AWS and no credentials are required; extraction runs
+offline against a fixture. KAE-Memory serves no interface of its own
+(ADR-0026).
 
 To enable live models and deploy, follow
 [`operations/runbooks/enablement-sequence.md`](operations/runbooks/enablement-sequence.md)
