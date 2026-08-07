@@ -17,14 +17,19 @@ Nothing in this repository documents the format, where the value goes, or how
 to generate one. `docs/operations/deployment.md` cannot be completed: it would
 either omit the step that makes a deployment start, or invent one.
 
-**Format, observed on the deployed instance:** `name:token` pairs, optionally
-`name:token:project,project`. **Not verified against the parser in Phase 2A**,
-and worth verifying carefully — a malformed value parses to zero tokens and
-`required = bool(tokens)` then makes authentication optional. The failure is
-silent and fails *open*.
+**Format, read from the parser:** `name:token` or `name:token:project,project`,
+semicolon-separated (`api/security.py:106–116`).
 
-**Resolution:** read `api/security.py`, document the format, and test the
-negative case. Phase 2C at the latest.
+**Correction.** This entry originally said a malformed value parses to zero
+tokens and silently disables authentication. That is wrong — malformed entries
+raise `InsecureDeploymentError`, and so does binding off-loopback without
+tokens. The real hole is narrower and is recorded accurately as **F-001** in
+[`../FINDINGS_REGISTER.md`](../FINDINGS_REGISTER.md): behind a reverse proxy the
+API binds to loopback, so the guard never fires, and an unset `KAE_API_TOKENS`
+leaves `required` false while nginx serves the API publicly.
+
+**Resolution:** document the format; carry F-001 on every page describing public
+hosting. The fix is a behaviour change and belongs to the development cycle.
 
 ### B2 — CockroachDB status cannot be stated as-is
 

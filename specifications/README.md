@@ -18,8 +18,9 @@ This directory defines what KAE-Memory must become before implementation-specifi
 6. [API Contracts](API_CONTRACTS.md)
 7. [Database Architecture](DATABASE_ARCHITECTURE.md)
 8. [Verification Gates](VERIFICATION_GATES.md)
-9. [Documentation plan](documentation-plan/) — Phase 2A planning artifacts, not documentation
-10. [ADR-0001: Memory-first foundation](ADR/ADR-0001-memory-first.md)
+9. [Findings and action register](FINDINGS_REGISTER.md)
+10. [Documentation plan](documentation-plan/) — Phase 2A planning artifacts, not documentation
+11. [ADR-0001: Memory-first foundation](ADR/ADR-0001-memory-first.md)
 
 ## Use by coding agents
 
