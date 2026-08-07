@@ -585,13 +585,27 @@ def _question_key(clarification: Clarification) -> str:
 
     Keyed on the subject rather than the wording: rephrasing a prompt should not
     make a project ask the same person the same thing twice.
+
+    The subject is *hashed* rather than spelled out. It was a comma-joined list
+    of knowledge ids, which is 37 characters per item against a 200-character
+    column — so a question about five or more items could not be recorded at
+    all, and the failure was a 500 from PostgreSQL rather than anything this
+    layer could explain. It surfaced only once a project had accumulated enough
+    open questions for one clarification to span them, which no small fixture
+    ever does.
+
+    Sorted before hashing, so the same subject in a different order is the same
+    question. Truncating the list instead would have been worse than the bug:
+    two clarifications about overlapping subjects would collide on a shared
+    prefix, and the second would be silently treated as already asked.
     """
 
+    subject = ",".join(sorted(clarification.knowledge_ids))
     parts = [
         "question",
         clarification.finding_kind,
         clarification.area_key or "-",
-        ",".join(sorted(clarification.knowledge_ids)) or "-",
+        sha256(subject.encode()).hexdigest()[:32] if subject else "-",
     ]
     return ":".join(parts)
 
