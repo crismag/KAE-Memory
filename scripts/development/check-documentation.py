@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PAGES = sorted(REPO.glob("docs/**/*.md")) + [REPO / "README.md"]
+PAGES = [*sorted(REPO.glob("docs/**/*.md")), REPO / "README.md"]
 
 #: Things that must never appear in a public page. Account identifiers, the
 #: deployment's own hostname, and any path into the private archive.
