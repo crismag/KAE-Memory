@@ -177,8 +177,8 @@ KAE-Memory.
 live in application code, not in the schema, so a direct write produces state no
 rule ever checked (ADR-0027).
 
-**Provider** — the database engine. PostgreSQL with pgvector is what runs;
-CockroachDB is selectable, with [qualified verification status](architecture/persistence-and-providers.md).
+**Provider** — the database engine. **PostgreSQL with pgvector** is the target,
+hosted on Amazon RDS. See [persistence and providers](architecture/persistence-and-providers.md).
 
 ---
 
