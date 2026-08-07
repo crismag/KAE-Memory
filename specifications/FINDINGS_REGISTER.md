@@ -139,26 +139,48 @@ Hybrid ranking is the durable answer, not a different constant. Tracked as VG-2.
 
 ## S3 — Limitations, documentable as they are
 
-### F-006 — Modules are MCP-only, for an unresolved reason
+### F-006 — Modules are MCP-only, and the reasons are recorded per capability
 
-**Severity S3 · Gate `decide`**
+**Severity S3**
 
-`kae_define_module`, `kae_relate_modules`, `kae_get_module_graph` are declared
-`agent_only`. **This is a decision, not a defect** — but its justification (N12,
-Studio's curation contract unreconciled) is itself open.
+Five capabilities are `agent_only`: `module.define`, `module.relate`,
+`module.graph`, `module.context`, `observation.submit`. **Each carries its own
+reason in the registry**, which is more than I credited in Phase 2A when I
+recorded this as one unresolved justification. They differ:
 
-**Disposition:** documented as MCP-only by decision. Do not imply HTTP support is
-coming; do not imply oversight.
+- `module.define` / `module.relate` — Studio's curation act is
+  `recordModuleDecision`, a different contract still unreconciled (N12)
+- `module.graph` / `module.context` — the consumer is an implementing agent; a
+  Studio view of the same graph is a rendering question, and rendering is
+  Studio's
+- `observation.submit` — Studio's equivalent is a conversation message, a
+  different durable act; both over HTTP would give a client two ways to say one
+  thing
 
-### F-007 — `reembedding_service` is on no adapter
+**What remains open is narrower than "why":** N12, whether Studio's curation
+contract eventually needs HTTP routes. That is a product question, not a gap in
+the documentation.
 
-**Severity S3 · Gate `decide`**
+**Disposition:** the generated capability matrix carries each reason verbatim.
+Concept pages do not restate them.
 
-Present in `application/`, absent from the capability registry and both
-adapters. Internal, or unfinished — unknown.
+### F-007 — `reembedding_service` is on no adapter — ~~open~~ **resolved 2026-08-07**
 
-**Disposition:** **not documented** until decided. An undocumented internal
-service is correct; an advertised one that cannot be called is not.
+**Severity S3 · was gate `decide`**
+
+I recorded this as "internal, or unfinished — unknown". It was neither unknown
+nor undeclared: the capability registry carries it as `embedding.reembed`,
+`Exposure.INTERNAL`, with the reason written out —
+
+> Long-running, restartable, and destructive to get wrong. Driven by
+> `scripts/development/reembed-knowledge.py`, where it can be resumed.
+
+That script exists. **This is a deliberate decision, documented at the point of
+decision, and I mistook a registry I had not read closely enough for a gap.**
+
+**Disposition:** documented as an internal operational capability, reached by
+script, in `docs/operations/`. Not part of the client surface. **D3 is
+withdrawn.**
 
 ### F-008 — Extraction is asynchronous and can silently run without a model
 
@@ -219,8 +241,10 @@ reasoned rather than demonstrated.
 |---|---|---|
 | D1 | How deep may the public deployment guide go, given the working example is private? | Depth of `docs/operations/deployment.md` |
 | D2 | Is any version or interface stability claimed? | README, `docs/index.md` — documentation implies stability by existing |
-| D3 | Is `reembedding_service` internal or unfinished? | F-007 |
-| D4 | Should F-001 be filed publicly, or handled privately until fixed? | Issue creation. **Recommendation: privately.** This repository is public |
+| D3 | Should F-001 be filed publicly, or handled privately until fixed? | Issue creation. **Recommendation: privately.** This repository is public |
+
+*(D3 — `reembedding_service` — withdrawn 2026-08-07; the registry already
+answered it. Numbering closed up.)*
 
 ---
 
