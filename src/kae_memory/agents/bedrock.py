@@ -60,12 +60,18 @@ class BedrockExtractionAdapter:
     def _ensure_client(self) -> Any:
         if self._client is None:
             try:
-                from anthropic import AnthropicBedrockMantle
+                from anthropic import AnthropicBedrock
             except ImportError as error:  # pragma: no cover - depends on extras
                 raise ProviderUnavailableError(
                     message("environment.bedrock_extra_missing")
                 ) from error
-            self._client = AnthropicBedrockMantle(aws_region=self._region)
+            # `AnthropicBedrock`, not `AnthropicBedrockMantle`. The latter
+            # targets `bedrock-mantle.<region>.api.aws`, a separate endpoint
+            # that does not exist in every region — and when it does not, the
+            # SDK reports a bare "Connection error" that names neither the host
+            # nor the reason. This one uses the standard Bedrock runtime
+            # endpoint and returns errors a reader can act on.
+            self._client = AnthropicBedrock(aws_region=self._region)
         return self._client
 
     def extract(self, request: ExtractionRequest) -> ExtractionResult:

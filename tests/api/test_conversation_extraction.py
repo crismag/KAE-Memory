@@ -47,7 +47,7 @@ def project_id(client: TestClient, session_id: str) -> ProjectId:
     return ProjectId(str(listing[0]["id"]))
 
 
-def _say(client: TestClient, session_id: str, text: str, **extra: object) -> dict:
+def _say(client: TestClient, session_id: str, text: str, **extra: object) -> dict[str, object]:
     body = {"content": text, "actor_type": "user", "message_type": "input", **extra}
     response = client.post(f"/v1/sessions/{session_id}/messages", json=body)
     assert response.status_code == 201, response.text
