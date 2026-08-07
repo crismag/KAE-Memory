@@ -41,11 +41,19 @@ class CreateProjectRequest(BaseModel):
 
 
 class ProjectResponse(BaseModel):
+    """One project, and how far its knowledge has moved.
+
+    ``knowledge_revision`` is here so a consumer holding two responses can tell
+    whether the project changed between them. Without it a client comparing
+    screens can only compare counts, and equal counts do not mean equal state.
+    """
+
     id: str
     name: str
     key: str | None
     description: str | None
     status: str
+    knowledge_revision: int
 
     @classmethod
     def of(cls, project: Project) -> "ProjectResponse":
@@ -55,6 +63,7 @@ class ProjectResponse(BaseModel):
             key=project.key,
             description=project.description,
             status=project.status.value,
+            knowledge_revision=project.knowledge_revision,
         )
 
 
@@ -229,6 +238,14 @@ class ReadinessResponse(BaseModel):
 
     ``is_stale`` is computed against the project's current revision at read time,
     which is why it is not a stored status.
+
+    **Two revisions, deliberately.** ``knowledge_revision`` is the revision this
+    snapshot was *calculated at*; ``current_knowledge_revision`` is where the
+    project is *now*. Reporting only the first is what let Studio display a
+    revision that stopped moving whenever readiness was last recalculated — a
+    number that looks live and is not. Reporting only the second would make
+    ``is_stale`` unexplainable: a reader could see that readiness is stale
+    without being able to say how far behind it is.
     """
 
     id: str
@@ -243,6 +260,7 @@ class ReadinessResponse(BaseModel):
     critical_blocker_count: int
     unresolved_contradiction_count: int
     knowledge_revision: int
+    current_knowledge_revision: int
     template_key: str
     template_version: int
     calculation_version: int
@@ -265,6 +283,7 @@ class ReadinessResponse(BaseModel):
             critical_blocker_count=snapshot.critical_blocker_count,
             unresolved_contradiction_count=snapshot.unresolved_contradiction_count,
             knowledge_revision=snapshot.knowledge_revision,
+            current_knowledge_revision=current_revision,
             template_key=snapshot.template_key,
             template_version=snapshot.template_version,
             calculation_version=snapshot.calculation_version,

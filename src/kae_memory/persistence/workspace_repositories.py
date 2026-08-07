@@ -88,6 +88,7 @@ class ProjectRepository:
                 key=row.project_key,
                 description=row.description,
                 status=ProjectStatus(row.status),
+                knowledge_revision=row.knowledge_revision,
             )
             for row in rows
         )
@@ -566,6 +567,7 @@ def _project_to_domain(row: ProjectRow) -> Project:
         key=row.project_key,
         description=row.description,
         status=ProjectStatus(row.status),
+        knowledge_revision=row.knowledge_revision,
     )
 
 

@@ -21,6 +21,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.api import create_app
+from kae_memory.api.security import AuthPolicy
 
 
 def main() -> None:
@@ -29,7 +30,14 @@ def main() -> None:
     # A lazily-connected engine: create_app stores the factory and never opens a
     # connection until a request arrives, and none does here.
     factory = sessionmaker(create_engine("cockroachdb+psycopg://root@localhost:26257/unused"))
-    document = create_app(factory).openapi()
+
+    # An explicit empty policy, so this never reads `KAE_API_TOKENS` and never
+    # refuses to run. The F-001 guard is right to stop a *server* starting
+    # unauthenticated, and it stopped this too — a schema dumper that serves no
+    # request and answers no caller. The workaround was to set
+    # `KAE_ALLOW_UNAUTHENTICATED=1` to regenerate a JSON file, which teaches
+    # exactly the habit that variable exists to make deliberate.
+    document = create_app(factory, auth=AuthPolicy()).openapi()
 
     target = Path(sys.argv[1] if len(sys.argv) > 1 else "specifications/openapi.json")
     target.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n")

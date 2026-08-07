@@ -1842,6 +1842,7 @@
         "type": "object"
       },
       "ProjectResponse": {
+        "description": "One project, and how far its knowledge has moved.\n\n``knowledge_revision`` is here so a consumer holding two responses can tell\nwhether the project changed between them. Without it a client comparing\nscreens can only compare counts, and equal counts do not mean equal state.",
         "properties": {
           "description": {
             "anyOf": [
@@ -1869,6 +1870,10 @@
             ],
             "title": "Key"
           },
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -1883,7 +1888,8 @@
           "name",
           "key",
           "description",
-          "status"
+          "status",
+          "knowledge_revision"
         ],
         "title": "ProjectResponse",
         "type": "object"
@@ -2030,7 +2036,7 @@
         "type": "object"
       },
       "ReadinessResponse": {
-        "description": "Everything needed to interrogate the number, never the number alone.\n\n``is_stale`` is computed against the project's current revision at read time,\nwhich is why it is not a stored status.",
+        "description": "Everything needed to interrogate the number, never the number alone.\n\n``is_stale`` is computed against the project's current revision at read time,\nwhich is why it is not a stored status.\n\n**Two revisions, deliberately.** ``knowledge_revision`` is the revision this\nsnapshot was *calculated at*; ``current_knowledge_revision`` is where the\nproject is *now*. Reporting only the first is what let Studio display a\nrevision that stopped moving whenever readiness was last recalculated \u2014 a\nnumber that looks live and is not. Reporting only the second would make\n``is_stale`` unexplainable: a reader could see that readiness is stale\nwithout being able to say how far behind it is.",
         "properties": {
           "areas": {
             "items": {
@@ -2050,6 +2056,10 @@
           },
           "critical_blocker_count": {
             "title": "Critical Blocker Count",
+            "type": "integer"
+          },
+          "current_knowledge_revision": {
+            "title": "Current Knowledge Revision",
             "type": "integer"
           },
           "draft_eligible": {
@@ -2125,6 +2135,7 @@
           "critical_blocker_count",
           "unresolved_contradiction_count",
           "knowledge_revision",
+          "current_knowledge_revision",
           "template_key",
           "template_version",
           "calculation_version",

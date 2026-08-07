@@ -49,10 +49,30 @@ class Project:
     key: str | None = None
     description: str | None = None
     status: ProjectStatus = ProjectStatus.ACTIVE
+    knowledge_revision: int = 0
+    """How many times this project's knowledge has changed.
+
+    Monotonic per project, incremented by every write, confirmation, rejection,
+    correction, supersession, and readiness change. It answers "has this project
+    moved since I last looked", which no timestamp can: two consumers reading a
+    second apart cannot tell a quiet project from a stale cache.
+
+    **This is the project's revision now**, distinct from the
+    ``knowledge_revision`` on a readiness snapshot, which records the revision
+    the snapshot was *calculated at*. A consumer comparing the two learns
+    whether readiness is stale; a consumer reading only the snapshot's, as
+    Studio did, displays a number that stopped moving whenever readiness was
+    last recalculated.
+
+    Zero is a real value here — a project nobody has written to — which is why
+    the repository always maps it from the row rather than letting it default.
+    """
 
     def __post_init__(self) -> None:
         if not self.name.strip():
             raise DomainInvariantError("project name must not be empty")
+        if self.knowledge_revision < 0:
+            raise DomainInvariantError("knowledge_revision cannot be negative")
         if self.key is not None and not self.key.strip():
             raise DomainInvariantError("project key must not be blank when provided")
 
