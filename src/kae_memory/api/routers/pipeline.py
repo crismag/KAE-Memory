@@ -3,7 +3,7 @@
 Search, ingestion, clarification, and assembly reached MCP in Phases C to E and
 never reached HTTP. Studio is an HTTP client, so five of nine application
 services were unreachable by the product's own frontend
-(`docs/06_architecture/ADAPTER_CAPABILITY_MATRIX.md`).
+(the adapter capability matrix).
 
 These routes are adapters and nothing more. Every rule they appear to enforce —
 lifecycle transitions, idempotency, truncation reporting, revision pinning —

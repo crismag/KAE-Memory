@@ -1,6 +1,6 @@
 """How much a response says, and what it may never stop admitting.
 
-Implements the model in `docs/06_architecture/MCP_RESPONSE_POLICY.md`. Three
+Implements the recorded MCP response policy. Three
 things live here and nothing else: the resolved policy, the two registries that
 constrain it, and the projection that applies it.
 

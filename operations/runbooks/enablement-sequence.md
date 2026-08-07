@@ -63,7 +63,6 @@ make dev
 idea, watch a run reach `succeeded`, confirm knowledge, assign an area, see
 readiness move, and trace a blueprint statement back to your own words.
 
-Full walkthrough: [`../../docs/09_development/LOCAL_DEVELOPMENT.md`](../../docs/09_development/LOCAL_DEVELOPMENT.md).
 
 Nothing here needs AWS. If this gate does not pass, no later stage will.
 
@@ -189,7 +188,7 @@ feature that does not work.
 
 Only after gates 1–4. Full detail:
 [`deploy-first-demo.md`](deploy-first-demo.md) and
-[`../../deploy/aws/ec2/README.md`](../../deploy/aws/ec2/README.md).
+the AWS provisioning scripts, which are held outside this repository.
 
 Summary:
 
@@ -229,7 +228,7 @@ instance.
 3. **Restrict the security group** to the addresses that need it. CORS is a
    browser convention and stops nothing else.
 4. Upload `frontend/dist/` **contents** and add the SPA rewrite rule — see
-   [`../../deploy/static-site/README.md`](../../deploy/static-site/README.md).
+   the static-site deployment notes, which are held outside this repository.
    Without it, every refresh on a sub-route returns 404.
 5. Serve the API over HTTPS; a browser on an HTTPS page refuses to call an HTTP
    API.

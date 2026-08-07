@@ -17,7 +17,6 @@ KAE application code
     is independent from
 generic Linux deployment          deploy/server/
     which is extended by
-small AWS-specific integrations   deploy/aws/
     while secrets remain outside Git
 ```
 
@@ -27,11 +26,9 @@ small AWS-specific integrations   deploy/aws/
 | Safe committed defaults | [`../config/`](../config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`server/`](server/) |
-| EC2 bootstrap and IAM | [`aws/ec2/`](aws/ec2/) |
 | SQS creation and queue policy | `aws/sqs/`, if OQ-017 is ever decided |
 | Local developer command | `scripts/`, when scripts exist |
 | Deployment and recovery procedure | [`../operations/runbooks/`](../operations/runbooks/) |
-| Architecture explanation | [`../docs/`](../docs/) |
 
 The distinction between `scripts/` and `deploy/`: **`scripts/` operates the
 project; `deploy/` installs it onto a target system.**

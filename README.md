@@ -29,8 +29,7 @@ experience, in its own repository (ADR-0026). UI work does not belong here.
 Completed: domain and persistence foundations, durable agents and recovery,
 semantic retrieval, knowledge review, readiness, clarification, ingestion,
 bounded context assembly, compact MCP responses, project-key resolution, and
-observation classification. The active work is split into focused contexts under
-[`docs/00_project/focus/`](docs/00_project/focus/).
+observation classification.
 
 ## Implementation milestones
 
@@ -48,16 +47,6 @@ observation classification. The active work is split into focused contexts under
 | M9 | Workspace and Reporting | ✔ |
 | M10 | AWS Demonstration assets | ✔ (real-instance proof outstanding) |
 | M11 | Demo Ready and Release | superseded by the T-register |
-
-Repository health, implementation readiness, open risks, and the immediate next
-task are in
-[`docs/00_project/CURRENT_PROJECT_STATE.md`](docs/00_project/CURRENT_PROJECT_STATE.md).
-
-## Immediate next action
-
-Read the [next-phase context](docs/00_project/NEXT_PHASE_FULL_CONTEXT.md), then
-choose one bounded focus: configuration controls, Studio integration,
-KAE-Studio integration, or one identified engine/proof gap.
 
 ## Development principle
 
@@ -100,11 +89,6 @@ or generation (ADR-0001).
 Agents reach the database only through KAE application contracts. Database MCP
 is for inspection and management, never domain writes (ADR-0004).
 
-The demonstration deployment shape is
-[`docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](docs/09_development/AWS_DEMONSTRATION_BASELINE.md);
-the wider proposed topology is
-[`docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md)
-and is not an approved deployment baseline.
 
 ## What exists in code
 
@@ -159,8 +143,7 @@ make dev         # database, migrations, API, worker, and workspace
 ```
 
 Then open <http://localhost:5173>. Nothing needs AWS and no credentials are
-required — extraction runs offline against a fixture. Full walkthrough:
-[`docs/09_development/LOCAL_DEVELOPMENT.md`](docs/09_development/LOCAL_DEVELOPMENT.md).
+required — extraction runs offline against a fixture.
 
 To enable live models and deploy, follow
 [`operations/runbooks/enablement-sequence.md`](operations/runbooks/enablement-sequence.md)
@@ -198,9 +181,7 @@ intentionally minimal — directories appear when a real file belongs in them.
 | Safe committed defaults | [`config/`](config/) |
 | Local credentials and overrides | ignored `.env`, `.local/`, `.secrets/` |
 | Generic Linux installation, systemd, reverse proxy | [`deploy/server/`](deploy/server/) |
-| AWS-specific provisioning | [`deploy/aws/`](deploy/aws/) |
 | Deployment and recovery procedures | [`operations/runbooks/`](operations/runbooks/) |
-| Architecture explanation | [`docs/`](docs/) |
 
 `scripts/` operates the project; `deploy/` installs it onto a target system. No
 Docker, Kubernetes, or infrastructure-as-code framework is introduced — see
@@ -208,39 +189,10 @@ Docker, Kubernetes, or infrastructure-as-code framework is introduced — see
 
 ## Repository context
 
-- [`docs/00_project/CURRENT_PROJECT_STATE.md`](docs/00_project/CURRENT_PROJECT_STATE.md)
-  — **load first**; milestones, health, readiness, and next task.
 - [`project-model.yaml`](project-model.yaml) — durable source of project state.
-- [`docs/CONTEXT_INDEX.md`](docs/CONTEXT_INDEX.md) — navigation and loading guide.
-- [`docs/00_project/PROJECT_BRIEF.md`](docs/00_project/PROJECT_BRIEF.md) — current
-  project framing.
-- [`docs/01_discovery/PROBLEM_DEFINITION.md`](docs/01_discovery/PROBLEM_DEFINITION.md)
-  — accepted problem definition.
-- [`docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md`](docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md)
-  — approved MVP requirements and deferred scope.
-- [`docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md`](docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md)
-  — product identity, journey, and proof moments.
-- [`docs/05_product/UNIFIED_DEMO_NARRATIVE.md`](docs/05_product/UNIFIED_DEMO_NARRATIVE.md)
-  — the canonical demo story.
-- [`docs/05_product/MVP_SCOPE.md`](docs/05_product/MVP_SCOPE.md) — first-release
-  inclusion and exclusion boundary.
-- [`docs/06_architecture/MCP_ACCESS_POLICY.md`](docs/06_architecture/MCP_ACCESS_POLICY.md)
-  — MCP is inspection-only; writes go through KAE contracts.
-- [`docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](docs/09_development/AWS_DEMONSTRATION_BASELINE.md)
-  — deployment shape, health checks, and secrets.
-- [`docs/09_development/PUBLIC_RELEASE_CHECKLIST.md`](docs/09_development/PUBLIC_RELEASE_CHECKLIST.md)
-  — release and judging assets with due milestones.
-- [`docs/06_architecture/ARCHITECTURE_WORKPLAN.md`](docs/06_architecture/ARCHITECTURE_WORKPLAN.md)
-  — architecture questions and required outputs.
-- [`docs/09_development/DEVELOPMENT_PLAN.md`](docs/09_development/DEVELOPMENT_PLAN.md)
-  — phased implementation plan.
-- [`docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md`](docs/09_development/CODEX_CLAUDE_EXECUTION_ROADMAP.md)
-  — slice sequence and coding-agent control plan.
 - [`specifications/`](specifications/) — domain, memory, retrieval, agent
   execution, API, and database specifications with architecture decisions.
 
 ## Licence
 
 Apache-2.0. See [`LICENSE`](LICENSE).
-- [`docs/10_prompts/TASK_CONTEXT_TEMPLATE.md`](docs/10_prompts/TASK_CONTEXT_TEMPLATE.md)
-  — mandatory per-task handoff format.
