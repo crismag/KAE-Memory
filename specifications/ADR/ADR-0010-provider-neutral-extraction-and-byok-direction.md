@@ -172,5 +172,5 @@ Until a later requirement authorises BYOK implementation:
 
 - [`ADR-0006-extraction-contract.md`](ADR-0006-extraction-contract.md)
 - [`ADR-0007-worker-runtime-and-leases.md`](ADR-0007-worker-runtime-and-leases.md)
-- [`../../docs/00_project/CURRENT_PROJECT_STATE.md`](../../docs/00_project/CURRENT_PROJECT_STATE.md)
-- [`../../docs/09_development/DEVELOPMENT_PLAN.md`](../../docs/09_development/DEVELOPMENT_PLAN.md)
+- `CURRENT_PROJECT_STATE.md`
+- `DEVELOPMENT_PLAN.md`

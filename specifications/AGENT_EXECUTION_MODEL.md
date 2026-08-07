@@ -126,7 +126,7 @@ No agent confirms knowledge. Confirmation is a human act.
 
 All agent writes go through KAE application contracts. Agents must not hold raw
 database credentials or mutate tables directly. See
-[`../docs/06_architecture/MCP_ACCESS_POLICY.md`](../docs/06_architecture/MCP_ACCESS_POLICY.md).
+[ADR-0027](ADR/ADR-0027-application-contracts-are-the-write-path.md).
 
 ## 7. Failure behaviour
 

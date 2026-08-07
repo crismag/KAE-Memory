@@ -17,7 +17,8 @@ This directory defines what KAE-Memory must become before implementation-specifi
 5. [Agent Collaboration](AGENT_COLLABORATION.md)
 6. [API Contracts](API_CONTRACTS.md)
 7. [Database Architecture](DATABASE_ARCHITECTURE.md)
-8. [ADR-0001: Memory-first foundation](ADR/ADR-0001-memory-first.md)
+8. [Verification Gates](VERIFICATION_GATES.md)
+9. [ADR-0001: Memory-first foundation](ADR/ADR-0001-memory-first.md)
 
 ## Use by coding agents
 

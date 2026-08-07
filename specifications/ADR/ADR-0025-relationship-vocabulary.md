@@ -1,7 +1,7 @@
 # ADR-0025 — Relationship vocabulary
 
 **Status:** accepted, 2026-08-05. Target **N16** of
-`docs/09_development/NEXT_PHASE_CHECKLIST.md`. **Settles** the alternative list
+`NEXT_PHASE_CHECKLIST.md` (archived development context). **Settles** the alternative list
 in ADR-0005 §relationships. Gates N17–N19.
 
 ## Decision

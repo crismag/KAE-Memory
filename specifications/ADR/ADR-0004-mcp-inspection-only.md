@@ -1,6 +1,6 @@
 # ADR-0004 — CockroachDB MCP is inspection-only
 
-- **Status:** accepted
+- **Status:** superseded by [ADR-0027](ADR-0027-application-contracts-are-the-write-path.md), 2026-08-07
 - **Date:** 2026-07-27
 
 ## Context
@@ -47,5 +47,5 @@ with a least-privilege role and documented before use.
 
 ## Related
 
-- [`../../docs/06_architecture/MCP_ACCESS_POLICY.md`](../../docs/06_architecture/MCP_ACCESS_POLICY.md)
+- `MCP_ACCESS_POLICY.md` — historical evidence, held as archived development context
 - [`../AGENT_EXECUTION_MODEL.md`](../AGENT_EXECUTION_MODEL.md)

@@ -198,5 +198,5 @@ distinction should be stated plainly in the demonstration rather than blurred.
 ## Related
 
 - [`ADR-0007-worker-runtime-and-leases.md`](ADR-0007-worker-runtime-and-leases.md) — the lease protocol this must not duplicate
-- [`../../docs/09_development/AWS_DEMONSTRATION_BASELINE.md`](../../docs/09_development/AWS_DEMONSTRATION_BASELINE.md)
-- [`../../docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md`](../../docs/02_requirements/MVP_REQUIREMENTS_BASELINE.md) — FR-016, amended here
+- `AWS_DEMONSTRATION_BASELINE.md`
+- `MVP_REQUIREMENTS_BASELINE.md` — FR-016, amended here

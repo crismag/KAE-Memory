@@ -50,7 +50,7 @@ The platform should retain task identity, input bundle, tool actions where avail
 
 ## Write boundary
 
-Agents write exclusively through KAE application contracts. No agent holds raw database credentials or issues SQL against domain tables. See ADR-0004 and [`../docs/06_architecture/MCP_ACCESS_POLICY.md`](../docs/06_architecture/MCP_ACCESS_POLICY.md).
+Agents write exclusively through KAE application contracts. No agent holds raw database credentials or issues SQL against domain tables. See [ADR-0027](ADR/ADR-0027-application-contracts-are-the-write-path.md), which supersedes ADR-0004.
 
 ## Resolved by the agent execution model
 

@@ -210,4 +210,4 @@ what make correcting them safe and observable.
 - [`ADR-0006-extraction-contract.md`](ADR-0006-extraction-contract.md) — the knowledge-kind vocabulary
 - [`ADR-0007-worker-runtime-and-leases.md`](ADR-0007-worker-runtime-and-leases.md) — the worker recalculation must not misuse
 - [`ADR-0009-discovery-workspace-frontend.md`](ADR-0009-discovery-workspace-frontend.md) — the workspace that presents this
-- [`../../docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md`](../../docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md)
+- `PRODUCT_EXPERIENCE_NORTH_STAR.md`

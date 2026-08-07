@@ -143,7 +143,7 @@ The suite gains a provider dimension. `KAE_TEST_DATABASE_PROVIDER` selects the
 engine under test, and contract tests take a provider fixture so one test body
 runs against either. The unit suite requires neither database.
 
-`docs/09_development/DEFERRED_VERIFICATION.md` carries CVG-1, which predates
+[`VERIFICATION_GATES.md`](../VERIFICATION_GATES.md) carries VG-1, which predates
 this decision and asks whether a CockroachDB Cloud schema survived an earlier
 migration-test defect. This ADR does not answer it. The question survives a
 change of provider, and the gate stays open.

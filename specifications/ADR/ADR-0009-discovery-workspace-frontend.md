@@ -206,5 +206,5 @@ close that gap rather than leaving it implicit.
 
 - [`ADR-0007-worker-runtime-and-leases.md`](ADR-0007-worker-runtime-and-leases.md) — the run status vocabulary the client must not diverge from
 - [`../API_CONTRACTS.md`](../API_CONTRACTS.md)
-- [`../../docs/05_product/MVP_UI_WORKSPACE.md`](../../docs/05_product/MVP_UI_WORKSPACE.md)
-- [`../../docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md`](../../docs/05_product/PRODUCT_EXPERIENCE_NORTH_STAR.md)
+- `MVP_UI_WORKSPACE.md`
+- `PRODUCT_EXPERIENCE_NORTH_STAR.md`

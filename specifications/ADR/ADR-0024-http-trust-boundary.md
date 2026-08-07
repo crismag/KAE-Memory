@@ -1,7 +1,7 @@
 # ADR-0024 — HTTP trust boundary
 
 **Status:** accepted, 2026-08-05. Target **N5** of
-`docs/09_development/NEXT_PHASE_CHECKLIST.md`. **Supersedes ADR-0014's "no
+`NEXT_PHASE_CHECKLIST.md` (archived development context). **Supersedes ADR-0014's "no
 authentication"**; the rest of ADR-0014 is unaffected.
 
 ## Decision

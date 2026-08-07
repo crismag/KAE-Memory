@@ -237,4 +237,4 @@ exactly what human confirmation exists for.
 - [`../AGENT_EXECUTION_MODEL.md`](../AGENT_EXECUTION_MODEL.md) — run status, retry, and continuation
 - [`ADR-0004-mcp-inspection-only.md`](ADR-0004-mcp-inspection-only.md) — write boundary and credential separation
 - [`ADR-0005-m5-physical-schema.md`](ADR-0005-m5-physical-schema.md) — what `agent_runs` may store
-- [`../../docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`](../../docs/06_architecture/THREE_SYSTEM_ARCHITECTURE_CONTEXT.md)
+- `THREE_SYSTEM_ARCHITECTURE_CONTEXT.md`

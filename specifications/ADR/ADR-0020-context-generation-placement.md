@@ -3,7 +3,7 @@
 - **Status:** proposed
 - **Date:** 2026-08-01
 - **Depends on:** [`ADR-0012`](ADR-0012-blueprint-readiness-model.md), [`ADR-0016`](ADR-0016-blueprint-generation-and-trace.md), [`ADR-0018`](ADR-0018-mcp-engineering-context-server.md), [`ADR-0019`](ADR-0019-cris-cie-slim-relationship.md)
-- **Evidence:** [`KAE_CONTEXT_PACKAGE_INVENTORY.md`](../../docs/01_discovery/KAE_CONTEXT_PACKAGE_INVENTORY.md), [`KAE_PACKAGE_MODEL.md`](../../docs/06_architecture/KAE_PACKAGE_MODEL.md), [`KAE_PACKAGE_DELIVERY_AND_TOOLING.md`](../../docs/06_architecture/KAE_PACKAGE_DELIVERY_AND_TOOLING.md)
+- **Evidence:** `KAE_CONTEXT_PACKAGE_INVENTORY.md`, `KAE_PACKAGE_MODEL.md`, `KAE_PACKAGE_DELIVERY_AND_TOOLING.md` — historical evidence, held as archived development context
 
 ## Context
 

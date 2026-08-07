@@ -3,7 +3,7 @@
 - **Status:** proposed
 - **Date:** 2026-08-01
 - **Depends on:** [`ADR-0012`](ADR-0012-blueprint-readiness-model.md), [`ADR-0006`](ADR-0006-extraction-contract.md), [`ADR-0018`](ADR-0018-mcp-engineering-context-server.md)
-- **Evidence:** [`CRIS_CIE_SLIM_CURRENT_STATE.md`](../../docs/01_discovery/CRIS_CIE_SLIM_CURRENT_STATE.md), [`CRIS_CIE_SLIM_CAPABILITY_MATRIX.md`](../../docs/01_discovery/CRIS_CIE_SLIM_CAPABILITY_MATRIX.md), [`CRIS_CIE_SLIM_TEST_AND_RISK_ASSESSMENT.md`](../../docs/01_discovery/CRIS_CIE_SLIM_TEST_AND_RISK_ASSESSMENT.md), [`KAE_ACQUISITION_INTEGRATION_OPTIONS.md`](../../docs/01_discovery/KAE_ACQUISITION_INTEGRATION_OPTIONS.md)
+- **Evidence:** `CRIS_CIE_SLIM_CURRENT_STATE.md`, `CRIS_CIE_SLIM_CAPABILITY_MATRIX.md`, `CRIS_CIE_SLIM_TEST_AND_RISK_ASSESSMENT.md`, `KAE_ACQUISITION_INTEGRATION_OPTIONS.md` — historical evidence, held as archived development context
 
 ## Context
 

@@ -1,7 +1,7 @@
 # ADR-0023 — HTTP and MCP as peer adapters
 
 **Status:** accepted, 2026-08-05. Target **N2** of
-`docs/09_development/NEXT_PHASE_CHECKLIST.md`. Extends ADR-0018; supersedes
+`NEXT_PHASE_CHECKLIST.md` (archived development context). Extends ADR-0018; supersedes
 nothing.
 
 ## Decision
@@ -19,7 +19,8 @@ ADR-0018 made MCP the agent access layer, and it succeeded: fifteen tools, a
 response policy, honesty guarantees, and every capability from Phase C onward.
 
 The unintended consequence is measured in
-[`ADAPTER_CAPABILITY_MATRIX.md`](../../docs/06_architecture/ADAPTER_CAPABILITY_MATRIX.md).
+the capability registry in `src/kae_memory/capabilities.py`, enforced by
+`tests/api/test_adapter_parity.py`.
 Nine application services exist and HTTP wires four. Retrieval, ingestion,
 assembly, clarification, and classification are reachable only through MCP.
 **Twelve of twenty-four registered capabilities are Studio-required and absent
