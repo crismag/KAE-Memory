@@ -102,24 +102,56 @@ def close_session(session_id: str, memory: Memory) -> SessionResponse:
     status_code=status.HTTP_201_CREATED,
 )
 def record_message(session_id: str, body: RecordMessageRequest, memory: Memory) -> MessageResponse:
-    """Record a message verbatim as source evidence.
+    """Record a message verbatim as source evidence, and interpret it.
 
     The stored text is never rewritten by extraction, so the original wording
     stays available as the source of anything derived from it.
+
+    **A person's message is enqueued for discovery extraction**, which is the
+    edge this route was missing. N42 gave `kae_submit_observation` that edge and
+    the capability register recorded, correctly, that Studio's equivalent is a
+    conversation message — "a different durable act with its own session
+    ordering". What nobody added was interpretation for that different act, so a
+    project driven entirely through Studio stored every word a person said and
+    derived nothing from any of it. The same failure N42 was written to fix,
+    surviving in the adapter N42 did not touch.
+
+    Only messages **from a person** are interpreted. An agent's own turn is
+    already derived, and extracting from it would let a model's output re-enter
+    as evidence for the next inference — a loop that manufactures confidence
+    from nothing but its own prior output.
     """
 
     session = memory.get_session(SessionId(session_id))
     if session is None:
         raise not_found("session", session_id)
+    actor_type = parse_enum(ActorType, body.actor_type, "actor_type")
     record = memory.record_message(
         session.project_id,
         session.id,
         body.content,
-        actor_type=parse_enum(ActorType, body.actor_type, "actor_type"),
+        actor_type=actor_type,
         message_type=parse_enum(MessageType, body.message_type, "message_type"),
         actor_id=body.actor_id,
         idempotency_key=body.idempotency_key,
     )
+
+    if actor_type is ActorType.USER and not record.replayed:
+        # After the message is durable, and never in the same breath: evidence
+        # capture must not depend on the queue being writable, and a submission
+        # that failed because extraction could not be enqueued would lose the
+        # text it was trying to keep.
+        memory.enqueue_run(
+            session.project_id,
+            AgentRole.DISCOVERY,
+            # Derived from the message, so a retry reuses the run rather than
+            # paying for a second model call and producing a second set of
+            # candidates for one thing a person said once.
+            idempotency_key=f"message:{record.message.id}",
+            session_id=session.id,
+            input_context={"message_id": str(record.message.id), "source": "conversation"},
+        )
+
     return MessageResponse.of(record.message)
 
 

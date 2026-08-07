@@ -393,4 +393,14 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
             "KAE_EXTRACTION=bedrock requires an AWS region via AWS_REGION, "
             "AWS_DEFAULT_REGION, or the active AWS profile."
         )
+
+    # `KAE_EXTRACTION_MODEL` overrides the default, because model availability
+    # is regional and the default is not offered everywhere. A deployment in a
+    # region without it fails at the first extraction with a validation error
+    # naming a model nobody chose, which reads as a broken adapter rather than
+    # a regional gap. Listing what a region offers is one CLI call; guessing is
+    # not.
+    model = os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
+    if model:
+        return BedrockExtractionAdapter(region=region, model=model)
     return BedrockExtractionAdapter(region=region)

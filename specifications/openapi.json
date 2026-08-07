@@ -5891,7 +5891,7 @@
         ]
       },
       "post": {
-        "description": "Record a message verbatim as source evidence.\n\nThe stored text is never rewritten by extraction, so the original wording\nstays available as the source of anything derived from it.",
+        "description": "Record a message verbatim as source evidence, and interpret it.\n\nThe stored text is never rewritten by extraction, so the original wording\nstays available as the source of anything derived from it.\n\n**A person's message is enqueued for discovery extraction**, which is the\nedge this route was missing. N42 gave `kae_submit_observation` that edge and\nthe capability register recorded, correctly, that Studio's equivalent is a\nconversation message \u2014 \"a different durable act with its own session\nordering\". What nobody added was interpretation for that different act, so a\nproject driven entirely through Studio stored every word a person said and\nderived nothing from any of it. The same failure N42 was written to fix,\nsurviving in the adapter N42 did not touch.\n\nOnly messages **from a person** are interpreted. An agent's own turn is\nalready derived, and extracting from it would let a model's output re-enter\nas evidence for the next inference \u2014 a loop that manufactures confidence\nfrom nothing but its own prior output.",
         "operationId": "record_message_v1_sessions__session_id__messages_post",
         "parameters": [
           {
