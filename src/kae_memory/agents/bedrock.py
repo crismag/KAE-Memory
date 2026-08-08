@@ -9,6 +9,7 @@ fixture-only demonstration run without it installed.
 
 from typing import Any
 
+from kae_memory.domain.execution import AgentRole
 from kae_memory.messages import message
 
 from .extraction import (
@@ -23,6 +24,13 @@ from .extraction import (
     ProviderUnavailableError,
 )
 from .prompts import prompt_for
+from .review import (
+    REVIEW_SCHEMA,
+    ReviewRequest,
+    ReviewResult,
+    resolve,
+)
+from .review import SCHEMA_VERSION as REVIEW_SCHEMA_VERSION
 from .validation import validate
 
 DEFAULT_MODEL = "anthropic.claude-opus-5"
@@ -135,6 +143,112 @@ class BedrockExtractionAdapter:
             schema_version=SCHEMA_VERSION,
             model=getattr(response, "model", self.model),
             usage=_usage_summary(usage),
+        )
+
+
+class BedrockReviewAdapter:
+    """Review backed by Claude on Amazon Bedrock (EM-6b).
+
+    The reviewer that ships is `DeterministicReviewAdapter`, which classifies
+    only where a knowledge kind leaves no choice. Measured across four real
+    projects holding 1,575 statements, that populated **two discovery areas out
+    of ten** — 242 requirements, 197 rules, 66 goals and 36 decisions were
+    assigned nowhere, because deciding whether a requirement is about *scope* or
+    about *quality attributes* is a judgement a lookup will not make.
+
+    Readiness counts statements per area, so the consequence was not a wrong
+    number: it was a number **correct about a fifth of the taxonomy**, on every
+    project in the system.
+
+    Mirrors `BedrockExtractionAdapter` deliberately — same client construction,
+    same error mapping, same prompt-caching layout. Two providers that behave
+    differently under failure are two things to learn rather than one.
+    """
+
+    def __init__(
+        self,
+        region: str,
+        model: str = DEFAULT_MODEL,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        timeout_seconds: float = 120.0,
+        client: Any | None = None,
+    ) -> None:
+        self._region = region
+        self.model = model
+        self._max_tokens = max_tokens
+        self._timeout = timeout_seconds
+        self._client = client
+
+    def _ensure_client(self) -> Any:
+        if self._client is None:
+            try:
+                from anthropic import AnthropicBedrock
+            except ImportError as error:  # pragma: no cover - depends on extras
+                raise ProviderUnavailableError(
+                    message("environment.bedrock_extra_missing")
+                ) from error
+            self._client = AnthropicBedrock(aws_region=self._region)
+        return self._client
+
+    def review(self, request: ReviewRequest) -> ReviewResult:
+        """Review the statements, mapping every provider outcome to a typed error."""
+
+        import json
+
+        version, system_prompt = prompt_for(AgentRole.REVIEW)
+        client = self._ensure_client()
+
+        # The areas are named in the message rather than the system prompt.
+        # They vary per project, and anything that varies must sit after the
+        # cache breakpoint or it defeats the prefix match for every request.
+        areas = "\n".join(f"- {key}" for key in request.area_keys)
+        statements = "\n".join(f"- {s.text}" for s in request.statements)
+        content = f"Discovery areas available:\n{areas}\n\nStatements to review:\n{statements}"
+
+        try:
+            response = client.with_options(timeout=self._timeout).messages.create(
+                model=self.model,
+                max_tokens=self._max_tokens,
+                system=[
+                    {
+                        "type": "text",
+                        "text": system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
+                output_config={"format": {"type": "json_schema", "schema": REVIEW_SCHEMA}},
+                messages=[{"role": "user", "content": content}],
+            )
+        except Exception as error:
+            raise _as_extraction_error(error) from error
+
+        stop_reason = getattr(response, "stop_reason", None)
+        if stop_reason == "refusal":
+            raise ProviderRefusedError("the provider declined the review request")
+        if stop_reason == "max_tokens":
+            raise OutputTruncatedError("the response hit the token ceiling before completing")
+
+        text = next(
+            (block.text for block in response.content if getattr(block, "type", None) == "text"),
+            None,
+        )
+        if text is None:
+            raise InvalidOutputError("the response contained no text block")
+
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise InvalidOutputError(f"the response was not valid JSON: {error}") from error
+
+        # Resolved rather than trusted. Every quote must match a statement that
+        # was actually sent, so a reviewer cannot classify something it invented.
+        findings = resolve(payload, request)
+        return ReviewResult(
+            findings=findings,
+            prompt_version=version,
+            schema_version=REVIEW_SCHEMA_VERSION,
+            model=getattr(response, "model", self.model),
+            usage=_usage_summary(getattr(response, "usage", None)),
         )
 
 

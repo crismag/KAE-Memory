@@ -352,19 +352,55 @@ class AgentStepExecutor:
         )
 
 
-def default_reviewer() -> ReviewPort | None:
+def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> ReviewPort | None:
     """Return the review engine named by the environment.
 
     ``KAE_REVIEW=deterministic`` gives the offline fixture, which classifies
-    only where a kind leaves no choice. ``KAE_REVIEW=off`` disables the engine
-    entirely and falls back to the same unambiguous classifier without a review
-    call. Anything else is reserved for a live adapter.
+    only where a kind leaves no choice — and therefore populates two discovery
+    areas out of ten on a real project. ``KAE_REVIEW=off`` disables the engine
+    entirely. ``KAE_REVIEW=bedrock`` is the live adapter (EM-6b), which is what
+    a deployment wants if readiness is to describe more than a fifth of the
+    taxonomy.
     """
 
     setting = os.environ.get("KAE_REVIEW", "deterministic").strip().lower()
     if setting in {"off", "none", ""}:
         return None
-    return DeterministicReviewAdapter()
+    if setting != "bedrock":
+        return DeterministicReviewAdapter()
+
+    if build_bedrock is not None:  # pragma: no cover - injected only by tests
+        return build_bedrock()
+
+    from kae_memory.agents.bedrock import BedrockReviewAdapter
+
+    # Refuses rather than degrading, exactly as `default_extractor` does. A
+    # reviewer that quietly fell back to the fixture would leave a deployment
+    # believing it was classifying with a model while two areas of ten
+    # populated — which is the state EM-6b exists to end, and the state that
+    # took four real projects to notice.
+    region = resolve_region()
+    if not region:
+        raise RuntimeError(
+            "KAE_REVIEW=bedrock requires an AWS region via AWS_REGION, "
+            "AWS_DEFAULT_REGION, or the active AWS profile."
+        )
+
+    # `KAE_REVIEW_MODEL`, then `KAE_EXTRACTION_MODEL`, then the default.
+    #
+    # Falling back to the extraction model is not tidiness: a deployment that
+    # had to name a model for extraction had to do so because the default is
+    # not offered in its region or to its account, and the same is true of
+    # review. Without this, configuring extraction correctly and review not at
+    # all produced a 403 naming a model nobody chose — which reads as a broken
+    # adapter rather than a missing setting, and did.
+    model = (
+        os.environ.get("KAE_REVIEW_MODEL", "").strip()
+        or os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
+    )
+    if model:
+        return BedrockReviewAdapter(region=region, model=model)
+    return BedrockReviewAdapter(region=region)
 
 
 def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None) -> ExtractionPort:

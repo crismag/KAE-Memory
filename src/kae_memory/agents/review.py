@@ -118,6 +118,45 @@ class ReviewResult:
     usage: dict[str, Any] | None = None
 
 
+#: The shape a live reviewer must return, enforced by the provider rather than
+#: hoped for. `resolve` validates the same things again on the way in — a schema
+#: constrains a well-behaved provider and is not a guarantee about a hostile or
+#: broken one.
+REVIEW_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": [k.value for k in ReviewFindingKind],
+                    },
+                    # Verbatim, because it is how a finding resolves to a
+                    # statement. A paraphrase fails rather than being matched
+                    # approximately: guessing which statement was meant is how a
+                    # contradiction gets attached to the wrong one.
+                    "statement_quote": {"type": "string", "minLength": 1},
+                    "counterpart_quote": {"type": "string"},
+                    "area_key": {"type": "string"},
+                    "confidence": {
+                        "type": "string",
+                        "enum": [c.value for c in Confidence],
+                    },
+                    "rationale": {"type": "string"},
+                },
+                "required": ["kind", "statement_quote"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["findings"],
+    "additionalProperties": False,
+}
+
+
 class ReviewPort(Protocol):
     """The review provider boundary."""
 

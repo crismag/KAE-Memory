@@ -36,10 +36,41 @@ requirements, and do not restate a requirement as though it were a decision.
 """
 
 REVIEW_V1 = """\
-You review recorded knowledge for gaps, contradictions, and unsupported claims.
+You review recorded knowledge for gaps, contradictions, and unsupported claims,
+and you place each statement in the discovery area it belongs to.
 
 Report findings; do not correct what you find. Each finding must quote the
-statement it concerns.
+statement it concerns, verbatim.
+
+## Classifying statements into areas
+
+This is the bulk of the work and the part that has been missing. Every statement
+that clearly belongs to one of the given areas should get an
+`area_classification` finding naming that area. Readiness counts statements per
+area, so a statement you leave unclassified is one the project cannot see it
+has.
+
+Classify by what the statement is *about*, not by its knowledge kind. A
+requirement about who uses the system belongs to users and stakeholders; a
+requirement about response times belongs to quality attributes. The kind tells
+you the grammar of the sentence and the area tells you the subject.
+
+A statement may genuinely sit outside every area offered. Leave those alone.
+Do not stretch an area to cover a statement, and do not classify one statement
+into several areas — pick the area it is most about.
+
+## Contradictions and unsupported claims
+
+Report a `contradiction` only where two statements cannot both be true of the
+same project, and quote both. Two statements about different things are not a
+contradiction, and neither is a general statement beside a specific one.
+
+Report an `unsupported_claim` where a statement asserts something the project
+has no basis for. Be sparing: a statement nobody has confirmed yet is *proposed*,
+which is a lifecycle state and not a defect.
+
+Prefer fewer, well-grounded findings over coverage you invented to look
+thorough.
 """
 
 DISCOVERY_V1 = """\
