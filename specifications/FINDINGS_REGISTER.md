@@ -42,6 +42,17 @@ and this register had not found it. All five still need closing by hand.
 | ~~F-013 dependency cycles~~ **resolved** | [#88](https://github.com/crismag/KAE-Memory/issues/88) |
 | ~~F-014 fixture fallback modes~~ **withdrawn — claim was wrong** | [#89](https://github.com/crismag/KAE-Memory/issues/89) |
 | ~~F-015 idempotency under concurrency~~ **already proven** | [#90](https://github.com/crismag/KAE-Memory/issues/90) |
+| F-018 extraction loss · **S1** | not filed |
+| F-019 reviewer is a fixture · **S1** | not filed |
+| F-020 staleness not surfaced | not filed |
+| F-021 a project cannot be deleted | not filed |
+| F-022 six more unreachable capabilities | not filed |
+
+**F-018 to F-022 are not filed as issues.** They are recorded here and need
+filing by someone with issue-write scope. None is security-sensitive, so unlike
+F-001 there is no reason to keep them private — they are unfiled only because
+this session had no authorisation to open public issues, not because they should
+stay here.
 
 **The issues carry no labels.** The token that filed them can create issues and
 not modify them — `addLabelsToLabelable` and `addComment` are both refused — so
@@ -367,6 +378,142 @@ because it was not under `docs/`.
 **Disposition:** rewritten in this phase as an entry point.
 
 ---
+
+---
+
+## Found by the reference corpus, 2026-08-07
+
+Grouped by **how they were found** rather than by severity, because that is the
+useful fact about them: four real projects were loaded — two working
+repositories, one public repository, and a written specification — totalling
+1,575 statements, and these five appeared within hours.
+
+Nothing here was reachable by the previous test data. The best of the old
+fixtures held 78 items, half of them open questions, and every one of these
+findings needs volume or real technical documentation to surface at all.
+
+Severities are stated per finding and two of them are S1.
+
+### F-018 — Extraction silently loses a third to two-thirds of real content
+
+**Severity S1 · Gate `release` · Correctness**
+
+Measured by loading four real projects, 2026-08-07. Abandon rate by corpus:
+
+| Corpus | Succeeded | Abandoned | Rate |
+|---|---|---|---|
+| AWS Compute Lab — 57 docs of Python/AWS tooling | 62 | 35 | **36%** |
+| php-dbo-gateway — 19 docs of a PHP security gateway | 39 | 30 | **43%** |
+| Plane — README, SECURITY, CONTRIBUTING, analysis | 6 | 11 | **65%** |
+| A prose-only specification, written for the purpose | 15 | 6 | **29%** |
+
+Every abandoned chunk is `retry_budget_exhausted` after three attempts, each
+failing `verify_quotes`: *"item N cites a quote that does not occur in the
+source"*. The cited fragments are directory trees, code fences and tables —
+`_normalise` collapses whitespace and casefolds, which survives reflowed prose
+and not box-drawing characters.
+
+**The batch rule amplifies it.** `verify_quotes` fails the whole batch on one
+unverifiable citation, so every good item in that chunk is discarded with it.
+That is defensible for prose and not obviously right at a 36% loss rate.
+
+**S1 because everything downstream inherits it.** Requirements, readiness,
+definition, coverage and any future baseline are computed over between a third
+and two-thirds of what the project actually said. The loss is silent: the only
+trace is a run status.
+
+**Not fully diagnosed.** Structured content is directional, not total — the
+prose-only corpus still lost 29% and nothing explains it yet. Do not assume one
+cause. **Evidence:** the four reference projects on the deployment.
+**Drives:** EM-7.
+
+### F-019 — The shipped reviewer is a fixture, so eight of ten areas can never populate
+
+**Severity S1 · Gate `release`**
+
+Review assigns knowledge to discovery areas; readiness counts per area. The
+configured reviewer is `deterministic-review-fixture`, which classifies only
+where a knowledge kind leaves no choice, and `KAE_REVIEW` has no live adapter on
+the deployment.
+
+Measured over four projects holding 1,575 statements: **only
+`users_and_stakeholders` and `constraints_and_assumptions` ever populate.** 242
+requirements, 197 rules, 66 goals and 36 decisions are assigned nowhere, because
+deciding whether a requirement belongs to *Functional requirements* or *Scope
+and boundaries* is a judgement the fixture will not make.
+
+**Consequence:** readiness is not wrong, it is *correct about two areas out of
+ten*. Definition Health, Requirements Coverage, and the ten-to-seven mapping
+ruled in D-A all read from area assignment, so each is capped at describing a
+fifth of the taxonomy however well it is built.
+
+**Distinct from F-004.** That is about attesting the *human* who confirms; this
+is about the *model* that classifies. **Drives:** EM-6b.
+
+### F-020 — Readiness staleness is available and not surfaced
+
+**Severity S3**
+
+`ReadinessResponse` carries `is_stale`, and since EM-1 it carries both the
+snapshot's revision and the project's current one. Studio renders a stale
+snapshot without saying so.
+
+Found when review assigned 19 and 40 areas across two projects and the
+projection still reported every area empty — the assignment had worked and the
+snapshot predated it. Recalculating produced the first non-zero readiness the
+system has ever reported.
+
+Same class as the old revision field: a value that is real, stale, and
+presented as current. **Folded into** the Wave 2 projection work rather than
+carried separately.
+
+### F-021 — A project cannot be deleted without violating a foreign key
+
+**Severity S2 · Gate `release`**
+
+Nine tables reference `projects` — `agent_runs`, `discovery_blockers`,
+`knowledge_area_links`, `knowledge_chunks`, `knowledge_provenance_links`,
+`knowledge_relationships`, `messages`, `readiness_snapshots`, `sessions` — and
+**every one is `NO ACTION`, not `CASCADE`**. `DELETE FROM projects` therefore
+fails on a foreign-key violation.
+
+There is no delete and no archive on any adapter. `ProjectStatus.ARCHIVED` is
+modelled in the domain and nothing sets it. So removing a project today means
+hand-ordered SQL against production, which is exactly the direct-write path
+ADR-0027 and F-011 exist to discourage.
+
+Found while trying to clear 55 test projects holding 261 knowledge items and 720
+messages. **Drives:** T0.2.
+
+### F-022 — Six more capabilities are modelled and reachable by nothing
+
+**Severity S2**
+
+Found by T0.6, the check that walks the application services and asks whether
+anything can call them. Beyond the four already known — reembedding (F-007),
+modules (F-006), assumptions (N45) and `enqueue_review` (EM-5):
+
+- **Run interrupt and resume.** The domain models an interrupted run resuming
+  and no caller can request either, so a stalled run is restarted by hand.
+- **Review history** — modelled, served by nothing.
+- **Setup writes** — `set_value`, `register_target`, `record_connection`,
+  `resolve_target`. The reads are exposed; the writes are not.
+- **The assumption lifecycle** — `reject` and `retire`, N45's remainder.
+- **Embedding migration and chunking** — no CLI, no route, no tool; run from a
+  Python shell.
+- **`ModuleService.graph`** — the module-graph tool calls `list_modules` and
+  `build_order`; nothing asks for the graph object.
+
+**Ten in total now.** The pattern matters more than any single entry: a service
+method with passing unit tests looks healthy from below, and the parity test
+checks that *declared* capabilities exist rather than that *existing* behaviour
+is declared. T0.6 closes the direction nothing else looked.
+
+**Separately:** `reject_knowledge`, `correct_knowledge` and `supersede_knowledge`
+on `MemoryService` are the older half of a pair. Adapters call `review_reject`
+and its siblings, which record the reviewer and reason. Both paths work. A
+second correct-looking path is how a caller bypasses an audit trail without
+noticing; deleting them is its own change.
 
 ## S4 — Reasonable, unconfirmed — ~~open~~ **checked 2026-08-07**
 
