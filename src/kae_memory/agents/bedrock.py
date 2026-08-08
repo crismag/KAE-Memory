@@ -203,7 +203,20 @@ class BedrockReviewAdapter:
         # cache breakpoint or it defeats the prefix match for every request.
         areas = "\n".join(f"- {key}" for key in request.area_keys)
         statements = "\n".join(f"- {s.text}" for s in request.statements)
-        content = f"Discovery areas available:\n{areas}\n\nStatements to review:\n{statements}"
+        # The instruction is repeated here rather than left to the system
+        # prompt. The first version sent bare data — a list of areas and a list
+        # of statements — and the model returned zero findings for three
+        # obviously classifiable statements. A system prompt that describes a
+        # job is not the same as being asked to do it on this input.
+        content = (
+            f"Discovery areas available:\n{areas}\n\n"
+            f"Statements to review:\n{statements}\n\n"
+            f"Classify each statement above into one of the areas, using an "
+            f"`area_classification` finding whose `statement_quote` repeats the "
+            f"statement verbatim. Leave out any statement that belongs to none "
+            f"of these areas. Then report any contradictions or unsupported "
+            f"claims you found."
+        )
 
         try:
             response = client.with_options(timeout=self._timeout).messages.create(
