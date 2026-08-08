@@ -25,10 +25,13 @@
 
 ### Not added
 
-Agent behaviour, semantic retrieval, HTTP interfaces, the user interface, and
-cloud deployment are approved but not yet built. Agent roles are recorded on
-every run; nothing executes them yet. The `knowledge_relationships` table exists
-but is not yet wired to the domain.
+Every entry below this line is dated by its milestone, so this paragraph is
+about **current** state rather than what was true when the first entries were
+written. HTTP and MCP adapters, semantic retrieval, agent execution and a
+deployed service all now exist; the sections from M5 onward record when.
+
+Still absent: the user interface, which is Studio's. The
+`knowledge_relationships` table exists and is not wired to the domain.
 
 Authentication, teams, billing, administration, agent roles beyond the three
 authorised, general coding-agent hosting, production-scale retrieval, and
@@ -93,3 +96,40 @@ production-grade deployment remain out of scope.
 - Tests for `run_transaction` retry, backoff, exhaustion, and SQLSTATE 40001
   detection.
 - `.env.example`, `make migrate`, and `make migrate-down`.
+
+### Added for artifact generation
+
+The work that had to exist before another system could turn this knowledge into
+files. Named by their control-register identifiers.
+
+- **EM-1** — a projection names its project and its revision, so anything
+  generated from it can say which knowledge produced it. A projection that could
+  not be pinned was a projection nothing downstream could cite.
+- **EM-2** — a message can be recorded without being interpreted. Ingestion and
+  extraction were one operation, which meant no caller could store a transcript
+  without paying for a model run over it.
+- **EM-5** — the review pass can be asked for explicitly, rather than only
+  happening as a side effect of extraction.
+- **EM-6b** — review can be done by a model. `KAE_REVIEW=bedrock` selects it,
+  and `KAE_REVIEW_MODEL` falls back to `KAE_EXTRACTION_MODEL` so a deployment
+  authorised for one model is not silently asked to invoke another.
+- **T0.2** — a project can be deleted with everything scoped to it. Every foreign
+  key to `projects` is `NO ACTION` rather than `CASCADE` (F-021), so deletion has
+  to walk the graph in dependency order; the order is derived from table metadata
+  rather than hand-maintained, and the service refuses an empty request.
+- **T0.5** — what four real projects found, registered as F-018 to F-022 rather
+  than fixed quietly.
+- **T0.6** — a test that fails when a capability exists and no adapter can reach
+  it. Ten such capabilities were found. Reachability is transitive and the
+  worker and agents count as callers; exemptions require a stated reason.
+
+### Fixed for artifact generation
+
+- The live reviewer returned nothing because the instruction was in the system
+  prompt while the message carried only data. Repeating the instruction in the
+  message fixed it — the classification is now correct on every statement it was
+  given.
+- Sign-in rate limiting was removed rather than loosened, and the reason is
+  recorded so it is not reintroduced as a fix.
+- Loopback was being read as a reason to skip authentication.
+- Listing questions opened a session per question.

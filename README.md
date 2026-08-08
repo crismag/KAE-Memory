@@ -104,11 +104,19 @@ make check       # ruff, ruff format, mypy strict, pytest
 | **KAE-Memory** | Durable project knowledge, retrieval, context assembly | this one |
 | **KAE-Studio** | The product interface — everything a person looks at | separate |
 | **CIE** | Conversation and interview intelligence | separate |
+| **KAE-Artifacts** | Turning knowledge into files, and publishing them | separate |
 
 KAE-Memory is headless by decision
 ([ADR-0026](specifications/ADR/ADR-0026-kae-memory-is-headless.md)). Deployment
 coordination for the wider ecosystem is not part of this component, and this
 repository ships no cloud provisioning automation.
+
+KAE-Artifacts generates documents from assembled context and publishes them to a
+GitHub branch and draft pull request or to S3. It does not import a KAE-Memory
+type: it reads a provider-neutral structure, and its own edge adapter converts an
+assembled context into one. **The link is not yet wired** — see
+[system context](docs/architecture/system-context.md#artifact-generation-and-what-is-not-yet-connected)
+for exactly which three pieces are missing and who owns each.
 
 ## Maturity, plainly
 
