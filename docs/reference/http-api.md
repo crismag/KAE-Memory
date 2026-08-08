@@ -3,7 +3,7 @@
 
 # HTTP API
 
-45 paths, 52 operations — 28 GET, 24 POST.
+46 paths, 54 operations — 29 GET, 24 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (28)
+## Reads (29)
 
 | Route | Purpose |
 |---|---|
@@ -35,6 +35,7 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/blueprint.md` | Confirmed statements organised by area |
 | `GET /v1/projects/{project_id}/classifications` | Read classified spans of submitted observations |
 | `GET /v1/projects/{project_id}/context` | Assemble a bounded context pinned to a knowledge revision |
+| `GET /v1/projects/{project_id}/deletion-plan` | Remove a project and everything scoped to it |
 | `GET /v1/projects/{project_id}/deliverables` | Recorded deliverables, newest first, with derived staleness |
 | `GET /v1/projects/{project_id}/deliverables/{deliverable_id}` | One deliverable's manifest, artifact index, and lifecycle |
 | `GET /v1/projects/{project_id}/knowledge` | List a project's knowledge items |

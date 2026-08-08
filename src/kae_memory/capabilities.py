@@ -224,6 +224,20 @@ REGISTRY: tuple[Capability, ...] = (
         reason="Template administration, not a product action an agent performs.",
     ),
     Capability(
+        key="project.delete",
+        summary="Remove a project and everything scoped to it",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "GET /v1/projects/{project_id}/deletion-plan",
+            "DELETE /v1/projects/{project_id}",
+        ),
+        reason=(
+            "Destructive and irreversible. An agent submitting evidence has no "
+            "business removing the project it was submitted to, and the decision "
+            "to delete is one a person makes after reading what would be lost."
+        ),
+    ),
+    Capability(
         key="review.enqueue",
         summary="Queue the review pass that classifies extracted knowledge",
         exposure=Exposure.BOTH,

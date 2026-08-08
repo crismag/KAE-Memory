@@ -8,12 +8,13 @@ from kae_memory.domain.identifiers import AgentRunId, KnowledgeItemId, ProjectId
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, MessagePurpose, MessageType, SessionType
 
-from ..dependencies import Memory, SessionFactory
+from ..dependencies import Memory, ProjectDeletion, SessionFactory
 from ..errors import not_found
 from ..events import StreamConfig, run_events
 from ..parsing import parse_enum
 from ..schemas import (
     CreateProjectRequest,
+    DeletionPlanResponse,
     EnqueueRunRequest,
     KnowledgeResponse,
     MessageResponse,
@@ -63,6 +64,55 @@ def get_project(project_id: str, memory: Memory) -> ProjectResponse:
     if project is None:
         raise not_found("project", project_id)
     return ProjectResponse.of(project)
+
+
+@router.get("/projects/{project_id}/deletion-plan", response_model=DeletionPlanResponse)
+def deletion_plan(project_id: str, deletion: ProjectDeletion) -> DeletionPlanResponse:
+    """What deleting this project would remove. Changes nothing.
+
+    Separate from the deletion and safe to call repeatedly, because reading the
+    list is the part a person should take their time over. Fifty-five test
+    projects were once cleared by hand-ordered SQL against production; the
+    difference between that and this is that this can be read first.
+    """
+
+    plan = deletion.plan([project_id])
+    if not plan.projects:
+        raise not_found("project", project_id)
+    summary = plan.projects[0]
+    return DeletionPlanResponse(
+        project_id=summary.project_id,
+        name=summary.name,
+        knowledge_revision=summary.knowledge_revision,
+        rows=plan.rows,
+        total_rows=plan.total_rows,
+    )
+
+
+@router.delete("/projects/{project_id}", response_model=DeletionPlanResponse)
+def delete_project(project_id: str, deletion: ProjectDeletion) -> DeletionPlanResponse:
+    """Delete this project and everything scoped to it, in one transaction.
+
+    **Irreversible.** There is no archive and nothing is retained; the
+    `deletion-plan` above is the only chance to see what goes.
+
+    Returns what was removed rather than an empty body, so a caller can record
+    it. One project per call deliberately: a batch is one decision covering many
+    projects, and the ability to delete fifty in a request is the ability to
+    delete forty-nine by accident.
+    """
+
+    plan = deletion.delete([project_id])
+    if not plan.projects:
+        raise not_found("project", project_id)
+    summary = plan.projects[0]
+    return DeletionPlanResponse(
+        project_id=summary.project_id,
+        name=summary.name,
+        knowledge_revision=summary.knowledge_revision,
+        rows=plan.rows,
+        total_rows=plan.total_rows,
+    )
 
 
 @router.post(

@@ -25,6 +25,7 @@ from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.preliminary_context_service import PreliminaryContextService
+from kae_memory.application.project_deletion_service import ProjectDeletionService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
@@ -145,6 +146,13 @@ def get_ingestion(request: Request) -> IngestionService:
     return IngestionService(factory)
 
 
+def get_project_deletion(request: Request) -> ProjectDeletionService:
+    """Return the request's project-deletion service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ProjectDeletionService(factory)
+
+
 def get_assembly(request: Request) -> AssemblyService:
     """Return the request's assembly service."""
 
@@ -257,6 +265,7 @@ Blueprints = Annotated[BlueprintService, Depends(get_blueprint)]
 SessionFactory = Annotated["sessionmaker[DbSession]", Depends(get_session_factory)]
 Retrieval = Annotated[RetrievalService, Depends(get_retrieval)]
 Ingestion = Annotated[IngestionService, Depends(get_ingestion)]
+ProjectDeletion = Annotated[ProjectDeletionService, Depends(get_project_deletion)]
 Assembly = Annotated[AssemblyService, Depends(get_assembly)]
 Clarifications = Annotated[ClarificationService, Depends(get_clarification)]
 Classification = Annotated[ClassificationService, Depends(get_classification)]

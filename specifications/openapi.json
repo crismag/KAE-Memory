@@ -846,6 +846,43 @@
         "title": "CreateProjectRequest",
         "type": "object"
       },
+      "DeletionPlanResponse": {
+        "description": "What deleting a project would remove, before anything is removed.\n\n`rows` is per table rather than a total so a reviewer can sanity-check\nscale. A project reporting zero messages where hundreds were expected is\nhow a wrong identifier is caught before it is acted on.",
+        "properties": {
+          "knowledge_revision": {
+            "title": "Knowledge Revision",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "rows": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "object"
+          },
+          "total_rows": {
+            "title": "Total Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "name",
+          "knowledge_revision",
+          "rows",
+          "total_rows"
+        ],
+        "title": "DeletionPlanResponse",
+        "type": "object"
+      },
       "DeliverableListResponse": {
         "properties": {
           "deliverables": {
@@ -3436,6 +3473,47 @@
       }
     },
     "/v1/projects/{project_id}": {
+      "delete": {
+        "description": "Delete this project and everything scoped to it, in one transaction.\n\n**Irreversible.** There is no archive and nothing is retained; the\n`deletion-plan` above is the only chance to see what goes.\n\nReturns what was removed rather than an empty body, so a caller can record\nit. One project per call deliberately: a batch is one decision covering many\nprojects, and the ability to delete fifty in a request is the ability to\ndelete forty-nine by accident.",
+        "operationId": "delete_project_v1_projects__project_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project",
+        "tags": [
+          "workspace"
+        ]
+      },
       "get": {
         "description": "Return one project.",
         "operationId": "get_project_v1_projects__project_id__get",
@@ -4285,6 +4363,49 @@
         "summary": "Resolve Contradiction",
         "tags": [
           "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/deletion-plan": {
+      "get": {
+        "description": "What deleting this project would remove. Changes nothing.\n\nSeparate from the deletion and safe to call repeatedly, because reading the\nlist is the part a person should take their time over. Fifty-five test\nprojects were once cleared by hand-ordered SQL against production; the\ndifference between that and this is that this can be read first.",
+        "operationId": "deletion_plan_v1_projects__project_id__deletion_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeletionPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deletion Plan",
+        "tags": [
+          "workspace"
         ]
       }
     },

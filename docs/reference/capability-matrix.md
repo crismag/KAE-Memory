@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-44 capabilities: 26 on both, 12 HTTP only, 5 MCP only, 1 on neither.
+45 capabilities: 26 on both, 13 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -55,7 +55,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (12)
+## HTTP only, by decision (13)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -68,6 +68,7 @@ carries the reason it is not there.
 | `deliverable.read` | One deliverable's manifest, artifact index, and lifecycle | — | `GET /v1/projects/{project_id}/deliverables/{deliverable_id}` | An agent that recorded a deliverable already holds its payload. Studio resolves one from a stored id when a person opens it later. |
 | `knowledge.list` | List a project's knowledge items | — | `GET /v1/projects/{project_id}/knowledge` | An agent that loads every statement has defeated the point of a bounded context. Studio renders a review queue and legitimately needs the list. |
 | `knowledge.trace` | Resolve a statement to the evidence behind it | — | `GET /v1/knowledge/{item_id}/trace` | MCP carries provenance inside the payloads that quote a statement, so a separate trace call would return what the agent already holds. |
+| `project.delete` | Remove a project and everything scoped to it | — | `GET /v1/projects/{project_id}/deletion-plan`, `DELETE /v1/projects/{project_id}` | Destructive and irreversible. An agent submitting evidence has no business removing the project it was submitted to, and the decision to delete is one a person makes after reading what would be lost. |
 | `project.read` | Read one project's identity | — | `GET /v1/projects/{project_id}` | MCP answers this inside the briefing. A tool returning a name and a key would cost a round trip to learn what the next call already carries. |
 | `readiness.areas` | Assign knowledge to readiness areas | — | `POST /v1/projects/{project_id}/readiness/areas` | Template administration, not a product action an agent performs. |
 | `readiness.history` | Read past readiness snapshots | — | `GET /v1/projects/{project_id}/readiness/history` | A trend is something a person looks at; an agent plans from the current figure. |

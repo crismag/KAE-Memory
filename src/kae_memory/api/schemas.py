@@ -299,6 +299,21 @@ class ReadinessResponse(BaseModel):
         )
 
 
+class DeletionPlanResponse(BaseModel):
+    """What deleting a project would remove, before anything is removed.
+
+    `rows` is per table rather than a total so a reviewer can sanity-check
+    scale. A project reporting zero messages where hundreds were expected is
+    how a wrong identifier is caught before it is acted on.
+    """
+
+    project_id: str
+    name: str
+    knowledge_revision: int
+    rows: dict[str, int]
+    total_rows: int
+
+
 class EnqueueReviewRequest(BaseModel):
     """Ask for a review pass.
 
