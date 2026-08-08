@@ -3,7 +3,7 @@
 
 # HTTP API
 
-44 paths, 51 operations — 28 GET, 23 POST.
+45 paths, 52 operations — 28 GET, 24 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -56,7 +56,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (23)
+## Writes (24)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -84,6 +84,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` | Relay a person's decision about a reported operational record |
 | `POST /v1/projects/{project_id}/readiness/areas` | Assign knowledge to readiness areas |
 | `POST /v1/projects/{project_id}/readiness/calculate` | Recalculate and snapshot readiness |
+| `POST /v1/projects/{project_id}/review/runs` | Queue the review pass that classifies extracted knowledge |
 | `POST /v1/projects/{project_id}/runs` | Enqueue agent work and follow its progress |
 | `POST /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
 | `POST /v1/sessions/{session_id}/close` | Open, close, and read conversation sessions |

@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-43 capabilities: 25 on both, 12 HTTP only, 5 MCP only, 1 on neither.
+44 capabilities: 26 on both, 12 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -19,7 +19,7 @@ route the registry does not declare.
 
 ---
 
-## On both adapters (25)
+## On both adapters (26)
 
 Reachable over MCP and HTTP. `tests/api/test_adapter_parity.py` fails if
 either is missing one of these — absence is a defect, not a decision.
@@ -48,6 +48,7 @@ either is missing one of these — absence is a defect, not a decision.
 | `project.list` | Identify the projects this environment can read | `kae_list_projects` | `GET /v1/projects` |
 | `publication.targets` | List where a project may publish, and why it currently cannot | `kae_list_publication_targets` | `GET /v1/projects/{project_id}/publication-targets` |
 | `readiness.read` | Report how well understood a project is | `kae_get_readiness` | `GET /v1/projects/{project_id}/readiness` |
+| `review.enqueue` | Queue the review pass that classifies extracted knowledge | `kae_enqueue_review` | `POST /v1/projects/{project_id}/review/runs` |
 | `review.findings` | What is missing, contested, or unresolved | `kae_get_project_briefing`, `kae_get_open_decisions` | `GET /v1/projects/{project_id}/review` |
 | `setup.questions` | List unsettled questions about configuration, not about the product | `kae_get_setup_questions` | `GET /v1/projects/{project_id}/setup/questions` |
 | `setup.read` | Report what a project is configured to do, apart from what it knows | `kae_get_setup_state` | `GET /v1/projects/{project_id}/setup` |

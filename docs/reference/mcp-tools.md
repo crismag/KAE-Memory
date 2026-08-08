@@ -3,7 +3,7 @@
 
 # MCP tools
 
-30 tools. **13 of them change durable state** — MCP is not a
+31 tools. **13 of them change durable state** — MCP is not a
 read-only surface, and never was; ADR-0004's title said *CockroachDB MCP*, and
 [ADR-0027](../../specifications/ADR/ADR-0027-application-contracts-are-the-write-path.md)
 restates the boundary without the confusion.
@@ -17,11 +17,12 @@ copying them here would create a second one.
 
 ---
 
-## Reads (17)
+## Reads (18)
 
 | Tool | What it answers | Capability |
 |---|---|---|
 | `kae_assemble_context` | Assemble a bounded context pinned to a knowledge revision | `context.assemble` |
+| `kae_enqueue_review` | Queue the review pass that classifies extracted knowledge | `review.enqueue` |
 | `kae_get_clarifications` | Materialise the questions a project's findings justify asking | `clarification.open` |
 | `kae_get_classifications` | Read classified spans of submitted observations | `observation.classifications` |
 | `kae_get_module_context` | Implementation context for one module | `module.context` |

@@ -221,11 +221,21 @@ def test_the_tool_surface_stays_small() -> None:
     anyway", and the two must not be one tool: an assembly that quietly
     included guesses would be the failure this repository spends most of its
     invariants preventing.
+
+    EM-5 added one, and it is the fourth no-caller gap. `enqueue_review` existed
+    on `IngestionService`, was correct, was well argued in its own docstring,
+    and was called by nothing but a unit test. Review is what assigns knowledge
+    to a discovery area, so without it readiness counts nothing: four real
+    projects holding 1,575 statements between them all reported 0% with every
+    area empty. An agent that can ingest a document and cannot review what it
+    ingested has half a pipeline, which is why this is `BOTH` rather than
+    product-only.
     """
 
-    assert len(TOOL_DEFINITIONS) == 30
+    assert len(TOOL_DEFINITIONS) == 31
     names = {definition["name"] for definition in TOOL_DEFINITIONS}
     assert names == {
+        "kae_enqueue_review",
         "kae_create_project",
         "kae_list_projects",
         "kae_get_project_briefing",

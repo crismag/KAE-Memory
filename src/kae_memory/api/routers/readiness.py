@@ -10,7 +10,7 @@ from fastapi import APIRouter, status
 from kae_memory.domain.identifiers import BlockerId, KnowledgeItemId, ProjectId, RelationshipId
 from kae_memory.domain.readiness import BlockerSeverity, BlockerStatus
 
-from ..dependencies import Memory, Readiness, Review
+from ..dependencies import Ingestion, Memory, Readiness, Review
 from ..errors import not_found
 from ..parsing import parse_enum
 from ..schemas import (
@@ -18,6 +18,8 @@ from ..schemas import (
     BlockerResponse,
     CalculateReadinessRequest,
     ContradictionResponse,
+    EnqueueReviewRequest,
+    EnqueueReviewResponse,
     FindingResponse,
     RaiseBlockerRequest,
     ReadinessResponse,
@@ -89,6 +91,55 @@ def assign_area(
     _require_project(memory, project_id)
     readiness.assign_area(
         ProjectId(project_id), KnowledgeItemId(body.knowledge_item_id), body.area_key
+    )
+
+
+@router.post(
+    "/review/runs", response_model=EnqueueReviewResponse, status_code=status.HTTP_202_ACCEPTED
+)
+def enqueue_review(
+    project_id: str, body: EnqueueReviewRequest, memory: Memory, ingestion: Ingestion
+) -> EnqueueReviewResponse:
+    """Queue the review pass over everything extraction has produced.
+
+    **This is the step that makes readiness mean anything.** Extraction writes
+    knowledge; review is what assigns each item to a discovery area, and
+    readiness counts items per area. Without it a project holding eight hundred
+    statements reports 0% and every area empty — which is what four real
+    projects did, because `IngestionService.enqueue_review` existed and was on
+    no adapter. Its only caller in the repository was a unit test.
+
+    Separate from ingestion rather than folded into it, for the reason the
+    service already gives: review is cross-chunk, so it is meaningful only once
+    extraction has drained, and there is no run-dependency mechanism to express
+    that. Enqueuing both together lets a worker claim the review first and
+    review an empty project.
+
+    So the caller decides when. `outstanding_runs` on an ingestion response is
+    how they know extraction is done.
+
+    **202.** Nothing has been reviewed when this returns. A run is queued.
+    """
+
+    _require_project(memory, project_id)
+    resolved = ProjectId(project_id)
+    outstanding = ingestion.outstanding_runs(resolved)
+    run_id = ingestion.enqueue_review(resolved, body.idempotency_key)
+    return EnqueueReviewResponse(
+        run_id=str(run_id),
+        outstanding_extraction_runs=outstanding,
+        # Reported rather than refused. A caller who knows they are re-running
+        # review over a partially extracted project is doing something
+        # legitimate; a caller who does not needs to be told, not blocked.
+        warnings=(
+            [
+                f"{outstanding} extraction runs have not finished. Review reads what "
+                f"exists now, so anything still queued will not be classified and the "
+                f"pass will need running again."
+            ]
+            if outstanding
+            else []
+        ),
     )
 
 

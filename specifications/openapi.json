@@ -1109,6 +1109,48 @@
         "title": "Disposition",
         "type": "string"
       },
+      "EnqueueReviewRequest": {
+        "description": "Ask for a review pass.\n\n`idempotency_key` is required, not optional. Review is a model call over\nevery statement a project holds; a retried request without a key is a second\nbill and a second set of classifications for one intent.",
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "EnqueueReviewRequest",
+        "type": "object"
+      },
+      "EnqueueReviewResponse": {
+        "description": "A queued review, and what it will and will not see.\n\n`outstanding_extraction_runs` is reported rather than hidden because it\ndecides whether this pass is complete. Zero means review sees everything\nextracted. Anything else means it will classify what exists now and miss the\nrest, and the caller has to run it again.",
+        "properties": {
+          "outstanding_extraction_runs": {
+            "title": "Outstanding Extraction Runs",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "outstanding_extraction_runs"
+        ],
+        "title": "EnqueueReviewResponse",
+        "type": "object"
+      },
       "EnqueueRunRequest": {
         "description": "``idempotency_key`` is required, not optional.\n\n``MemoryService`` deduplicates on it, so a client that retries a request it\nnever saw the answer to converges on one run instead of two. Making it\noptional would leave the one durable replay protection this API has to a\ncaller's discretion.",
         "properties": {
@@ -5375,6 +5417,59 @@
           }
         },
         "summary": "Review Findings",
+        "tags": [
+          "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/review/runs": {
+      "post": {
+        "description": "Queue the review pass over everything extraction has produced.\n\n**This is the step that makes readiness mean anything.** Extraction writes\nknowledge; review is what assigns each item to a discovery area, and\nreadiness counts items per area. Without it a project holding eight hundred\nstatements reports 0% and every area empty \u2014 which is what four real\nprojects did, because `IngestionService.enqueue_review` existed and was on\nno adapter. Its only caller in the repository was a unit test.\n\nSeparate from ingestion rather than folded into it, for the reason the\nservice already gives: review is cross-chunk, so it is meaningful only once\nextraction has drained, and there is no run-dependency mechanism to express\nthat. Enqueuing both together lets a worker claim the review first and\nreview an empty project.\n\nSo the caller decides when. `outstanding_runs` on an ingestion response is\nhow they know extraction is done.\n\n**202.** Nothing has been reviewed when this returns. A run is queued.",
+        "operationId": "enqueue_review_v1_projects__project_id__review_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnqueueReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnqueueReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Review",
         "tags": [
           "readiness"
         ]

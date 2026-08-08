@@ -2428,6 +2428,63 @@ def kae_answer_clarification(
     }
 
 
+def kae_enqueue_review(
+    context: ToolContext,
+    project_id: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    """Queue the review pass that classifies what extraction produced.
+
+    **The step that makes readiness mean anything.** Extraction writes
+    knowledge; review assigns each statement to a discovery area; readiness
+    counts statements per area. Skip it and a project holding hundreds of
+    statements reports 0% with every area empty — which four real projects did,
+    because this capability existed on the service and on no adapter.
+
+    Run it once extraction has drained. `outstanding_runs` on an ingestion
+    response says when. Running it early is allowed and reports what it will
+    miss, because a caller re-reviewing a partially extracted project may know
+    exactly what they are doing.
+
+    Nothing is reviewed when this returns. A run is queued.
+    """
+
+    project = resolve_project(context, project_id)
+    if context.ingestion is None:
+        raise CapabilityUnavailableError(
+            capability="review.enqueue",
+            missing=[message("refusal.capability_unconfigured", capability="ingestion")],
+        )
+    if not idempotency_key or not idempotency_key.strip():
+        raise InvalidArgumentError(
+            "idempotency_key is required so a retry cannot pay for a second review of one intent"
+        )
+
+    outstanding = context.ingestion.outstanding_runs(project.id)
+    run_id = context.ingestion.enqueue_review(project.id, idempotency_key.strip())
+
+    return {
+        "run_id": str(run_id),
+        "outstanding_extraction_runs": outstanding,
+        # Three separate facts, as everywhere else: queued, not done, nothing changed.
+        "workflow_state": "review_queued",
+        "knowledge_changed": False,
+        "warnings": (
+            [
+                f"{outstanding} extraction runs have not finished. Review reads what "
+                f"exists now, so anything still queued will not be classified and "
+                f"this pass will need running again."
+            ]
+            if outstanding
+            else []
+        ),
+        "next_steps": [
+            "A worker must drain the review run before any area is populated.",
+            "Then kae_get_readiness reports coverage per discovery area.",
+        ],
+    }
+
+
 def kae_ingest_document(
     context: ToolContext,
     project_id: str,
@@ -2526,6 +2583,9 @@ def _ingestion_payload(
         "next_steps": [
             "Extraction runs are queued, not finished. A worker must drain them "
             "before any candidate exists.",
+            "Then kae_enqueue_review, once outstanding_runs reaches zero. Nothing "
+            "else assigns knowledge to a discovery area, so readiness stays at 0% "
+            "and every area stays empty until it has run.",
             "Then kae_get_project_briefing shows what was proposed, and a person "
             "confirms it with kae_confirm_knowledge.",
         ],

@@ -224,6 +224,13 @@ REGISTRY: tuple[Capability, ...] = (
         reason="Template administration, not a product action an agent performs.",
     ),
     Capability(
+        key="review.enqueue",
+        summary="Queue the review pass that classifies extracted knowledge",
+        exposure=Exposure.BOTH,
+        mcp=("kae_enqueue_review",),
+        http=("POST /v1/projects/{project_id}/review/runs",),
+    ),
+    Capability(
         key="review.findings",
         summary="What is missing, contested, or unresolved",
         exposure=Exposure.BOTH,

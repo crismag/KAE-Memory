@@ -299,6 +299,31 @@ class ReadinessResponse(BaseModel):
         )
 
 
+class EnqueueReviewRequest(BaseModel):
+    """Ask for a review pass.
+
+    `idempotency_key` is required, not optional. Review is a model call over
+    every statement a project holds; a retried request without a key is a second
+    bill and a second set of classifications for one intent.
+    """
+
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class EnqueueReviewResponse(BaseModel):
+    """A queued review, and what it will and will not see.
+
+    `outstanding_extraction_runs` is reported rather than hidden because it
+    decides whether this pass is complete. Zero means review sees everything
+    extracted. Anything else means it will classify what exists now and miss the
+    rest, and the caller has to run it again.
+    """
+
+    run_id: str
+    outstanding_extraction_runs: int
+    warnings: list[str] = Field(default_factory=list)
+
+
 class CalculateReadinessRequest(BaseModel):
     not_applicable_areas: list[str] = Field(default_factory=list)
 

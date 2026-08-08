@@ -907,6 +907,32 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "kae_enqueue_review",
+        "description": (
+            "Queue the review pass that assigns extracted knowledge to discovery "
+            "areas. Readiness counts per area, so without this a project reports "
+            "0% however much it holds. Run once extraction has drained. Nothing "
+            "is reviewed when this returns: a run is queued."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_id": {"type": "string"},
+                "project_key": {"type": "string"},
+                "idempotency_key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": (
+                        "Required. Review is a model call over every statement the "
+                        "project holds; a retry without a key is a second bill."
+                    ),
+                },
+            },
+            "required": ["idempotency_key"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "kae_ingest_document",
         "description": (
             "Record a document as evidence and queue it to be read. Every span "
@@ -1171,6 +1197,11 @@ def dispatch(context: tools.ToolContext, name: str, arguments: dict[str, Any]) -
     handlers = {
         "kae_list_projects": lambda: tools.kae_list_projects(
             context, arguments.get("limit"), arguments.get("cursor")
+        ),
+        "kae_enqueue_review": lambda: tools.kae_enqueue_review(
+            context,
+            arguments.get("project_id", ""),
+            arguments.get("idempotency_key", ""),
         ),
         "kae_ingest_document": lambda: tools.kae_ingest_document(
             context,
@@ -1451,6 +1482,21 @@ def build_server(context: tools.ToolContext) -> Any:
 
     def kae_list_projects(limit: int | None = None, cursor: str | None = None) -> dict[str, Any]:
         return dispatch(context, "kae_list_projects", {"limit": limit, "cursor": cursor})
+
+    def kae_enqueue_review(
+        idempotency_key: str,
+        project_id: str = "",
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return dispatch(
+            context,
+            "kae_enqueue_review",
+            {
+                "project_id": project_id,
+                "project_key": project_key,
+                "idempotency_key": idempotency_key,
+            },
+        )
 
     def kae_ingest_document(
         document: str,
@@ -2011,6 +2057,7 @@ def build_server(context: tools.ToolContext) -> Any:
             kae_correct_knowledge,
             kae_get_clarifications,
             kae_answer_clarification,
+            kae_enqueue_review,
         )
     }
 
