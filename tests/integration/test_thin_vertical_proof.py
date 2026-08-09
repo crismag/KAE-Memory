@@ -657,3 +657,132 @@ class TestTheOfflineClassifierIsStructurallyLimited:
         for kind in (KnowledgeKind.GOAL, KnowledgeKind.REQUIREMENT, KnowledgeKind.RULE):
             areas = [area.key for area in SOFTWARE_TEMPLATE.areas if kind in area.kinds]
             assert len(areas) > 1, f"{kind.value} would be classifiable offline"
+
+
+class TestWhatTheTurnMachineryRecords:
+    """The four slices built dispositions. This is what they leave behind.
+
+    Every piece below is unit-tested where it lives. What was never checked is
+    that the records they write mean, *together*, what the product claims: that
+    KAE's advice stays distinguishable from what a person said, that a deferred
+    question stays open, and that a material assumption is findable among the
+    routine ones.
+
+    This is as close to the replay test as can run without a deployment. It
+    proves the mechanism, which is not the same as proving the product — the
+    qualitative check still needs a person and a live system.
+    """
+
+    def test_accepted_advice_never_reads_as_something_the_customer_said(
+        self, client: TestClient, sparse_project: str
+    ) -> None:
+        """The distinction that makes advice safe to give.
+
+        `kae_recommended_accepted` separates "KAE suggested this and I agreed"
+        from "I said this". Without it, being opinionated would mean putting
+        words in the customer's mouth — which is why R1 records recommendations
+        as assumptions with a KAE origin and never as user-stated knowledge.
+        """
+
+        accepted = client.post(
+            f"/v1/projects/{sparse_project}/assumptions",
+            json={
+                "origin": "kae_recommended_accepted",
+                "subject": "scope_and_boundaries",
+                "assumed_value": "Mobile is deferred to a second release",
+                "reason": "KAE recommended it and the operator accepted",
+                "consequence": "architectural",
+                "revisit": "before_build",
+            },
+        )
+        assert accepted.status_code == 201
+
+        listed = client.get(f"/v1/projects/{sparse_project}/assumptions").json()
+        origins = {entry["origin"] for entry in listed["assumptions"]}
+
+        assert "kae_recommended_accepted" in origins
+        assert "user_stated" not in origins, (
+            "nothing on this path may claim the customer said it"
+        )
+
+    def test_a_material_assumption_is_findable_among_the_routine_ones(
+        self, client: TestClient, sparse_project: str
+    ) -> None:
+        """"A material assumption must be disclosed wherever the output it
+        shaped is disclosed. Everything else may be summarised."
+
+        The policy is only worth having if the two are distinguishable after the
+        fact — a reader looking for what the project is quietly resting on has
+        to be able to find it without reading everything.
+        """
+
+        for value, consequence in (
+            ("Reports are weekly", "cosmetic"),
+            ("Single tenant for the first release", "architectural"),
+        ):
+            client.post(
+                f"/v1/projects/{sparse_project}/assumptions",
+                json={
+                    "subject": "scope_and_boundaries",
+                    "assumed_value": value,
+                    "reason": "concluded by KAE during a planning turn",
+                    "consequence": consequence,
+                    "revisit": "before_build",
+                },
+            )
+
+        listed = client.get(f"/v1/projects/{sparse_project}/assumptions").json()
+        material = [
+            a for a in listed["assumptions"] if a["consequence"] in {"architectural", "unsafe"}
+        ]
+
+        assert [a["assumed_value"] for a in material] == ["Single tenant for the first release"]
+        # The listing counts them itself, so a reader does not have to know
+        # which consequences are material to ask "what is this resting on".
+        assert listed["material_count"] == 1
+
+    def test_every_assumption_says_when_it_should_be_looked_at_again(
+        self, client: TestClient, sparse_project: str
+    ) -> None:
+        """A conclusion nobody revisits is a guess with tenure.
+
+        `RevisitTrigger` is what separates a working assumption from a
+        commitment nobody remembers making, and it only does that if it is
+        actually recorded on the way in.
+        """
+
+        client.post(
+            f"/v1/projects/{sparse_project}/assumptions",
+            json={
+                "subject": "scope_and_boundaries",
+                "assumed_value": "Weekly cadence",
+                "reason": "concluded by KAE during a planning turn",
+                "consequence": "rework",
+                "revisit": "before_build",
+            },
+        )
+
+        listed = client.get(f"/v1/projects/{sparse_project}/assumptions").json()["assumptions"]
+
+        assert listed
+        assert all(entry["revisit"] for entry in listed), "an absent trigger means 'never'"
+
+    def test_a_deferred_question_stays_open_and_an_answered_one_does_not(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """The distinction the whole disposition vocabulary exists for.
+
+        "I don't know yet, pick something reasonable" is a real answer that
+        settles nothing. Recording it as answered closes a question nobody
+        decided; recording nothing loses the instruction. Both were wrong, which
+        is why `deferred` is not in SETTLES.
+
+        And it is why Studio's "Bring back" sending `answered` was a defect
+        rather than a shortcut: it closed the question it existed to reopen.
+        """
+
+        from kae_memory.domain.dispositions import Disposition, settles
+
+        assert not settles(Disposition.DEFERRED), "a deferral leaves the question owed"
+        assert not settles(Disposition.OPEN), "reopening cannot close"
+        assert settles(Disposition.ANSWERED)
