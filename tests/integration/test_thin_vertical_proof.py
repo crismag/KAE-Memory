@@ -467,3 +467,193 @@ class TestStageSixOnlyIntegrityBlocks:
 
         assert response.status_code == 201
         assert response.json()["publication_eligible"] is True
+
+
+class TestTheHeartbeat:
+    """Talk → KAE understands → the model changes → the change is visible.
+
+    The loop the product *is*, walked without touching a service method by hand.
+    A dogfooding session measured what happens when a link in it is missing: 42
+    messages of genuine planning work, 178 accurate statements extracted, and a
+    product reporting `0% · not_started` with all ten areas empty.
+
+    Three links were broken and each was invisible from the others. Nothing
+    triggered review, so knowledge was never assigned to an area. Nothing
+    recalculated readiness, so the snapshot stayed at revision 0 of 25.
+    Confirmation worked one item at a time, so a person's agreement to a
+    synthesis had nothing to act on.
+
+    This walks all three. It asserts the *loop*, not the parts: every subsystem
+    below is covered elsewhere, and what was never covered is that they hand
+    each other what the next one needs.
+    """
+
+    def test_a_message_becomes_visible_project_progress(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        from kae_memory.agents.deterministic import DeterministicExtractionAdapter
+        from kae_memory.agents.review_adapter import DeterministicReviewAdapter
+        from kae_memory.worker.execution import AgentStepExecutor
+        from kae_memory.worker.runner import Worker, WorkerConfig
+
+        ReadinessService(factory).install_template()
+        project_id = str(client.post("/v1/projects", json={"name": "Heartbeat"}).json()["id"])
+        session_id = client.post(
+            f"/v1/projects/{project_id}/sessions", json={"session_type": "discovery"}
+        ).json()["id"]
+
+        # 1 · Someone says something about their project.
+        client.post(
+            f"/v1/sessions/{session_id}/messages",
+            json={
+                "content": (
+                    "Ministry leaders submit monthly reports. Approval must happen "
+                    "before publication, and reports are published within a week."
+                )
+            },
+        )
+
+        before = client.post(
+            f"/v1/projects/{project_id}/readiness/calculate", json={}
+        ).json()
+        assert before["percentage"] == 0, "nothing has been derived yet"
+
+        # 2 · The worker drains whatever that queued. Nothing here enqueues a
+        # review: extraction asks for one itself once it is the last run
+        # standing, which is the link whose absence produced 0%.
+        # With a reviewer that classifies, which is what a deployment has
+        # (`KAE_REVIEW=bedrock`).
+        #
+        # It has to be supplied here. `DeterministicReviewAdapter`'s bundled
+        # fixture applies the same unambiguous-only rule as the offline path, so
+        # it stands in for the *shipped fixture reviewer* rather than for a
+        # model — and with it this test would prove only that the loop turns
+        # without moving, which is the state it exists to rule out.
+        #
+        # Without any reviewer the loop still turns and readiness still cannot
+        # move: only `actor` and `assumption` map to a single area, so ordinary
+        # knowledge is declined. That is a property of the template rather than
+        # of this corpus, and `TestTheOfflineClassifierIsStructurallyLimited`
+        # below pins it.
+        def judges(request: Any) -> object:
+            """The judgement a model is for, faked by taking the first fit.
+
+            Not a classifier anybody should ship: it reads the kind and ignores
+            the statement. What it stands in for is only *that a decision was
+            reached* — the part of the loop under test here.
+            """
+
+            from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
+
+            findings = []
+            for statement in request.statements:
+                fits = [a.key for a in SOFTWARE_TEMPLATE.areas if statement.kind in a.kinds]
+                if not fits:
+                    continue  # `unknown` belongs to no area, which is correct
+                findings.append(
+                    {
+                        "kind": "area_classification",
+                        "statement_quote": statement.text,
+                        "area_key": fits[0],
+                        "confidence": "medium",
+                        "rationale": "test stand-in for a model's judgement",
+                    }
+                )
+            return {"findings": findings}
+
+        worker = Worker(
+            factory,
+            AgentStepExecutor(
+                factory, DeterministicExtractionAdapter(), DeterministicReviewAdapter(judges)
+            ),
+            WorkerConfig(worker_id="heartbeat", idle_poll_seconds=0.01),
+        )
+        for _ in range(8):
+            if worker.run_once() is None:
+                break
+
+        runs = client.get(f"/v1/projects/{project_id}/runs").json()
+        assert any(run["role"] == "review" for run in runs), (
+            "extraction must ask for the review that assigns knowledge to areas"
+        )
+
+        # 3 · Readiness moved without anyone asking it to. The review run
+        # recalculates, so the number a person sees describes the project as it
+        # is rather than as it was before they spoke.
+        current = client.get(f"/v1/projects/{project_id}/readiness").json()
+        assert current["knowledge_revision"] == current["current_knowledge_revision"]
+        assert not current["is_stale"]
+
+        # 4 · A synthesis is agreed to in one act. This is what "yes, that
+        # holds" does now — it used to have nothing to act on, so the
+        # interviewer said "Confirmed" and the panel said "0 of 1 confirmed".
+        proposed = client.get(
+            f"/v1/projects/{project_id}/knowledge", params={"lifecycle": "proposed"}
+        ).json()
+        assert proposed, "the message should have produced candidate knowledge"
+
+        confirmed = client.post(
+            f"/v1/projects/{project_id}/knowledge/confirm",
+            json={"item_ids": [item["id"] for item in proposed]},
+        )
+        assert confirmed.status_code == 200
+        assert {item["lifecycle"] for item in confirmed.json()} == {"validated"}
+
+        # 5 · And the project is visibly further along than it was.
+        after = client.post(f"/v1/projects/{project_id}/readiness/calculate", json={}).json()
+        assert after["percentage"] > before["percentage"], (
+            "twenty minutes of real work must leave the product saying something changed"
+        )
+
+
+class TestTheOfflineClassifierIsStructurallyLimited:
+    """Why a deployment reported two areas of ten, and why the number is exact.
+
+    The register recorded that the shipped reviewer "classifies only where a
+    knowledge kind leaves no choice", and inferred that eight of ten areas could
+    never populate. The mechanism is sharper than that, and worth stating
+    precisely because it decides whether the offline path is a degraded mode or
+    no mode at all.
+
+    Across `SOFTWARE_TEMPLATE`, exactly **two of eight knowledge kinds** map to a
+    single area. Everything a planning conversation mostly produces — goals,
+    requirements, rules, constraints, decisions — maps to between two and five,
+    so the offline classifier declines all of it. Correctly: guessing would be
+    worse. But it means a project without a review model does not get partial
+    coverage, it gets coverage of two areas and only where those two kinds
+    happen to appear.
+
+    This is a fact about the template, not about any corpus. Rebalancing the
+    template would change it, which is why the assertion names the kinds rather
+    than counting them.
+    """
+
+    def test_only_actor_and_assumption_can_be_classified_without_a_model(self) -> None:
+        from kae_memory.domain.models import KnowledgeKind
+        from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
+
+        unambiguous = {
+            kind.value: [area.key for area in SOFTWARE_TEMPLATE.areas if kind in area.kinds]
+            for kind in KnowledgeKind
+        }
+        single = {k: v[0] for k, v in unambiguous.items() if len(v) == 1}
+
+        assert single == {
+            "actor": "users_and_stakeholders",
+            "assumption": "constraints_and_assumptions",
+        }
+
+    def test_the_kinds_a_planning_conversation_produces_are_all_ambiguous(self) -> None:
+        """Which is why `KAE_REVIEW` is not optional for a real project.
+
+        A conversation about what to build produces goals and requirements. If
+        those cannot be classified, readiness describes a project by what it
+        said about its users and its assumptions, and nothing else.
+        """
+
+        from kae_memory.domain.models import KnowledgeKind
+        from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
+
+        for kind in (KnowledgeKind.GOAL, KnowledgeKind.REQUIREMENT, KnowledgeKind.RULE):
+            areas = [area.key for area in SOFTWARE_TEMPLATE.areas if kind in area.kinds]
+            assert len(areas) > 1, f"{kind.value} would be classifiable offline"
