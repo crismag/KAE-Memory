@@ -39,7 +39,18 @@ evidence than a housekeeping duplicate, because missing one is expensive.
 
 
 def offline_review_fixture(request: ReviewRequest) -> object:
-    """Propose an area per statement, and flag negation-opposed near-twins."""
+    """Propose an area per statement, and flag negation-opposed near-twins.
+
+    **The same rule `classify_offline` applies**, deliberately: it classifies
+    only where a knowledge kind leaves no choice. So this fixture stands in for
+    the *shipped offline reviewer*, not for a model — and since only `actor` and
+    `assumption` map to a single area, it classifies nothing at all on a corpus
+    of goals and requirements.
+
+    A test that needs a reviewer which genuinely judges must supply its own
+    fixture. Using this one and calling the result "with a reviewer configured"
+    is how a suite comes to prove that the loop turns without moving.
+    """
 
     findings: list[dict[str, object]] = []
 
@@ -91,7 +102,23 @@ def _opposed(first: str, second: str) -> bool:
 
 
 class DeterministicReviewAdapter:
-    """Return recorded review payloads, resolved exactly as a live one would be."""
+    """Return recorded review payloads, resolved exactly as a live one would be.
+
+    **It does not stand in for a model.** Its bundled fixture applies the same
+    unambiguous-only rule as `classify_offline` — only where a knowledge kind
+    leaves no choice — so a test wiring it up to represent "a deployment with a
+    reviewer configured" proves less than it looks: the run reports
+    `reviewed_by_model` and classifies exactly what the offline path would.
+
+    That matters because only **two of eight** knowledge kinds map to a single
+    area (`actor`, `assumption`). A test using the default fixture on a corpus
+    of goals and requirements watches the loop turn without moving, which is
+    the state the product spent a day fixing.
+
+    To represent a reviewer that actually judges, pass your own fixture — see
+    `test_thin_vertical_proof.py::TestTheHeartbeat`, which does exactly that and
+    says why in the same breath.
+    """
 
     model = "deterministic-review-fixture"
 
