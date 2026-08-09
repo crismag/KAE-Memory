@@ -2561,6 +2561,18 @@
             "title": "Attempt Number",
             "type": "integer"
           },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
           "continuation_state": {
             "additionalProperties": true,
             "title": "Continuation State",
@@ -2588,6 +2600,18 @@
             ],
             "title": "Error Message"
           },
+          "failed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed At"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2608,6 +2632,29 @@
           "role": {
             "title": "Role",
             "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
           },
           "status": {
             "title": "Status",

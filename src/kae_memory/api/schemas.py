@@ -264,6 +264,16 @@ class RunResponse(BaseModel):
     output_summary: dict[str, Any]
     error_code: str | None
     error_message: str | None
+    #: When it ran. A client watching a run could see that it failed and not
+    #: when, or that it succeeded and not how long it took — so "is this stuck?"
+    #: had no answer but the absence of a change.
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    failed_at: datetime | None = None
+    #: The session the run belongs to, where it has one. Extraction runs are
+    #: created from a message in a conversation, and the link back was modelled
+    #: and never returned.
+    session_id: str | None = None
 
     @classmethod
     def of(cls, run: AgentRun) -> "RunResponse":
@@ -278,6 +288,10 @@ class RunResponse(BaseModel):
             output_summary=dict(run.output_summary or {}),
             error_code=run.error_code,
             error_message=run.error_message,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+            failed_at=run.failed_at,
+            session_id=str(run.session_id) if run.session_id else None,
         )
 
 
