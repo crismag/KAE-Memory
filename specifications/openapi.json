@@ -1576,6 +1576,11 @@
             "title": "Message Type",
             "type": "string"
           },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
           "sequence_number": {
             "title": "Sequence Number",
             "type": "integer"
@@ -2383,6 +2388,11 @@
             "default": "input",
             "title": "Message Type",
             "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
           },
           "purpose": {
             "default": "project_input",

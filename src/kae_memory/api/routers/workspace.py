@@ -196,6 +196,7 @@ def record_message(session_id: str, body: RecordMessageRequest, memory: Memory) 
         message_type=parse_enum(MessageType, body.message_type, "message_type"),
         actor_id=body.actor_id,
         idempotency_key=body.idempotency_key,
+        metadata=body.metadata,
         purpose=parse_enum(MessagePurpose, body.purpose, "purpose"),
     )
 

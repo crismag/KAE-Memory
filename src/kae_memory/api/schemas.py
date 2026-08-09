@@ -105,6 +105,16 @@ class RecordMessageRequest(BaseModel):
     #: `diagnostic` — otherwise their text becomes candidate project knowledge,
     #: which is how twelve copies of one test sentence entered a real project.
     purpose: str = "project_input"
+    #: Structure *about* the message, not more message.
+    #:
+    #: `Message.metadata` has always existed and been persisted; this surface
+    #: simply dropped it, so anything a caller knew about a turn — which
+    #: statements it reflected, what it recommended doing next — had nowhere to
+    #: live and was recomputed or lost on the next page load.
+    #:
+    #: Never extracted from. Metadata is the caller's own record, and treating
+    #: it as evidence would let a client write knowledge without saying so.
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class MessageResponse(BaseModel):
@@ -115,6 +125,10 @@ class MessageResponse(BaseModel):
     message_type: str
     content: str
     created_at: datetime
+    #: Returned as well as accepted. Storing structure a caller can never read
+    #: back is a write-only field, and the caller then keeps its own copy —
+    #: which is the state this was added to end.
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def of(cls, message: Message) -> "MessageResponse":
@@ -126,6 +140,7 @@ class MessageResponse(BaseModel):
             message_type=message.message_type.value,
             content=message.content,
             created_at=message.created_at,
+            metadata=dict(message.metadata),
         )
 
 
