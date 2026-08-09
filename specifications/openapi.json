@@ -1485,6 +1485,13 @@
       "KnowledgeResponse": {
         "description": "Carries every version, because history is the product.\n\nA knowledge item that only exposes its current text would make the audit\ntrail invisible to the interface that exists to show it.",
         "properties": {
+          "areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Areas",
+            "type": "array"
+          },
           "current_content": {
             "title": "Current Content",
             "type": "string"
@@ -4866,7 +4873,7 @@
     },
     "/v1/projects/{project_id}/knowledge": {
       "get": {
-        "description": "List a project's knowledge.\n\nUnfiltered by default. The workspace needs to show proposed candidates beside\nconfirmed knowledge, because the difference between them is the thing a user\nacts on.",
+        "description": "List a project's knowledge, and what each statement is about.\n\nUnfiltered by default. The workspace needs to show proposed candidates beside\nconfirmed knowledge, because the difference between them is the thing a user\nacts on.\n\n**Each item now carries its discovery areas.** Memory has always held them\nand this listing did not return them, so a consumer could see what a project\nknows and not what any of it was about. The visible cost was a Definition\npage that reported the problem statement as uncomputable for every project\nin existence \u2014 \"the problem\" is the statements linked to\n`problem_and_value`, and nothing else identifies them.",
         "operationId": "list_knowledge_v1_projects__project_id__knowledge_get",
         "parameters": [
           {

@@ -8,7 +8,7 @@ from kae_memory.domain.identifiers import AgentRunId, KnowledgeItemId, ProjectId
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, MessagePurpose, MessageType, SessionType
 
-from ..dependencies import Memory, ProjectDeletion, SessionFactory
+from ..dependencies import Memory, ProjectDeletion, Readiness, SessionFactory
 from ..errors import ApiError, not_found
 from ..events import StreamConfig, run_events
 from ..parsing import parse_enum
@@ -231,19 +231,34 @@ def list_messages(session_id: str, memory: Memory) -> list[MessageResponse]:
 
 @router.get("/projects/{project_id}/knowledge", response_model=list[KnowledgeResponse])
 def list_knowledge(
-    project_id: str, memory: Memory, lifecycle: str | None = None
+    project_id: str, memory: Memory, readiness: Readiness, lifecycle: str | None = None
 ) -> list[KnowledgeResponse]:
-    """List a project's knowledge.
+    """List a project's knowledge, and what each statement is about.
 
     Unfiltered by default. The workspace needs to show proposed candidates beside
     confirmed knowledge, because the difference between them is the thing a user
     acts on.
+
+    **Each item now carries its discovery areas.** Memory has always held them
+    and this listing did not return them, so a consumer could see what a project
+    knows and not what any of it was about. The visible cost was a Definition
+    page that reported the problem statement as uncomputable for every project
+    in existence — "the problem" is the statements linked to
+    `problem_and_value`, and nothing else identifies them.
     """
 
     _require_project(memory, project_id)
+    resolved = ProjectId(project_id)
     state = None if lifecycle is None else parse_enum(LifecycleState, lifecycle, "lifecycle")
-    items = memory.retrieve_knowledge(ProjectId(project_id), lifecycle=state)
-    return [KnowledgeResponse.of(item) for item in items]
+    items = memory.retrieve_knowledge(resolved, lifecycle=state)
+
+    # One query for the project's assignments, not one per item. A statement can
+    # belong to several areas, so this is a grouping rather than a lookup.
+    by_item: dict[str, list[str]] = {}
+    for link in readiness.area_links(resolved):
+        by_item.setdefault(str(link.knowledge_item_id), []).append(link.area_key)
+
+    return [KnowledgeResponse.of(item, sorted(by_item.get(str(item.id), []))) for item in items]
 
 
 @router.post("/knowledge/{item_id}/confirm", response_model=KnowledgeResponse)

@@ -164,16 +164,28 @@ class KnowledgeResponse(BaseModel):
     kind: str
     lifecycle: str
     current_content: str
+    #: The discovery areas this statement was classified into.
+    #:
+    #: Memory has always held these; the listing simply did not return them. So
+    #: a consumer could see *what* a project knows and not *what any of it is
+    #: about* — which left Studio unable to show a problem statement at all,
+    #: because "the problem" is the statements linked to `problem_and_value` and
+    #: nothing else identifies them.
+    #:
+    #: Empty until review runs. That is the honest state, not a missing field:
+    #: an unclassified statement belongs to no area yet.
+    areas: list[str] = Field(default_factory=list)
     versions: list[KnowledgeVersionResponse]
 
     @classmethod
-    def of(cls, item: KnowledgeItem) -> "KnowledgeResponse":
+    def of(cls, item: KnowledgeItem, areas: Sequence[str] = ()) -> "KnowledgeResponse":
         return cls(
             id=str(item.id),
             project_id=str(item.project_id),
             kind=item.kind,
             lifecycle=item.lifecycle.value,
             current_content=item.current_version.content,
+            areas=list(areas),
             versions=[
                 KnowledgeVersionResponse(
                     number=version.number,
