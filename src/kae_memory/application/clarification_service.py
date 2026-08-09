@@ -648,14 +648,43 @@ def _question_key(clarification: Clarification) -> str:
     question. Truncating the list instead would have been worse than the bug:
     two clarifications about overlapping subjects would collide on a shared
     prefix, and the second would be silently treated as already asked.
+
+    ## Aggregates are keyed on the area, not on their membership
+
+    A finding covering several statements is a question *about an area* — "these
+    unresolved items in `scope_and_boundaries` need answers" — and its
+    membership grows as the project does. Hashing that membership gave every
+    growth a new key, so the identical question was re-asked each time one more
+    `unknown` joined it. Observed roughly ten times in a 42-message session,
+    which is enough to make an interviewer feel like it is not listening.
+
+    So the rule follows what the question *is*:
+
+    - **one statement** → keyed on that statement, because the question is about
+      it and disappears when it is resolved;
+    - **several** → keyed on kind and area alone, because that is what the
+      question is about and the set is merely who is currently in it.
+
+    Two aggregates of the same kind in the same area do collide, and that is
+    the intended reading rather than a tolerated cost: they are the same
+    question, asked about a set that happens to differ today.
     """
 
-    subject = ",".join(sorted(clarification.knowledge_ids))
+    ids = sorted(clarification.knowledge_ids)
+    if len(ids) == 1:
+        subject = sha256(ids[0].encode()).hexdigest()[:32]
+    elif ids:
+        # Membership deliberately absent. An aggregate is identified by what it
+        # asks about, and its members are a snapshot of who qualifies now.
+        subject = "aggregate"
+    else:
+        subject = "-"
+
     parts = [
         "question",
         clarification.finding_kind,
         clarification.area_key or "-",
-        sha256(subject.encode()).hexdigest()[:32] if subject else "-",
+        subject,
     ]
     return ":".join(parts)
 

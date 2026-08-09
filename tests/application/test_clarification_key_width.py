@@ -62,12 +62,46 @@ class TestTheKeyStillIdentifiesTheSubject:
 
         assert _question_key(forward) == _question_key(reversed_)
 
-    def test_different_subjects_give_different_keys(self) -> None:
-        """The failure mode a truncated list would have introduced: two
-        clarifications about overlapping subjects sharing a prefix, so the
-        second is silently treated as already asked."""
+    def test_an_aggregate_that_grows_is_still_the_same_question(self) -> None:
+        """The defect this file used to assert the opposite of.
 
-        assert _question_key(_clarification(6)) != _question_key(_clarification(7))
+        A finding covering several statements asks about an *area* — "these
+        unresolved items need answers" — and its membership grows as the project
+        does. Keying on membership gave every growth a new key, so the identical
+        question was re-asked each time one more `unknown` joined it: roughly
+        ten times in a 42-message session, which is enough to make an
+        interviewer feel like it is not listening.
+
+        Two aggregates of the same kind in the same area therefore collide, and
+        that is the intended reading rather than a tolerated cost. They are the
+        same question, asked about a set that happens to differ today.
+        """
+
+        assert _question_key(_clarification(6)) == _question_key(_clarification(7))
+
+    def test_a_question_about_one_statement_still_names_it(self) -> None:
+        """Because it is about that statement, and ends when it is resolved.
+
+        Only aggregates lose their membership from the key. Collapsing
+        single-subject questions too would make every open question in an area
+        one question.
+        """
+
+        first = _clarification(1)
+        second = Clarification(
+            finding_kind=first.finding_kind,
+            area_key=first.area_key,
+            question=first.question,
+            severity=first.severity,
+            knowledge_ids=("99999999-539f-4f17-938d-a77dce12f2aa",),
+        )
+
+        assert _question_key(first) != _question_key(second)
+
+    def test_one_statement_and_several_are_different_questions(self) -> None:
+        """"Answer this" and "answer these" are not the same ask."""
+
+        assert _question_key(_clarification(1)) != _question_key(_clarification(4))
 
     def test_a_different_finding_kind_is_a_different_question(self) -> None:
         same_subject = _clarification(3)
