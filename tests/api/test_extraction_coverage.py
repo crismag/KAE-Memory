@@ -38,7 +38,11 @@ def client(factory: sessionmaker[Session]) -> Iterator[TestClient]:
 
 
 def _abandon(
-    memory: MemoryService, factory: sessionmaker[Session], project_id: str, key: str, role: AgentRole
+    memory: MemoryService,
+    factory: sessionmaker[Session],
+    project_id: str,
+    key: str,
+    role: AgentRole,
 ) -> None:
     """Drive a run to the state F-018 leaves behind.
 
