@@ -140,6 +140,53 @@ modules (F-006), assumptions (N45), `enqueue_review` (EM-5) — and
 Parity tests check that declared capabilities exist, not that existing behaviour
 is declared. The gap is invisible from both directions.
 
+## Status, 2026-08-09 evening
+
+**Seven of eight shipped**, across four Phase 2 slices.
+
+| | | |
+|---|---|---|
+| **M-1** set confirmation | `1dbdb60` | all-or-nothing, one revision bump, `PRODUCT_ONLY` |
+| **M-2** make review happen | `82e9bf8` · `524b2b1` | trigger, recalculate, batch, report degradation |
+| **M-3** the aggregate key | `6553e31` | keyed on the question, not its membership |
+| **M-4** status out of the conversation | — | **not built, deliberately.** See below |
+| **M-5** the planning-state projection | `6bc90ca` · `916563d` | area links on the listing; Studio composes Definition |
+| **M-6** extraction repair | — | Phase 3. Its cost is now disclosed (`1b82e7d`) |
+| **M-7** project deletion | — | unchanged; D-C still stands |
+| **M-8** the adapter-surface test | — | exists already as `test_no_unreachable_capability.py` |
+
+Plus three the slices added: content-loss disclosure (`1b82e7d`), message
+metadata so a turn's reasoning is durable (`1990bd0`), and `origin` on the
+assumption route with `user_stated` refused (`80d2c40`).
+
+### M-4 is the one that needs a person
+
+`POST /clarifications` materialises questions into the transcript on listing, so
+opening a page writes questions nobody was shown. But `_LazySession`'s docstring
+reasons carefully to the current behaviour, and it is **right about asking**: a
+question put to a person belongs in their conversation.
+
+Separating asking from listing means giving an unasked question an identity that
+does not live in the transcript — which changes what `OpenQuestion.id` is. A
+semantics change to the system of record, against a written counter-argument, is
+not something to make unattended.
+
+### Two more found while building
+
+**Three capabilities were reachable-but-unreached, not unreachable.**
+`enqueue_review` was on an adapter and no caller called it; `origin` was on the
+service and not on the schema; `Message.metadata` was persisted and not
+returned. The existing test walks services and asks *"is this declared on an
+adapter"* — it cannot ask *"does anything actually call it"*, and that is where
+these three lived.
+
+**Only two of eight knowledge kinds are unambiguous** across `SOFTWARE_TEMPLATE`,
+so the offline classifier is not a degraded mode — it is two areas. Pinned by
+`test_thin_vertical_proof.py::TestTheOfflineClassifierIsStructurallyLimited`.
+Rebalancing the template is a decision nobody has taken.
+
+Suite: **1853**.
+
 ## What must not change
 
 The `SYSTEM_DIRECTIVE`. Principle 8 — *model-generated inference must never
