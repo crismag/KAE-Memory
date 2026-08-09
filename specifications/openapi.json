@@ -1243,6 +1243,35 @@
         "title": "EnqueueRunRequest",
         "type": "object"
       },
+      "ExtractionCoverageResponse": {
+        "description": "How much of what was submitted became knowledge.\n\nBeside a readiness percentage, never inside it. The two answer different\nquestions \u2014 *how much of this project is understood* and *how much of it was\nread* \u2014 and folding the second into the first produces a number that is\nconfident about content nobody extracted.",
+        "properties": {
+          "abandoned": {
+            "title": "Abandoned",
+            "type": "integer"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "succeeded",
+          "abandoned",
+          "total",
+          "complete"
+        ],
+        "title": "ExtractionCoverageResponse",
+        "type": "object"
+      },
       "FindingResponse": {
         "description": "One quality finding.\n\nNo identifier, deliberately: findings are derived from state, not stored, so\nthere is nothing stable to address. A finding disappears when the condition\nthat produced it does (ADR-0015).",
         "properties": {
@@ -4789,6 +4818,49 @@
         "summary": "Ingest Document",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/extraction-coverage": {
+      "get": {
+        "description": "How much of what was submitted actually became knowledge.\n\nSeparate from readiness on purpose. `PLANNING_MODEL.md`: *\"Content loss is\nreported separately and never folded in.\"* A project whose extraction\nabandoned chunks is not less ready \u2014 it is less **read**, and a percentage\nthat mixed the two would be confident about content nobody extracted.\n\nF-018 measured 29\u201365% abandoned across four real corpora. Until that is\nrepaired, this is what makes the readiness number honest.",
+        "operationId": "extraction_coverage_v1_projects__project_id__extraction_coverage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractionCoverageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extraction Coverage",
+        "tags": [
+          "readiness"
         ]
       }
     },

@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-46 capabilities: 26 on both, 14 HTTP only, 5 MCP only, 1 on neither.
+47 capabilities: 26 on both, 15 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -55,7 +55,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (14)
+## HTTP only, by decision (15)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -72,6 +72,7 @@ carries the reason it is not there.
 | `project.delete` | Remove a project and everything scoped to it | — | `GET /v1/projects/{project_id}/deletion-plan`, `DELETE /v1/projects/{project_id}` | Destructive and irreversible. An agent submitting evidence has no business removing the project it was submitted to, and the decision to delete is one a person makes after reading what would be lost. |
 | `project.read` | Read one project's identity | — | `GET /v1/projects/{project_id}` | MCP answers this inside the briefing. A tool returning a name and a key would cost a round trip to learn what the next call already carries. |
 | `readiness.areas` | Assign knowledge to readiness areas | — | `POST /v1/projects/{project_id}/readiness/areas` | Template administration, not a product action an agent performs. |
+| `readiness.extraction_coverage` | Report how much submitted content became knowledge | — | `GET /v1/projects/{project_id}/extraction-coverage` | A disclosure for a person reading a coverage number, not an input to reasoning. An agent assembling context already receives what the project holds; telling it what was lost would invite it to speculate about the gap, which is the opposite of the point. |
 | `readiness.history` | Read past readiness snapshots | — | `GET /v1/projects/{project_id}/readiness/history` | A trend is something a person looks at; an agent plans from the current figure. |
 | `readiness.recalculate` | Recalculate and snapshot readiness | — | `POST /v1/projects/{project_id}/readiness/calculate` | MCP recalculates when a read finds a stale snapshot, so an agent never needs to ask. Studio drives it from a button. |
 | `run.manage` | Enqueue agent work and follow its progress | — | `POST /v1/projects/{project_id}/runs`, `GET /v1/projects/{project_id}/runs`, `GET /v1/runs/{run_id}`, `GET /v1/runs/{run_id}/events`, `GET /v1/runs/{run_id}/knowledge` | Studio shows progress. An agent that *is* the work does not submit runs to itself, and a tool that let it would invite recursion nobody bounded. |

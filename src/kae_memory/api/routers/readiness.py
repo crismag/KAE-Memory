@@ -20,6 +20,7 @@ from ..schemas import (
     ContradictionResponse,
     EnqueueReviewRequest,
     EnqueueReviewResponse,
+    ExtractionCoverageResponse,
     FindingResponse,
     RaiseBlockerRequest,
     ReadinessResponse,
@@ -61,6 +62,25 @@ def calculate_readiness(
     identifier = ProjectId(project_id)
     snapshot = readiness.calculate(identifier, body.not_applicable_areas)
     return ReadinessResponse.of(snapshot, readiness.knowledge_revision(identifier))
+
+
+@router.get("/extraction-coverage", response_model=ExtractionCoverageResponse)
+def extraction_coverage(
+    project_id: str, memory: Memory, readiness: Readiness
+) -> ExtractionCoverageResponse:
+    """How much of what was submitted actually became knowledge.
+
+    Separate from readiness on purpose. `PLANNING_MODEL.md`: *"Content loss is
+    reported separately and never folded in."* A project whose extraction
+    abandoned chunks is not less ready — it is less **read**, and a percentage
+    that mixed the two would be confident about content nobody extracted.
+
+    F-018 measured 29–65% abandoned across four real corpora. Until that is
+    repaired, this is what makes the readiness number honest.
+    """
+
+    _require_project(memory, project_id)
+    return ExtractionCoverageResponse.of(readiness.extraction_coverage(ProjectId(project_id)))
 
 
 @router.get("/readiness/history", response_model=list[ReadinessResponse])

@@ -16,6 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
+from kae_memory.application.readiness_service import ExtractionCoverage
 from kae_memory.application.review_service import Finding
 from kae_memory.domain.dispositions import Disposition, settles
 from kae_memory.domain.execution import AgentRun
@@ -182,6 +183,30 @@ class KnowledgeResponse(BaseModel):
                 )
                 for version in item.versions
             ],
+        )
+
+
+class ExtractionCoverageResponse(BaseModel):
+    """How much of what was submitted became knowledge.
+
+    Beside a readiness percentage, never inside it. The two answer different
+    questions — *how much of this project is understood* and *how much of it was
+    read* — and folding the second into the first produces a number that is
+    confident about content nobody extracted.
+    """
+
+    succeeded: int
+    abandoned: int
+    total: int
+    complete: bool
+
+    @classmethod
+    def of(cls, coverage: "ExtractionCoverage") -> "ExtractionCoverageResponse":
+        return cls(
+            succeeded=coverage.succeeded,
+            abandoned=coverage.abandoned,
+            total=coverage.total,
+            complete=coverage.is_complete,
         )
 
 

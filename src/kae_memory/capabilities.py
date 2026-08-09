@@ -113,6 +113,18 @@ REGISTRY: tuple[Capability, ...] = (
         http=("POST /v1/knowledge/{item_id}/confirm",),
     ),
     Capability(
+        key="readiness.extraction_coverage",
+        summary="Report how much submitted content became knowledge",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/extraction-coverage",),
+        reason=(
+            "A disclosure for a person reading a coverage number, not an input "
+            "to reasoning. An agent assembling context already receives what "
+            "the project holds; telling it what was lost would invite it to "
+            "speculate about the gap, which is the opposite of the point."
+        ),
+    ),
+    Capability(
         key="knowledge.confirm_set",
         summary="Relay a person's single decision to accept a named set of candidates",
         exposure=Exposure.PRODUCT_ONLY,

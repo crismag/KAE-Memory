@@ -13,6 +13,7 @@ or whether a model ran at all.
 """
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.errors import DomainInvariantError
+from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import (
     AgentRunId,
     AreaLinkId,
@@ -58,6 +60,7 @@ from kae_memory.persistence.readiness_repositories import (
 )
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
+from kae_memory.persistence.workspace_repositories import AgentRunRepository
 
 
 def _new_id() -> str:
@@ -156,6 +159,43 @@ def derive_status(
     return ReadinessStatus.DISCOVERING
 
 
+#: Roles whose runs turn submitted text into knowledge.
+#:
+#: Review and architecture read what already exists; abandoning one loses
+#: classification or a derived decision, not source content. Counting them here
+#: would report loss that did not happen.
+_EXTRACTION_ROLES = frozenset({AgentRole.REQUIREMENTS, AgentRole.DISCOVERY})
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionCoverage:
+    """How much of what was submitted survived extraction.
+
+    Reported beside a readiness percentage, never folded into it. A percentage
+    computed over content that was never captured is a confident lie, and the
+    two numbers answer different questions: one is *how much of this project is
+    understood*, the other is *how much of it was read*.
+    """
+
+    succeeded: int
+    abandoned: int
+
+    @property
+    def total(self) -> int:
+        return self.succeeded + self.abandoned
+
+    @property
+    def is_complete(self) -> bool:
+        """Whether everything submitted became knowledge.
+
+        A project with nothing submitted is complete rather than unknown: there
+        is no loss to disclose, and saying "coverage unknown" to someone who has
+        not started would be a warning about nothing.
+        """
+
+        return self.abandoned == 0
+
+
 class ReadinessService:
     """Application entry point for readiness, blockers, and contradictions."""
 
@@ -237,6 +277,36 @@ class ReadinessService:
         return self._run(
             lambda session: KnowledgeAreaLinkRepository(session).list_for_project(project_id)
         )
+
+    def extraction_coverage(self, project_id: ProjectId) -> "ExtractionCoverage":
+        """How much of what was submitted actually became knowledge.
+
+        **The disclosure `PLANNING_MODEL.md` requires and nothing implemented:**
+        *"Content loss is reported separately and never folded in. While F-018 is
+        open, a project whose extraction abandoned chunks must say so."*
+
+        F-018 measured 29–65% of chunks abandoned across four real corpora, every
+        one `retry_budget_exhausted` after `verify_quotes` rejected a citation
+        that was a directory tree or a code fence. Everything downstream —
+        requirements, readiness, definition, coverage — is computed over what
+        survived, and the survivors look exactly like a complete project.
+
+        This does not repair the loss. It makes the existing number honest,
+        which is what makes deferring the repair defensible rather than
+        convenient.
+
+        Counted from the runs themselves rather than stored, so it cannot drift
+        from what happened.
+        """
+
+        def operation(session: DbSession) -> ExtractionCoverage:
+            runs = AgentRunRepository(session).list_for_project(project_id, None)
+            extraction = [r for r in runs if r.role in _EXTRACTION_ROLES]
+            succeeded = sum(1 for r in extraction if r.status is RunStatus.SUCCEEDED)
+            abandoned = sum(1 for r in extraction if r.status is RunStatus.ABANDONED)
+            return ExtractionCoverage(succeeded=succeeded, abandoned=abandoned)
+
+        return self._run(operation)
 
     def record_contradiction(
         self,
