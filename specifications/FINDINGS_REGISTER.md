@@ -433,8 +433,26 @@ cause. **Evidence:** the four reference projects on the deployment.
 
 Review assigns knowledge to discovery areas; readiness counts per area. The
 configured reviewer is `deterministic-review-fixture`, which classifies only
-where a knowledge kind leaves no choice, and `KAE_REVIEW` has no live adapter on
-the deployment.
+where a knowledge kind leaves no choice.
+
+> **Corrected 2026-08-09, and the cause was not what this said.** The original
+> text blamed `KAE_REVIEW` having no live adapter on the deployment.
+> `KAE_REVIEW=bedrock` had in fact been set since 2026-08-08 03:48 UTC, with the
+> worker restarted at 04:05. Running the pass by hand against the live host
+> found **three independent links in series**, so fixing any one alone changed
+> nothing:
+>
+> 1. **Nothing triggered review.** `POST /review/runs` worked and no caller ever
+>    called it — the project had 25 knowledge revisions and zero review runs.
+>    Fixed by `82e9bf8`: a knowledge-writing run asks for review once it is the
+>    last run standing, enqueued in the transaction that marks it succeeded.
+> 2. **Nothing recalculated readiness.** `knowledge_revision: 0` against
+>    `current_knowledge_revision: 25`, `is_stale: true` — see F-020. The review
+>    run now recalculates.
+> 3. **The reviewer degraded silently.** All 178 statements went in one request
+>    and it returned `provider_timeout`; the run recorded
+>    `offline_by_kind_after_reviewer_error` and reported **succeeded**. Fixed by
+>    `524b2b1`: batched, with partial degradation reported per batch.
 
 Measured over four projects holding 1,575 statements: **only
 `users_and_stakeholders` and `constraints_and_assumptions` ever populate.** 242
@@ -446,6 +464,21 @@ and boundaries* is a judgement the fixture will not make.
 ten*. Definition Health, Requirements Coverage, and the ten-to-seven mapping
 ruled in D-A all read from area assignment, so each is capped at describing a
 fifth of the taxonomy however well it is built.
+
+**Why exactly two, and why it is structural.** Across `SOFTWARE_TEMPLATE`,
+exactly **two of eight knowledge kinds map to a single area** — `actor` →
+`users_and_stakeholders`, `assumption` → `constraints_and_assumptions`. Goal,
+rule, constraint, requirement and decision each map to between two and five, so
+the offline classifier declines all of them. Correctly: guessing manufactures
+coverage a user then has to unpick (ADR-0015).
+
+So a deployment without a review model does not get *partial* coverage. It gets
+two areas, and only where those two kinds happen to appear. **`KAE_REVIEW` is
+not an optimisation**, and rebalancing the template to make more kinds
+unambiguous would trade classification precision for offline capability — a
+decision nobody has taken. Pinned by
+`tests/integration/test_thin_vertical_proof.py::TestTheOfflineClassifierIsStructurallyLimited`,
+which names the two kinds rather than counting them.
 
 **Distinct from F-004.** That is about attesting the *human* who confirms; this
 is about the *model* that classifies. **Drives:** EM-6b.
