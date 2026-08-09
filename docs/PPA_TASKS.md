@@ -42,19 +42,47 @@ turn's `provenance` field.
 *Exit:* one call confirms nine statements; readiness moves; partial failure
 confirms nothing.
 
-### M-2 · The reviewer on the deployment — *F-019, one variable*
+### M-2 · Make review actually happen — *F-019, corrected 2026-08-09*
 
-`KAE_REVIEW` is unset, so the shipped reviewer is
-`deterministic-review-fixture`, which classifies only where a knowledge kind
-leaves no choice. **Eight of ten areas can never populate.** This is why 72
-accurate statements produced `0% · not_started`.
+**This was recorded as "`KAE_REVIEW` is unset — one environment variable". That
+was wrong.** It has been set to `bedrock` on the deployment since 2026-08-08
+03:48 UTC. Running the pass by hand against the live host found three links in
+series; fixing any one alone changes nothing.
 
-The adapter must declare itself as extraction reports
-`deterministic-fixture`, and refuse rather than degrade on an unsatisfiable
-opt-in.
+**(a) Nothing triggers review.** `POST /v1/projects/{id}/review/runs` works —
+EM-5 put `enqueue_review` on an adapter — and its docstring is unambiguous:
+*"This is the step that makes readiness mean anything… without it a project
+holding eight hundred statements reports 0% and every area empty."* It is
+deliberately manual because review is cross-chunk and there is no run-dependency
+mechanism, so **the caller decides when — and no caller ever does.** The project
+had 25 knowledge revisions and zero review runs. *The capability was made
+reachable and then not reached.*
+
+**(b) Nothing recalculates readiness.** `knowledge_revision: 0` against
+`current_knowledge_revision: 25`, `is_stale: true`. Even correct classification
+would have displayed a pre-conversation number, and displayed it as current
+(F-020).
+
+**(c) `_classify` sends every statement in one request.** 178 of them, no
+batching, and the reviewer returned `provider_timeout`. This is not bad luck; it
+is what the code does on any project past a certain size.
+
+**(d) The fallback is silent.** The run recorded
+`classification: offline_by_kind_after_reviewer_error` and reported
+**succeeded**. The fallback ruling is sound — *losing the ambiguous cases costs
+coverage a human can supply; losing the run costs the unambiguous ones too* —
+but nothing above `output_summary` says it happened. `default_reviewer` refuses
+rather than degrades **at adapter construction**; this failure is at call time,
+which the guard does not cover. The exact state EM-6b exists to end, reached
+through the door it did not lock.
+
+*Measured after running (a) and (b) by hand:* health `0% → 8%`, status
+`not_started → discovering`, readiness revision `0/25 → 62/62`, areas
+`0 → 2 of 10`. **Two of ten is the fixture's signature** — which is what (c) and
+(d) are for.
 
 *Exit:* more than two of ten areas populate on a project holding hundreds of
-statements.
+statements, **and** a degraded run is visibly degraded.
 
 ### M-3 · The aggregate clarification key — *PPA-01*
 

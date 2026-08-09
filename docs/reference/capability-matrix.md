@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-45 capabilities: 26 on both, 13 HTTP only, 5 MCP only, 1 on neither.
+46 capabilities: 26 on both, 14 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -55,7 +55,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (13)
+## HTTP only, by decision (14)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -66,6 +66,7 @@ carries the reason it is not there.
 | `contradiction.manage` | Record and resolve contradictions | — | `POST /v1/projects/{project_id}/contradictions`, `POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve` | Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it. |
 | `deliverable.lifecycle` | Supersede or withdraw a recorded deliverable | — | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede`, `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Withdrawing what a project stands behind is a person's judgement, and an agent that could do it would be settling a question nobody asked it. |
 | `deliverable.read` | One deliverable's manifest, artifact index, and lifecycle | — | `GET /v1/projects/{project_id}/deliverables/{deliverable_id}` | An agent that recorded a deliverable already holds its payload. Studio resolves one from a stored id when a person opens it later. |
+| `knowledge.confirm_set` | Relay a person's single decision to accept a named set of candidates | — | `POST /v1/projects/{project_id}/knowledge/confirm` | A set confirmation exists because a person was shown one reading composed of several statements and agreed to it; the set is the provenance of what they were shown. An agent has no such moment — it already holds the items and can confirm each on its own account. A bulk verb on MCP would only make it cheaper to convert a page of inference into user-confirmed knowledge in one call, which is the failure directive principle 8 exists to prevent. |
 | `knowledge.list` | List a project's knowledge items | — | `GET /v1/projects/{project_id}/knowledge` | An agent that loads every statement has defeated the point of a bounded context. Studio renders a review queue and legitimately needs the list. |
 | `knowledge.trace` | Resolve a statement to the evidence behind it | — | `GET /v1/knowledge/{item_id}/trace` | MCP carries provenance inside the payloads that quote a statement, so a separate trace call would return what the agent already holds. |
 | `project.delete` | Remove a project and everything scoped to it | — | `GET /v1/projects/{project_id}/deletion-plan`, `DELETE /v1/projects/{project_id}` | Destructive and irreversible. An agent submitting evidence has no business removing the project it was submitted to, and the decision to delete is one a person makes after reading what would be lost. |

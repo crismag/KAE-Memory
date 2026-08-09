@@ -734,6 +734,25 @@
         "title": "ClassificationListResponse",
         "type": "object"
       },
+      "ConfirmKnowledgeSetRequest": {
+        "description": "The items a person's single \"yes\" applies to.\n\nNon-empty by constraint. An empty set is not a smaller confirmation; it is a\ncaller that lost track of what it was asking about, and answering 200 with\nan empty list would let it carry on believing something was confirmed.\n\nBounded because a confirmation set describes one synthesis. A request naming\nfive hundred items is a caller confirming a whole project by accident, which\nis exactly the \"silently becomes user-confirmed\" failure the directive\nforbids.",
+        "properties": {
+          "item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Item Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_ids"
+        ],
+        "title": "ConfirmKnowledgeSetRequest",
+        "type": "object"
+      },
       "ContradictionResponse": {
         "properties": {
           "id": {
@@ -4821,6 +4840,63 @@
           }
         },
         "summary": "List Knowledge",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge/confirm": {
+      "post": {
+        "description": "Confirm a named set of candidates as one act.\n\n**The reading is what a person agrees to, not the rows underneath it.** A\nconversation synthesises nine statements into one sentence and asks whether\nit holds; the answer is one yes. Confirming per item made a caller decompose\nthat yes itself, and none did \u2014 an interviewer wrote \"Confirmed\" while the\npanel two across read \"0 of 1 confirmed\".\n\nThe set is the turn's provenance: the items the synthesis was drawn from.\nSending it back is what binds agreement to what was actually shown.\n\nAll or nothing, and one revision bump. A partially applied confirmation\nwould leave someone believing they agreed to a reading while part of it\nstayed proposed, and no surface distinguishes that from having agreed.\n\nOn the adapter deliberately. Four capabilities in this codebase were built\ncomplete and reachable from nothing, and the reason readiness reported 0%\nwas a fifth. A service method with passing tests looks healthy from below.",
+        "operationId": "confirm_knowledge_set_v1_projects__project_id__knowledge_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmKnowledgeSetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/KnowledgeResponse"
+                  },
+                  "title": "Response Confirm Knowledge Set V1 Projects  Project Id  Knowledge Confirm Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Knowledge Set",
         "tags": [
           "workspace"
         ]

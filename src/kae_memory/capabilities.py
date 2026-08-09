@@ -113,6 +113,21 @@ REGISTRY: tuple[Capability, ...] = (
         http=("POST /v1/knowledge/{item_id}/confirm",),
     ),
     Capability(
+        key="knowledge.confirm_set",
+        summary="Relay a person's single decision to accept a named set of candidates",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/knowledge/confirm",),
+        reason=(
+            "A set confirmation exists because a person was shown one reading "
+            "composed of several statements and agreed to it; the set is the "
+            "provenance of what they were shown. An agent has no such moment — "
+            "it already holds the items and can confirm each on its own "
+            "account. A bulk verb on MCP would only make it cheaper to convert "
+            "a page of inference into user-confirmed knowledge in one call, "
+            "which is the failure directive principle 8 exists to prevent."
+        ),
+    ),
+    Capability(
         key="knowledge.reject",
         summary="Relay a person's decision to refuse a candidate",
         exposure=Exposure.BOTH,

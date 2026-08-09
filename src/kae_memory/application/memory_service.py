@@ -1157,6 +1157,67 @@ class MemoryService:
 
         return self._run(operation)
 
+    def confirm_knowledge_set(
+        self, project_id: ProjectId, item_ids: Sequence[KnowledgeItemId]
+    ) -> tuple[KnowledgeItem, ...]:
+        """Confirm a named set of candidates as one act.
+
+        **What a person is agreeing to is a reading, not a row.** A conversation
+        synthesises nine statements into one sentence and asks whether it holds;
+        the answer is a single yes. With only per-item confirmation there was
+        nothing for that yes to act on, so an interviewer wrote "Confirmed"
+        while the panel beside it read "0 of 1 confirmed" — both correct, both
+        describing different things with the same word.
+
+        The set comes from the turn's provenance: the items the synthesis was
+        actually drawn from, so agreement lands on what was shown rather than on
+        whatever happens to be proposed now.
+
+        **All or nothing.** One transaction, one revision bump. A partial
+        confirmation would leave the person believing they agreed to a reading
+        while some of what composed it stayed proposed — and no surface
+        distinguishes "you confirmed six of nine" from "you confirmed it".
+
+        Refuses an item from another project rather than skipping it. A set
+        assembled against the wrong project is a caller defect, and silently
+        confirming the subset that happens to match would hide it.
+        """
+
+        unique = list(dict.fromkeys(item_ids))
+        if not unique:
+            return ()
+
+        def operation(db_session: DbSession) -> tuple[KnowledgeItem, ...]:
+            repository = SqlAlchemyKnowledgeRepository(db_session)
+            confirmed: list[KnowledgeItem] = []
+            for item_id in unique:
+                item = repository.get(item_id)
+                if item is None:
+                    raise LookupError(f"unknown knowledge item: {item_id}")
+                if item.project_id != project_id:
+                    raise LookupError(
+                        f"knowledge item {item_id} belongs to another project; "
+                        f"a confirmation set is scoped to one project"
+                    )
+                # Already validated is not an error. Re-confirming a set whose
+                # membership overlaps an earlier one is ordinary, and a caller
+                # that had to diff the two first would be doing the work this
+                # method exists to remove.
+                if item.lifecycle is LifecycleState.VALIDATED:
+                    confirmed.append(item)
+                    continue
+                updated = item.transition_to(LifecycleState.VALIDATED)
+                repository.save(updated)
+                confirmed.append(updated)
+
+            # Once, not once per item. The revision marks "the project's
+            # knowledge changed", and one act changed it once — a caller
+            # comparing revisions to detect movement should not see nine.
+            bump_knowledge_revision(db_session, project_id)
+            return tuple(confirmed)
+
+        return self._run(operation)
+
     def reject_knowledge(
         self,
         item_id: KnowledgeItemId,

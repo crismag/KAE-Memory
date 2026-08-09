@@ -3,7 +3,7 @@
 
 # HTTP API
 
-46 paths, 54 operations — 29 GET, 24 POST.
+47 paths, 55 operations — 29 GET, 25 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -57,7 +57,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (24)
+## Writes (25)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -80,6 +80,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede` | Supersede or withdraw a recorded deliverable |
 | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Supersede or withdraw a recorded deliverable |
 | `POST /v1/projects/{project_id}/documents` | Record a document as evidence and queue its extraction |
+| `POST /v1/projects/{project_id}/knowledge/confirm` | Relay a person's single decision to accept a named set of candidates |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` | Record corrected wording as a new version |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Relay a person's decision to refuse a candidate |
 | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` | Relay a person's decision about a reported operational record |

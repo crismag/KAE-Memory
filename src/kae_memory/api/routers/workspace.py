@@ -9,10 +9,11 @@ from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, MessagePurpose, MessageType, SessionType
 
 from ..dependencies import Memory, ProjectDeletion, SessionFactory
-from ..errors import not_found
+from ..errors import ApiError, not_found
 from ..events import StreamConfig, run_events
 from ..parsing import parse_enum
 from ..schemas import (
+    ConfirmKnowledgeSetRequest,
     CreateProjectRequest,
     DeletionPlanResponse,
     EnqueueRunRequest,
@@ -253,6 +254,44 @@ def confirm_knowledge(item_id: str, memory: Memory) -> KnowledgeResponse:
     """
 
     return KnowledgeResponse.of(memory.confirm_knowledge(KnowledgeItemId(item_id)))
+
+
+@router.post(
+    "/projects/{project_id}/knowledge/confirm", response_model=list[KnowledgeResponse]
+)
+def confirm_knowledge_set(
+    project_id: str, body: ConfirmKnowledgeSetRequest, memory: Memory
+) -> list[KnowledgeResponse]:
+    """Confirm a named set of candidates as one act.
+
+    **The reading is what a person agrees to, not the rows underneath it.** A
+    conversation synthesises nine statements into one sentence and asks whether
+    it holds; the answer is one yes. Confirming per item made a caller decompose
+    that yes itself, and none did — an interviewer wrote "Confirmed" while the
+    panel two across read "0 of 1 confirmed".
+
+    The set is the turn's provenance: the items the synthesis was drawn from.
+    Sending it back is what binds agreement to what was actually shown.
+
+    All or nothing, and one revision bump. A partially applied confirmation
+    would leave someone believing they agreed to a reading while part of it
+    stayed proposed, and no surface distinguishes that from having agreed.
+
+    On the adapter deliberately. Four capabilities in this codebase were built
+    complete and reachable from nothing, and the reason readiness reported 0%
+    was a fifth. A service method with passing tests looks healthy from below.
+    """
+
+    _require_project(memory, project_id)
+    try:
+        confirmed = memory.confirm_knowledge_set(
+            ProjectId(project_id), [KnowledgeItemId(i) for i in body.item_ids]
+        )
+    except LookupError as error:
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND, "not_found", str(error)
+        ) from error
+    return [KnowledgeResponse.of(item) for item in confirmed]
 
 
 @router.post(

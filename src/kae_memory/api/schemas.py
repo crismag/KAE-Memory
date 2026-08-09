@@ -170,6 +170,22 @@ class KnowledgeResponse(BaseModel):
         )
 
 
+class ConfirmKnowledgeSetRequest(BaseModel):
+    """The items a person's single "yes" applies to.
+
+    Non-empty by constraint. An empty set is not a smaller confirmation; it is a
+    caller that lost track of what it was asking about, and answering 200 with
+    an empty list would let it carry on believing something was confirmed.
+
+    Bounded because a confirmation set describes one synthesis. A request naming
+    five hundred items is a caller confirming a whole project by accident, which
+    is exactly the "silently becomes user-confirmed" failure the directive
+    forbids.
+    """
+
+    item_ids: list[str] = Field(min_length=1, max_length=200)
+
+
 class EnqueueRunRequest(BaseModel):
     """``idempotency_key`` is required, not optional.
 
