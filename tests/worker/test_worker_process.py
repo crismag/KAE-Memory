@@ -126,6 +126,11 @@ def test_architecture_consumes_only_confirmed_knowledge(factory: sessionmaker[Se
     worker = _worker(factory)
     worker.run_once()
 
+    # Extraction drained, so it asked for the review that classifies what it
+    # wrote. Drain that too before enqueuing anything else, or the next
+    # `run_once` claims the review and this test reads its summary instead.
+    worker.run_once()
+
     # Nothing confirmed yet: no decisions, and that is the correct answer.
     memory.enqueue_run(project.id, AgentRole.ARCHITECTURE, "derive-1", session_id=session.id)
     empty = worker.run_once()
@@ -184,7 +189,12 @@ def test_the_loop_drains_the_queue_then_stops_when_asked(factory: sessionmaker[S
 
     processed = worker.run_forever(sleep=sleep)
 
-    assert processed == 3
+    # Four, not three. The last extraction to finish sees an empty queue and
+    # asks for the review that assigns what all three wrote to areas — the step
+    # without which a project holding hundreds of statements reports 0% with
+    # every area empty. One review for three extractions, because they share an
+    # idempotency key.
+    assert processed == 4
     assert polls == [0.01], "the loop should idle exactly once, after draining the queue"
 
 
@@ -238,3 +248,112 @@ def test_the_default_extractor_needs_no_credentials(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("KAE_EXTRACTION", raising=False)
 
     assert isinstance(default_extractor(), DeterministicExtractionAdapter)
+
+
+def test_extraction_asks_for_the_review_that_makes_readiness_mean_anything(
+    factory: sessionmaker[Session],
+) -> None:
+    """The defect this closes: knowledge written, never classified, 0% reported.
+
+    A deployment accrued twenty-five knowledge revisions and zero review runs,
+    because `enqueue_review` was left for "the caller" to decide and no caller
+    existed. Review assigns each item to a discovery area and readiness counts
+    per area, so without it a project holding hundreds of accurate statements
+    reports every area empty.
+
+    Nothing here calls `enqueue_review`. That is the assertion.
+    """
+
+    memory = MemoryService(factory)
+    project, _session, _message, _run = _enqueue_requirements(memory, factory)
+    worker = _worker(factory)
+
+    worker.run_once()  # extraction
+
+    queued = [r for r in memory.runs_for_project(project.id) if r.role is AgentRole.REVIEW]
+    assert len(queued) == 1, "extraction should have asked for exactly one review"
+    assert queued[0].status is RunStatus.PENDING
+
+    reviewed = worker.run_once()
+    assert reviewed is not None
+    assert reviewed.role is AgentRole.REVIEW
+    assert reviewed.status is RunStatus.SUCCEEDED
+
+    summary = reviewed.output_summary or {}
+
+    # `areas_assigned` is deliberately not asserted above zero here. This worker
+    # has no review adapter, so it classifies offline — only where a knowledge
+    # kind leaves no choice — and for this corpus that is nothing: `goal` fits
+    # both problem_and_value and scope_and_boundaries, `requirement` fits four
+    # areas. That is the two-of-ten fixture signature, and it is the subject of
+    # the reviewer work, not of the trigger this test is about.
+    assert summary["classification"] == "offline_by_kind"
+
+    # What this test does assert about readiness: the review recalculated it,
+    # inside the same run. A review that assigns areas and leaves the snapshot
+    # untouched has changed nothing anyone can see — the deployed project sat at
+    # snapshot revision 0 against a current revision of 25 and reported
+    # "0% · not_started", accurate about a state twenty-five revisions old.
+    assert "readiness_percentage" in summary
+    assert "readiness_status" in summary
+
+
+def test_several_extractions_produce_one_review_not_one_each(
+    factory: sessionmaker[Session],
+) -> None:
+    """Review is cross-chunk, so it is worth doing once, at the end.
+
+    Chunk 7 and chunk 31 may conflict and neither run can see the other. A
+    review per chunk would be a model call per chunk and would still miss what
+    only the whole set shows.
+    """
+
+    memory = MemoryService(factory)
+    project = memory.create_project("Fan-out")
+    session = memory.open_session(project.id, SessionType.DISCOVERY)
+    for index in range(3):
+        message = memory.record_message(project.id, session.id, IDEA).message
+        memory.enqueue_run(
+            project.id,
+            AgentRole.REQUIREMENTS,
+            f"chunk-{index}",
+            session_id=session.id,
+            input_context={"message_id": str(message.id)},
+        )
+
+    worker = _worker(factory)
+    for _ in range(4):
+        worker.run_once()
+
+    reviews = [r for r in memory.runs_for_project(project.id) if r.role is AgentRole.REVIEW]
+    assert len(reviews) == 1, f"three extractions should yield one review, got {len(reviews)}"
+
+
+def test_no_review_is_asked_for_while_extraction_is_still_running(
+    factory: sessionmaker[Session],
+) -> None:
+    """Reviewing a half-extracted project would classify half of it.
+
+    The check is by identity rather than status: the run asking has not been
+    marked terminal yet — the worker does that after this returns — so counting
+    non-terminal runs would always find itself.
+    """
+
+    memory = MemoryService(factory)
+    project = memory.create_project("Still going")
+    session = memory.open_session(project.id, SessionType.DISCOVERY)
+    for index in range(2):
+        message = memory.record_message(project.id, session.id, IDEA).message
+        memory.enqueue_run(
+            project.id,
+            AgentRole.REQUIREMENTS,
+            f"chunk-{index}",
+            session_id=session.id,
+            input_context={"message_id": str(message.id)},
+        )
+
+    worker = _worker(factory)
+    worker.run_once()  # one of two — the other is still pending
+
+    reviews = [r for r in memory.runs_for_project(project.id) if r.role is AgentRole.REVIEW]
+    assert reviews == [], "a review asked for now would classify a half-extracted project"

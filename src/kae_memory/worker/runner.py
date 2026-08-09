@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
+from uuid import uuid4
 
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
@@ -25,9 +26,11 @@ from sqlalchemy.orm import sessionmaker
 from kae_memory.domain.execution import (
     DEFAULT_HEARTBEAT_SECONDS,
     DEFAULT_LEASE_SECONDS,
+    AgentRole,
     AgentRun,
     RunStatus,
 )
+from kae_memory.domain.identifiers import AgentRunId
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
 from kae_memory.persistence.workspace_repositories import AgentRunRepository
 
@@ -42,12 +45,40 @@ class LeaseLostError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class FollowUp:
+    """A run to enqueue when the run that asked for it succeeds.
+
+    The run-dependency mechanism whose absence made review a manual step.
+
+    `IngestionService.enqueue_review` says it plainly: review is cross-chunk, so
+    it is meaningful only once extraction has drained, and *"there is no
+    run-dependency mechanism here, so enqueuing it alongside them would let a
+    worker claim it first and review an empty project."* The conclusion drawn
+    was that the caller decides when — and no caller ever did. A deployment
+    accumulated twenty-five knowledge revisions and zero review runs, so every
+    discovery area stayed empty and readiness reported 0% over accurate
+    knowledge.
+
+    This is that mechanism, in the one place that knows a run has finished.
+    """
+
+    role: AgentRole
+    #: Deduplicates. Several runs finishing together each propose the follow-up;
+    #: an identical key means one run, not one per proposer.
+    idempotency_key: str
+
+
+@dataclass(frozen=True, slots=True)
 class StepResult:
     """What one workflow step produced."""
 
     checkpoint: dict[str, Any]
     done: bool = False
     output_summary: dict[str, Any] | None = None
+    #: Enqueued **in the same transaction that marks this run succeeded**, so a
+    #: crash cannot leave a project whose extraction is complete and whose
+    #: review was never asked for. Ignored unless `done`.
+    follow_up: tuple[FollowUp, ...] = ()
 
 
 class StepExecutor(Protocol):
@@ -168,7 +199,8 @@ class Worker:
             if result.done
             else _with_checkpoint(run, result.checkpoint)
         )
-        if not self._save(updated, moment):
+        follow_up = result.follow_up if result.done else ()
+        if not self._save(updated, moment, follow_up):
             raise LeaseLostError(f"run {run.id} was reclaimed before its checkpoint committed")
         return updated
 
@@ -193,9 +225,40 @@ class Worker:
             raise LeaseLostError(f"run {run.id} was reclaimed before its failure was recorded")
         return updated
 
-    def _save(self, run: AgentRun, moment: datetime) -> bool:
+    def _save(
+        self, run: AgentRun, moment: datetime, follow_up: tuple[FollowUp, ...] = ()
+    ) -> bool:
+        """Persist the run, and any work its completion entitles.
+
+        One transaction, deliberately. Enqueuing afterwards would leave a window
+        where a project's extraction is complete and its review was never asked
+        for — recoverable only by someone noticing, which is exactly how the
+        manual version failed. Fencing still decides: a run reclaimed by another
+        worker saves nothing and enqueues nothing.
+        """
+
         def operation(session: DbSession) -> bool:
-            return AgentRunRepository(session).save_fenced(run, moment)
+            repository = AgentRunRepository(session)
+            if not repository.save_fenced(run, moment):
+                return False
+            for entry in follow_up:
+                # Idempotent by key. Several runs finishing together each
+                # propose the same follow-up; the first wins and the rest find
+                # it, so a project gets one review rather than one per chunk.
+                if repository.find_by_idempotency_key(run.project_id, entry.idempotency_key):
+                    continue
+                repository.add(
+                    AgentRun(
+                        id=AgentRunId(str(uuid4())),
+                        project_id=run.project_id,
+                        session_id=run.session_id,
+                        role=entry.role,
+                        status=RunStatus.PENDING,
+                        idempotency_key=entry.idempotency_key,
+                    ),
+                    moment,
+                )
+            return True
 
         return self._run(operation)
 

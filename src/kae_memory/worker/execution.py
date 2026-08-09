@@ -40,7 +40,7 @@ from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeItem
 from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
 
-from .runner import StepResult
+from .runner import FollowUp, StepResult
 
 
 class UnsupportedRoleError(RuntimeError):
@@ -270,6 +270,21 @@ class AgentStepExecutor:
             "classification": engine,
         }
         summary.update(provenance)
+
+        # Recalculate, here, rather than leaving it to whoever reads next.
+        #
+        # Area links are what readiness counts, so a review that assigns them
+        # and stops has changed nothing a person can see. The deployed project
+        # held a snapshot at revision 0 against a current revision of 25 and
+        # reported "0% · not_started" — accurate about a state twenty-five
+        # revisions old, and flagged `is_stale` in a field no surface rendered.
+        #
+        # A snapshot is appended, not replaced, which is what lets the product
+        # show readiness *moving* as knowledge lands.
+        snapshot = readiness.calculate(run.project_id)
+        summary["readiness_percentage"] = snapshot.percentage
+        summary["readiness_status"] = snapshot.status.value
+
         return StepResult(
             checkpoint={"phase": "reviewed", "assigned": assigned},
             done=True,
@@ -349,6 +364,53 @@ class AgentStepExecutor:
             checkpoint={"phase": "written", "items_written": len(requests)},
             done=True,
             output_summary=summary,
+            follow_up=self._review_when_the_queue_drains(memory, run),
+        )
+
+    def _review_when_the_queue_drains(
+        self, memory: MemoryService, run: AgentRun
+    ) -> tuple[FollowUp, ...]:
+        """Ask for a review pass, but only once this is the last run standing.
+
+        Attached to every run that writes knowledge, not to extraction alone.
+        Architecture writes decisions, and decisions need an area like anything
+        else — "knowledge written and never classified" is the same defect
+        whichever role wrote it.
+
+        **Extraction writes knowledge; review is what assigns it to an area, and
+        readiness counts per area.** Without review a project holding hundreds
+        of accurate statements reports 0% with every area empty — which is what
+        a real deployment did for twenty-five knowledge revisions, because
+        enqueuing review was left to a caller and no caller existed.
+
+        Review is cross-chunk: chunk 7 and chunk 31 may conflict and neither run
+        can see the other. So it is worth doing once, at the end, rather than
+        after each chunk — hence the check that nothing else is still in
+        flight. This run is not terminal yet (the worker completes it after this
+        returns), so it is excluded by identity rather than by status.
+
+        The race is real and handled by the key rather than by this check: two
+        final runs can each see the other absent and both propose. An identical
+        key makes that one review.
+        """
+
+        outstanding = [
+            other
+            for other in memory.runs_for_project(run.project_id)
+            if other.id != run.id and not other.is_terminal
+        ]
+        if outstanding:
+            return ()
+
+        # Keyed on the revision, so a project that grows later is reviewed
+        # again while a retried step is not. Keying on the run id would review
+        # once per chunk; keying on the project alone would review once ever.
+        revision = ReadinessService(self.session_factory).knowledge_revision(run.project_id)
+        return (
+            FollowUp(
+                role=AgentRole.REVIEW,
+                idempotency_key=f"review:after-extraction:r{revision}",
+            ),
         )
 
 

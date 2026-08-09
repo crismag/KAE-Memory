@@ -43,7 +43,18 @@ mcp = [
 packages = ["src/kae_memory"]
 
 [tool.pytest.ini_options]
-addopts = "--strict-markers --strict-config --cov=kae_memory --cov-report=term-missing"
+# `-m "not cockroachdb"` deselects the provider-parity suite by default.
+#
+# CockroachDB support is deferred by decision (F-003 / VG-4), and the standing
+# rule is that no phase expands into provider parity. Running those tests needs
+# a live Cockroach node, which costs more memory than the work it protects is
+# worth on a development machine.
+#
+# Deselected, not deleted: `KAE_TEST_PROVIDER=cockroachdb pytest -m cockroachdb`
+# still runs them when the decision is revisited. The offline adapter tests —
+# type mapping, vector column spec — are not marked and keep running, so the
+# parity *contract* stays covered without a server.
+addopts = "--strict-markers --strict-config -m 'not cockroachdb' --cov=kae_memory --cov-report=term-missing"
 testpaths = ["tests"]
 markers = [
     "database: requires a live database",
