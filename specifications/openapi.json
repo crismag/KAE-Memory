@@ -2311,6 +2311,11 @@
             "title": "Evidence",
             "type": "array"
           },
+          "origin": {
+            "default": "kae_inferred",
+            "title": "Origin",
+            "type": "string"
+          },
           "reason": {
             "minLength": 1,
             "title": "Reason",
@@ -3686,7 +3691,7 @@
         ]
       },
       "post": {
-        "description": "Record what KAE proceeded on in place of information nobody supplied.\n\nProposed, whoever asked. Acceptance is a separate act by a named person,\nbecause a caller that could record one already accepted would be recording\na decision nobody made.",
+        "description": "Record what KAE proceeded on in place of information nobody supplied.\n\nProposed, whoever asked. Acceptance is a separate act by a named person,\nbecause a caller that could record one already accepted would be recording\na decision nobody made.\n\n**`origin` may not be `user_stated`.** Everything reaching this route is\nKAE's \u2014 inferred, recommended and accepted, or an alternative nobody chose.\nA caller that could claim a person said something would be manufacturing\nthe one distinction the origin exists to make.",
         "operationId": "record_assumption_v1_projects__project_id__assumptions_post",
         "parameters": [
           {

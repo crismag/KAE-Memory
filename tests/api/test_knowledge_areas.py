@@ -76,3 +76,87 @@ def test_an_unclassified_statement_belongs_to_no_area(
     listed = client.get(f"/v1/projects/{project['id']}/knowledge").json()
 
     assert listed[0]["areas"] == []
+
+
+class TestAssumptionOrigin:
+    """Where an assumption came from, and the one origin a caller may not claim.
+
+    `AssumptionService.record` has always taken an origin and the HTTP schema
+    did not expose it, so `kae_recommended_accepted` and
+    `unresolved_alternative` could not be written over HTTP at all — the two
+    origins that exist precisely to record what a person did with KAE's advice.
+    Built and unused, for the same structural reason as the other four.
+    """
+
+    def test_an_accepted_recommendation_is_recorded_as_one(
+        self, client: TestClient
+    ) -> None:
+        """Accepting advice is not the same as having said it.
+
+        `kae_recommended_accepted` is the difference between "KAE suggested
+        this and I agreed" and "I said this", and a Definition page that could
+        not tell them apart would present KAE's view as the customer's.
+        """
+
+        project = client.post("/v1/projects", json={"name": "Advice"}).json()
+
+        response = client.post(
+            f"/v1/projects/{project['id']}/assumptions",
+            json={
+                "origin": "kae_recommended_accepted",
+                "subject": "scope_and_boundaries",
+                "assumed_value": "Mobile is deferred to a second release",
+                "reason": "KAE recommended it and the operator accepted",
+                "consequence": "architectural",
+                "revisit": "before_build",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["origin"] == "kae_recommended_accepted"
+
+    def test_an_option_nobody_chose_can_be_kept_open(self, client: TestClient) -> None:
+        """"Keep open" is an outcome, not a refusal to answer."""
+
+        project = client.post("/v1/projects", json={"name": "Open"}).json()
+
+        response = client.post(
+            f"/v1/projects/{project['id']}/assumptions",
+            json={
+                "origin": "unresolved_alternative",
+                "subject": "scope_and_boundaries",
+                "assumed_value": "Mobile in the first release, or the second",
+                "reason": "the operator wanted both options kept",
+                "consequence": "architectural",
+                "revisit": "before_build",
+            },
+        )
+
+        assert response.status_code == 201
+        assert response.json()["origin"] == "unresolved_alternative"
+
+    def test_a_caller_cannot_claim_a_person_said_something(
+        self, client: TestClient
+    ) -> None:
+        """The one origin this route refuses.
+
+        Everything reaching it is KAE's. A caller that could write
+        `user_stated` would be manufacturing the single distinction the origin
+        exists to make — directive principle 8, arriving through the door
+        marked "assumption".
+        """
+
+        project = client.post("/v1/projects", json={"name": "Claimed"}).json()
+
+        response = client.post(
+            f"/v1/projects/{project['id']}/assumptions",
+            json={
+                "origin": "user_stated",
+                "subject": "scope",
+                "assumed_value": "The customer definitely said this",
+                "reason": "-",
+            },
+        )
+
+        assert response.status_code == 422
+        assert "user_stated" in response.json()["error"]["message"]

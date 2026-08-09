@@ -1445,6 +1445,19 @@ class DeliverableListResponse(BaseModel):
 
 
 class RecordAssumptionRequest(BaseModel):
+    #: Where this assumption came from.
+    #:
+    #: The service has always taken it and this schema did not, so
+    #: `kae_recommended_accepted` and `unresolved_alternative` could not be
+    #: written over HTTP at all — the two origins that exist precisely to record
+    #: what a person did with KAE's advice.
+    #:
+    #: **`user_stated` is refused.** A caller asserting that a person said
+    #: something is a caller manufacturing provenance, and the whole point of
+    #: the origin is that it distinguishes what somebody said from what KAE
+    #: worked out. Directive principle 8: model-generated inference must never
+    #: silently become user-confirmed knowledge.
+    origin: str = "kae_inferred"
     subject: str = Field(min_length=1)
     assumed_value: str = Field(min_length=1)
     reason: str = Field(min_length=1)

@@ -29,6 +29,7 @@ from kae_memory.application.deliverable_service import DeliverableNotFoundError
 from kae_memory.application.ingestion_service import IngestionPolicy
 from kae_memory.application.setup_service import SetupService
 from kae_memory.domain.assumptions import (
+    AssumptionOrigin,
     Consequence,
     InvalidAssumptionTransitionError,
     RevisitTrigger,
@@ -646,12 +647,36 @@ def record_assumption(
     Proposed, whoever asked. Acceptance is a separate act by a named person,
     because a caller that could record one already accepted would be recording
     a decision nobody made.
+
+    **`origin` may not be `user_stated`.** Everything reaching this route is
+    KAE's — inferred, recommended and accepted, or an alternative nobody chose.
+    A caller that could claim a person said something would be manufacturing
+    the one distinction the origin exists to make.
     """
 
     resolved = _project(project_id, memory)
+    if body.origin == AssumptionOrigin.USER_STATED.value:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            "an assumption recorded through this route is KAE's, so it cannot be "
+            "user_stated: that origin exists to mark what a person actually said",
+        )
+    try:
+        origin = AssumptionOrigin(body.origin)
+    except ValueError as error:
+        valid = ", ".join(
+            o.value for o in AssumptionOrigin if o is not AssumptionOrigin.USER_STATED
+        )
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown origin {body.origin!r}; expected one of {valid}",
+        ) from error
     try:
         recorded = assumptions.record(
             resolved,
+            origin=origin,
             subject=body.subject,
             assumed_value=body.assumed_value,
             reason=body.reason,
