@@ -14,12 +14,17 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from kae_memory.agents.extraction import ProviderTimeoutError
 from kae_memory.agents.review import ReviewRequest, UnverifiableReviewError
 from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.identifiers import ProjectId
-from kae_memory.worker.execution import AgentStepExecutor, default_reviewer
+from kae_memory.worker.execution import (
+    AgentStepExecutor,
+    default_reviewer,
+    review_batch_size,
+)
 from kae_memory.worker.runner import Worker, WorkerConfig
 
 SEED = [
@@ -163,9 +168,13 @@ class TestResilience:
         assert (executed.output_summary or {})[
             "classification"
         ] == "offline_by_kind_after_reviewer_error"
-        assert (executed.output_summary or {})[
-            "reviewer_error"
-        ] == UnverifiableReviewError.error_code
+        # Plural, and a list. Requests are batched now, so a run can degrade on
+        # some batches and not others, and "which failure" needs an answer that
+        # a single code cannot give once there can be more than one.
+        assert (executed.output_summary or {})["reviewer_errors"] == [
+            UnverifiableReviewError.error_code
+        ]
+        assert (executed.output_summary or {})["batches_degraded"] == 1
         assert [link.area_key for link in readiness.area_links(project_id)] == [
             "users_and_stakeholders"
         ]
@@ -207,3 +216,112 @@ class TestConfiguration:
 
         monkeypatch.delenv("KAE_REVIEW", raising=False)
         assert default_reviewer() is not None
+
+
+class TestBatching:
+    """One request per project does not survive a real one.
+
+    A live deployment sent all 178 of a project's statements in a single call
+    and got `provider_timeout`. That was not bad luck: it is what an unbatched
+    request does on any project past a certain size, with the likelihood rising
+    as the project grows — so the project that most needed classification was
+    the least able to get it.
+    """
+
+    def test_statements_are_split_across_requests(
+        self,
+        factory: sessionmaker[Session],
+        project: tuple[Any, ...],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _, _readiness, project_id = project
+        monkeypatch.setenv("KAE_REVIEW_BATCH", "1")
+
+        sizes: list[int] = []
+
+        class Counting:
+            def review(self, request: ReviewRequest) -> Any:
+                sizes.append(len(request.statements))
+                return DeterministicReviewAdapter().review(request)
+
+        executed = _review(factory, project_id, Counting())
+
+        assert executed.status is RunStatus.SUCCEEDED
+        assert sizes == [1, 1, 1], "three seeded statements, one per request"
+        assert (executed.output_summary or {})["batches"] == 3
+
+    def test_one_failed_batch_does_not_discard_the_others(
+        self,
+        factory: sessionmaker[Session],
+        project: tuple[Any, ...],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The gain that batching buys, beyond surviving the call.
+
+        Unbatched, a single failure sent the entire project through the offline
+        classifier — every statement losing the judgement a model had been paid
+        to give. Now it costs one batch.
+        """
+
+        _, readiness, project_id = project
+        monkeypatch.setenv("KAE_REVIEW_BATCH", "1")
+        seen = 0
+
+        class FailingOnce:
+            def review(self, request: ReviewRequest) -> Any:
+                nonlocal seen
+                seen += 1
+                if seen == 1:
+                    raise ProviderTimeoutError("the provider did not answer")
+                return DeterministicReviewAdapter().review(request)
+
+        executed = _review(factory, project_id, FailingOnce())
+        summary = executed.output_summary or {}
+
+        assert executed.status is RunStatus.SUCCEEDED
+        assert summary["batches"] == 3
+        assert summary["batches_degraded"] == 1
+        assert summary["reviewer_errors"] == ["provider_timeout"]
+        # Not "offline_by_kind_after_reviewer_error": two batches really were
+        # reviewed by the model, and saying otherwise understates the run.
+        assert summary["classification"] == "partially_reviewed_by_model"
+        assert readiness.area_links(project_id), "the surviving batches still classified"
+
+    def test_a_run_that_degraded_everywhere_says_so(
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
+    ) -> None:
+        """The failure mode the deployment hit, now legible.
+
+        It reported `succeeded` with a fixture's coverage, and readiness then
+        published a number derived from it. Nothing above the run record said
+        the model had never answered.
+        """
+
+        _, _readiness, project_id = project
+
+        class AlwaysFailing:
+            def review(self, request: ReviewRequest) -> Any:
+                raise ProviderTimeoutError("the provider did not answer")
+
+        summary = _review(factory, project_id, AlwaysFailing()).output_summary or {}
+
+        assert summary["classification"] == "offline_by_kind_after_reviewer_error"
+        assert summary["batches_degraded"] == summary["batches"]
+        assert summary["reviewer_errors"] == ["provider_timeout"]
+
+    def test_a_nonsensical_batch_size_is_refused_not_clamped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A deployment that set 0 meant something.
+
+        Silently substituting the default would leave it believing its setting
+        applied — the same quiet substitution `default_reviewer` refuses.
+        """
+
+        monkeypatch.setenv("KAE_REVIEW_BATCH", "0")
+        with pytest.raises(ValueError, match="at least 1"):
+            review_batch_size()
+
+        monkeypatch.setenv("KAE_REVIEW_BATCH", "lots")
+        with pytest.raises(ValueError, match="whole number"):
+            review_batch_size()

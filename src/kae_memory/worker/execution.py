@@ -296,52 +296,97 @@ class AgentStepExecutor:
     ) -> tuple[tuple[tuple[KnowledgeItemId, str], ...], str, dict[str, Any]]:
         """Return area proposals, which engine produced them, and its provenance.
 
+        **In batches**, because one request per project does not survive a real
+        one. A live deployment sent all 178 of a project's statements in a single
+        call and got `provider_timeout` — not bad luck, but what this did on any
+        project past a certain size, with certainty rising as the project grew.
+        The project that most needs classification was the least able to get it.
+
         A reviewer failure falls back to the offline classifier rather than
         failing the run. Losing the ambiguous cases costs coverage a human can
-        still supply; losing the run costs the unambiguous ones too.
+        still supply; losing the run costs the unambiguous ones too. Batching
+        makes that fallback *partial*: one failed batch no longer costs the
+        model's judgement on the other five.
+
+        What it returns is honest about which engine produced what. A run that
+        degraded silently reported `succeeded` with a fixture's coverage, and
+        readiness then reported a number derived from it — the same class of
+        quiet wrongness as a stale snapshot rendered as current.
         """
 
         if self.reviewer is None or not candidates:
             return classify_offline(candidates), "offline_by_kind", {}
 
-        request = ReviewRequest(
-            statements=tuple(
-                ReviewedStatement(
-                    knowledge_id=item.id, kind=item.kind, text=item.current_version.content
-                )
-                for item in candidates
-            ),
-            area_keys=tuple(area.key for area in SOFTWARE_TEMPLATE.areas),
-        )
-        try:
-            result = self.reviewer.review(request)
-        except ExtractionError as error:
-            return (
-                classify_offline(candidates),
-                "offline_by_kind_after_reviewer_error",
-                {"reviewer_error": error.error_code},
-            )
+        area_keys = tuple(area.key for area in SOFTWARE_TEMPLATE.areas)
+        batch_size = review_batch_size()
 
-        proposals = tuple(
-            (finding.subject_id, finding.area_key)
-            for finding in result.findings
-            if finding.kind is ReviewFindingKind.AREA_CLASSIFICATION and finding.area_key
-        )
-        contradictions = [
-            finding
-            for finding in result.findings
-            if finding.kind is ReviewFindingKind.CONTRADICTION
-        ]
-        return (
-            proposals,
-            "reviewed_by_model",
-            {
-                # Reported, never recorded. A human decides whether a proposed
-                # conflict becomes a gate (ADR-0015).
-                "proposed_contradictions": len(contradictions),
+        proposals: list[tuple[KnowledgeItemId, str]] = []
+        contradictions = 0
+        degraded: list[str] = []
+        reviewed_batches = 0
+        provenance: dict[str, Any] = {}
+
+        for start in range(0, len(candidates), batch_size):
+            batch = candidates[start : start + batch_size]
+            request = ReviewRequest(
+                statements=tuple(
+                    ReviewedStatement(
+                        knowledge_id=item.id, kind=item.kind, text=item.current_version.content
+                    )
+                    for item in batch
+                ),
+                area_keys=area_keys,
+            )
+            try:
+                result = self.reviewer.review(request)
+            except ExtractionError as error:
+                # This batch only. The offline classifier still assigns the
+                # unambiguous kinds within it, and the batches that succeeded
+                # keep the judgement they were given.
+                degraded.append(error.error_code)
+                proposals.extend(classify_offline(batch))
+                continue
+
+            reviewed_batches += 1
+            proposals.extend(
+                (finding.subject_id, finding.area_key)
+                for finding in result.findings
+                if finding.kind is ReviewFindingKind.AREA_CLASSIFICATION and finding.area_key
+            )
+            contradictions += sum(
+                1
+                for finding in result.findings
+                if finding.kind is ReviewFindingKind.CONTRADICTION
+            )
+            # Last writer wins, and they agree: every batch goes to the same
+            # adapter with the same prompt.
+            provenance = {
                 "prompt_version": result.prompt_version,
                 "schema_version": result.schema_version,
                 "model": result.model,
+            }
+
+        batches = reviewed_batches + len(degraded)
+        if not reviewed_batches:
+            engine = "offline_by_kind_after_reviewer_error"
+        elif degraded:
+            engine = "partially_reviewed_by_model"
+        else:
+            engine = "reviewed_by_model"
+
+        return (
+            tuple(proposals),
+            engine,
+            {
+                # Reported, never recorded. A human decides whether a proposed
+                # conflict becomes a gate (ADR-0015).
+                "proposed_contradictions": contradictions,
+                "batches": batches,
+                "batches_degraded": len(degraded),
+                # The codes, not just the count. "which failure" is the first
+                # question asked, and a count cannot answer it.
+                "reviewer_errors": sorted(set(degraded)),
+                **provenance,
             },
         )
 
@@ -412,6 +457,40 @@ class AgentStepExecutor:
                 idempotency_key=f"review:after-extraction:r{revision}",
             ),
         )
+
+
+#: Statements per review request.
+#:
+#: Forty because the failure it prevents was a 178-statement call timing out,
+#: and because area classification is per-statement work: the model needs the
+#: statement and the ten area names, not the rest of the project. A larger batch
+#: buys fewer round trips and risks the thing that broke; a much smaller one
+#: multiplies calls for judgement that does not improve.
+#:
+#: Not a hard limit — a default. `KAE_REVIEW_BATCH` overrides it for a
+#: deployment whose provider has different patience.
+DEFAULT_REVIEW_BATCH = 40
+
+
+def review_batch_size(environ: dict[str, str] | None = None) -> int:
+    """Return the statements-per-review-request size.
+
+    Refuses a nonsensical value rather than clamping it. A deployment that set
+    `KAE_REVIEW_BATCH=0` meant something, and silently substituting 40 would
+    leave it believing its setting applied.
+    """
+
+    env = os.environ if environ is None else environ
+    raw = (env.get("KAE_REVIEW_BATCH") or "").strip()
+    if not raw:
+        return DEFAULT_REVIEW_BATCH
+    try:
+        size = int(raw)
+    except ValueError:
+        raise ValueError(f"KAE_REVIEW_BATCH must be a whole number, not {raw!r}") from None
+    if size < 1:
+        raise ValueError(f"KAE_REVIEW_BATCH must be at least 1, not {size}")
+    return size
 
 
 def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> ReviewPort | None:
