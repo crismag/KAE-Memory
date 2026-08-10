@@ -166,3 +166,35 @@ class TestReadinessSaysHowItWasClassified:
         body = client.get(f"/v1/projects/{project['id']}/readiness").json()
 
         assert body["classification"]["degraded"] is False
+
+
+def test_a_truncated_document_is_not_reported_as_complete(
+    client: TestClient, factory: sessionmaker[Session]
+) -> None:
+    """AUD-024. The blind spot was exactly where the largest documents are.
+
+    Coverage counts runs, and a chunk dropped at ingest never becomes one — so
+    a document cut off at `max_chunks` reported `complete: true` while most of
+    it had never been read. The truncation *was* disclosed, once, on the 202
+    that accepted the document, and nothing correlated it with coverage
+    afterwards.
+    """
+
+    project = client.post("/v1/projects", json={"name": "Truncated"}).json()
+    long_document = ". ".join(f"Statement number {n} about this system" for n in range(200)) + "."
+
+    accepted = client.post(
+        f"/v1/projects/{project['id']}/documents",
+        json={"document": "big.md", "text": long_document, "max_chunks": 2},
+    )
+    assert accepted.status_code == 202, accepted.text
+    assert accepted.json()["truncated_chunks"] > 0, "this document must actually truncate"
+
+    coverage = client.get(f"/v1/projects/{project['id']}/extraction-coverage").json()
+
+    assert coverage["not_ingested"] == accepted.json()["truncated_chunks"]
+    # The assertion the finding is about.
+    assert coverage["complete"] is False
+    # And it is not miscounted as an extraction failure: nothing failed on this
+    # content, nothing read it.
+    assert coverage["abandoned"] == 0

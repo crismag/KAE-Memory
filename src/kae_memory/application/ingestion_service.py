@@ -194,6 +194,18 @@ class IngestionService:
                     "chunk_index": index,
                     "chunk_count": len(kept),
                     "max_items": settings.max_items_per_chunk,
+                    # Carried on the first chunk only, and read back by
+                    # `extraction_coverage`.
+                    #
+                    # Truncated chunks never become runs, so coverage — which
+                    # counts runs — reported `complete: true` for a document
+                    # cut off at `max_chunks`. The disclosure built to make
+                    # readiness honest had a blind spot exactly where the
+                    # largest documents are (AUD-024).
+                    #
+                    # On chunk zero rather than on all of them so a reader can
+                    # sum without double-counting a document.
+                    **({"chunks_not_ingested": truncated} if index == 0 and truncated else {}),
                 },
             )
             chunks.append(

@@ -213,10 +213,15 @@ class ExtractionCoverage:
 
     succeeded: int
     abandoned: int
+    #: Chunks a document was truncated to before any run existed. Counted here
+    #: because they are loss, and counting runs alone cannot see them.
+    not_ingested: int = 0
 
     @property
     def total(self) -> int:
-        return self.succeeded + self.abandoned
+        """Everything submitted, including what was never attempted."""
+
+        return self.succeeded + self.abandoned + self.not_ingested
 
     @property
     def is_complete(self) -> bool:
@@ -225,9 +230,13 @@ class ExtractionCoverage:
         A project with nothing submitted is complete rather than unknown: there
         is no loss to disclose, and saying "coverage unknown" to someone who has
         not started would be a warning about nothing.
+
+        Truncation counts. A document cut off at `max_chunks` reported complete
+        while most of it had never been read, because the dropped chunks never
+        became runs (AUD-024).
         """
 
-        return self.abandoned == 0
+        return self.abandoned == 0 and self.not_ingested == 0
 
 
 class ReadinessService:
@@ -338,7 +347,16 @@ class ReadinessService:
             extraction = [r for r in runs if r.role in _EXTRACTION_ROLES]
             succeeded = sum(1 for r in extraction if r.status is RunStatus.SUCCEEDED)
             abandoned = sum(1 for r in extraction if r.status is RunStatus.ABANDONED)
-            return ExtractionCoverage(succeeded=succeeded, abandoned=abandoned)
+            # Content dropped at ingest never became a run, so counting runs
+            # alone reported a truncated document as fully covered (AUD-024).
+            # Recorded on chunk zero of each ingest, so this sums without
+            # double-counting a document.
+            not_ingested = sum(
+                int((r.input_context or {}).get("chunks_not_ingested", 0)) for r in extraction
+            )
+            return ExtractionCoverage(
+                succeeded=succeeded, abandoned=abandoned, not_ingested=not_ingested
+            )
 
         return self._run(operation)
 

@@ -209,6 +209,10 @@ class ExtractionCoverageResponse(BaseModel):
 
     succeeded: int
     abandoned: int
+    #: Chunks dropped at ingest, before any run existed. Separate from
+    #: `abandoned` because they are a different failure: extraction did not
+    #: fail on this content, it never saw it (AUD-024).
+    not_ingested: int
     total: int
     complete: bool
 
@@ -217,6 +221,7 @@ class ExtractionCoverageResponse(BaseModel):
         return cls(
             succeeded=coverage.succeeded,
             abandoned=coverage.abandoned,
+            not_ingested=coverage.not_ingested,
             total=coverage.total,
             complete=coverage.is_complete,
         )

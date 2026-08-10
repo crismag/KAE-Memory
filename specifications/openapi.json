@@ -1298,6 +1298,10 @@
             "title": "Complete",
             "type": "boolean"
           },
+          "not_ingested": {
+            "title": "Not Ingested",
+            "type": "integer"
+          },
           "succeeded": {
             "title": "Succeeded",
             "type": "integer"
@@ -1310,6 +1314,7 @@
         "required": [
           "succeeded",
           "abandoned",
+          "not_ingested",
           "total",
           "complete"
         ],
