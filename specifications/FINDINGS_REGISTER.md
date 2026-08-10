@@ -473,8 +473,13 @@ the offline classifier declines all of them. Correctly: guessing manufactures
 coverage a user then has to unpick (ADR-0015).
 
 So a deployment without a review model does not get *partial* coverage. It gets
-two areas, and only where those two kinds happen to appear. **`KAE_REVIEW` is
-not an optimisation**, and rebalancing the template to make more kinds
+two areas, and only where those two kinds happen to appear.
+
+**The ceiling is 16%.** Those two areas carry weight 1.0 each against a template
+total of 12.5, so a project perfect in both and silent everywhere else reports
+16%. Both are mandatory, so `implementation_eligible` — which requires every
+mandatory area sufficient — is unreachable offline whatever else is true.
+**`KAE_REVIEW` is not an optimisation**, and rebalancing the template to make more kinds
 unambiguous would trade classification precision for offline capability — a
 decision nobody has taken. Pinned by
 `tests/integration/test_thin_vertical_proof.py::TestTheOfflineClassifierIsStructurallyLimited`,
