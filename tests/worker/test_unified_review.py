@@ -90,14 +90,46 @@ class TestWithAReviewer:
     def test_the_run_reports_which_engine_classified(
         self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
-        """A reader must be able to tell a model's judgement from a rule."""
+        """A reader must be able to tell a model's judgement from a rule.
+
+        **This test used to assert the opposite of its own docstring.** It ran
+        the fixture adapter and asserted `reviewed_by_model`, so the one check
+        standing between a recorded payload and a claim about a model was
+        agreeing with the claim (`AUD-039`).
+        """
 
         _, _, project_id = project
 
         executed = _review(factory, project_id, DeterministicReviewAdapter())
 
-        assert (executed.output_summary or {})["classification"] == "reviewed_by_model"
+        assert (executed.output_summary or {})["classification"] == "reviewed_by_fixture"
         assert (executed.output_summary or {})["prompt_version"] == "review.v1"
+        # The provenance was always honest — `model` names the fixture. What was
+        # missing is that nothing above the run read it, and `classification` is
+        # the field readiness carries out to a person.
+        assert (executed.output_summary or {})["model"] == "deterministic-review-fixture"
+
+    def test_only_an_adapter_that_claims_judgement_gets_the_word_model(
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
+    ) -> None:
+        """The marker is a claim, and the default is not to make it.
+
+        A new adapter that forgets `judges` reports `reviewed_by_fixture` about
+        a model's work — an understatement, which is recoverable. The other
+        default gave a fixture a model's authority, which is not.
+        """
+
+        _, _, project_id = project
+
+        class Judging:
+            judges = True
+
+            def review(self, request: ReviewRequest) -> Any:
+                return DeterministicReviewAdapter().review(request)
+
+        executed = _review(factory, project_id, Judging())
+
+        assert (executed.output_summary or {})["classification"] == "reviewed_by_model"
 
     def test_classification_is_still_attributable(
         self, factory: sessionmaker[Session], project: tuple[Any, ...]
@@ -265,6 +297,10 @@ class TestBatching:
         sizes: list[int] = []
 
         class Counting:
+            # Stands in for a reviewer that judges, which is what makes
+            # `partially_reviewed_by_model` the right word below.
+            judges = True
+
             def review(self, request: ReviewRequest) -> Any:
                 sizes.append(len(request.statements))
                 return DeterministicReviewAdapter().review(request)
@@ -293,6 +329,8 @@ class TestBatching:
         seen = 0
 
         class FailingOnce:
+            judges = True
+
             def review(self, request: ReviewRequest) -> Any:
                 nonlocal seen
                 seen += 1

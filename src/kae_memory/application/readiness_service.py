@@ -214,6 +214,7 @@ class ClassificationReport:
     """
 
     #: `reviewed_by_model`, `partially_reviewed_by_model`,
+    #: `reviewed_by_fixture`, `partially_reviewed_by_fixture`, `offline_by_kind`,
     #: `offline_by_kind_after_reviewer_error`, or `None` when none has run.
     engine: str | None
     reviewed_at: datetime | None
@@ -223,16 +224,36 @@ class ClassificationReport:
         return self.engine == "reviewed_by_model"
 
     @property
+    def by_fixture(self) -> bool:
+        """Whether a recorded-payload adapter produced this classification.
+
+        A configured reviewer is not the same claim as a model. The shipped
+        fixture applies `classify_offline`'s rule — only where a knowledge kind
+        leaves no choice — and the run used to report `reviewed_by_model`
+        anyway, because a fixture is a `ReviewPort` like any other. That is the
+        same substitution `semantic` was fixed for, one layer up (`AUD-039`).
+        """
+
+        return self.engine in {"reviewed_by_fixture", "partially_reviewed_by_fixture"}
+
+    @property
     def degraded(self) -> bool:
-        """Whether any part of this classification fell back to rules.
+        """Whether any part of this number came from rules rather than a model.
 
         The distinction the readiness payload exists to carry: a degraded run
         still succeeds, still recalculates readiness, and still produces a
         number — one capped far below what a model would have reached.
+
+        A fixture reviewer counts. It did not *fall back* to rules — it is
+        rules — and a reader deciding whether to trust the percentage cares
+        about where the judgement came from, not about how it got there.
         """
 
         return self.engine in {
             "partially_reviewed_by_model",
+            "reviewed_by_fixture",
+            "partially_reviewed_by_fixture",
+            "offline_by_kind",
             "offline_by_kind_after_reviewer_error",
         }
 

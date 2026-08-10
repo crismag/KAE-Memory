@@ -163,6 +163,24 @@ class ReviewPort(Protocol):
     def review(self, request: ReviewRequest) -> ReviewResult: ...
 
 
+def judges(reviewer: object) -> bool:
+    """Whether this adapter exercises judgement, or replays and derives.
+
+    **An adapter has to claim it.** The default is `False`, which is the safe
+    direction: an adapter that forgets the marker under-claims, and readiness
+    says `reviewed_by_fixture` about a number a model produced. The opposite
+    default is how `AUD-039` happened — a fixture satisfied `ReviewPort`, so
+    every run against recorded payloads reported `reviewed_by_model`.
+
+    Not on the `Protocol` itself, deliberately: requiring the attribute would
+    make every inline test double a type error, and the suite is full of small
+    reviewers that legitimately do not judge. This asks the question at the one
+    place the answer is used.
+    """
+
+    return bool(getattr(reviewer, "judges", False))
+
+
 def resolve(payload: Any, request: ReviewRequest) -> tuple[ReviewFinding, ...]:
     """Turn a raw payload into findings, resolving every quote to a statement.
 

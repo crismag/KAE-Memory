@@ -107,8 +107,12 @@ class DeterministicReviewAdapter:
     **It does not stand in for a model.** Its bundled fixture applies the same
     unambiguous-only rule as `classify_offline` — only where a knowledge kind
     leaves no choice — so a test wiring it up to represent "a deployment with a
-    reviewer configured" proves less than it looks: the run reports
-    `reviewed_by_model` and classifies exactly what the offline path would.
+    reviewer configured" proves less than it looks: it classifies exactly what
+    the offline path would.
+
+    It used to report `reviewed_by_model` as well, which this docstring said and
+    nothing acted on. `judges = False` is that sentence turned into something the
+    run reads: readiness now says `reviewed_by_fixture` (`AUD-039`).
 
     That matters because only **two of eight** knowledge kinds map to a single
     area (`actor`, `assumption`). A test using the default fixture on a corpus
@@ -121,6 +125,10 @@ class DeterministicReviewAdapter:
     """
 
     model = "deterministic-review-fixture"
+
+    #: Recorded payloads and surface rules. Even a fixture that judges well was
+    #: written by someone who already knew the answer.
+    judges = False
 
     def __init__(self, fixtures: Sequence[Fixture] | Fixture | None = None) -> None:
         if fixtures is None:

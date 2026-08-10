@@ -165,6 +165,11 @@ class BedrockReviewAdapter:
     differently under failure are two things to learn rather than one.
     """
 
+    #: The one adapter that may claim `reviewed_by_model`. Declared rather than
+    #: assumed — `judges()` defaults to `False`, so an adapter that forgets this
+    #: under-claims instead of borrowing a model's authority (`AUD-039`).
+    judges = True
+
     def __init__(
         self,
         region: str,

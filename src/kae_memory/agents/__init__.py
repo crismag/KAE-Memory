@@ -43,6 +43,7 @@ from .review import (
     ReviewRequest,
     ReviewResult,
     UnverifiableReviewError,
+    judges,
 )
 from .review_adapter import DeterministicReviewAdapter, offline_review_fixture
 from .roles import AgentOutcome, ArchitectureAgent, RequirementsAgent
@@ -84,6 +85,7 @@ __all__ = [
     "UnverifiableOutputError",
     "UnverifiableReviewError",
     "is_normalised",
+    "judges",
     "offline_review_fixture",
     "prompt_for",
 ]

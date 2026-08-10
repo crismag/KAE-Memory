@@ -351,17 +351,22 @@ class AreaResultResponse(BaseModel):
 class ClassificationResponse(BaseModel):
     """How a project's knowledge reached its discovery areas.
 
-    Three states a reader must be able to tell apart, and could not:
+    States a reader must be able to tell apart, and could not:
 
     - **never reviewed** — `engine` is null, and the percentage reflects
       whatever links exist rather than any classification;
     - **classified by a model** — the intended path;
-    - **degraded** — a provider failed and the offline unambiguous-only rule
-      ran instead, which caps readiness at 16% of the software template and
-      makes `implementation_eligible` unreachable whatever the corpus.
+    - **classified by a fixture** — a reviewer is configured and it replays
+      recorded payloads. This reported `reviewed_by_model` until `AUD-039`,
+      because a fixture satisfies `ReviewPort` like anything else;
+    - **no engine configured** — the offline unambiguous-only rule, chosen;
+    - **degraded** — a provider failed and that same rule ran instead.
 
-    The third still returns a run status of `succeeded`, still recalculates
-    readiness, and still produces a number. `degraded` is what says so.
+    The last three cap readiness at 16% of the software template and make
+    `implementation_eligible` unreachable whatever the corpus, while still
+    returning a run status of `succeeded` and a number. `degraded` is what says
+    so, and it is true for all three: what a reader needs is whether the
+    percentage came from judgement, not how it came not to.
     """
 
     engine: str | None
@@ -371,14 +376,24 @@ class ClassificationResponse(BaseModel):
 
     @classmethod
     def of(cls, report: ClassificationReport) -> "ClassificationResponse":
+        offline_ceiling = (
+            "which assigns only unambiguous kinds. This percentage is lower "
+            "than a model would have reached, for a reason that is not about "
+            "the project."
+        )
         if report.engine is None:
             note = "No review has run. Areas reflect whatever links already exist."
+        elif report.by_fixture:
+            note = (
+                "Classified by the fixture reviewer, which replays recorded "
+                f"payloads rather than judging, {offline_ceiling}"
+            )
+        elif report.engine == "offline_by_kind":
+            note = f"No review engine is configured, so the offline rule ran, {offline_ceiling}"
         elif report.degraded:
             note = (
                 "Classification fell back to the offline rule for some or all "
-                "statements, which assigns only unambiguous kinds. This "
-                "percentage is lower than a model would have reached, for a "
-                "reason that is not about the project."
+                f"statements, {offline_ceiling}"
             )
         else:
             note = "Classified by the configured review model."

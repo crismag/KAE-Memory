@@ -27,6 +27,7 @@ from kae_memory.agents.review import (
     ReviewFindingKind,
     ReviewPort,
     ReviewRequest,
+    judges,
 )
 from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application.ingestion_service import DEFAULT_MAX_ITEMS_PER_CHUNK
@@ -365,12 +366,19 @@ class AgentStepExecutor:
             }
 
         batches = reviewed_batches + len(degraded)
+        # **What reviewed it, not merely that something did.** A fixture is a
+        # `ReviewPort` like any other, so a run against recorded payloads
+        # reported `reviewed_by_model` and readiness carried that word out to a
+        # reader — `DeterministicReviewAdapter`'s own docstring says so, and
+        # nothing acted on it. Same substitution as `semantic` on rule-based
+        # output (`AUD-007`), one layer up (`AUD-039`).
+        judged = "model" if judges(self.reviewer) else "fixture"
         if not reviewed_batches:
             engine = "offline_by_kind_after_reviewer_error"
         elif degraded:
-            engine = "partially_reviewed_by_model"
+            engine = f"partially_reviewed_by_{judged}"
         else:
-            engine = "reviewed_by_model"
+            engine = f"reviewed_by_{judged}"
 
         return (
             tuple(proposals),
