@@ -23,6 +23,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
@@ -84,6 +85,16 @@ def _record(client: TestClient, project_id: str, **body: Any) -> dict[str, Any]:
     response = client.post(f"/v1/projects/{project_id}/deliverables", json=body)
     assert response.status_code == 201, response.text
     return dict(response.json())
+
+
+def _message_count(factory: sessionmaker[Session], project_id: str) -> int:
+    with factory() as session:
+        return int(
+            session.execute(
+                text("SELECT count(*) FROM messages WHERE project_id = :p"),
+                {"p": project_id},
+            ).scalar_one()
+        )
 
 
 def _read(client: TestClient, project_id: str, deliverable_id: str) -> dict[str, Any]:
@@ -176,20 +187,70 @@ class TestReproductionNeverConsultsCurrentKnowledge:
     def test_answering_a_question_later_does_not_change_the_record(
         self, client: TestClient, factory: sessionmaker[Session], project_id: str
     ) -> None:
+        """The question is asked explicitly first, which it did not used to be.
+
+        This test previously answered a pin that recording the deliverable had
+        materialised — generation created the question, and the test then
+        replied to it. D-13 ends that: describing a project's uncertainty is a
+        read. So the setup now does what a person does, and asks.
+        """
+
         _propose(factory, project_id)
+        asked = client.post(f"/v1/projects/{project_id}/clarifications", params={"limit": 1})
+        question_id = asked.json()["questions"][0]["clarification_id"]
+
         recorded = _record(client, project_id)
         pinned = recorded["provisional_context"]["question_pins"]
-        assert pinned
+        assert question_id in [p["clarification_id"] for p in pinned]
 
-        clarifications = ClarificationService(factory)
-        clarifications.answer(
+        ClarificationService(factory).answer(
             ProjectId(project_id),
-            MessageId(pinned[0]["clarification_id"]),
+            MessageId(question_id),
             "Markdown files on disk.",
         )
 
         body = _read(client, project_id, recorded["deliverable_id"])
         assert body["provisional_context"]["question_pins"] == pinned
+
+    def test_an_unasked_question_is_pinned_by_its_candidate_key(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """Two kinds of unknown, and the record distinguishes them.
+
+        A package generated while nobody had been asked rested on something
+        different from one generated after somebody said "I don't know yet".
+        Before D-13 both looked identical in the record, because generating the
+        package asked the question — so every pin was a message id and the
+        never-asked case could not arise.
+        """
+
+        _propose(factory, project_id)
+
+        body = _record(client, project_id)
+
+        pins = body["provisional_context"]["question_pins"]
+        assert pins
+        assert all(pin["clarification_id"].startswith("question:") for pin in pins)
+        assert all(pin["disposition"] == "open" for pin in pins)
+
+    def test_recording_a_deliverable_asks_nobody_anything(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """D-13's invariant, at the boundary that broke it worst.
+
+        A deliverable's provisional context reads the project's uncertainty in
+        order to describe it. Describing must not create it — otherwise a
+        package's own provenance manufactures the records it cites, and which
+        id a question carries depends on whether anybody generated a package.
+        """
+
+        _propose(factory, project_id)
+        before = _message_count(factory, project_id)
+
+        _record(client, project_id)
+        _record(client, project_id)
+
+        assert _message_count(factory, project_id) == before
 
     def test_a_deferred_question_is_pinned_with_its_disposition(
         self, client: TestClient, factory: sessionmaker[Session], project_id: str

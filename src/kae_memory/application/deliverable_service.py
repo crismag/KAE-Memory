@@ -216,11 +216,18 @@ class DeliverableService:
         Deferred questions are included. A question someone could not answer is
         part of what this package rested on, and it is held back from the asking
         list rather than from the record (N36).
+
+        **Read through `candidates`, which writes nothing** (D-13). Generating a
+        deliverable used to materialise every derived question as a side effect
+        of describing the uncertainty it rested on — so a package's own
+        provenance created the records it then cited. The pins are unchanged in
+        meaning; what changed is that recording them no longer asks anybody
+        anything.
         """
 
         state = assembly.manifest.confirmation_state
         assumptions = self._assumptions.list_for_project(project_id, active_only=True)
-        questions = self._clarifications.open_questions(project_id, include_deferred=True)
+        questions = self._clarifications.candidates(project_id, include_deferred=True)
         return ProvisionalContext(
             mode=mode.value,
             confirmed=state.confirmed,
@@ -239,7 +246,14 @@ class DeliverableService:
             ),
             question_pins=tuple(
                 QuestionPin(
-                    clarification_id=str(question.id),
+                    # The message id when somebody was actually asked, and the
+                    # deterministic candidate key when nobody was. Pinning the
+                    # candidate key for an unasked question keeps the record
+                    # honest about which kind of unknown it was — the same
+                    # distinction the disposition beside it carries.
+                    clarification_id=(
+                        str(question.asked_id) if question.asked_id else question.candidate_key
+                    ),
                     disposition=question.disposition.value,
                 )
                 for question in questions

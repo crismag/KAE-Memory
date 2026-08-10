@@ -73,9 +73,7 @@ def test_listing_candidates_writes_nothing(
     )
 
 
-def test_an_unasked_candidate_has_no_id(
-    factory: sessionmaker[Session], project: ProjectId
-) -> None:
+def test_an_unasked_candidate_has_no_id(factory: sessionmaker[Session], project: ProjectId) -> None:
     """`None` is the honest answer, not a missing field.
 
     Nobody has been shown it, so there is no message and no id — which is what
@@ -173,3 +171,31 @@ def test_the_route_is_a_get_that_does_not_write(
     assert body["candidates"][0]["candidate_key"]
     assert after == before, "a GET wrote to the transcript"
     assert "did not ask anybody" in body["note"]
+
+
+def test_a_limit_bounds_what_is_asked_not_only_what_is_returned(
+    factory: sessionmaker[Session], project: ProjectId
+) -> None:
+    """Asking for one question must not put ten to a person.
+
+    `limit` used to slice the result *after* materialising every pending
+    clarification, so a caller wanting a single question asked all of them and
+    displayed the first. That is the mechanism behind a transcript filling with
+    ten area questions before its second human message — the caller looked
+    restrained and the person did not experience restraint.
+
+    Verified as a *count of messages*, not of returned questions, because the
+    old behaviour returned exactly one too.
+    """
+
+    clarifications = ClarificationService(factory)
+    memory = MemoryService(factory)
+
+    available = len(clarifications.candidates(project))
+    assert available > 1, "this project must hold more than one unknown to prove anything"
+
+    before = _messages(memory, project)
+    asked = clarifications.open_questions(project, limit=1)
+
+    assert len(asked) == 1
+    assert _messages(memory, project) == before + 1, "a limit of one asked more than one question"

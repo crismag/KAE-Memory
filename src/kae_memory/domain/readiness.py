@@ -332,6 +332,26 @@ def _area(
     )
 
 
+#: The default template for software projects.
+#:
+#: **Do not rebalance these mappings to make the offline classifier cover more
+#: ground.** Ruled 2026-08-09 as ecosystem concern `RUN-C1`, and the reasoning
+#: is recorded here because this is where the question gets asked again.
+#:
+#: Only two of the eight knowledge kinds map to exactly one area — ``ACTOR`` to
+#: ``users_and_stakeholders`` and ``ASSUMPTION`` to
+#: ``constraints_and_assumptions``. Goals, requirements, rules, constraints and
+#: decisions each map to between two and five, so a deployment without a review
+#: model declines to classify them. Those two areas carry weight 1.0 each of a
+#: 12.5 total, which puts the offline ceiling at **16%**, with
+#: ``implementation_eligible`` unreachable whatever the corpus.
+#:
+#: Redistributing kinds so more of them were unambiguous would raise that
+#: ceiling and buy nothing real: it would manufacture coverage a person then has
+#: to unpick, and it would silently change the readiness of every project
+#: already evaluated. ``KAE_REVIEW`` stays mandatory. It may become an
+#: optimisation later — but only once an offline classifier has demonstrated
+#: comparable quality, not because the mappings were redistributed.
 SOFTWARE_TEMPLATE = ReadinessTemplate(
     key="software",
     version=1,

@@ -329,6 +329,13 @@ class ClarificationService:
         ``include_deferred`` says to. Both halves matter: closing it would
         record a decision nobody made, and re-offering it every call would make
         "I don't know yet" cost the person the same question forever.
+
+        ``limit`` bounds what is **asked**, not only what is returned. It used
+        to slice the result after materialising every pending clarification, so
+        a caller asking for one question put ten to the person and displayed
+        the first — which is how a project's transcript filled with ten area
+        questions before its second human message. Somebody who wants to see
+        what could be asked without asking it wants :meth:`candidates`.
         """
 
         responded = self._dispositions(project_id)
@@ -346,6 +353,8 @@ class ClarificationService:
 
         found: list[OpenQuestion] = []
         for clarification in self.pending(project_id):
+            if limit is not None and len(found) >= limit:
+                break
             question, created = self._materialise(project_id, clarification, batch)
             disposition = responded.get(str(question.id), Disposition.OPEN)
             if settles(disposition):
