@@ -237,3 +237,98 @@ class TestAStoredVersionIsImmutable:
         # And it says what to do instead, because the correct action is not
         # obvious at the moment somebody hits this.
         assert "publish a new version" in str(raised.value)
+
+
+class TestAProjectIsPinnedToTheTemplateItWasEvaluatedUnder:
+    """A recalculation must not change what a number means.
+
+    Every review run now recalculates readiness, and the service holds the
+    *current* shipped template. Publishing version 2 would therefore have
+    re-evaluated every existing project under stricter semantics nobody adopted
+    — and a user watching their percentage would have seen it fall for a reason
+    that had nothing to do with their project.
+    """
+
+    def test_a_new_project_uses_the_current_template(
+        self, services: tuple[MemoryService, ReadinessService]
+    ) -> None:
+        """Nothing to preserve, so nothing to pin."""
+
+        memory, readiness = services
+        project = memory.create_project("Fresh", key="pin-fresh")
+
+        snapshot = readiness.calculate(project.id)
+
+        assert snapshot.template_version == SOFTWARE_TEMPLATE.version
+
+    def test_a_pinned_project_keeps_its_version_across_recalculation(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        """The scenario the pin exists for, built rather than described.
+
+        A project is evaluated under v1, v2 is published, and the project is
+        recalculated — by a review run, on its own, with nobody asking.
+        """
+
+        from dataclasses import replace
+
+        v1 = replace(SOFTWARE_TEMPLATE, version=1)
+        memory = MemoryService(factory)
+        older = ReadinessService(factory, template=v1)
+        older.install_template()
+        project = memory.create_project("Pinned", key="pin-v1")
+        first = older.calculate(project.id)
+        assert first.template_version == 1
+
+        current = ReadinessService(factory)
+        current.install_template()
+        again = current.calculate(project.id)
+
+        assert again.template_version == 1, (
+            "a recalculation moved the project to a template version nobody adopted"
+        )
+
+    def test_adopting_the_current_template_is_an_explicit_act(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        """Moving forward is available — it just has to be asked for."""
+
+        from dataclasses import replace
+
+        v1 = replace(SOFTWARE_TEMPLATE, version=1)
+        memory = MemoryService(factory)
+        older = ReadinessService(factory, template=v1)
+        older.install_template()
+        project = memory.create_project("Adopting", key="pin-adopt")
+        older.calculate(project.id)
+
+        current = ReadinessService(factory)
+        current.install_template()
+        moved = current.calculate(project.id, adopt_current_template=True)
+
+        assert moved.template_version == SOFTWARE_TEMPLATE.version
+
+    def test_the_history_of_a_moved_project_keeps_both_versions(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        """Snapshots are append-only, so the old number keeps its own label.
+
+        Which is the whole reason a version is worth having: two numbers that
+        disagree are interpretable when each says what it was computed under.
+        """
+
+        from dataclasses import replace
+
+        v1 = replace(SOFTWARE_TEMPLATE, version=1)
+        memory = MemoryService(factory)
+        older = ReadinessService(factory, template=v1)
+        older.install_template()
+        project = memory.create_project("History", key="pin-history")
+        older.calculate(project.id)
+
+        current = ReadinessService(factory)
+        current.install_template()
+        current.calculate(project.id, adopt_current_template=True)
+
+        versions = [s.template_version for s in current.history(project.id)]
+        assert set(versions) == {1, SOFTWARE_TEMPLATE.version}

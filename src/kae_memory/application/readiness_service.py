@@ -535,14 +535,66 @@ class ReadinessService:
             lambda session: BlockerRepository(session).list_for_project(project_id, status)
         )
 
+    def _template_for(
+        self, session: DbSession, project_id: ProjectId, adopt_current: bool
+    ) -> ReadinessTemplate:
+        """The template this project is evaluated under.
+
+        Its last snapshot's version, loaded from the stored templates — so a
+        published version change does not reach a project until somebody moves
+        it. A project with no history, or one explicitly adopting the current
+        template, gets the shipped one.
+
+        **Falls forward, loudly, if a pinned version is missing from the store.**
+        That should not happen: `install_template` writes each version and a
+        stored version is now immutable. If it does, evaluating under the
+        current template and recording *that* version is honest, where guessing
+        at the missing one would put a number under a label that describes
+        nothing.
+        """
+
+        if adopt_current:
+            return self._template
+
+        previous = ReadinessSnapshotRepository(session).latest(project_id)
+        if previous is None or previous.template_version == self._template.version:
+            return self._template
+
+        stored = ReadinessTemplateRepository(session).get(
+            previous.template_key, previous.template_version
+        )
+        return stored or self._template
+
     def calculate(
-        self, project_id: ProjectId, not_applicable_areas: Sequence[str] = ()
+        self,
+        project_id: ProjectId,
+        not_applicable_areas: Sequence[str] = (),
+        adopt_current_template: bool = False,
     ) -> ReadinessSnapshot:
         """Calculate readiness and append a snapshot.
 
         Reads the knowledge, area links, contradictions, and blockers in one
         transaction alongside the project's revision, so the snapshot describes a
         single consistent state rather than a moving one.
+
+        ## The template a project is evaluated under is pinned to the project
+
+        **A recalculation must not change what a number means.** Every review run
+        now recalculates readiness, and the service holds the *current* shipped
+        template — so publishing a stricter version would have silently
+        re-evaluated every project under semantics nobody adopted, and a user
+        watching their percentage would have seen it fall for a reason that had
+        nothing to do with their project (`RUN-D14`).
+
+        The pin is the version this project was last evaluated under, read from
+        its own most recent snapshot. No new column: "what was it evaluated
+        under" is a fact the snapshot already records, and a second copy could
+        disagree with it.
+
+        A project with no snapshot has nothing to preserve and adopts the current
+        template. `adopt_current_template=True` moves a pinned project forward —
+        deliberately, by an act somebody performs, which is what the ruling asked
+        for.
         """
 
         excluded = set(not_applicable_areas)
@@ -552,6 +604,7 @@ class ReadinessService:
         moment = self._clock()
 
         def operation(session: DbSession) -> ReadinessSnapshot:
+            template = self._template_for(session, project_id, adopt_current_template)
             knowledge = SqlAlchemyKnowledgeRepository(session)
             items = {str(item.id): item for item in knowledge.list_for_project(project_id, None)}
             links = KnowledgeAreaLinkRepository(session).list_for_project(project_id)
@@ -583,7 +636,7 @@ class ReadinessService:
                     not_applicable=definition.key in excluded,
                     claims_by_item=claims_by_item,
                 )
-                for definition in self._template.areas
+                for definition in template.areas
             )
             score = score_areas(areas)
 
@@ -601,8 +654,8 @@ class ReadinessService:
             snapshot = ReadinessSnapshot(
                 id=SnapshotId(_new_id()),
                 project_id=project_id,
-                template_key=self._template.key,
-                template_version=self._template.version,
+                template_key=template.key,
+                template_version=template.version,
                 calculation_version=CALCULATION_VERSION,
                 knowledge_revision=revision,
                 score=score,
