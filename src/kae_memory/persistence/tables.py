@@ -422,6 +422,10 @@ class KnowledgeAreaLinkRow(Base):
         String(64), ForeignKey("knowledge_items.id"), nullable=False
     )
     area_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    #: Which claim inside the area this establishes, when the area has claims.
+    #: NULL says the statement is about the area without saying which half —
+    #: true of every link made before claims existed.
+    claim_key: Mapped[str | None] = mapped_column(String(80), nullable=True)
     assigned_by_agent_run_id: Mapped[str | None] = mapped_column(
         UUID_STR, ForeignKey("agent_runs.agent_run_id"), nullable=True
     )

@@ -12,7 +12,7 @@ The same inputs therefore produce the same score regardless of which model ran,
 or whether a model ran at all.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -43,6 +43,7 @@ from kae_memory.domain.readiness import (
     Blocker,
     BlockerSeverity,
     BlockerStatus,
+    Claim,
     KnowledgeAreaLink,
     ReadinessSnapshot,
     ReadinessStatus,
@@ -76,6 +77,7 @@ def evaluate_area(
     items: Sequence[KnowledgeItem],
     contradicted_item_ids: frozenset[str],
     not_applicable: bool = False,
+    claims_by_item: Mapping[str, str | None] | None = None,
 ) -> AreaResult:
     """Return one area's coverage from the knowledge assigned to it.
 
@@ -94,6 +96,8 @@ def evaluate_area(
 
     if not_applicable:
         state = AreaState.NOT_APPLICABLE
+    elif area.is_divided:
+        state = _divided_state(area, confirmed, proposed, claims_by_item or {})
     elif len(confirmed) >= area.minimum_confirmed:
         state = AreaState.SUFFICIENT
     elif confirmed or proposed:
@@ -112,6 +116,38 @@ def evaluate_area(
         minimum_confirmed=area.minimum_confirmed,
         contradicted=contradicted,
     )
+
+
+def _divided_state(
+    area: AreaDefinition,
+    confirmed: Sequence[KnowledgeItem],
+    proposed: Sequence[KnowledgeItem],
+    claims_by_item: Mapping[str, str | None],
+) -> AreaState:
+    """Coverage of an area that asks for more than one thing.
+
+    **Every claim, not the area as a whole.** `problem_and_value` is complete
+    when a project can say both what hurts *and* why solving it is worth doing;
+    a project with three confirmed problem statements and no value statement has
+    established one of two, and calling that sufficient is what let `value` read
+    as covered while being empty (`RUN-D14`).
+
+    An item whose link names no claim counts toward the *area* and toward no
+    claim in particular. That is what keeps every link made before claims
+    existed valid — it said "this is about the problem and value of this
+    project", which is still true — and it is why an undivided assignment can
+    make an area partial and never sufficient.
+    """
+
+    def established(claim: "Claim", pool: Sequence[KnowledgeItem]) -> bool:
+        matching = [item for item in pool if claims_by_item.get(str(item.id)) == claim.key]
+        return len(matching) >= claim.minimum_confirmed
+
+    if all(established(claim, confirmed) for claim in area.claims):
+        return AreaState.SUFFICIENT
+    if confirmed or proposed:
+        return AreaState.PARTIAL
+    return AreaState.MISSING
 
 
 def score_areas(areas: Sequence[AreaResult]) -> float:
@@ -275,17 +311,34 @@ class ReadinessService:
         item_id: KnowledgeItemId,
         area_key: str,
         assigned_by_agent_run_id: AgentRunId | None = None,
+        claim_key: str | None = None,
     ) -> KnowledgeAreaLink:
-        """Link a knowledge item to a discovery area.
+        """Link a knowledge item to a discovery area, and optionally to a claim.
 
         Linking is an authoritative change: it alters which areas a confirmed item
         can cover, so it bumps the project's knowledge revision and any earlier
         snapshot becomes stale.
+
+        `claim_key` names which of a divided area's claims this statement
+        establishes — `problem_statement` or `value_proposition` inside
+        `problem_and_value`. Optional, and omitting it is not a lesser
+        assignment: it says the statement is about the area without saying which
+        half, which is exactly what an assignment made before claims existed
+        meant. Such a statement can make the area partial and never sufficient,
+        because sufficiency is a claim-by-claim question.
         """
 
         area = self._template.area(area_key)
         if area is None:
             raise LookupError(f"unknown readiness area: {area_key!r}")
+        if claim_key is not None and claim_key not in {c.key for c in area.claims}:
+            # Refused rather than ignored. A typo'd claim key silently dropped
+            # would leave a statement counting toward nothing while its author
+            # believed it had completed something.
+            known = ", ".join(sorted(c.key for c in area.claims)) or "none"
+            raise DomainInvariantError(
+                f"area {area_key!r} has no claim {claim_key!r}; it has: {known}"
+            )
         link = KnowledgeAreaLink(
             id=AreaLinkId(_new_id()),
             project_id=project_id,
@@ -293,6 +346,7 @@ class ReadinessService:
             area_key=area_key,
             created_at=self._clock(),
             assigned_by_agent_run_id=assigned_by_agent_run_id,
+            claim_key=claim_key,
         )
 
         def operation(session: DbSession) -> KnowledgeAreaLink:
@@ -510,10 +564,16 @@ class ReadinessService:
             revision = current_knowledge_revision(session, project_id)
 
             by_area: dict[str, list[KnowledgeItem]] = {}
+            # Which claim each statement establishes, when its link says. Built
+            # once rather than per area: a statement belongs to one claim, and
+            # looking it up ten times would invite the two to disagree.
+            claims_by_item: dict[str, str | None] = {}
             for link in links:
                 item = items.get(str(link.knowledge_item_id))
                 if item is not None:
                     by_area.setdefault(link.area_key, []).append(item)
+                    if link.claim_key:
+                        claims_by_item[str(link.knowledge_item_id)] = link.claim_key
 
             areas = tuple(
                 evaluate_area(
@@ -521,6 +581,7 @@ class ReadinessService:
                     by_area.get(definition.key, ()),
                     contradicted,
                     not_applicable=definition.key in excluded,
+                    claims_by_item=claims_by_item,
                 )
                 for definition in self._template.areas
             )

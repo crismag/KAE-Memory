@@ -31,12 +31,18 @@ INVALID = "The service publishes reports over SNS."
 INACCURATE = "Reports are filed quarterly."
 CORRECTED = "Reports are filed monthly."
 
-AREA = "problem_and_value"
-"""Chosen because it needs one confirmed item, not three.
+AREA = "scope_and_boundaries"
+"""Chosen because it needs one confirmed item and asks for one thing.
 
 `functional_requirements` requires three, which would make these tests measure
 the counting rule rather than the lifecycle rule. The count is real behaviour
 and covered elsewhere; here it would only obscure what is being checked.
+
+This was `problem_and_value`, for the same reason, until that area gained two
+claims (`RUN-D14`) — it is now sufficient only when both what-hurts and
+why-it-is-worth-doing are established, so a single confirmation no longer
+completes it and these tests would have been measuring the claim rule instead.
+Both accept `goal`, so nothing else about them changes.
 """
 
 

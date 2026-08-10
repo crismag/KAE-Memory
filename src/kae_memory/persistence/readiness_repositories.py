@@ -12,6 +12,7 @@ from typing import Any, cast
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session as DbSession
 
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import (
     AgentRunId,
     AreaLinkId,
@@ -29,6 +30,7 @@ from kae_memory.domain.readiness import (
     Blocker,
     BlockerSeverity,
     BlockerStatus,
+    Claim,
     KnowledgeAreaLink,
     ReadinessSnapshot,
     ReadinessStatus,
@@ -151,6 +153,7 @@ class KnowledgeAreaLinkRepository:
                 project_id=str(link.project_id),
                 knowledge_item_id=str(link.knowledge_item_id),
                 area_key=link.area_key,
+                claim_key=link.claim_key,
                 assigned_by_agent_run_id=(
                     None
                     if link.assigned_by_agent_run_id is None
@@ -174,6 +177,7 @@ class KnowledgeAreaLinkRepository:
                 project_id=ProjectId(row.project_id),
                 knowledge_item_id=KnowledgeItemId(row.knowledge_item_id),
                 area_key=row.area_key,
+                claim_key=row.claim_key,
                 created_at=as_aware(row.created_at),
                 assigned_by_agent_run_id=(
                     None
@@ -246,11 +250,24 @@ class ReadinessTemplateRepository:
         self._session = session
 
     def upsert(self, template: ReadinessTemplate, moment: datetime) -> None:
-        """Store a template version, replacing its definition if already present.
+        """Store a template version. **A stored version is immutable.**
 
-        A version is immutable in intent; this exists so the shipped template can
-        be installed idempotently at startup, not so definitions can be edited in
-        place. Changing a template means publishing a new version.
+        This exists so the shipped template can be installed idempotently at
+        startup, not so definitions can be edited in place. Changing a template
+        means publishing a new version.
+
+        **That was the intent and nothing enforced it.** The method rewrote
+        `definition` for an existing `(key, version)`, so editing
+        `SOFTWARE_TEMPLATE` without bumping the version silently rewrote the
+        stored v1 — and every snapshot labelled `template_version: 1` became a
+        claim about semantics that no longer existed. Readiness history is only
+        interpretable if a version means one thing forever.
+
+        Re-installing the same definition is still a no-op, which is what makes
+        startup idempotent. Re-installing a *different* one under the same
+        version raises, because there is no correct silent answer: overwriting
+        falsifies history and ignoring it leaves the deployment running
+        semantics it did not install.
         """
 
         row = self._session.get(ReadinessTemplateRow, (template.key, template.version))
@@ -265,8 +282,14 @@ class ReadinessTemplateRepository:
                     created_at=moment,
                 )
             )
-        else:
-            row.definition = definition
+        elif row.definition != definition:
+            raise DomainInvariantError(
+                f"template {template.key!r} version {template.version} is already "
+                f"stored with a different definition. A stored version is immutable — "
+                f"publish a new version rather than editing this one, or every "
+                f"snapshot recorded against it becomes a claim about semantics that "
+                f"no longer exist."
+            )
 
     def get(self, key: str, version: int) -> ReadinessTemplate | None:
         """Return one template version."""
@@ -478,6 +501,23 @@ def _template_to_json(template: ReadinessTemplate) -> dict[str, Any]:
                 "kinds": [kind.value for kind in area.kinds],
                 "minimum_confirmed": area.minimum_confirmed,
                 "mandatory": area.mandatory,
+                # Omitted entirely when empty, so a stored v1 stays byte-identical
+                # to what it was — a version whose serialisation changes is a
+                # version, and the whole point of pinning is that it does not.
+                **(
+                    {
+                        "claims": [
+                            {
+                                "key": claim.key,
+                                "name": claim.name,
+                                "minimum_confirmed": claim.minimum_confirmed,
+                            }
+                            for claim in area.claims
+                        ]
+                    }
+                    if area.claims
+                    else {}
+                ),
             }
             for area in template.areas
         ],
@@ -496,6 +536,14 @@ def _template_from_json(payload: dict[str, Any]) -> ReadinessTemplate:
                 kinds=tuple(KnowledgeKind(kind) for kind in area["kinds"]),
                 minimum_confirmed=int(area["minimum_confirmed"]),
                 mandatory=bool(area["mandatory"]),
+                claims=tuple(
+                    Claim(
+                        key=claim["key"],
+                        name=claim["name"],
+                        minimum_confirmed=int(claim.get("minimum_confirmed", 1)),
+                    )
+                    for claim in area.get("claims", ())
+                ),
             )
             for area in payload["areas"]
         ),

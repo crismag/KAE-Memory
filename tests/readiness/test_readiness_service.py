@@ -21,7 +21,12 @@ from kae_memory.domain.readiness import (
 
 # One confirmed item per area, except functional_requirements, which the shipped
 # template requires three of.
+#
+# `problem_and_value` appears twice because it is the one divided area: it is
+# sufficient only when a project can state both what hurts and why solving it is
+# worth doing (`RUN-D14`). One statement there used to complete it.
 FULL_COVERAGE: tuple[tuple[str, str], ...] = (
+    ("problem_and_value", "goal"),
     ("problem_and_value", "goal"),
     ("users_and_stakeholders", "actor"),
     ("scope_and_boundaries", "goal"),
@@ -65,9 +70,20 @@ def _cover(
 ) -> None:
     """Write and assign enough knowledge to satisfy every area."""
 
+    # The claims of a divided area, in the order its statements appear above.
+    # Named rather than derived, so a test that stops covering both halves fails
+    # loudly instead of quietly leaving one unestablished.
+    claims = {
+        ("problem_and_value", 0): "problem_statement",
+        ("problem_and_value", 1): "value_proposition",
+    }
+    seen: dict[str, int] = {}
+
     for index, (area, kind) in enumerate(FULL_COVERAGE):
         item = _write(memory, project_id, kind, f"{area}-{index}", confirm=confirm)
-        readiness.assign_area(project_id, item.id, area)
+        nth = seen.get(area, 0)
+        seen[area] = nth + 1
+        readiness.assign_area(project_id, item.id, area, claim_key=claims.get((area, nth)))
 
 
 def test_an_untouched_project_scores_zero(factory: sessionmaker[Session]) -> None:

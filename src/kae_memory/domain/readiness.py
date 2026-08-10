@@ -161,6 +161,10 @@ class AreaDefinition:
     kinds: tuple[KnowledgeKind, ...]
     minimum_confirmed: int = 1
     mandatory: bool = True
+    #: The separately-establishable things inside this area, when it has more
+    #: than one. Empty means the area is a single claim and behaves as it always
+    #: has — which is nine of the ten.
+    claims: tuple["Claim", ...] = ()
 
     def __post_init__(self) -> None:
         if not self.key.strip():
@@ -171,6 +175,47 @@ class AreaDefinition:
             raise DomainInvariantError("readiness area must require at least one confirmed item")
         if not self.kinds:
             raise DomainInvariantError("readiness area must accept at least one knowledge kind")
+        keys = [claim.key for claim in self.claims]
+        if len(keys) != len(set(keys)):
+            raise DomainInvariantError(f"area {self.key} has duplicate claim keys")
+
+    @property
+    def is_divided(self) -> bool:
+        """Whether this area asks for more than one distinguishable thing."""
+
+        return bool(self.claims)
+
+
+@dataclass(frozen=True, slots=True)
+class Claim:
+    """One distinguishable thing an area must establish.
+
+    **Why an area is not always one question.** `problem_and_value` covers two:
+    what hurts, and why solving it is worth doing. They are different claims a
+    project must be able to make separately, and nothing inside the area
+    distinguishes them — so `value` was reported empty for every project in
+    existence, and the Definition page said so for a reason it could not
+    explain (`RUN-D14`).
+
+    **The alternative that was rejected**, and why it matters: splitting
+    `problem_and_value` into two areas would rebalance every weight and
+    silently change the readiness of every project already evaluated.
+    `RUN-C1` ruled against redistribution for exactly that reason. A claim
+    subdivides an area *without touching its weight*.
+
+    Areas without claims behave exactly as before, so this is additive for the
+    other nine.
+    """
+
+    key: str
+    name: str
+    minimum_confirmed: int = 1
+
+    def __post_init__(self) -> None:
+        if not self.key.strip():
+            raise DomainInvariantError("claim key must not be empty")
+        if self.minimum_confirmed < 1:
+            raise DomainInvariantError("a claim must require at least one confirmed item")
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +234,13 @@ class KnowledgeAreaLink:
     area_key: str
     created_at: datetime
     assigned_by_agent_run_id: AgentRunId | None = None
+    #: Which claim inside the area this statement establishes, when the area has
+    #: claims and the assignment was specific enough to say.
+    #:
+    #: `None` still counts toward the area, which is what keeps every existing
+    #: link valid: an assignment made before claims existed said "this is about
+    #: the problem and value of the project" and that remains true.
+    claim_key: str | None = None
 
     def __post_init__(self) -> None:
         if not self.area_key.strip():
@@ -321,6 +373,7 @@ def _area(
     kinds: tuple[KnowledgeKind, ...],
     minimum: int = 1,
     mandatory: bool = True,
+    claims: tuple[Claim, ...] = (),
 ) -> AreaDefinition:
     return AreaDefinition(
         key=key,
@@ -329,6 +382,7 @@ def _area(
         kinds=kinds,
         minimum_confirmed=minimum,
         mandatory=mandatory,
+        claims=claims,
     )
 
 
@@ -354,13 +408,29 @@ def _area(
 #: comparable quality, not because the mappings were redistributed.
 SOFTWARE_TEMPLATE = ReadinessTemplate(
     key="software",
-    version=1,
+    # **Version 2: `problem_and_value` gained two claims** (`RUN-D14`).
+    #
+    # The weights are untouched — `RUN-C1` ruled against redistribution — so
+    # nothing about any other area changed. What changed is that this area is
+    # now sufficient only when a project can state both what hurts and why
+    # solving it is worth doing, where before either alone completed it.
+    #
+    # That is a *stricter* rule, so a project evaluated under v1 could report a
+    # lower number under v2. Which is exactly why the version moved: an
+    # unversioned change here would have altered historical readiness silently,
+    # and "no historical readiness score changes without saying so" is the
+    # constraint the whole pin exists to keep.
+    version=2,
     areas=(
         _area(
             "problem_and_value",
             "Problem and value proposition",
             weight=1.5,
             kinds=(KnowledgeKind.GOAL, KnowledgeKind.RULE),
+            claims=(
+                Claim("problem_statement", "What hurts"),
+                Claim("value_proposition", "Why solving it is worth doing"),
+            ),
         ),
         _area(
             "users_and_stakeholders",
