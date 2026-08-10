@@ -336,7 +336,9 @@ def _split(
             # deterministic candidate key and no object. A disclosure that
             # always cited the candidate key would throw away the fact that
             # somebody was asked and answered.
-            clarification_id=str(question.asked_id) if question.asked_id else question.candidate_key,
+            clarification_id=(
+                str(question.asked_id) if question.asked_id else question.candidate_key
+            ),
             question=question.question,
             area_key=question.area_key,
             severity=question.severity,
