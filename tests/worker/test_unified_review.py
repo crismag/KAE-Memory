@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.agents.extraction import ProviderTimeoutError
+from kae_memory.agents.provider import ProviderConfigurationError
 from kae_memory.agents.review import ReviewRequest, UnverifiableReviewError
 from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
@@ -210,6 +211,30 @@ class TestConfiguration:
 
         monkeypatch.setenv("KAE_REVIEW", "deterministic")
         assert isinstance(default_reviewer(), DeterministicReviewAdapter)
+
+    def test_an_unrecognised_engine_raises_rather_than_falling_back(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """AUD-006. A typo used to select the fixture, silently.
+
+        The check was `if setting != "bedrock": return DeterministicReviewAdapter()`,
+        so `bedrok`, `claude` or `titan` all landed on the offline fixture — and
+        the run reported `reviewed_by_model`, because the fixture is a
+        `ReviewPort` like any other. An operator who believed they had
+        configured a model reviewer got the 16% ceiling with nothing saying so.
+
+        `build_embedder` and `build_classifier` have always raised here. The
+        reviewer was the one that fell through, and it is the one whose silent
+        fallback changes a number a person reads off a screen.
+        """
+
+        # `"Bedrock "` is deliberately absent: `.strip().lower()` normalises it
+        # to a valid name, and accepting that spelling is correct behaviour.
+        for typo in ("bedrok", "claude", "titan", "gpt-4"):
+            monkeypatch.setenv("KAE_REVIEW", typo)
+            with pytest.raises(ProviderConfigurationError) as raised:
+                default_reviewer()
+            assert "bedrock" in str(raised.value), "the message must name what is valid"
 
     def test_review_is_on_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A cloned repository walks the whole chain with no configuration."""

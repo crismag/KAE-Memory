@@ -21,7 +21,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
 from kae_memory.agents.extraction import ExtractionError, ExtractionPort, ExtractionRequest
-from kae_memory.agents.provider import resolve_region
+from kae_memory.agents.provider import ProviderConfigurationError, resolve_region
 from kae_memory.agents.review import (
     ReviewedStatement,
     ReviewFindingKind,
@@ -505,8 +505,24 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
     setting = os.environ.get("KAE_REVIEW", "deterministic").strip().lower()
     if setting in {"off", "none", ""}:
         return None
-    if setting != "bedrock":
+    if setting == "deterministic":
         return DeterministicReviewAdapter()
+    if setting != "bedrock":
+        # **A whitelist, because the fallback was silent and expensive.**
+        #
+        # This read `if setting != "bedrock": return DeterministicReviewAdapter()`,
+        # so `KAE_REVIEW=bedrok`, `claude`, `titan` or any other slip selected
+        # the offline fixture — and the run then reported `reviewed_by_model`,
+        # because the fixture is a `ReviewPort` like any other. An operator who
+        # believed they had configured a model reviewer got the 16% ceiling and
+        # nothing said so.
+        #
+        # `build_embedder` and `build_classifier` have always raised on an
+        # unknown name. Only the reviewer fell through, and it is the one whose
+        # silent fallback changes a number a person reads (AUD-006).
+        raise ProviderConfigurationError(
+            f"unknown KAE_REVIEW={setting!r}. Valid: bedrock, deterministic, off"
+        )
 
     if build_bedrock is not None:  # pragma: no cover - injected only by tests
         return build_bedrock()

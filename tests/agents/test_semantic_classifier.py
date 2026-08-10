@@ -340,3 +340,56 @@ class TestSelectionIsExplicit:
         assert described["ranks_by_meaning"] is False
         assert described["classifies_by_meaning"] is False
         assert described["classifier"] == CLASSIFIER_DETERMINISTIC
+
+
+class TestSemanticReportsWhatActuallyHappened:
+    """`semantic` must describe the call, not the class.
+
+    AUD-007. It returned a hard-coded `True`, so a provider timeout fell back
+    to regexes and the span was still persisted — and served over
+    `GET /classifications` — as semantically classified. The class docstring
+    names this as the exact confusion `semantic` exists to prevent, and it was
+    the behaviour.
+
+    False provenance in the system of record is the one class of defect that
+    does not decay: the row outlives the incident, and nothing marks it.
+    """
+
+    def test_a_successful_call_reports_semantic(self) -> None:
+        classifier = _classifier(
+            _answer({"text": "Individual founders are the first users.", "kind": "actor"})
+        )
+
+        classifier.classify("Individual founders are the first users.")
+
+        assert classifier.semantic is True
+        assert classifier.last_degraded is False
+
+    def test_a_degraded_call_does_not_report_semantic(self) -> None:
+        classifier = _classifier(RuntimeError("provider unavailable"))
+
+        classifier.classify("Individual founders are the first users.")
+
+        assert classifier.last_degraded is True
+        # The assertion the finding is about. Rules ran; saying otherwise puts a
+        # claim into a durable row that nothing downstream can question.
+        assert classifier.semantic is False
+
+    def test_it_recovers_when_the_provider_does(self) -> None:
+        """A single failure must not permanently mark a classifier as degraded.
+
+        `_degraded` is per-call state. If it latched, one timeout would make
+        every later span report rule-based classification, which is the same
+        defect pointing the other way.
+        """
+
+        classifier = _classifier(RuntimeError("provider unavailable"))
+        classifier.classify("Individual founders are the first users.")
+        assert classifier.semantic is False
+
+        classifier._client = _Client(
+            _answer({"text": "Individual founders are the first users.", "kind": "actor"})
+        )
+        classifier.classify("Individual founders are the first users.")
+
+        assert classifier.semantic is True

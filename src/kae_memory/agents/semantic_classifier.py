@@ -167,7 +167,20 @@ class BedrockObservationClassifier:
 
     @property
     def semantic(self) -> bool:
-        return True
+        """Whether the **most recent** call classified by meaning.
+
+        This returned a hard-coded `True`, which made the class docstring above
+        false in exactly the way it warns against: a provider timeout fell back
+        to regexes and the span was still persisted, and reported over HTTP, as
+        semantically classified (AUD-007).
+
+        `last_degraded` existed to carry the difference and had no production
+        reader — the whole estate consulted `semantic`, which could not vary.
+        So the honest fix is here rather than at every call site: the property
+        callers already ask now answers the question they were asking.
+        """
+
+        return not self._degraded
 
     @property
     def last_degraded(self) -> bool:
