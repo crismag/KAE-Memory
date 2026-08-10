@@ -64,9 +64,14 @@ class TestSelection:
 
         The ambient developer profile resolves a region, so it is suppressed
         here: this asserts the behaviour when *nothing* configures one.
+
+        Needs the SDK present in order to simulate *"the SDK is present and
+        still has no region"*. Without it `resolve_region` returns `None` by a
+        different route and the product behaves the same, so a skip loses
+        nothing — but an `ImportError` here would read as a product failure.
         """
 
-        import boto3
+        boto3 = pytest.importorskip("boto3", reason="the bedrock extra is not installed")
 
         monkeypatch.setattr(
             boto3, "Session", lambda *a, **k: type("S", (), {"region_name": None})()
@@ -85,7 +90,7 @@ class TestSelection:
         even when ~/.aws/config already carried one.
         """
 
-        import boto3
+        boto3 = pytest.importorskip("boto3", reason="the bedrock extra is not installed")
 
         if not boto3.Session().region_name:  # pragma: no cover - depends on host
             pytest.skip("no ambient AWS profile region to exercise the fallback")

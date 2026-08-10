@@ -110,7 +110,13 @@ def _domain_type(model: type[BaseModel]) -> type | None:
         return None
 
     annotated = hints.get(parameters[0].name)
-    return annotated if is_dataclass(annotated) else None
+    # `is_dataclass` alone narrows to "a dataclass *or an instance of one*",
+    # which is wider than what this returns. The isinstance check is what makes
+    # it a class, and it also rejects a hint that resolved to something like
+    # `list[Foo]` rather than `Foo`.
+    if isinstance(annotated, type) and is_dataclass(annotated):
+        return annotated
+    return None
 
 
 def _wrapping_models() -> list[tuple[type[BaseModel], type]]:

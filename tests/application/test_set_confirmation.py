@@ -21,6 +21,7 @@ from kae_memory.application import MemoryService, ReadinessService, WriteKnowled
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import KnowledgeItemId
 from kae_memory.domain.lifecycle import LifecycleState
+from kae_memory.domain.models import KnowledgeItem, Project
 
 STATEMENTS = [
     ("goal", "People cannot move a project forward when their thinking is scattered."),
@@ -29,7 +30,7 @@ STATEMENTS = [
 ]
 
 
-def _seed(memory: MemoryService, name: str, key: str) -> tuple[object, list]:
+def _seed(memory: MemoryService, name: str, key: str) -> tuple[Project, list[KnowledgeItem]]:
     project = memory.create_project(name, key=key)
     run = memory.start_run(project.id, AgentRole.REQUIREMENTS, f"{key}-seed")
     items = memory.write_knowledge(

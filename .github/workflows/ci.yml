@@ -18,7 +18,12 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - name: Install project
-        run: uv sync --extra dev
+        # Every extra the checked files import, not only `dev`. `[tool.mypy]`
+        # checks `src` and `tests`, and both import FastAPI and MCP — so a sync
+        # of `dev` alone made every API and MCP module unresolvable, and the
+        # type check reported 203 import errors before pytest could run at all.
+        # CI had therefore never passed.
+        run: uv sync --extra dev --extra api --extra mcp --extra bedrock
       - name: Start PostgreSQL with pgvector
         # Tests run against an engine the product deploys on, never SQLite
         # (ADR-0011). PostgreSQL and CockroachDB are both supported (ADR-0022);
