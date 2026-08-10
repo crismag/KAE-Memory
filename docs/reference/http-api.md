@@ -3,7 +3,7 @@
 
 # HTTP API
 
-49 paths, 57 operations — 31 GET, 25 POST.
+53 paths, 63 operations — 32 GET, 30 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (31)
+## Reads (32)
 
 | Route | Purpose |
 |---|---|
@@ -35,6 +35,7 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/blueprint.md` | Confirmed statements organised by area |
 | `GET /v1/projects/{project_id}/clarifications/candidates` | List the questions a project's findings justify asking, without asking them |
 | `GET /v1/projects/{project_id}/classifications` | Read classified spans of submitted observations |
+| `GET /v1/projects/{project_id}/connections` | Record and authorise permission to reach a provider, never the credential |
 | `GET /v1/projects/{project_id}/context` | Assemble a bounded context pinned to a knowledge revision |
 | `GET /v1/projects/{project_id}/deletion-plan` | Remove a project and everything scoped to it |
 | `GET /v1/projects/{project_id}/deliverables` | Recorded deliverables, newest first, with derived staleness |
@@ -59,7 +60,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (25)
+## Writes (30)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -76,6 +77,8 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve` | Raise and resolve blockers |
 | `POST /v1/projects/{project_id}/clarifications` | Materialise the questions a project's findings justify asking |
 | `POST /v1/projects/{project_id}/clarifications/{question_id}/answer` | Record an answer and queue the extraction it justifies |
+| `POST /v1/projects/{project_id}/connections` | Record and authorise permission to reach a provider, never the credential |
+| `POST /v1/projects/{project_id}/connections/{connection_id}/authorization` | Record and authorise permission to reach a provider, never the credential |
 | `POST /v1/projects/{project_id}/contradictions` | Record and resolve contradictions |
 | `POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve` | Record and resolve contradictions |
 | `POST /v1/projects/{project_id}/deliverables` | Record an assembled output as a durable deliverable |
@@ -86,11 +89,14 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` | Record corrected wording as a new version |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Relay a person's decision to refuse a candidate |
 | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` | Relay a person's decision about a reported operational record |
+| `POST /v1/projects/{project_id}/publication-targets` | Register where a project may publish, and change which target is the default |
+| `POST /v1/projects/{project_id}/publication-targets/default` | Register where a project may publish, and change which target is the default |
 | `POST /v1/projects/{project_id}/readiness/areas` | Assign knowledge to readiness areas |
 | `POST /v1/projects/{project_id}/readiness/calculate` | Recalculate and snapshot readiness |
 | `POST /v1/projects/{project_id}/review/runs` | Queue the review pass that classifies extracted knowledge |
 | `POST /v1/projects/{project_id}/runs` | Enqueue agent work and follow its progress |
 | `POST /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
+| `POST /v1/projects/{project_id}/setup/configuration` | Set a project's configuration — its repository, branch, kind, output format |
 | `POST /v1/sessions/{session_id}/close` | Open, close, and read conversation sessions |
 | `POST /v1/sessions/{session_id}/messages` | Open, close, and read conversation sessions |
 

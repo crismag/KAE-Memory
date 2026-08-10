@@ -19,6 +19,7 @@ domain behaviour rather than transport convention:
 * a bound that changed what was read is reported, never silently applied.
 """
 
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, status
@@ -27,7 +28,11 @@ from kae_memory.application.assembly_service import AssemblyPurpose, describe_pa
 from kae_memory.application.assumption_service import AssumptionNotFoundError
 from kae_memory.application.deliverable_service import DeliverableNotFoundError
 from kae_memory.application.ingestion_service import IngestionPolicy
-from kae_memory.application.setup_service import SetupService
+from kae_memory.application.setup_service import (
+    DefaultConflictError,
+    SetupNotFoundError,
+    SetupService,
+)
 from kae_memory.domain.assumptions import (
     AssumptionOrigin,
     Consequence,
@@ -39,6 +44,14 @@ from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId, ProjectId
 from kae_memory.domain.knowledge_review import RejectionReason
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.domain.project_configuration import ConfigurationError
+from kae_memory.domain.publication_targets import (
+    AuthorizationState,
+    Provider,
+    TargetError,
+    TargetPurpose,
+)
+from kae_memory.domain.setup import SetupError, ValueState
 from kae_memory.mcp import response_policy
 from kae_memory.messages import message
 
@@ -61,8 +74,10 @@ from ..schemas import (
     AssemblyResponse,
     AssumptionListResponse,
     AssumptionResponse,
+    AuthorizeConnectionRequest,
     ClarificationListResponse,
     ClarificationResponse,
+    ConfigureFieldRequest,
     CorrectKnowledgeRequest,
     DeliverableListResponse,
     DeliverableResponse,
@@ -70,13 +85,18 @@ from ..schemas import (
     IngestionResponse,
     KnowledgeReviewResponse,
     PreliminaryContextResponse,
+    ProviderConnectionListResponse,
+    ProviderConnectionResponse,
     PublicationTargetListResponse,
     PublicationTargetResponse,
     QuestionCandidateListResponse,
     RecordAssumptionRequest,
+    RecordConnectionRequest,
     RecordDeliverableRequest,
+    RegisterTargetRequest,
     RejectKnowledgeRequest,
     SearchResponse,
+    SetDefaultTargetRequest,
     SetupGapResponse,
     SetupQuestionListResponse,
     SetupQuestionResponse,
@@ -355,6 +375,249 @@ def setup_state(project_id: str, memory: Memory, setup: Setup) -> SetupStateResp
         ],
         targets=[_target_response(setup, resolved, target) for target in setup.targets(resolved)],
     )
+
+
+@router.post(
+    "/projects/{project_id}/setup/configuration",
+    response_model=SetupStateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def configure_field(
+    project_id: str, body: ConfigureFieldRequest, memory: Memory, setup: Setup
+) -> SetupStateResponse:
+    """Set one configuration field.
+
+    **The first write path setup has ever had.** `SetupService.set_value` was
+    written, tested, and reachable from nothing — as were `register_target` and
+    `record_connection` — so the four tables migration `0020` created held zero
+    rows on the deployed system. Stage one of the product was schema.
+
+    Returns the whole setup state rather than the one value. A caller setting a
+    field wants to know what it unblocked, and the gaps are recomputed here
+    anyway.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        state = ValueState(body.state)
+    except ValueError as error:
+        valid = ", ".join(v.value for v in ValueState)
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown value state {body.state!r}. Valid: {valid}",
+        ) from error
+    try:
+        setup.set_value(
+            resolved,
+            body.field,
+            body.value,
+            state,
+            evidence=body.evidence,
+            confirmed_by=body.confirmed_by,
+            derived_from_knowledge_id=body.derived_from_knowledge_id,
+        )
+    except (ConfigurationError, SetupError) as error:
+        # `ConfigurationError` covers both an unknown field and a field that
+        # may not be configured at all. Both are the caller naming something
+        # wrong, which is 422 rather than 500 — and the message names what is
+        # valid, because a rejection that does not is a guessing game.
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return setup_state(project_id, memory, setup)
+
+
+@router.post(
+    "/projects/{project_id}/publication-targets",
+    response_model=PublicationTargetResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def register_publication_target(
+    project_id: str, body: RegisterTargetRequest, memory: Memory, setup: Setup
+) -> PublicationTargetResponse:
+    """Register where this project may publish — the output repository.
+
+    A coordinate lives here and **never on a publication request**. That is the
+    rule `publication_targets.py` states outright: *"A request may not carry a
+    coordinate… Requests name a `target_id` or nothing."* Otherwise every
+    authorisation check is advisory, because the caller could name a destination
+    the check never saw.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        provider = Provider(body.provider)
+        purpose = TargetPurpose(body.purpose)
+    except ValueError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown provider or purpose: {body.provider!r}, {body.purpose!r}. "
+            f"Providers: {', '.join(p.value for p in Provider)}. "
+            f"Purposes: {', '.join(p.value for p in TargetPurpose)}",
+        ) from error
+    try:
+        target = setup.register_target(
+            resolved,
+            provider,
+            body.name,
+            purpose=purpose,
+            configuration=body.configuration,
+            connection_id=body.connection_id,
+            make_default=body.make_default,
+        )
+    except TargetError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    except DefaultConflictError as error:
+        # 409, not 422. The request is well-formed and the project's state
+        # refuses it — and the remedy is `set_default`, which the message names.
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            "default_target_conflict",
+            f"{error} To change which target is the default, use "
+            f"POST /v1/projects/{{id}}/publication-targets/default.",
+        ) from error
+    return _target_response(setup, resolved, target)
+
+
+@router.post(
+    "/projects/{project_id}/publication-targets/default",
+    response_model=PublicationTargetResponse,
+)
+def set_default_target(
+    project_id: str, body: SetDefaultTargetRequest, memory: Memory, setup: Setup
+) -> PublicationTargetResponse:
+    """Point a purpose at a different registered target.
+
+    There was no way to do this. `register_target(make_default=True)` refuses
+    once a default exists, so a project's output destination could be chosen
+    once and never changed — which is not a destination, it is a commitment.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        purpose = TargetPurpose(body.purpose)
+    except ValueError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown purpose {body.purpose!r}. Valid: {', '.join(p.value for p in TargetPurpose)}",
+        ) from error
+    try:
+        target = setup.set_default(resolved, body.target_id, purpose=purpose)
+    except SetupNotFoundError as error:
+        raise not_found("publication_target", body.target_id) from error
+    except TargetError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return _target_response(setup, resolved, target)
+
+
+@router.get("/projects/{project_id}/connections", response_model=ProviderConnectionListResponse)
+def list_connections(
+    project_id: str, memory: Memory, setup: Setup
+) -> ProviderConnectionListResponse:
+    """What this project has connected. **Never a credential.**"""
+
+    resolved = _project(project_id, memory)
+    connections = setup.connections(resolved)
+    return ProviderConnectionListResponse(
+        project_id=str(resolved),
+        results=[ProviderConnectionResponse.of(c) for c in connections],
+        total=len(connections),
+    )
+
+
+@router.post(
+    "/projects/{project_id}/connections",
+    response_model=ProviderConnectionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_connection(
+    project_id: str, body: RecordConnectionRequest, memory: Memory, setup: Setup
+) -> ProviderConnectionResponse:
+    """Record permission to reach a provider, never the means.
+
+    The domain refuses a `credential_reference` that looks like a credential
+    itself, because this record is returned to callers and a secret in it is a
+    secret disclosed — already written somewhere readable, and not unwritten by
+    removing it afterwards.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        provider = Provider(body.provider)
+        state = AuthorizationState(body.state)
+    except ValueError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown provider or authorization state: {body.provider!r}, {body.state!r}",
+        ) from error
+    try:
+        connection = setup.record_connection(
+            resolved,
+            provider,
+            credential_reference=body.credential_reference,
+            state=state,
+            authorized_by=body.authorized_by,
+            detail=body.detail,
+        )
+    except TargetError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return ProviderConnectionResponse.of(connection)
+
+
+@router.post(
+    "/projects/{project_id}/connections/{connection_id}/authorization",
+    response_model=ProviderConnectionResponse,
+)
+def authorize_connection(
+    project_id: str,
+    connection_id: str,
+    body: AuthorizeConnectionRequest,
+    memory: Memory,
+    setup: Setup,
+) -> ProviderConnectionResponse:
+    """Move a connection's authorisation state after checking it.
+
+    `record_connection` only inserts, so a connection created `never_granted`
+    could never become `granted` — and re-recording instead leaves a second row
+    behind on every attempt.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        state = AuthorizationState(body.state)
+    except ValueError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "invalid_argument",
+            f"unknown authorization state {body.state!r}. "
+            f"Valid: {', '.join(s.value for s in AuthorizationState)}",
+        ) from error
+    try:
+        connection = setup.authorize_connection(
+            resolved,
+            connection_id,
+            state,
+            authorized_by=body.authorized_by,
+            detail=body.detail,
+            verified_at=datetime.now(UTC),
+        )
+    except SetupNotFoundError as error:
+        raise not_found("connection", connection_id) from error
+    except TargetError as error:
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
+        ) from error
+    return ProviderConnectionResponse.of(connection)
 
 
 @router.get("/projects/{project_id}/setup/questions", response_model=SetupQuestionListResponse)

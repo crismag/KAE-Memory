@@ -1297,6 +1297,101 @@ def _unknown(entry: Any) -> UnknownEntryResponse:
     )
 
 
+class ConfigureFieldRequest(BaseModel):
+    """Set one configuration field.
+
+    `state` is the caller's claim about *how well established* the value is, and
+    it is not decoration. `confirmed` means a person chose it and must name who;
+    `inferred` and `suggested` must carry evidence. The domain enforces both, so
+    a caller cannot record "the user confirmed this" about a guess.
+    """
+
+    field: str = Field(min_length=1)
+    value: str
+    state: str = "confirmed"
+    evidence: str = ""
+    confirmed_by: str | None = None
+    derived_from_knowledge_id: str | None = None
+
+
+class RegisterTargetRequest(BaseModel):
+    """Register where a project may publish.
+
+    `configuration` carries the coordinate — `{"repository": "owner/name",
+    "path": "docs/"}` — and the domain refuses any key that looks like a
+    credential. `make_default` is explicit: a target that silently became the
+    default would route the next publication somewhere nobody chose.
+    """
+
+    provider: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    purpose: str = "deliverable"
+    configuration: dict[str, str] = Field(default_factory=dict)
+    connection_id: str | None = None
+    make_default: bool = False
+
+
+class SetDefaultTargetRequest(BaseModel):
+    """Point a purpose at a different registered target."""
+
+    target_id: str = Field(min_length=1)
+    purpose: str = "deliverable"
+
+
+class RecordConnectionRequest(BaseModel):
+    """Record permission to reach a provider, never the means of doing so.
+
+    `credential_reference` names *where* a credential lives — `env:NAME`, a
+    secret-manager path, an instance-role marker. The domain refuses anything
+    that looks like a credential itself, because this record is returned to
+    callers and a secret in it is a secret disclosed.
+    """
+
+    provider: str = Field(min_length=1)
+    credential_reference: str | None = None
+    state: str = "never_granted"
+    authorized_by: str | None = None
+    detail: str = ""
+
+
+class AuthorizeConnectionRequest(BaseModel):
+    """Move a connection's authorisation state after checking it."""
+
+    state: str = Field(min_length=1)
+    authorized_by: str | None = None
+    detail: str = ""
+
+
+class ProviderConnectionResponse(BaseModel):
+    """One recorded connection. **Never carries a credential.**"""
+
+    connection_id: str
+    provider: str
+    state: str
+    credential_reference: str | None
+    authorized_by: str | None
+    last_verified_at: datetime | None
+    detail: str
+
+    @classmethod
+    def of(cls, connection: Any) -> "ProviderConnectionResponse":
+        return cls(
+            connection_id=str(connection.id),
+            provider=connection.provider.value,
+            state=connection.state.value,
+            credential_reference=connection.credential_reference,
+            authorized_by=connection.authorized_by,
+            last_verified_at=connection.last_verified_at,
+            detail=connection.detail,
+        )
+
+
+class ProviderConnectionListResponse(BaseModel):
+    project_id: str
+    results: list[ProviderConnectionResponse]
+    total: int
+
+
 class SetupGapResponse(BaseModel):
     """One thing setup is missing, and whether it stops anything."""
 

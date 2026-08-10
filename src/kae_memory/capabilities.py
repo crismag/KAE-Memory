@@ -226,6 +226,47 @@ REGISTRY: tuple[Capability, ...] = (
         http=("GET /v1/projects/{project_id}/setup/questions",),
     ),
     Capability(
+        key="setup.configure",
+        summary="Set a project's configuration — its repository, branch, kind, output format",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/setup/configuration",),
+        reason=(
+            "Setup is a person deciding how their project is wired. An agent "
+            "that could rewrite `primary_repository` mid-run would change where "
+            "the next publication goes without anybody choosing it. Reading it "
+            "over MCP is right; writing it is not."
+        ),
+    ),
+    Capability(
+        key="publication.targets.register",
+        summary="Register where a project may publish, and change which target is the default",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/publication-targets",
+            "POST /v1/projects/{project_id}/publication-targets/default",
+        ),
+        reason=(
+            "The same reason as `setup.configure`, more sharply: this decides "
+            "where bytes land. A destination an agent chose is a destination "
+            "nobody authorised."
+        ),
+    ),
+    Capability(
+        key="connections.manage",
+        summary="Record and authorise permission to reach a provider, never the credential",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "GET /v1/projects/{project_id}/connections",
+            "POST /v1/projects/{project_id}/connections",
+            "POST /v1/projects/{project_id}/connections/{connection_id}/authorization",
+        ),
+        reason=(
+            "Granting access is an act of authorisation, and `granted` requires "
+            "naming the person who gave it. An agent authorising its own reach "
+            "would make that name meaningless."
+        ),
+    ),
+    Capability(
         key="publication.targets",
         summary="List where a project may publish, and why it currently cannot",
         exposure=Exposure.BOTH,

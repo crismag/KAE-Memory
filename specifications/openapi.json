@@ -376,6 +376,37 @@
         "title": "AssumptionResponse",
         "type": "object"
       },
+      "AuthorizeConnectionRequest": {
+        "description": "Move a connection's authorisation state after checking it.",
+        "properties": {
+          "authorized_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized By"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "state": {
+            "minLength": 1,
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "AuthorizeConnectionRequest",
+        "type": "object"
+      },
       "BlockerResponse": {
         "properties": {
           "area_key": {
@@ -776,6 +807,58 @@
           "note"
         ],
         "title": "ClassificationResponse",
+        "type": "object"
+      },
+      "ConfigureFieldRequest": {
+        "description": "Set one configuration field.\n\n`state` is the caller's claim about *how well established* the value is, and\nit is not decoration. `confirmed` means a person chose it and must name who;\n`inferred` and `suggested` must carry evidence. The domain enforces both, so\na caller cannot record \"the user confirmed this\" about a guess.",
+        "properties": {
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "derived_from_knowledge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derived From Knowledge Id"
+          },
+          "evidence": {
+            "default": "",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "field": {
+            "minLength": 1,
+            "title": "Field",
+            "type": "string"
+          },
+          "state": {
+            "default": "confirmed",
+            "title": "State",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "value"
+        ],
+        "title": "ConfigureFieldRequest",
         "type": "object"
       },
       "ConfirmKnowledgeSetRequest": {
@@ -2094,6 +2177,98 @@
         "title": "ProjectResponse",
         "type": "object"
       },
+      "ProviderConnectionListResponse": {
+        "properties": {
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderConnectionResponse"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "results",
+          "total"
+        ],
+        "title": "ProviderConnectionListResponse",
+        "type": "object"
+      },
+      "ProviderConnectionResponse": {
+        "description": "One recorded connection. **Never carries a credential.**",
+        "properties": {
+          "authorized_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized By"
+          },
+          "connection_id": {
+            "title": "Connection Id",
+            "type": "string"
+          },
+          "credential_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Reference"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "last_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Verified At"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "provider",
+          "state",
+          "credential_reference",
+          "authorized_by",
+          "last_verified_at",
+          "detail"
+        ],
+        "title": "ProviderConnectionResponse",
+        "type": "object"
+      },
       "PublicationTargetListResponse": {
         "properties": {
           "knowledge_changed": {
@@ -2519,6 +2694,53 @@
         "title": "RecordAssumptionRequest",
         "type": "object"
       },
+      "RecordConnectionRequest": {
+        "description": "Record permission to reach a provider, never the means of doing so.\n\n`credential_reference` names *where* a credential lives \u2014 `env:NAME`, a\nsecret-manager path, an instance-role marker. The domain refuses anything\nthat looks like a credential itself, because this record is returned to\ncallers and a secret in it is a secret disclosed.",
+        "properties": {
+          "authorized_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorized By"
+          },
+          "credential_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Reference"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "provider": {
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "state": {
+            "default": "never_granted",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "title": "RecordConnectionRequest",
+        "type": "object"
+      },
       "RecordContradictionRequest": {
         "properties": {
           "source_knowledge_item_id": {
@@ -2619,6 +2841,55 @@
           "content"
         ],
         "title": "RecordMessageRequest",
+        "type": "object"
+      },
+      "RegisterTargetRequest": {
+        "description": "Register where a project may publish.\n\n`configuration` carries the coordinate \u2014 `{\"repository\": \"owner/name\",\n\"path\": \"docs/\"}` \u2014 and the domain refuses any key that looks like a\ncredential. `make_default` is explicit: a target that silently became the\ndefault would route the next publication somewhere nobody chose.",
+        "properties": {
+          "configuration": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Configuration",
+            "type": "object"
+          },
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          },
+          "make_default": {
+            "default": false,
+            "title": "Make Default",
+            "type": "boolean"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "provider": {
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "deliverable",
+            "title": "Purpose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "name"
+        ],
+        "title": "RegisterTargetRequest",
         "type": "object"
       },
       "RejectKnowledgeRequest": {
@@ -3033,6 +3304,26 @@
           "ended_at"
         ],
         "title": "SessionResponse",
+        "type": "object"
+      },
+      "SetDefaultTargetRequest": {
+        "description": "Point a purpose at a different registered target.",
+        "properties": {
+          "purpose": {
+            "default": "deliverable",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "target_id": {
+            "minLength": 1,
+            "title": "Target Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_id"
+        ],
+        "title": "SetDefaultTargetRequest",
         "type": "object"
       },
       "SettleOperationalRequest": {
@@ -4556,6 +4847,162 @@
         ]
       }
     },
+    "/v1/projects/{project_id}/connections": {
+      "get": {
+        "description": "What this project has connected. **Never a credential.**",
+        "operationId": "list_connections_v1_projects__project_id__connections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConnectionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Connections",
+        "tags": [
+          "pipeline"
+        ]
+      },
+      "post": {
+        "description": "Record permission to reach a provider, never the means.\n\nThe domain refuses a `credential_reference` that looks like a credential\nitself, because this record is returned to callers and a secret in it is a\nsecret disclosed \u2014 already written somewhere readable, and not unwritten by\nremoving it afterwards.",
+        "operationId": "record_connection_v1_projects__project_id__connections_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Connection",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/connections/{connection_id}/authorization": {
+      "post": {
+        "description": "Move a connection's authorisation state after checking it.\n\n`record_connection` only inserts, so a connection created `never_granted`\ncould never become `granted` \u2014 and re-recording instead leaves a second row\nbehind on every attempt.",
+        "operationId": "authorize_connection_v1_projects__project_id__connections__connection_id__authorization_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Authorize Connection",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
     "/v1/projects/{project_id}/context": {
       "get": {
         "description": "Assemble a bounded context, pinned to the knowledge revision it read.\n\nA GET because it is deterministic and creates nothing: the same project at\nthe same revision produces the same content hash. `package_id` is fresh per\ncall and is **not** deliverable identity \u2014 a durable deliverable is a\nconcept this repository does not have, and a route must not invent one.\n\nProposed statements are excluded unless asked for, and arrive labelled when\nthey are. An implementer who cannot tell a candidate from a confirmed\nstatement will build whichever they read first.",
@@ -5767,6 +6214,110 @@
         "tags": [
           "pipeline"
         ]
+      },
+      "post": {
+        "description": "Register where this project may publish \u2014 the output repository.\n\nA coordinate lives here and **never on a publication request**. That is the\nrule `publication_targets.py` states outright: *\"A request may not carry a\ncoordinate\u2026 Requests name a `target_id` or nothing.\"* Otherwise every\nauthorisation check is advisory, because the caller could name a destination\nthe check never saw.",
+        "operationId": "register_publication_target_v1_projects__project_id__publication_targets_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterTargetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationTargetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Publication Target",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/publication-targets/default": {
+      "post": {
+        "description": "Point a purpose at a different registered target.\n\nThere was no way to do this. `register_target(make_default=True)` refuses\nonce a default exists, so a project's output destination could be chosen\nonce and never changed \u2014 which is not a destination, it is a commitment.",
+        "operationId": "set_default_target_v1_projects__project_id__publication_targets_default_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetDefaultTargetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationTargetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Default Target",
+        "tags": [
+          "pipeline"
+        ]
       }
     },
     "/v1/projects/{project_id}/readiness": {
@@ -6314,6 +6865,59 @@
           }
         },
         "summary": "Setup State",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/setup/configuration": {
+      "post": {
+        "description": "Set one configuration field.\n\n**The first write path setup has ever had.** `SetupService.set_value` was\nwritten, tested, and reachable from nothing \u2014 as were `register_target` and\n`record_connection` \u2014 so the four tables migration `0020` created held zero\nrows on the deployed system. Stage one of the product was schema.\n\nReturns the whole setup state rather than the one value. A caller setting a\nfield wants to know what it unblocked, and the gaps are recomputed here\nanyway.",
+        "operationId": "configure_field_v1_projects__project_id__setup_configuration_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureFieldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure Field",
         "tags": [
           "pipeline"
         ]

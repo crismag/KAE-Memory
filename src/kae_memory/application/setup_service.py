@@ -197,7 +197,21 @@ class SetupService:
             row.answered_at = self._clock()
             session.flush()
 
-            if settles(disposition) and row.becomes_default:
+            # **The guard `set_value` has and this path did not.**
+            #
+            # `ask` does not check `field_name` against `KNOWN_FIELDS` —
+            # deliberately, because an authorisation question is not a
+            # configuration field. But this branch writes one, so a question
+            # asked about `primry_repository` used to produce a
+            # `project_configuration` row that `ProjectConfiguration`
+            # refuses to construct — permanently failing `GET /setup` for
+            # that project, with no way to remove the row through this
+            # service.
+            #
+            # Skipping rather than raising: the answer is recorded either
+            # way, and a settled question is not made unsettled by having
+            # nowhere to write. The disposition is the durable part.
+            if settles(disposition) and row.becomes_default and row.field_name in KNOWN_FIELDS:
                 _write_value(
                     session,
                     project_id,
@@ -344,6 +358,76 @@ class SetupService:
 
         return run_transaction(self._session_factory, operation)
 
+    def connections(self, project_id: ProjectId) -> tuple[ProviderConnection, ...]:
+        """Every connection this project has recorded.
+
+        There was no way to list them. `authorization_for` answers about one
+        connection whose id you already hold, which is enough for publication
+        and useless for a person deciding whether to add another — so a setup
+        surface could create connections and never show them.
+        """
+
+        def operation(session: DbSession) -> tuple[ProviderConnection, ...]:
+            rows = session.scalars(
+                select(ProviderConnectionRow)
+                .where(ProviderConnectionRow.project_id == str(project_id))
+                .order_by(ProviderConnectionRow.connection_id)
+            ).all()
+            return tuple(_as_connection(row) for row in rows)
+
+        return run_transaction(self._session_factory, operation)
+
+    def authorize_connection(
+        self,
+        project_id: ProjectId,
+        connection_id: str,
+        state: AuthorizationState,
+        authorized_by: str | None = None,
+        detail: str = "",
+        verified_at: datetime | None = None,
+    ) -> ProviderConnection:
+        """Move a connection's authorisation state after checking it.
+
+        **`record_connection` only inserts**, so a connection created
+        `never_granted` could never become `granted` — and a *Connect GitHub*
+        flow that re-recorded instead would leave a second row behind on every
+        attempt, since nothing makes `(project_id, provider)` unique.
+
+        The uniqueness is deliberately still absent: two credentials for two
+        accounts of the same provider is a real case. What was missing is the
+        transition, and this is it.
+
+        `verified_at` is set here because it is the only place that knows a
+        check actually happened. `record_connection` always left it null, so
+        `last_verified_at` existed on the row, the dataclass and nowhere else.
+        """
+
+        def operation(session: DbSession) -> ProviderConnection:
+            row = session.get(ProviderConnectionRow, connection_id)
+            if row is None or row.project_id != str(project_id):
+                raise SetupNotFoundError(f"unknown connection: {connection_id}")
+            # Validated by constructing the domain object first: `granted`
+            # without an authorising person is refused there, and refusing
+            # before the write is what keeps an invalid row from existing.
+            updated = ProviderConnection(
+                id=ConnectionId(connection_id),
+                project_id=project_id,
+                provider=Provider(row.provider),
+                state=state,
+                credential_reference=row.credential_reference,
+                authorized_by=authorized_by if authorized_by is not None else row.authorized_by,
+                detail=detail or row.detail or "",
+                last_verified_at=verified_at,
+            )
+            row.state = state.value
+            row.authorized_by = updated.authorized_by
+            row.detail = updated.detail
+            row.last_verified_at = verified_at
+            session.flush()
+            return updated
+
+        return run_transaction(self._session_factory, operation)
+
     def authorization_for(
         self, project_id: ProjectId, connection_id: str | None
     ) -> AuthorizationState:
@@ -423,6 +507,66 @@ class SetupService:
                     f"bytes are written."
                 ) from error
             return target
+
+        return run_transaction(self._session_factory, operation)
+
+    def set_default(
+        self,
+        project_id: ProjectId,
+        target_id: str,
+        purpose: TargetPurpose = TargetPurpose.DELIVERABLE,
+    ) -> PublicationTarget:
+        """Point a purpose at a different target.
+
+        **There was no way to do this.** `register_target(make_default=True)`
+        raises once a default exists, so a project's output destination could be
+        chosen once and never changed — which is not a destination, it is a
+        commitment.
+
+        Clearing and setting happen in **one transaction**, and the clear comes
+        first, because `uq_publication_targets_default` is a partial unique
+        index over `is_default`: setting before clearing collides with the row
+        being replaced.
+
+        The index still does the real work. Two concurrent calls both clear,
+        both set, and one loses at flush — which is the behaviour
+        `register_target` chose an index for in the first place, rather than a
+        read-then-write that finds no default and races.
+        """
+
+        def operation(session: DbSession) -> PublicationTarget:
+            row = session.get(PublicationTargetRow, target_id)
+            if row is None or row.project_id != str(project_id):
+                raise SetupNotFoundError(f"unknown publication target: {target_id}")
+            if row.purpose != purpose.value:
+                raise TargetError(
+                    f"target {row.name!r} has purpose {row.purpose!r} and cannot become "
+                    f"the default for {purpose.value!r}. A default routes one kind of "
+                    f"output; making a snapshot target the deliverable default would "
+                    f"send a package where a snapshot was expected."
+                )
+            current = session.scalars(
+                select(PublicationTargetRow).where(
+                    PublicationTargetRow.project_id == str(project_id),
+                    PublicationTargetRow.purpose == purpose.value,
+                    PublicationTargetRow.is_default.is_(True),
+                )
+            ).all()
+            for existing in current:
+                existing.is_default = False
+            session.flush()
+
+            row.is_default = True
+            try:
+                session.flush()
+            except IntegrityError as error:  # pragma: no cover - concurrent callers
+                session.rollback()
+                raise DefaultConflictError(
+                    f"another call set the default {purpose.value} target for this "
+                    f"project while this one was running. Read the current default "
+                    f"and decide again rather than retrying blind."
+                ) from error
+            return _as_target(row)
 
         return run_transaction(self._session_factory, operation)
 
@@ -641,6 +785,19 @@ def _as_value(row: ProjectConfigurationRow) -> ConfiguredValue:
         derived_from_knowledge_id=row.derived_from_knowledge_id,
         confirmed_by=row.confirmed_by,
         updated_at=row.updated_at,
+    )
+
+
+def _as_connection(row: ProviderConnectionRow) -> ProviderConnection:
+    return ProviderConnection(
+        id=ConnectionId(str(row.connection_id)),
+        project_id=ProjectId(str(row.project_id)),
+        provider=Provider(row.provider),
+        state=AuthorizationState(row.state),
+        credential_reference=row.credential_reference,
+        authorized_by=row.authorized_by,
+        last_verified_at=row.last_verified_at,
+        detail=row.detail or "",
     )
 
 

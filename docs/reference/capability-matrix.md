@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-48 capabilities: 26 on both, 16 HTTP only, 5 MCP only, 1 on neither.
+51 capabilities: 26 on both, 19 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -55,7 +55,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (16)
+## HTTP only, by decision (19)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -64,6 +64,7 @@ carries the reason it is not there.
 |---|---|---|---|---|
 | `blocker.manage` | Raise and resolve blockers | — | `GET /v1/projects/{project_id}/blockers`, `POST /v1/projects/{project_id}/blockers`, `POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve` | An agent reports a blocker as an observation and a person decides it is one. Letting an agent raise one directly would put an unreviewed claim into the register that gates readiness. |
 | `clarification.candidates` | List the questions a project's findings justify asking, without asking them | — | `GET /v1/projects/{project_id}/clarifications/candidates` | The observational half of clarification.open. An agent that lists questions is about to ask one, and materialising is what gives it something to answer — so MCP wants the command. A product surface refreshes, paginates and monitors, and none of those should put a question to anybody or decide what id it gets. |
+| `connections.manage` | Record and authorise permission to reach a provider, never the credential | — | `GET /v1/projects/{project_id}/connections`, `POST /v1/projects/{project_id}/connections`, `POST /v1/projects/{project_id}/connections/{connection_id}/authorization` | Granting access is an act of authorisation, and `granted` requires naming the person who gave it. An agent authorising its own reach would make that name meaningless. |
 | `contradiction.manage` | Record and resolve contradictions | — | `POST /v1/projects/{project_id}/contradictions`, `POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve` | Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it. |
 | `deliverable.lifecycle` | Supersede or withdraw a recorded deliverable | — | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede`, `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Withdrawing what a project stands behind is a person's judgement, and an agent that could do it would be settling a question nobody asked it. |
 | `deliverable.read` | One deliverable's manifest, artifact index, and lifecycle | — | `GET /v1/projects/{project_id}/deliverables/{deliverable_id}` | An agent that recorded a deliverable already holds its payload. Studio resolves one from a stored id when a person opens it later. |
@@ -72,12 +73,14 @@ carries the reason it is not there.
 | `knowledge.trace` | Resolve a statement to the evidence behind it | — | `GET /v1/knowledge/{item_id}/trace` | MCP carries provenance inside the payloads that quote a statement, so a separate trace call would return what the agent already holds. |
 | `project.delete` | Remove a project and everything scoped to it | — | `GET /v1/projects/{project_id}/deletion-plan`, `DELETE /v1/projects/{project_id}` | Destructive and irreversible. An agent submitting evidence has no business removing the project it was submitted to, and the decision to delete is one a person makes after reading what would be lost. |
 | `project.read` | Read one project's identity | — | `GET /v1/projects/{project_id}` | MCP answers this inside the briefing. A tool returning a name and a key would cost a round trip to learn what the next call already carries. |
+| `publication.targets.register` | Register where a project may publish, and change which target is the default | — | `POST /v1/projects/{project_id}/publication-targets`, `POST /v1/projects/{project_id}/publication-targets/default` | The same reason as `setup.configure`, more sharply: this decides where bytes land. A destination an agent chose is a destination nobody authorised. |
 | `readiness.areas` | Assign knowledge to readiness areas | — | `POST /v1/projects/{project_id}/readiness/areas` | Template administration, not a product action an agent performs. |
 | `readiness.extraction_coverage` | Report how much submitted content became knowledge | — | `GET /v1/projects/{project_id}/extraction-coverage` | A disclosure for a person reading a coverage number, not an input to reasoning. An agent assembling context already receives what the project holds; telling it what was lost would invite it to speculate about the gap, which is the opposite of the point. |
 | `readiness.history` | Read past readiness snapshots | — | `GET /v1/projects/{project_id}/readiness/history` | A trend is something a person looks at; an agent plans from the current figure. |
 | `readiness.recalculate` | Recalculate and snapshot readiness | — | `POST /v1/projects/{project_id}/readiness/calculate` | MCP recalculates when a read finds a stale snapshot, so an agent never needs to ask. Studio drives it from a button. |
 | `run.manage` | Enqueue agent work and follow its progress | — | `POST /v1/projects/{project_id}/runs`, `GET /v1/projects/{project_id}/runs`, `GET /v1/runs/{run_id}`, `GET /v1/runs/{run_id}/events`, `GET /v1/runs/{run_id}/knowledge` | Studio shows progress. An agent that *is* the work does not submit runs to itself, and a tool that let it would invite recursion nobody bounded. |
 | `session.manage` | Open, close, and read conversation sessions | — | `POST /v1/projects/{project_id}/sessions`, `GET /v1/projects/{project_id}/sessions`, `POST /v1/sessions/{session_id}/close`, `GET /v1/sessions/{session_id}/messages`, `POST /v1/sessions/{session_id}/messages` | ADR-0006 gives Memory durable conversation and Studio the interview. An agent submits observations rather than holding a session. |
+| `setup.configure` | Set a project's configuration — its repository, branch, kind, output format | — | `POST /v1/projects/{project_id}/setup/configuration` | Setup is a person deciding how their project is wired. An agent that could rewrite `primary_repository` mid-run would change where the next publication goes without anybody choosing it. Reading it over MCP is right; writing it is not. |
 
 ---
 
