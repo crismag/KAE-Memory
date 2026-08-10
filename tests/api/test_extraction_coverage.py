@@ -111,3 +111,58 @@ def test_only_runs_that_read_source_content_count(
 
     assert coverage["total"] == 0
     assert coverage["complete"] is True
+
+
+class TestReadinessSaysHowItWasClassified:
+    """AUD-025, AUD-026. The half of PPA/REVIEW-01 that was never met.
+
+    The worker already computed whether a review ran on a model, degraded
+    partway, or fell back to the offline unambiguous-only rule — and wrote it
+    into the run's `output_summary`, which a reader of `GET /readiness` never
+    sees. So a percentage capped by the 16% offline ceiling looked exactly like
+    one a model produced, and the finding's exit ("a degraded run is visibly
+    degraded") was satisfied at the run and not at the number.
+    """
+
+    def test_a_project_with_no_review_says_so(self, client: TestClient) -> None:
+        project = client.post("/v1/projects", json={"name": "Unreviewed"}).json()
+
+        body = client.get(f"/v1/projects/{project['id']}/readiness").json()
+
+        # Never reviewed is a third state, distinct from "reviewed offline".
+        # Collapsing them would tell somebody their classification degraded
+        # when nothing has run at all.
+        assert body["classification"]["engine"] is None
+        assert body["classification"]["degraded"] is False
+        assert "No review has run" in body["classification"]["note"]
+
+    def test_a_degraded_review_is_visible_where_the_number_is_read(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        project = client.post("/v1/projects", json={"name": "Degraded"}).json()
+        run = memory.start_run(ProjectId(project["id"]), AgentRole.REVIEW, "aud-025-degraded")
+        memory.complete_run(
+            run.id,
+            output_summary={"classification": "offline_by_kind_after_reviewer_error"},
+        )
+
+        body = client.get(f"/v1/projects/{project['id']}/readiness").json()
+
+        assert body["classification"]["engine"] == "offline_by_kind_after_reviewer_error"
+        assert body["classification"]["degraded"] is True
+        # The note has to say the cause is not the project. A reader looking at
+        # a low percentage will otherwise conclude their project is thin.
+        assert "not about the project" in body["classification"]["note"]
+
+    def test_a_model_review_is_not_reported_as_degraded(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        project = client.post("/v1/projects", json={"name": "Model"}).json()
+        run = memory.start_run(ProjectId(project["id"]), AgentRole.REVIEW, "aud-025-model")
+        memory.complete_run(run.id, output_summary={"classification": "reviewed_by_model"})
+
+        body = client.get(f"/v1/projects/{project['id']}/readiness").json()
+
+        assert body["classification"]["degraded"] is False

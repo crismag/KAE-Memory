@@ -734,6 +734,50 @@
         "title": "ClassificationListResponse",
         "type": "object"
       },
+      "ClassificationResponse": {
+        "description": "How a project's knowledge reached its discovery areas.\n\nThree states a reader must be able to tell apart, and could not:\n\n- **never reviewed** \u2014 `engine` is null, and the percentage reflects\n  whatever links exist rather than any classification;\n- **classified by a model** \u2014 the intended path;\n- **degraded** \u2014 a provider failed and the offline unambiguous-only rule\n  ran instead, which caps readiness at 16% of the software template and\n  makes `implementation_eligible` unreachable whatever the corpus.\n\nThe third still returns a run status of `succeeded`, still recalculates\nreadiness, and still produces a number. `degraded` is what says so.",
+        "properties": {
+          "degraded": {
+            "title": "Degraded",
+            "type": "boolean"
+          },
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engine"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          }
+        },
+        "required": [
+          "engine",
+          "degraded",
+          "reviewed_at",
+          "note"
+        ],
+        "title": "ClassificationResponse",
+        "type": "object"
+      },
       "ConfirmKnowledgeSetRequest": {
         "description": "The items a person's single \"yes\" applies to.\n\nNon-empty by constraint. An empty set is not a smaller confirmation; it is a\ncaller that lost track of what it was asking about, and answering 200 with\nan empty list would let it carry on believing something was confirmed.\n\nBounded because a confirmation set describes one synthesis. A request naming\nfive hundred items is a caller confirming a whole project by accident, which\nis exactly the \"silently becomes user-confirmed\" failure the directive\nforbids.",
         "properties": {
@@ -2297,6 +2341,9 @@
             "title": "Calculation Version",
             "type": "integer"
           },
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationResponse"
+          },
           "critical_blocker_count": {
             "title": "Critical Blocker Count",
             "type": "integer"
@@ -2384,7 +2431,8 @@
           "calculation_version",
           "is_stale",
           "areas",
-          "calculated_at"
+          "calculated_at",
+          "classification"
         ],
         "title": "ReadinessResponse",
         "type": "object"

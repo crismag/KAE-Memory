@@ -16,7 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
-from kae_memory.application.readiness_service import ExtractionCoverage
+from kae_memory.application.readiness_service import ClassificationReport, ExtractionCoverage
 from kae_memory.application.review_service import Finding
 from kae_memory.domain.dispositions import Disposition, settles
 from kae_memory.domain.execution import AgentRun
@@ -321,6 +321,48 @@ class AreaResultResponse(BaseModel):
         )
 
 
+class ClassificationResponse(BaseModel):
+    """How a project's knowledge reached its discovery areas.
+
+    Three states a reader must be able to tell apart, and could not:
+
+    - **never reviewed** — `engine` is null, and the percentage reflects
+      whatever links exist rather than any classification;
+    - **classified by a model** — the intended path;
+    - **degraded** — a provider failed and the offline unambiguous-only rule
+      ran instead, which caps readiness at 16% of the software template and
+      makes `implementation_eligible` unreachable whatever the corpus.
+
+    The third still returns a run status of `succeeded`, still recalculates
+    readiness, and still produces a number. `degraded` is what says so.
+    """
+
+    engine: str | None
+    degraded: bool
+    reviewed_at: datetime | None
+    note: str
+
+    @classmethod
+    def of(cls, report: ClassificationReport) -> "ClassificationResponse":
+        if report.engine is None:
+            note = "No review has run. Areas reflect whatever links already exist."
+        elif report.degraded:
+            note = (
+                "Classification fell back to the offline rule for some or all "
+                "statements, which assigns only unambiguous kinds. This "
+                "percentage is lower than a model would have reached, for a "
+                "reason that is not about the project."
+            )
+        else:
+            note = "Classified by the configured review model."
+        return cls(
+            engine=report.engine,
+            degraded=report.degraded,
+            reviewed_at=report.reviewed_at,
+            note=note,
+        )
+
+
 class ReadinessResponse(BaseModel):
     """Everything needed to interrogate the number, never the number alone.
 
@@ -355,9 +397,19 @@ class ReadinessResponse(BaseModel):
     is_stale: bool
     areas: list[AreaResultResponse]
     calculated_at: datetime
+    #: How the knowledge behind this number was classified, and whether that
+    #: classification degraded. Reported beside the percentage and never folded
+    #: into it: a number produced by the 16% offline ceiling was previously
+    #: indistinguishable from one a model produced (AUD-025, AUD-026).
+    classification: "ClassificationResponse"
 
     @classmethod
-    def of(cls, snapshot: ReadinessSnapshot, current_revision: int) -> "ReadinessResponse":
+    def of(
+        cls,
+        snapshot: ReadinessSnapshot,
+        current_revision: int,
+        classification: ClassificationReport | None = None,
+    ) -> "ReadinessResponse":
         return cls(
             id=str(snapshot.id),
             project_id=str(snapshot.project_id),
@@ -378,6 +430,9 @@ class ReadinessResponse(BaseModel):
             is_stale=snapshot.is_stale_against(current_revision),
             areas=[AreaResultResponse.of(area) for area in snapshot.areas],
             calculated_at=snapshot.calculated_at,
+            classification=ClassificationResponse.of(
+                classification or ClassificationReport(engine=None, reviewed_at=None)
+            ),
         )
 
 

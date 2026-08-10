@@ -168,6 +168,40 @@ _EXTRACTION_ROLES = frozenset({AgentRole.REQUIREMENTS, AgentRole.DISCOVERY})
 
 
 @dataclass(frozen=True, slots=True)
+class ClassificationReport:
+    """Which engine classified this project's knowledge, and when.
+
+    `engine` is `None` when no review has run — which is a fact about the
+    project, not a missing field, and reads differently from "classified
+    offline". A caller must be able to tell *never reviewed* from *reviewed
+    without a model*.
+    """
+
+    #: `reviewed_by_model`, `partially_reviewed_by_model`,
+    #: `offline_by_kind_after_reviewer_error`, or `None` when none has run.
+    engine: str | None
+    reviewed_at: datetime | None
+
+    @property
+    def by_model(self) -> bool:
+        return self.engine == "reviewed_by_model"
+
+    @property
+    def degraded(self) -> bool:
+        """Whether any part of this classification fell back to rules.
+
+        The distinction the readiness payload exists to carry: a degraded run
+        still succeeds, still recalculates readiness, and still produces a
+        number — one capped far below what a model would have reached.
+        """
+
+        return self.engine in {
+            "partially_reviewed_by_model",
+            "offline_by_kind_after_reviewer_error",
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ExtractionCoverage:
     """How much of what was submitted survived extraction.
 
@@ -305,6 +339,34 @@ class ReadinessService:
             succeeded = sum(1 for r in extraction if r.status is RunStatus.SUCCEEDED)
             abandoned = sum(1 for r in extraction if r.status is RunStatus.ABANDONED)
             return ExtractionCoverage(succeeded=succeeded, abandoned=abandoned)
+
+        return self._run(operation)
+
+    def classification(self, project_id: ProjectId) -> "ClassificationReport":
+        """How the knowledge behind this project's readiness was classified.
+
+        **The half of `PPA/REVIEW-01` that was met at the run and not at the
+        number.** The worker already computes whether a review ran on a model,
+        partially degraded, or fell back to offline unambiguous-only
+        classification — and writes it into the run's `output_summary`, where a
+        reader of `GET /readiness` will never see it. So a percentage produced
+        by the 16% offline ceiling was indistinguishable from one a model
+        produced (AUD-025, AUD-026).
+
+        Read from the runs rather than stored, for the same reason coverage is:
+        it cannot then drift from what happened. Reported beside readiness and
+        never folded into it — this says *how* the number was reached, not
+        what it is.
+        """
+
+        def operation(session: DbSession) -> ClassificationReport:
+            runs = AgentRunRepository(session).list_for_project(project_id, None)
+            reviews = [r for r in runs if r.role is AgentRole.REVIEW]
+            for run in reviews:  # most recent first
+                engine = (run.output_summary or {}).get("classification")
+                if isinstance(engine, str) and engine:
+                    return ClassificationReport(engine=engine, reviewed_at=run.completed_at)
+            return ClassificationReport(engine=None, reviewed_at=None)
 
         return self._run(operation)
 

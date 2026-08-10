@@ -45,7 +45,11 @@ def get_readiness(project_id: str, memory: Memory, readiness: Readiness) -> Read
     _require_project(memory, project_id)
     identifier = ProjectId(project_id)
     snapshot = readiness.latest(identifier) or readiness.calculate(identifier)
-    return ReadinessResponse.of(snapshot, readiness.knowledge_revision(identifier))
+    return ReadinessResponse.of(
+        snapshot,
+        readiness.knowledge_revision(identifier),
+        readiness.classification(identifier),
+    )
 
 
 @router.post("/readiness/calculate", response_model=ReadinessResponse)
@@ -61,7 +65,11 @@ def calculate_readiness(
     _require_project(memory, project_id)
     identifier = ProjectId(project_id)
     snapshot = readiness.calculate(identifier, body.not_applicable_areas)
-    return ReadinessResponse.of(snapshot, readiness.knowledge_revision(identifier))
+    return ReadinessResponse.of(
+        snapshot,
+        readiness.knowledge_revision(identifier),
+        readiness.classification(identifier),
+    )
 
 
 @router.get("/extraction-coverage", response_model=ExtractionCoverageResponse)
