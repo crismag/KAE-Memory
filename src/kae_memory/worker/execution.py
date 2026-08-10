@@ -354,9 +354,7 @@ class AgentStepExecutor:
                 if finding.kind is ReviewFindingKind.AREA_CLASSIFICATION and finding.area_key
             )
             contradictions += sum(
-                1
-                for finding in result.findings
-                if finding.kind is ReviewFindingKind.CONTRADICTION
+                1 for finding in result.findings if finding.kind is ReviewFindingKind.CONTRADICTION
             )
             # Last writer wins, and they agree: every batch goes to the same
             # adapter with the same prompt.

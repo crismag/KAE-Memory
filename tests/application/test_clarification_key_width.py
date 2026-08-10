@@ -99,7 +99,7 @@ class TestTheKeyStillIdentifiesTheSubject:
         assert _question_key(first) != _question_key(second)
 
     def test_one_statement_and_several_are_different_questions(self) -> None:
-        """"Answer this" and "answer these" are not the same ask."""
+        """ "Answer this" and "answer these" are not the same ask."""
 
         assert _question_key(_clarification(1)) != _question_key(_clarification(4))
 

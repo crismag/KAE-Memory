@@ -276,9 +276,7 @@ def clarification_candidates(
     """
 
     resolved = _project(project_id, memory)
-    found = clarifications.candidates(
-        resolved, limit=limit, include_deferred=include_deferred
-    )
+    found = clarifications.candidates(resolved, limit=limit, include_deferred=include_deferred)
     return QuestionCandidateListResponse.of(found, limit=limit)
 
 

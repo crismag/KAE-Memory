@@ -225,9 +225,7 @@ class Worker:
             raise LeaseLostError(f"run {run.id} was reclaimed before its failure was recorded")
         return updated
 
-    def _save(
-        self, run: AgentRun, moment: datetime, follow_up: tuple[FollowUp, ...] = ()
-    ) -> bool:
+    def _save(self, run: AgentRun, moment: datetime, follow_up: tuple[FollowUp, ...] = ()) -> bool:
         """Persist the run, and any work its completion entitles.
 
         One transaction, deliberately. Enqueuing afterwards would leave a window

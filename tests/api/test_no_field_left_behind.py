@@ -164,9 +164,7 @@ def test_no_exemption_outlives_the_field_it_excuses() -> None:
     """
 
     known = {
-        f"{model.__name__}.{f.name}"
-        for model, domain in _wrapping_models()
-        for f in fields(domain)
+        f"{model.__name__}.{f.name}" for model, domain in _wrapping_models() for f in fields(domain)
     }
     stale = sorted(key for key in EXEMPT if key not in known)
 

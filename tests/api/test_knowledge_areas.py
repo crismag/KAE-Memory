@@ -88,9 +88,7 @@ class TestAssumptionOrigin:
     Built and unused, for the same structural reason as the other four.
     """
 
-    def test_an_accepted_recommendation_is_recorded_as_one(
-        self, client: TestClient
-    ) -> None:
+    def test_an_accepted_recommendation_is_recorded_as_one(self, client: TestClient) -> None:
         """Accepting advice is not the same as having said it.
 
         `kae_recommended_accepted` is the difference between "KAE suggested
@@ -116,7 +114,7 @@ class TestAssumptionOrigin:
         assert response.json()["origin"] == "kae_recommended_accepted"
 
     def test_an_option_nobody_chose_can_be_kept_open(self, client: TestClient) -> None:
-        """"Keep open" is an outcome, not a refusal to answer."""
+        """ "Keep open" is an outcome, not a refusal to answer."""
 
         project = client.post("/v1/projects", json={"name": "Open"}).json()
 
@@ -135,9 +133,7 @@ class TestAssumptionOrigin:
         assert response.status_code == 201
         assert response.json()["origin"] == "unresolved_alternative"
 
-    def test_a_caller_cannot_claim_a_person_said_something(
-        self, client: TestClient
-    ) -> None:
+    def test_a_caller_cannot_claim_a_person_said_something(self, client: TestClient) -> None:
         """The one origin this route refuses.
 
         Everything reaching it is KAE's. A caller that could write

@@ -272,9 +272,7 @@ def confirm_knowledge(item_id: str, memory: Memory) -> KnowledgeResponse:
     return KnowledgeResponse.of(memory.confirm_knowledge(KnowledgeItemId(item_id)))
 
 
-@router.post(
-    "/projects/{project_id}/knowledge/confirm", response_model=list[KnowledgeResponse]
-)
+@router.post("/projects/{project_id}/knowledge/confirm", response_model=list[KnowledgeResponse])
 def confirm_knowledge_set(
     project_id: str, body: ConfirmKnowledgeSetRequest, memory: Memory
 ) -> list[KnowledgeResponse]:
@@ -304,9 +302,7 @@ def confirm_knowledge_set(
             ProjectId(project_id), [KnowledgeItemId(i) for i in body.item_ids]
         )
     except LookupError as error:
-        raise ApiError(
-            status.HTTP_404_NOT_FOUND, "not_found", str(error)
-        ) from error
+        raise ApiError(status.HTTP_404_NOT_FOUND, "not_found", str(error)) from error
     return [KnowledgeResponse.of(item) for item in confirmed]
 
 

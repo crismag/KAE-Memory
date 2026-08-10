@@ -513,9 +513,7 @@ class TestTheHeartbeat:
             },
         )
 
-        before = client.post(
-            f"/v1/projects/{project_id}/readiness/calculate", json={}
-        ).json()
+        before = client.post(f"/v1/projects/{project_id}/readiness/calculate", json={}).json()
         assert before["percentage"] == 0, "nothing has been derived yet"
 
         # 2 · The worker drains whatever that queued. Nothing here enqueues a
@@ -701,14 +699,12 @@ class TestWhatTheTurnMachineryRecords:
         origins = {entry["origin"] for entry in listed["assumptions"]}
 
         assert "kae_recommended_accepted" in origins
-        assert "user_stated" not in origins, (
-            "nothing on this path may claim the customer said it"
-        )
+        assert "user_stated" not in origins, "nothing on this path may claim the customer said it"
 
     def test_a_material_assumption_is_findable_among_the_routine_ones(
         self, client: TestClient, sparse_project: str
     ) -> None:
-        """"A material assumption must be disclosed wherever the output it
+        """ "A material assumption must be disclosed wherever the output it
         shaped is disclosed. Everything else may be summarised."
 
         The policy is only worth having if the two are distinguishable after the
