@@ -128,7 +128,12 @@ EXEMPT: dict[str, str] = {
     "SetupService.set_value": "setup writes are unexposed; reads are — DEF/setup work",
     "SetupService.register_target": "setup writes are unexposed",
     "SetupService.record_connection": "setup writes are unexposed",
-    "SetupService.resolve_target": "setup writes are unexposed",
+    # Not a write, and not uncalled: `publication_service.publish` uses it. It
+    # is unreachable only because *that* is, which is a different fact and the
+    # one a reader needs — F-022 recorded it as unreached, and that was wrong.
+    "SetupService.resolve_target": (
+        "read, and called by publication_service.publish — unreachable only because publication is"
+    ),
     "AssumptionService.reject": "the assumption lifecycle is partly exposed — N45's remainder",
     "AssumptionService.retire": "the assumption lifecycle is partly exposed — N45's remainder",
     "CapabilityReadinessService.report": (
@@ -268,9 +273,9 @@ def test_every_service_method_is_reachable_or_exempt(service: type) -> None:
 
     assert not unreachable, (
         f"no adapter names {unreachable}. Either expose it — a capability entry, "
-        f"a route, a tool — or add it to EXEMPT with a reason. Four capabilities "
-        f"have already shipped complete and unreachable; this is the check that "
-        f"catches the fifth."
+        f"a route, a tool — or add it to EXEMPT with a reason. Seven capabilities "
+        f"have shipped complete and unreachable; this is the check that catches "
+        f"the eighth."
     )
 
 
