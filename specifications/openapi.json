@@ -2364,6 +2364,10 @@
             "title": "Current Knowledge Revision",
             "type": "integer"
           },
+          "current_template_version": {
+            "title": "Current Template Version",
+            "type": "integer"
+          },
           "draft_eligible": {
             "title": "Draft Eligible",
             "type": "boolean"
@@ -2374,6 +2378,10 @@
           },
           "implementation_eligible": {
             "title": "Implementation Eligible",
+            "type": "boolean"
+          },
+          "is_behind_template": {
+            "title": "Is Behind Template",
             "type": "boolean"
           },
           "is_stale": {
@@ -2442,6 +2450,8 @@
           "template_version",
           "calculation_version",
           "is_stale",
+          "is_behind_template",
+          "current_template_version",
           "areas",
           "calculated_at",
           "classification"

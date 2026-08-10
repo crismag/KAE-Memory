@@ -355,6 +355,24 @@ class ReadinessSnapshot:
 
         return current_revision > self.knowledge_revision
 
+    def is_behind_template(self, current_version: int) -> bool:
+        """Return whether a newer template version exists than this was computed under.
+
+        **A different staleness from the one above, and it had no expression.**
+        `is_stale_against` asks whether the project moved; this asks whether the
+        *meaning of the number* moved. A project pinned to version 1 after
+        version 2 is published is not stale in the first sense — nothing about
+        it changed — and every snapshot it holds is nonetheless computed under
+        semantics that are no longer current.
+
+        Without this, the pin is invisible: a project sits on an older template
+        indefinitely and nothing anywhere says so, which turns a deliberate
+        choice into a silent one. Reported, never acted on — moving a project
+        forward stays an explicit act.
+        """
+
+        return current_version > self.template_version
+
 
 DRAFT_THRESHOLD = 50.0
 """Minimum score for a draft blueprint.

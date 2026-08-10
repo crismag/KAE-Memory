@@ -21,7 +21,12 @@ from kae_memory.application.review_service import Finding
 from kae_memory.domain.dispositions import Disposition, settles
 from kae_memory.domain.execution import AgentRun
 from kae_memory.domain.models import KnowledgeItem, Project
-from kae_memory.domain.readiness import AreaResult, Blocker, ReadinessSnapshot
+from kae_memory.domain.readiness import (
+    SOFTWARE_TEMPLATE,
+    AreaResult,
+    Blocker,
+    ReadinessSnapshot,
+)
 from kae_memory.domain.workspace import Message, Session
 from kae_memory.messages import message
 
@@ -417,6 +422,17 @@ class ReadinessResponse(BaseModel):
     template_version: int
     calculation_version: int
     is_stale: bool
+    #: Whether a newer template version exists than this was computed under.
+    #:
+    #: A different staleness from `is_stale`, which asks whether the *project*
+    #: moved. This asks whether the meaning of the number did. A pinned project
+    #: is not stale in the first sense and is still being evaluated under
+    #: semantics that are no longer current — and without this, that deliberate
+    #: choice is invisible (`RUN-D14`).
+    is_behind_template: bool
+    #: The template version currently shipped, so a reader can see the gap
+    #: rather than only that one exists.
+    current_template_version: int
     areas: list[AreaResultResponse]
     calculated_at: datetime
     #: How the knowledge behind this number was classified, and whether that
@@ -450,6 +466,8 @@ class ReadinessResponse(BaseModel):
             template_version=snapshot.template_version,
             calculation_version=snapshot.calculation_version,
             is_stale=snapshot.is_stale_against(current_revision),
+            is_behind_template=snapshot.is_behind_template(SOFTWARE_TEMPLATE.version),
+            current_template_version=SOFTWARE_TEMPLATE.version,
             areas=[AreaResultResponse.of(area) for area in snapshot.areas],
             calculated_at=snapshot.calculated_at,
             classification=ClassificationResponse.of(

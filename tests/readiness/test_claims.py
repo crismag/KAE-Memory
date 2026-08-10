@@ -332,3 +332,68 @@ class TestAProjectIsPinnedToTheTemplateItWasEvaluatedUnder:
 
         versions = [s.template_version for s in current.history(project.id)]
         assert set(versions) == {1, SOFTWARE_TEMPLATE.version}
+
+
+class TestAPinnedProjectCanTellItIsPinned:
+    """The pin must be visible, or a deliberate choice becomes a silent one.
+
+    `is_stale_against` asks whether the *project* moved. Nothing asked whether
+    the meaning of the number moved — so a project could sit on version 1
+    indefinitely, with every snapshot computed under semantics no longer
+    current, and no surface anywhere said so.
+    """
+
+    def test_a_current_project_is_not_behind(
+        self, services: tuple[MemoryService, ReadinessService]
+    ) -> None:
+        memory, readiness = services
+        project = memory.create_project("Current", key="behind-current")
+
+        snapshot = readiness.calculate(project.id)
+
+        assert snapshot.is_behind_template(SOFTWARE_TEMPLATE.version) is False
+
+    def test_a_pinned_project_reports_that_a_newer_template_exists(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        from dataclasses import replace
+
+        v1 = replace(SOFTWARE_TEMPLATE, version=1)
+        memory = MemoryService(factory)
+        older = ReadinessService(factory, template=v1)
+        older.install_template()
+        project = memory.create_project("Behind", key="behind-pinned")
+        older.calculate(project.id)
+
+        current = ReadinessService(factory)
+        current.install_template()
+        again = current.calculate(project.id)
+
+        assert again.template_version == 1
+        # Not stale — nothing about the project changed. Behind, which is the
+        # distinction that had no expression.
+        assert again.is_stale_against(again.knowledge_revision) is False
+        assert again.is_behind_template(SOFTWARE_TEMPLATE.version) is True
+
+    def test_being_behind_does_not_move_the_project(self, factory: sessionmaker[Session]) -> None:
+        """Reported, never acted on.
+
+        A number that adopted a new template because it noticed one exists would
+        be exactly the silent re-evaluation the pin was built to prevent.
+        """
+
+        from dataclasses import replace
+
+        v1 = replace(SOFTWARE_TEMPLATE, version=1)
+        memory = MemoryService(factory)
+        older = ReadinessService(factory, template=v1)
+        older.install_template()
+        project = memory.create_project("Behind", key="behind-noop")
+        older.calculate(project.id)
+
+        current = ReadinessService(factory)
+        current.install_template()
+        for _ in range(3):
+            snapshot = current.calculate(project.id)
+
+        assert snapshot.template_version == 1
