@@ -163,3 +163,68 @@ def test_revision_0003_backfills_existing_runs(alembic_config: tuple[Config, str
 
     assert row[0] == 0, "pre-existing runs start with no lease"
     assert row[1] is not None, "pre-existing runs are immediately claimable"
+
+
+class TestTheMigrationsBuildTheSchemaTheModelDeclares:
+    """Not only the tables. **The column types too.**
+
+    `test_upgrade_creates_every_mapped_table` compares table *names*, and a
+    check that compares names cannot notice a type. Five columns declared
+    `UUID_STR` in `tables.py` were created `sa.String(64)` by revisions `0020`
+    and `0021`, and the disagreement survived from the day they were written
+    until somebody read one of those rows by primary key on the deployment:
+
+        operator does not exist: character varying = uuid
+        WHERE provider_connections.connection_id = $1::UUID
+
+    **The rest of the suite is structurally unable to catch this.** Every other
+    test builds its schema from `Base.metadata`, so it runs against the types
+    the model declares — which is precisely the side of the disagreement that
+    was never in doubt. Only a database built by the migrations can disagree
+    with the model, and only this file builds one.
+
+    The same shape as `AUD-040`, one layer down: a guard that enumerates one
+    property drifts from the thing it is guarding.
+    """
+
+    def test_every_uuid_column_in_the_model_is_a_uuid_column_in_the_database(
+        self, alembic_config: tuple[Config, str]
+    ) -> None:
+        from sqlalchemy import Uuid
+
+        config, url = alembic_config
+        command.upgrade(config, "head")
+
+        declared = {
+            (table.name, column.name)
+            for table in Base.metadata.sorted_tables
+            for column in table.columns
+            if isinstance(column.type, Uuid)
+        }
+        assert declared, "the model declares no UUID columns; this check has lost its subject"
+
+        engine = create_engine(url)
+        try:
+            inspector = inspect(engine)
+            present = set(inspector.get_table_names())
+            actual = {
+                (table, column["name"]): type(column["type"]).__name__
+                for table in present
+                for column in inspector.get_columns(table)
+            }
+        finally:
+            engine.dispose()
+
+        drifted = sorted(
+            f"{table}.{column} is {actual[(table, column)]} in the database, UUID in the model"
+            for table, column in declared
+            if (table, column) in actual and actual[(table, column)] not in {"UUID", "Uuid"}
+        )
+
+        assert not drifted, (
+            "the migrations built columns the model disagrees with:\n  "
+            + "\n  ".join(drifted)
+            + "\n\nA type mismatch on an identifier column fails only when something "
+            "reads that row by primary key, which can be years after the migration "
+            "that caused it."
+        )
