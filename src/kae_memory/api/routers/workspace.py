@@ -255,10 +255,24 @@ def list_knowledge(
     # One query for the project's assignments, not one per item. A statement can
     # belong to several areas, so this is a grouping rather than a lookup.
     by_item: dict[str, list[str]] = {}
+    # And which claim inside an area, where the link says. Keyed by area so a
+    # consumer asking "is this the problem or the value" has one place to look.
+    claims_by_item: dict[str, dict[str, str]] = {}
     for link in readiness.area_links(resolved):
         by_item.setdefault(str(link.knowledge_item_id), []).append(link.area_key)
+        if link.claim_key:
+            claims_by_item.setdefault(str(link.knowledge_item_id), {})[link.area_key] = (
+                link.claim_key
+            )
 
-    return [KnowledgeResponse.of(item, sorted(by_item.get(str(item.id), []))) for item in items]
+    return [
+        KnowledgeResponse.of(
+            item,
+            sorted(by_item.get(str(item.id), [])),
+            claims_by_item.get(str(item.id)),
+        )
+        for item in items
+    ]
 
 
 @router.post("/knowledge/{item_id}/confirm", response_model=KnowledgeResponse)

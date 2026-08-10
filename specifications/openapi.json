@@ -1546,6 +1546,13 @@
             "title": "Areas",
             "type": "array"
           },
+          "claims": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Claims",
+            "type": "object"
+          },
           "current_content": {
             "title": "Current Content",
             "type": "string"

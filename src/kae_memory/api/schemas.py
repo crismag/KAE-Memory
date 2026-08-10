@@ -9,7 +9,7 @@ Clients must ignore unknown fields: adding one is not a breaking change within
 ``/v1``.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -175,10 +175,26 @@ class KnowledgeResponse(BaseModel):
     #: Empty until review runs. That is the honest state, not a missing field:
     #: an unclassified statement belongs to no area yet.
     areas: list[str] = Field(default_factory=list)
+    #: Which claim inside an area this statement establishes, where the area asks
+    #: for more than one thing — `problem_statement` or `value_proposition`
+    #: inside `problem_and_value`.
+    #:
+    #: Without this a consumer can see that a statement is about the problem and
+    #: value of a project and cannot tell which, which is why Studio reported
+    #: `value` as uncomputable for every project in existence (`RUN-D14`).
+    #:
+    #: Absent for a statement whose link names no claim, which is a fact about
+    #: the assignment rather than a missing field.
+    claims: dict[str, str] = Field(default_factory=dict)
     versions: list[KnowledgeVersionResponse]
 
     @classmethod
-    def of(cls, item: KnowledgeItem, areas: Sequence[str] = ()) -> "KnowledgeResponse":
+    def of(
+        cls,
+        item: KnowledgeItem,
+        areas: Sequence[str] = (),
+        claims: Mapping[str, str] | None = None,
+    ) -> "KnowledgeResponse":
         return cls(
             id=str(item.id),
             project_id=str(item.project_id),
@@ -186,6 +202,7 @@ class KnowledgeResponse(BaseModel):
             lifecycle=item.lifecycle.value,
             current_content=item.current_version.content,
             areas=list(areas),
+            claims=dict(claims or {}),
             versions=[
                 KnowledgeVersionResponse(
                     number=version.number,
