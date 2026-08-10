@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-47 capabilities: 26 on both, 15 HTTP only, 5 MCP only, 1 on neither.
+48 capabilities: 26 on both, 16 HTTP only, 5 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -55,7 +55,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (15)
+## HTTP only, by decision (16)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -63,6 +63,7 @@ carries the reason it is not there.
 | Capability | What it does | MCP | HTTP | Why only here |
 |---|---|---|---|---|
 | `blocker.manage` | Raise and resolve blockers | — | `GET /v1/projects/{project_id}/blockers`, `POST /v1/projects/{project_id}/blockers`, `POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve` | An agent reports a blocker as an observation and a person decides it is one. Letting an agent raise one directly would put an unreviewed claim into the register that gates readiness. |
+| `clarification.candidates` | List the questions a project's findings justify asking, without asking them | — | `GET /v1/projects/{project_id}/clarifications/candidates` | The observational half of clarification.open. An agent that lists questions is about to ask one, and materialising is what gives it something to answer — so MCP wants the command. A product surface refreshes, paginates and monitors, and none of those should put a question to anybody or decide what id it gets. |
 | `contradiction.manage` | Record and resolve contradictions | — | `POST /v1/projects/{project_id}/contradictions`, `POST /v1/projects/{project_id}/contradictions/{relationship_id}/resolve` | Same as blockers: resolution is a human ruling, and ADR-0015 gates readiness on it. |
 | `deliverable.lifecycle` | Supersede or withdraw a recorded deliverable | — | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede`, `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Withdrawing what a project stands behind is a person's judgement, and an agent that could do it would be settling a question nobody asked it. |
 | `deliverable.read` | One deliverable's manifest, artifact index, and lifecycle | — | `GET /v1/projects/{project_id}/deliverables/{deliverable_id}` | An agent that recorded a deliverable already holds its payload. Studio resolves one from a stored id when a person opens it later. |

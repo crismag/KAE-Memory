@@ -178,6 +178,19 @@ REGISTRY: tuple[Capability, ...] = (
         http=("POST /v1/projects/{project_id}/clarifications",),
     ),
     Capability(
+        key="clarification.candidates",
+        summary="List the questions a project's findings justify asking, without asking them",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/clarifications/candidates",),
+        reason=(
+            "The observational half of clarification.open. An agent that lists "
+            "questions is about to ask one, and materialising is what gives it "
+            "something to answer — so MCP wants the command. A product surface "
+            "refreshes, paginates and monitors, and none of those should put a "
+            "question to anybody or decide what id it gets."
+        ),
+    ),
+    Capability(
         key="clarification.answer",
         summary="Record an answer and queue the extraction it justifies",
         exposure=Exposure.BOTH,

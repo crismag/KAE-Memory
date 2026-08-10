@@ -2133,6 +2133,105 @@
         "title": "PublicationTargetResponse",
         "type": "object"
       },
+      "QuestionCandidateListResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "omitted": {
+            "title": "Omitted",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidates",
+          "total",
+          "omitted",
+          "note"
+        ],
+        "title": "QuestionCandidateListResponse",
+        "type": "object"
+      },
+      "QuestionCandidateResponse": {
+        "description": "A question the findings justify asking, before anybody asked it.\n\nDistinct from `ClarificationQuestionResponse` in the one way that matters:\n`candidate_key` always exists and `asked_id` may not. Listing candidates\nwrites nothing, so a caller reading this has not caused a question to be\nput to anyone.",
+        "properties": {
+          "area_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Key"
+          },
+          "asked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked At"
+          },
+          "asked_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked Id"
+          },
+          "candidate_key": {
+            "title": "Candidate Key",
+            "type": "string"
+          },
+          "disposition": {
+            "default": "open",
+            "title": "Disposition",
+            "type": "string"
+          },
+          "finding_kind": {
+            "title": "Finding Kind",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_key",
+          "question",
+          "finding_kind",
+          "severity"
+        ],
+        "title": "QuestionCandidateResponse",
+        "type": "object"
+      },
       "RaiseBlockerRequest": {
         "properties": {
           "area_key": {
@@ -4164,6 +4263,71 @@
           }
         },
         "summary": "Open Clarifications",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/clarifications/candidates": {
+      "get": {
+        "description": "What this project's findings justify asking. **Writes nothing.**\n\n**GET, and it means it.** The sibling `POST /clarifications` materialises\nthe questions it returns, because answering needs an identity and a derived\nclarification has none. That is the asking transition and it belongs behind\na command.\n\nThis is the query. A monitor, a prefetch, a refresh or a retry may call it\nfreely; none of them puts a question to anybody, and none of them decides\nwhat id a question will get \u2014 which it did decide, before this existed,\nsimply by being read first.\n\nA candidate that has already been asked carries `asked_id`, read back rather\nthan created. One that has not carries `null` and a stable `candidate_key`.",
+        "operationId": "clarification_candidates_v1_projects__project_id__clarifications_candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deferred",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Deferred",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionCandidateListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clarification Candidates",
         "tags": [
           "pipeline"
         ]

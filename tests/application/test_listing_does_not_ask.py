@@ -143,3 +143,33 @@ def test_a_candidate_reports_the_question_once_it_has_been_asked(
     assert candidate.asked_id == asked.id
     assert candidate.is_asked
     assert candidate.asked_at is not None
+
+
+def test_the_route_is_a_get_that_does_not_write(
+    factory: sessionmaker[Session], project: ProjectId
+) -> None:
+    """The half a proxy, a prefetch or a retry will exercise without meaning to.
+
+    Its sibling is a POST for a reason — materialising is a command. This one
+    must be safe to call as often as anything likes.
+    """
+
+    from fastapi.testclient import TestClient
+
+    from kae_memory.api import create_app
+    from kae_memory.api.security import AuthPolicy
+
+    memory = MemoryService(factory)
+    with TestClient(create_app(factory, auth=AuthPolicy())) as client:
+        before = _messages(memory, project)
+        first = client.get(f"/v1/projects/{project}/clarifications/candidates")
+        client.get(f"/v1/projects/{project}/clarifications/candidates")
+        after = _messages(memory, project)
+
+    assert first.status_code == 200
+    body = first.json()
+    assert body["candidates"], "the project holds an unknown"
+    assert body["candidates"][0]["asked_id"] is None
+    assert body["candidates"][0]["candidate_key"]
+    assert after == before, "a GET wrote to the transcript"
+    assert "did not ask anybody" in body["note"]

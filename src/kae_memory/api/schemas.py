@@ -892,6 +892,59 @@ class ClarificationListResponse(BaseModel):
         )
 
 
+class QuestionCandidateResponse(BaseModel):
+    """A question the findings justify asking, before anybody asked it.
+
+    Distinct from `ClarificationQuestionResponse` in the one way that matters:
+    `candidate_key` always exists and `asked_id` may not. Listing candidates
+    writes nothing, so a caller reading this has not caused a question to be
+    put to anyone.
+    """
+
+    candidate_key: str
+    question: str
+    finding_kind: str
+    severity: str
+    area_key: str | None = None
+    #: The question's id, once it has been asked. `null` means nobody has been
+    #: shown it — answering requires asking first, which is a different call.
+    asked_id: str | None = None
+    asked_at: datetime | None = None
+    disposition: str = "open"
+
+
+class QuestionCandidateListResponse(BaseModel):
+    candidates: list[QuestionCandidateResponse]
+    total: int
+    omitted: int
+    note: str
+
+    @classmethod
+    def of(cls, candidates: Sequence[Any], limit: int) -> "QuestionCandidateListResponse":
+        shown = list(candidates)[:limit]
+        return cls(
+            candidates=[
+                QuestionCandidateResponse(
+                    candidate_key=candidate.candidate_key,
+                    question=candidate.question,
+                    finding_kind=candidate.finding_kind,
+                    severity=candidate.severity,
+                    area_key=candidate.area_key,
+                    asked_id=str(candidate.asked_id) if candidate.asked_id else None,
+                    asked_at=candidate.asked_at,
+                    disposition=candidate.disposition.value,
+                )
+                for candidate in shown
+            ],
+            total=len(candidates),
+            omitted=max(0, len(candidates) - len(shown)),
+            note=(
+                "Nothing here has been asked unless it carries an asked_id. "
+                "Reading this list did not ask anybody anything."
+            ),
+        )
+
+
 class AssemblyResponse(BaseModel):
     """A bounded context, pinned to the revision it read.
 

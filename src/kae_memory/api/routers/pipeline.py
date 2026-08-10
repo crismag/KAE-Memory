@@ -72,6 +72,7 @@ from ..schemas import (
     PreliminaryContextResponse,
     PublicationTargetListResponse,
     PublicationTargetResponse,
+    QuestionCandidateListResponse,
     RecordAssumptionRequest,
     RecordDeliverableRequest,
     RejectKnowledgeRequest,
@@ -245,6 +246,40 @@ def open_clarifications(
     resolved = _project(project_id, memory)
     questions = clarifications.open_questions(resolved, limit=limit)
     return ClarificationListResponse.of(questions, limit=limit)
+
+
+@router.get(
+    "/projects/{project_id}/clarifications/candidates",
+    response_model=QuestionCandidateListResponse,
+)
+def clarification_candidates(
+    project_id: str,
+    memory: Memory,
+    clarifications: Clarifications,
+    limit: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 20,
+    include_deferred: bool = False,
+) -> QuestionCandidateListResponse:
+    """What this project's findings justify asking. **Writes nothing.**
+
+    **GET, and it means it.** The sibling `POST /clarifications` materialises
+    the questions it returns, because answering needs an identity and a derived
+    clarification has none. That is the asking transition and it belongs behind
+    a command.
+
+    This is the query. A monitor, a prefetch, a refresh or a retry may call it
+    freely; none of them puts a question to anybody, and none of them decides
+    what id a question will get — which it did decide, before this existed,
+    simply by being read first.
+
+    A candidate that has already been asked carries `asked_id`, read back rather
+    than created. One that has not carries `null` and a stable `candidate_key`.
+    """
+
+    resolved = _project(project_id, memory)
+    found = clarifications.candidates(
+        resolved, limit=limit, include_deferred=include_deferred
+    )
+    return QuestionCandidateListResponse.of(found, limit=limit)
 
 
 @router.post(
