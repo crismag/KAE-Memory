@@ -1305,6 +1305,11 @@
             "title": "Severity",
             "type": "string"
           },
+          "subject_key": {
+            "default": "",
+            "title": "Subject Key",
+            "type": "string"
+          },
           "summary": {
             "title": "Summary",
             "type": "string"

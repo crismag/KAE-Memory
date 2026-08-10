@@ -505,12 +505,24 @@ class FindingResponse(BaseModel):
     recommended_action: str
     area_key: str | None
     knowledge_item_ids: list[str]
+    subject_key: str = ""
+    """What this finding is about, where the area alone does not say.
+
+    Not an identity for the finding — the docstring above still holds, and
+    findings remain underivable from anything stable. This names the *subject*:
+    a blocker's id, for instance, which is addressable in its own right.
+
+    Returned because a client rendering two blockers in one area otherwise
+    cannot tell them apart, which is the same confusion that made their
+    questions collide.
+    """
 
     @classmethod
     def of(cls, finding: Finding) -> "FindingResponse":
         return cls(
             kind=finding.kind.value,
             severity=finding.severity.value,
+            subject_key=finding.subject_key,
             summary=finding.summary,
             recommended_action=finding.recommended_action,
             area_key=finding.area_key,

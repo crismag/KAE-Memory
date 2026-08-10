@@ -76,6 +76,22 @@ class Finding:
     recommended_action: str
     area_key: str | None = None
     knowledge_item_ids: tuple[KnowledgeItemId, ...] = ()
+    subject_key: str = ""
+    """What this finding is about, when the area alone does not say.
+
+    A question's identity is `(finding_kind, area_key)` plus, for aggregates,
+    nothing more — several unknowns in one area are one decision that grows
+    (D-11). That is right for `open_question` and wrong for anything where each
+    finding is its own decision.
+
+    `open_blocker` is the case. Blockers carry no knowledge ids, so two
+    different blockers in one area produced identical keys and the second was
+    treated as already asked — it never reached anybody. This names the blocker
+    instead.
+
+    **Never wording.** The summary and the recommended action are prose that can
+    be rephrased, and identity that moves when the words move is not identity.
+    """
 
 
 class ReviewService:
@@ -197,6 +213,10 @@ class ReviewService:
                         summary=blocker.summary,
                         recommended_action="Close the blocker, or accept it as an assumption.",
                         area_key=blocker.area_key,
+                        # Each blocker is its own decision. Without this, two in
+                        # one area are one question and the second is silently
+                        # treated as already asked.
+                        subject_key=str(blocker.id),
                     )
                 )
 

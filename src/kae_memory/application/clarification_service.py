@@ -60,6 +60,8 @@ class Clarification:
     severity: str
     area_key: str | None = None
     knowledge_ids: tuple[str, ...] = ()
+    subject_key: str = ""
+    """A scope discriminator, where the area alone does not identify the ask."""
 
     @property
     def subject(self) -> dict[str, object]:
@@ -70,6 +72,7 @@ class Clarification:
             "severity": self.severity,
             "area_key": self.area_key,
             "knowledge_ids": list(self.knowledge_ids),
+            "subject_key": self.subject_key,
         }
 
 
@@ -681,6 +684,7 @@ def _as_clarification(finding: Finding) -> Clarification:
         else str(finding.severity),
         area_key=finding.area_key,
         knowledge_ids=tuple(str(item) for item in finding.knowledge_item_ids),
+        subject_key=finding.subject_key,
     )
 
 
@@ -759,6 +763,19 @@ def _question_key(clarification: Clarification) -> str:
     Two aggregates of the same kind in the same area do collide, and that is
     the intended reading rather than a tolerated cost: they are the same
     question, asked about a set that happens to differ today.
+
+    ## Except where each finding is its own decision
+
+    That reading holds for `open_question` — several unknowns in one area are
+    one thing to settle. It is wrong for `open_blocker`, where every blocker is
+    a separate decision and none carries a knowledge id: two blockers in one
+    area produced the identical key, so the second was treated as already asked
+    and never reached anybody. That predates the aggregate change; both hashed
+    to nothing under the old membership key too.
+
+    `subject_key` is the discriminator, and it is an identity the finding
+    carries — a blocker's id — never its wording. A key that moved when someone
+    rephrased a summary would re-ask the question it exists to suppress.
     """
 
     ids = sorted(clarification.knowledge_ids)
@@ -777,6 +794,8 @@ def _question_key(clarification: Clarification) -> str:
         clarification.area_key or "-",
         subject,
     ]
+    if clarification.subject_key:
+        parts.append(sha256(clarification.subject_key.encode()).hexdigest()[:16])
     return ":".join(parts)
 
 
