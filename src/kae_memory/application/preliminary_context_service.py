@@ -40,7 +40,7 @@ from .assembly_service import (
     ContextAssembly,
 )
 from .assumption_service import AssumptionService
-from .clarification_service import ClarificationService, OpenQuestion
+from .clarification_service import ClarificationService, QuestionCandidate
 from .memory_service import MemoryService
 from .readiness_service import ReadinessService
 
@@ -241,7 +241,12 @@ class PreliminaryContextService:
         # *asking* list so a person is not re-asked every call (N36); a context
         # document is not asking, it is disclosing, and an unknown omitted from
         # a disclosure reads as an unknown that does not exist.
-        questions = self._clarifications.open_questions(project_id, include_deferred=True)
+        #
+        # `candidates`, not `open_questions` — this comment said "a context
+        # document is not asking" while calling the method that asks. Building
+        # one materialised every outstanding question into the transcript, so
+        # describing a project changed it (D-13).
+        questions = self._clarifications.candidates(project_id, include_deferred=True)
         material, deferrable = _split(questions)
 
         snapshot = self._readiness.latest(project_id) or self._readiness.calculate(project_id)
@@ -309,7 +314,7 @@ def _assumed(assumption: Assumption) -> AssumedEntry:
 
 
 def _split(
-    questions: Sequence[OpenQuestion],
+    questions: Sequence[QuestionCandidate],
 ) -> tuple[tuple[UnknownEntry, ...], tuple[UnknownEntry, ...]]:
     """Separate the unknowns worth a person's attention now from the rest.
 
@@ -323,7 +328,15 @@ def _split(
     deferrable: list[UnknownEntry] = []
     for question in questions:
         entry = UnknownEntry(
-            clarification_id=str(question.id),
+            # The question's id once one exists, the candidate key before.
+            #
+            # Both are "the identity of this unknown", and which one applies is
+            # the distinction D-13 draws: an id is assigned when the question
+            # becomes a persisted domain object, and until then there is a
+            # deterministic candidate key and no object. A disclosure that
+            # always cited the candidate key would throw away the fact that
+            # somebody was asked and answered.
+            clarification_id=str(question.asked_id) if question.asked_id else question.candidate_key,
             question=question.question,
             area_key=question.area_key,
             severity=question.severity,

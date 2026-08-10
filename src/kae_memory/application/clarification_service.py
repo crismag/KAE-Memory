@@ -73,6 +73,46 @@ class Clarification:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class QuestionCandidate:
+    """A question this project's findings justify asking, before anyone asks it.
+
+    **The distinction between this and :class:`OpenQuestion` is the whole point
+    of D-13.** A candidate is derived and observational: it exists because the
+    findings say so, it can be listed, counted, disclosed and paginated, and
+    listing it writes nothing. An `OpenQuestion` is a durable record of
+    something actually put to a person, and carries a `MessageId` because it is
+    a message.
+
+    Before this split, reading was the only way to obtain an identity, so a
+    monitor, a prefetch or a retry created domain records — and which id a
+    question got depended on which endpoint someone read first. Two disclosure
+    paths that had no business asking anybody anything (`preliminary_context`
+    and provisional deliverable context) materialised questions as a side
+    effect of describing the project.
+
+    `candidate_key` is the deterministic key `_question_key` already computes.
+    It is stable across derivations, so a caller can hold one, compare it, and
+    ask for it later — without anything having been recorded.
+    """
+
+    candidate_key: str
+    question: str
+    finding_kind: str
+    severity: str
+    area_key: str | None = None
+    knowledge_ids: tuple[str, ...] = ()
+    #: Set when this candidate has already been asked. `None` means nobody has
+    #: been shown it — which is a fact about the project, not a missing field.
+    asked_id: MessageId | None = None
+    asked_at: datetime | None = None
+    disposition: Disposition = Disposition.OPEN
+
+    @property
+    def is_asked(self) -> bool:
+        return self.asked_id is not None
+
+
 class ClarificationState(StrEnum):
     """Where one clarification has reached in the loop.
 
@@ -211,6 +251,57 @@ class ClarificationService:
         if question.message_type is not MessageType.QUESTION:
             raise ValueError(f"message {question_id} is not a question")
         return question
+
+    def candidates(
+        self,
+        project_id: ProjectId,
+        limit: int | None = None,
+        include_deferred: bool = False,
+    ) -> tuple[QuestionCandidate, ...]:
+        """Return what the findings justify asking. **Writes nothing.**
+
+        The observational half of D-13. `open_questions` materialises, which is
+        correct when somebody is about to be asked and wrong when somebody is
+        merely looking — and looking is what a context document, a deliverable
+        assembly, a monitor and a page refresh all do.
+
+        A candidate that has already been asked carries the id and timestamp of
+        the message that asked it, read back rather than created. One that has
+        not carries `None`, which is a fact about the project rather than a
+        field nobody filled in.
+
+        Filtering matches `open_questions` exactly, so the two disagree about
+        nothing except whether they write: settled questions are dropped, and
+        responded-but-unsettled ones are dropped unless asked for.
+        """
+
+        responded = self._dispositions(project_id)
+        found: list[QuestionCandidate] = []
+
+        for clarification in self.pending(project_id):
+            key = _question_key(clarification)
+            asked = self._memory.message_by_idempotency_key(project_id, key)
+            disposition = (
+                responded.get(str(asked.id), Disposition.OPEN) if asked else Disposition.OPEN
+            )
+            if settles(disposition):
+                continue
+            if disposition is not Disposition.OPEN and not include_deferred:
+                continue
+            found.append(
+                QuestionCandidate(
+                    candidate_key=key,
+                    question=asked.content if asked else clarification.question,
+                    finding_kind=clarification.finding_kind,
+                    severity=clarification.severity,
+                    area_key=clarification.area_key,
+                    knowledge_ids=clarification.knowledge_ids,
+                    asked_id=asked.id if asked else None,
+                    asked_at=asked.created_at if asked else None,
+                    disposition=disposition,
+                )
+            )
+        return tuple(found[:limit] if limit is not None else found)
 
     def open_questions(
         self,
