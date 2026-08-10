@@ -18,8 +18,8 @@ Companion artifacts:
 durably knows, keeps the record of how it came to know it, and serves that to
 agents and applications through two adapters. It renders no interface (ADR-0026).
 
-Evidence for that sentence: 44 HTTP paths / 51 operations in the recorded
-contract, 30 declared MCP tools, no `package.json` anywhere in the repository,
+Evidence for that sentence: 49 HTTP paths / 57 operations in the recorded
+contract, 31 declared MCP tools, no `package.json` anywhere in the repository,
 and a `make dev` that starts a database, migrations, an API and a worker.
 
 **What it deliberately does not do:**
@@ -33,7 +33,7 @@ and a `make dev` that starts a database, migrations, an API and a worker.
 | Private infrastructure automation | KAE-Ecosystem, private |
 
 **What it is not yet.** No maturity claim belongs in the documentation beyond
-what the register supports: 1,675 tests, one deployed instance, no versioned
+what the register supports: 1,885 tests, one deployed instance, no versioned
 release, no published compatibility guarantee. "Production ready" and "fully
 supported" appear nowhere in this repository today and should not start here.
 

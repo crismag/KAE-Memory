@@ -37,6 +37,24 @@ Authentication, teams, billing, administration, agent roles beyond the three
 authorised, general coding-agent hosting, production-scale retrieval, and
 production-grade deployment remain out of scope.
 
+### Added, 2026-08-09 — Phase 2
+
+Four slices against the ecosystem's `ADR-0001`. **Shipped and not deployed.**
+
+- Review runs when extraction drains, in batches, and reports degradation
+  instead of silently returning the fixture. Readiness recalculates afterwards.
+- Knowledge can be confirmed as a set, all-or-nothing, in one revision bump.
+- The knowledge listing returns each item's area links, so a problem statement
+  can be shown at all.
+- Extraction that abandoned chunks says so beside the coverage it undermines.
+- A turn's ranked next action, reasoning and provenance are durable on the
+  message that produced it — `Message.metadata`, exposed rather than added.
+- Assumptions carry an `origin`; `user_stated` is refused from a route that
+  cannot know it.
+- Question candidates can be listed without asking them —
+  `GET /v1/projects/{id}/clarifications/candidates`, which writes nothing.
+- A project can be deleted, with everything scoped to it (T0.2, F-021).
+
 ### Added in M5
 
 - Revision `0002`: `projects`, `sessions`, `agent_runs`, `messages`,

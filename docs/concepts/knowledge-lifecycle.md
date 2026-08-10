@@ -106,9 +106,15 @@ History is append-only. Nothing is edited in place and nothing is removed.
 
 ### 5. What confirmation feeds
 
-Only confirmed knowledge counts toward readiness, and it is what context
-assembly draws on. This is the reason review is not ceremony: an unconfirmed
-candidate contributes nothing downstream.
+Context assembly draws on confirmed knowledge only — an unconfirmed candidate
+never reaches a generated document. **Readiness is different**, and the
+difference is deliberate: `evaluate_area` marks an area `partial` when it holds
+candidates and no confirmations, and `partial` earns half credit. So extraction
+moves the percentage before anybody reviews anything.
+
+What confirmation buys is *completing* an area, not entering the calculation. An
+area reaches `sufficient` only on confirmed items meeting its minimum, and only
+`sufficient` earns full credit.
 
 ---
 

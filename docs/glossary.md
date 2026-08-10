@@ -109,9 +109,12 @@ them, which is why it is a POST and not a GET.
 and stakeholders, scope, functional requirements, quality attributes, domain
 model, constraints, acceptance criteria, interfaces, delivery context.
 
-**Readiness** — how much of the project's discovery areas carry confirmed
-knowledge. **Advisory, never a gate.** It reflects what people have agreed to,
-so it does not move because a conversation was long.
+**Readiness** — how much of the project's discovery areas are covered.
+**Advisory, never a gate.** An area holding only candidates is *partial* and
+earns half credit; one meeting its minimum of confirmed items is *sufficient*
+and earns full. So it moves on extraction and moves further on agreement — but
+it does not move because a conversation was long, only because the conversation
+produced knowledge.
 
 **Blocker** — something recorded as preventing progress, tracked separately from
 gaps.

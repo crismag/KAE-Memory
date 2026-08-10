@@ -44,7 +44,10 @@ items are kept — what a project decided *against* is part of what it knows.
 
 **Nothing is true because a model said it.** Everything extraction produces
 arrives as a candidate. A person confirms it or it stays a candidate, and only
-confirmed knowledge counts toward readiness or reaches assembled context.
+confirmed knowledge reaches assembled context. Readiness is the one place that
+is deliberately softer: an area holding only candidates counts as *partial*, at
+half credit, so a project that has been talked about but not reviewed reads as
+started rather than empty.
 
 **Provenance, not vibes.** Any statement resolves back to the message or
 document that produced it.
@@ -63,7 +66,7 @@ which reports what it could not resolve rather than quietly omitting it.
 and hashes.
 
 The [capability matrix](docs/reference/capability-matrix.md) is generated from
-the registry that enforces it — 43 capabilities across two adapters.
+the registry that enforces it — 48 capabilities across two adapters.
 
 ---
 

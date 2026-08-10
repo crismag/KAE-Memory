@@ -24,8 +24,8 @@ HTTP, no interface of its own.
 | | |
 |---|---|
 | [Capability matrix](reference/capability-matrix.md) | Which adapter exposes what, and why they differ — *generated* |
-| [MCP tools](reference/mcp-tools.md) | 30 tools, 13 of which change state — *generated* |
-| [HTTP API](reference/http-api.md) | 44 paths — *generated* |
+| [MCP tools](reference/mcp-tools.md) | 31 tools — *generated* |
+| [HTTP API](reference/http-api.md) | 49 paths, 57 operations — *generated* |
 | [Errors](reference/errors.md) | The envelope, the codes, and why 409 is not 422 |
 | [Configuration](reference/configuration.md) | Environment and governed settings |
 
@@ -41,15 +41,16 @@ HTTP, no interface of its own.
 ## Three things worth knowing before anything else
 
 **Nothing is true because a model produced it.** Extraction proposes; a person
-confirms. Only confirmed knowledge counts toward readiness or reaches assembled
-context. If you expect submitted observations to become project truth, the
-system will look broken when it is working.
+confirms. Only confirmed knowledge reaches assembled context. Readiness counts
+candidates too, at half credit — an area with candidates and no confirmations is
+*partial*, not *missing*. If you expect submitted observations to become project
+truth, the system will look broken when it is working.
 
 **Extraction is asynchronous.** A message is durable immediately; what is
 derived from it appears when the run completes. An empty result a moment after
 submitting usually means the run has not finished.
 
-**The two adapters are peers, not mirrors.** 25 capabilities on both, 12 HTTP
+**The two adapters are peers, not mirrors.** 26 capabilities on both, 16 HTTP
 only, 5 MCP only, 1 on neither — each difference declared with a reason. An
 empty column in the matrix is a decision, not a gap.
 

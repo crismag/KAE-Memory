@@ -137,9 +137,13 @@ passed on both engines — PostgreSQL in 1m 46s, CockroachDB in 7h 30m. That
 one, and why CockroachDB is a CI job gated on `KAE_COCKROACHDB_CI_ENABLED`
 rather than a default.
 
-**Current state, verified 2026-08-07: the schema head is `0021`.** Twelve
+**Current state, verified 2026-08-09: the schema head is `0022`.** Thirteen
 revisions have landed since the last parity run, against three at the previous
-review of this gate. Engine-specific behaviour sits behind every one that adds a
+review of this gate. The suite has also grown from the 675 tests the parity run
+covered to 1885, so the gate is now stale in two dimensions at once: newer
+schema, and a far larger body of behaviour never exercised on CockroachDB.
+CockroachDB tests are additionally deselected by default (`-m "not cockroachdb"`,
+ecosystem `RUN-D2`), which makes the drift silent rather than merely known. Engine-specific behaviour sits behind every one that adds a
 unique or check constraint — the class of divergence that produced revision
 `0009` in the first place, when CockroachDB and PostgreSQL compiled `Integer`
 differently.

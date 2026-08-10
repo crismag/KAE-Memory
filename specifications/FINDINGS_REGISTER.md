@@ -42,11 +42,11 @@ and this register had not found it. All five still need closing by hand.
 | ~~F-013 dependency cycles~~ **resolved** | [#88](https://github.com/crismag/KAE-Memory/issues/88) |
 | ~~F-014 fixture fallback modes~~ **withdrawn — claim was wrong** | [#89](https://github.com/crismag/KAE-Memory/issues/89) |
 | ~~F-015 idempotency under concurrency~~ **already proven** | [#90](https://github.com/crismag/KAE-Memory/issues/90) |
-| F-018 extraction loss · **S1** | not filed |
-| F-019 reviewer is a fixture · **S1** | not filed |
-| F-020 staleness not surfaced | not filed |
-| F-021 a project cannot be deleted | not filed |
-| F-022 six more unreachable capabilities | not filed |
+| F-018 extraction loss · **S1** — *disclosed, not repaired* | not filed |
+| ~~F-019 reviewer is a fixture~~ · **the three real causes are fixed** in code, **not deployed** | not filed |
+| ~~F-020 staleness not surfaced~~ · recalculation half built | not filed |
+| ~~F-021 a project cannot be deleted~~ **closed** — `project.delete`, T0.2, `9c2dc23` | not filed |
+| F-022 more unreachable capabilities — **eight, not ten** | not filed |
 
 **F-018 to F-022 are not filed as issues.** They are recorded here and need
 filing by someone with issue-write scope. None is security-sensitive, so unlike
@@ -264,7 +264,7 @@ prose like `N30–N32` the en dash is correct typography; the rule exists for
 homoglyphs in identifiers. The three `RUF043` sites became raw strings, which
 says the metacharacters are intended rather than escaping them and changing what
 matches. One nested `if` was flattened by naming the condition. No behaviour
-changed: 1728 tests pass, mypy is clean.
+changed: the suite passed and mypy was clean. (It was 1728 tests then; 1885 now.)
 
 **Not done, and worth a decision:** the range is still `ruff>=0.6`. Pinning it
 makes the gate reproducible and moves upgrades into a deliberate step; leaving
@@ -427,7 +427,14 @@ prose-only corpus still lost 29% and nothing explains it yet. Do not assume one
 cause. **Evidence:** the four reference projects on the deployment.
 **Drives:** EM-7.
 
-### F-019 — The shipped reviewer is a fixture, so eight of ten areas can never populate
+### F-019 — Review never ran, readiness never recalculated, and the reviewer degraded silently
+
+*(Originally titled "The shipped reviewer is a fixture, so eight of ten areas
+can never populate". That title named the symptom and the wrong cause; the
+correction inside supersedes it, and PPA/REVIEW-01 in the ecosystem register
+carries the full account. **The fixes are local — the deployment still runs
+2026-08-07/08 code**, so on the running system every word of the original
+finding remains observable.)*
 
 **Severity S1 · Gate `release`**
 
@@ -488,7 +495,12 @@ which names the two kinds rather than counting them.
 **Distinct from F-004.** That is about attesting the *human* who confirms; this
 is about the *model* that classifies. **Drives:** EM-6b.
 
-### F-020 — Readiness staleness is available and not surfaced
+### F-020 — Readiness staleness is available and not surfaced — *half closed*
+
+**Recalculation is built** (`82e9bf8`): a review run now recalculates readiness,
+so the snapshot no longer sits at revision 0 of 25 indefinitely. What remains is
+the *disclosure* half — Studio still renders a snapshot without saying whether it
+is current. Not deployed.
 
 **Severity S3**
 
@@ -505,7 +517,12 @@ Same class as the old revision field: a value that is real, stale, and
 presented as current. **Folded into** the Wave 2 projection work rather than
 carried separately.
 
-### F-021 — A project cannot be deleted without violating a foreign key
+### F-021 — A project cannot be deleted without violating a foreign key — **CLOSED**
+
+**`project.delete` exists** (`capabilities.py`), shipped as T0.2 in `9c2dc23`:
+enumerate, protect, dry-run, delete in dependency order inside a transaction —
+not a SQL script, because every FK is `NO ACTION`. The finding below is the
+account of why it was needed, kept for that.
 
 **Severity S2 · Gate `release`**
 
@@ -515,21 +532,24 @@ Nine tables reference `projects` — `agent_runs`, `discovery_blockers`,
 **every one is `NO ACTION`, not `CASCADE`**. `DELETE FROM projects` therefore
 fails on a foreign-key violation.
 
-There is no delete and no archive on any adapter. `ProjectStatus.ARCHIVED` is
-modelled in the domain and nothing sets it. So removing a project today means
+~~There is no delete and no archive on any adapter.~~ Delete now exists.
+`ProjectStatus.ARCHIVED` is still modelled in the domain with nothing setting
+it — archive is genuinely absent, delete is not. So removing a project today means
 hand-ordered SQL against production, which is exactly the direct-write path
 ADR-0027 and F-011 exist to discourage.
 
 Found while trying to clear 55 test projects holding 261 knowledge items and 720
 messages. **Drives:** T0.2.
 
-### F-022 — Six more capabilities are modelled and reachable by nothing
+### F-022 — More capabilities are modelled and reachable by nothing
 
 **Severity S2**
 
-Found by T0.6, the check that walks the application services and asks whether
-anything can call them. Beyond the four already known — reembedding (F-007),
-modules (F-006), assumptions (N45) and `enqueue_review` (EM-5):
+Found by walking the application services and asking whether anything can call
+them. Beyond the four originally known — reembedding (F-007), modules (F-006),
+assumptions (N45) and `enqueue_review` (EM-5). **Two of those four have since
+gained callers:** `enqueue_review` is called by extraction (`82e9bf8`), and
+assumption `origin` reached the HTTP schema (`80d2c40`).
 
 - **Run interrupt and resume.** The domain models an interrupted run resuming
   and no caller can request either, so a stalled run is restarted by hand.
@@ -542,10 +562,18 @@ modules (F-006), assumptions (N45) and `enqueue_review` (EM-5):
 - **`ModuleService.graph`** — the module-graph tool calls `list_modules` and
   `build_order`; nothing asks for the graph object.
 
-**Ten in total now.** The pattern matters more than any single entry: a service
-method with passing unit tests looks healthy from below, and the parity test
-checks that *declared* capabilities exist rather than that *existing* behaviour
-is declared. T0.6 closes the direction nothing else looked.
+**Eight outstanding**, not ten. The pattern matters more than any single entry:
+a service method with passing unit tests looks healthy from below, and the
+parity test checks that *declared* capabilities exist rather than that *existing*
+behaviour is declared.
+
+**The check this finding asked for could not have found it.** T0.6 proposed a
+test walking the services asking *"is this declared on an adapter"* — that test
+already existed (`test_no_unreachable_capability.py`) and passed throughout,
+because these capabilities *are* declared; they are simply uncalled. The
+replacement is field-level: `test_no_field_left_behind.py` (`4f39f6a`) asserts a
+domain field reaching a response, and KAE-Artifacts has an equivalent for
+generator reachability (`350a2c6`).
 
 **Separately:** `reject_knowledge`, `correct_knowledge` and `supersede_knowledge`
 on `MemoryService` are the older half of a pair. Adapters call `review_reject`

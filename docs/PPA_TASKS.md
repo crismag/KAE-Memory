@@ -142,17 +142,19 @@ is declared. The gap is invisible from both directions.
 
 ## Status, 2026-08-09 evening
 
-**Seven of eight shipped**, across four Phase 2 slices.
+**Seven of eight shipped**, across four Phase 2 slices — **in code. None of it
+is deployed.** The running instance is 2026-08-07/08 source; ecosystem debt
+`D-7`, `deployment/DEPLOYED_STATE.md`. Every commit below is proved by test.
 
 | | | |
 |---|---|---|
 | **M-1** set confirmation | `1dbdb60` | all-or-nothing, one revision bump, `PRODUCT_ONLY` |
 | **M-2** make review happen | `82e9bf8` · `524b2b1` | trigger, recalculate, batch, report degradation |
 | **M-3** the aggregate key | `6553e31` | keyed on the question, not its membership |
-| **M-4** status out of the conversation | — | **not built, deliberately.** See below |
+| **M-4** status out of the conversation | `ffcfa67` | **partly.** `candidates()` and `GET .../clarifications/candidates` are built and write nothing; the materialising callers and Studio have not moved yet. Ruled by `RUN-D13` |
 | **M-5** the planning-state projection | `6bc90ca` · `916563d` | area links on the listing; Studio composes Definition |
 | **M-6** extraction repair | — | Phase 3. Its cost is now disclosed (`1b82e7d`) |
-| **M-7** project deletion | — | unchanged; D-C still stands |
+| **M-7** project deletion | `9c2dc23` | shipped as T0.2, closing F-021 |
 | **M-8** the adapter-surface test | — | exists already as `test_no_unreachable_capability.py` |
 
 Plus three the slices added: content-loss disclosure (`1b82e7d`), message
@@ -185,7 +187,7 @@ so the offline classifier is not a degraded mode — it is two areas. Pinned by
 `test_thin_vertical_proof.py::TestTheOfflineClassifierIsStructurallyLimited`.
 Rebalancing the template is a decision nobody has taken.
 
-Suite: **1853**.
+Suite: **1885**.
 
 ## What must not change
 

@@ -26,8 +26,9 @@ that was said carelessly — which is a different problem, with a different fix.
 
 `kae_confirm_knowledge`, or `POST /v1/knowledge/{item_id}/confirm`.
 
-Moves the item to `validated`. Only then does it count toward readiness or reach
-assembled context.
+Moves the item to `validated`. Only then does it reach assembled context, and
+only then can its area become `sufficient`. It already counted toward readiness
+as a candidate, at half credit.
 
 ## Rejecting
 
@@ -73,9 +74,10 @@ produce ten candidates.
 
 ## After reviewing
 
-Readiness recalculates from confirmed knowledge. If it does not move, that is
-usually correct — confirming one item in an area that needs three does not
-complete it.
+Readiness recalculates. If it does not move, that is usually correct: the area
+was already `partial` on the candidate, and confirming one item in an area that
+needs three does not take it to `sufficient`. The step from half credit to full
+happens once, when the area's minimum is met.
 
 ## Related
 
