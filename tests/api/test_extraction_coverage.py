@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
 from kae_memory.api.security import AuthPolicy
-from kae_memory.application import MemoryService
+from kae_memory.application import MemoryService, WriteKnowledgeRequest
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.persistence.workspace_repositories import AgentRunRepository
@@ -198,3 +198,80 @@ def test_a_truncated_document_is_not_reported_as_complete(
     # And it is not miscounted as an extraction failure: nothing failed on this
     # content, nothing read it.
     assert coverage["abandoned"] == 0
+
+
+class TestKnowledgeSaysWhatProducedIt:
+    """AUD-008. A fixture-derived requirement looked exactly like a real one.
+
+    With `KAE_EXTRACTION` unset, `DeterministicExtractionAdapter` splits text on
+    punctuation and labels every sentence of twelve characters or more,
+    defaulting to `requirement`. Those items were written with `source` set to
+    the sentence — the same shape a model-extracted item has — and
+    `model="deterministic-fixture"` landed only in the run's `output_summary`,
+    which nothing downstream read.
+
+    So a project could report hundreds of "extracted requirements" that were
+    sentences cut on full stops, and no surface anywhere could tell a reader.
+    """
+
+    def test_the_trace_names_the_engine_that_produced_it(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        project = client.post("/v1/projects", json={"name": "Provenance"}).json()
+        run = memory.start_run(ProjectId(project["id"]), AgentRole.REQUIREMENTS, "aud-008")
+        written = memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(
+                    kind="requirement",
+                    content="The system must record what a person confirmed.",
+                    source="The system must record what a person confirmed.",
+                )
+            ],
+            output_summary={"model": "deterministic-fixture", "items_written": 1},
+        )
+
+        trace = client.get(f"/v1/knowledge/{written[0].id}/trace").json()
+
+        assert trace["produced_by"] == "deterministic-fixture"
+
+    def test_a_model_produced_item_names_the_model(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        project = client.post("/v1/projects", json={"name": "Modelled"}).json()
+        run = memory.start_run(ProjectId(project["id"]), AgentRole.REQUIREMENTS, "aud-008-model")
+        written = memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(
+                    kind="requirement",
+                    content="Individual founders are the first users.",
+                    source="Individual founders are the first users.",
+                )
+            ],
+            output_summary={"model": "claude-sonnet-4", "items_written": 1},
+        )
+
+        trace = client.get(f"/v1/knowledge/{written[0].id}/trace").json()
+
+        # The point is the *difference*. Either value is fine; being unable to
+        # tell them apart is what was wrong.
+        assert trace["produced_by"] == "claude-sonnet-4"
+
+    def test_a_run_that_recorded_no_engine_says_nothing_rather_than_guessing(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        project = client.post("/v1/projects", json={"name": "Unstated"}).json()
+        run = memory.start_run(ProjectId(project["id"]), AgentRole.REQUIREMENTS, "aud-008-none")
+        written = memory.write_knowledge(
+            run.id,
+            [WriteKnowledgeRequest(kind="goal", content="A stated goal.", source="A stated goal.")],
+            output_summary={"items_written": 1},
+        )
+
+        trace = client.get(f"/v1/knowledge/{written[0].id}/trace").json()
+
+        assert trace["produced_by"] is None

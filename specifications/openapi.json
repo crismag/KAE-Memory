@@ -3374,6 +3374,17 @@
             "title": "Lifecycle",
             "type": "string"
           },
+          "produced_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Produced By"
+          },
           "produced_by_run_id": {
             "anyOf": [
               {
@@ -3425,6 +3436,7 @@
           "lifecycle",
           "current_content",
           "produced_by_run_id",
+          "produced_by",
           "used_by_run_ids",
           "source_message_ids",
           "session_ids",

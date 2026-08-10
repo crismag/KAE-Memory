@@ -693,6 +693,15 @@ class TraceResponse(BaseModel):
     lifecycle: str
     current_content: str
     produced_by_run_id: str | None
+    #: The engine named by the producing run — a model identifier, or
+    #: `deterministic-fixture` when the offline adapter produced it. `None` when
+    #: no run recorded one.
+    #:
+    #: Fixture-derived knowledge was previously indistinguishable from
+    #: model-extracted knowledge everywhere it could be read (`AUD-008`), so a
+    #: project could show hundreds of "requirements" that were sentences split
+    #: on punctuation.
+    produced_by: str | None
     used_by_run_ids: list[str]
     source_message_ids: list[str]
     session_ids: list[str]
@@ -709,6 +718,7 @@ class TraceResponse(BaseModel):
             produced_by_run_id=(
                 None if trace.produced_by_run_id is None else str(trace.produced_by_run_id)
             ),
+            produced_by=trace.produced_by,
             used_by_run_ids=[str(run) for run in trace.used_by_run_ids],
             source_message_ids=[str(message) for message in trace.source_message_ids],
             session_ids=[str(session) for session in trace.session_ids],

@@ -38,6 +38,7 @@ from kae_memory.persistence.readiness_repositories import KnowledgeAreaLinkRepos
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
 from kae_memory.persistence.workspace_repositories import (
+    AgentRunRepository,
     MessageRepository,
     ProvenanceLinkRepository,
     SessionRepository,
@@ -123,6 +124,21 @@ class KnowledgeTrace:
     source_message_ids: tuple[MessageId, ...]
     session_ids: tuple[SessionId, ...]
     steps: tuple[TraceStep, ...]
+    #: What produced this item, from the run's own record — a model identifier,
+    #: or `deterministic-fixture` when the offline adapter did.
+    #:
+    #: **The distinction had nowhere to be read** (`AUD-008`). With
+    #: `KAE_EXTRACTION` unset, the deterministic adapter splits text on
+    #: punctuation and labels every sentence over twelve characters, defaulting
+    #: to `requirement`. Those items were written with `source` set to the
+    #: sentence — the same shape a model-extracted item has — so a project could
+    #: report hundreds of "extracted requirements" that were sentences cut on
+    #: full stops, and nothing anywhere said which.
+    #:
+    #: Read from `agent_runs.output_summary` rather than stored on the item: the
+    #: run already records it, and a second copy on the knowledge row could
+    #: disagree with the run that made it.
+    produced_by: str | None = None
 
 
 def statement_id(project_id: ProjectId, area_key: str, item_id: KnowledgeItemId) -> str:
@@ -315,8 +331,19 @@ class BlueprintService:
                 if working is not None:
                     steps.append(TraceStep("session", str(working.id), working.type.value))
                 steps.append(TraceStep("source_message", str(message.id), message.content))
+            engine: str | None = None
             if produced_by is not None:
-                steps.append(TraceStep("produced_by_run", str(produced_by)))
+                run = AgentRunRepository(session).get(produced_by)
+                summary = (run.output_summary if run else None) or {}
+                candidate = summary.get("model")
+                engine = candidate if isinstance(candidate, str) and candidate else None
+                steps.append(
+                    TraceStep(
+                        "produced_by_run",
+                        str(produced_by),
+                        engine or "",
+                    )
+                )
             for run_id in used_by:
                 steps.append(TraceStep("used_by_run", str(run_id)))
             for version in item.versions:
@@ -339,6 +366,7 @@ class BlueprintService:
                 source_message_ids=message_ids,
                 session_ids=tuple(dict.fromkeys(session_ids)),
                 steps=tuple(steps),
+                produced_by=engine,
             )
 
         return self._run(operation)
