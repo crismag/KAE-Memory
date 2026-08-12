@@ -436,13 +436,27 @@ REGISTRY: tuple[Capability, ...] = (
     ),
     Capability(
         key="module.graph",
-        summary="Every module and the order they can be built in",
-        exposure=Exposure.AGENT_ONLY,
+        summary="Every module, every edge, and the order they can be built in",
+        exposure=Exposure.BOTH,
         mcp=("kae_get_module_graph",),
-        reason=(
-            "Build order is what an implementing agent asks for. A Studio view of "
-            "the same graph is a rendering question, and rendering is Studio's."
+        http=(
+            "GET /v1/projects/{project_id}/modules",
+            "GET /v1/projects/{project_id}/modules/graph",
+            "GET /v1/projects/{project_id}/modules/{key}",
         ),
+        # This was `agent_only`, reasoned: *"a Studio view of the same graph is
+        # a rendering question, and rendering is Studio's."* True, and it does
+        # not follow — rendering being Studio's is exactly why Studio needs the
+        # data, and the sentence read as a decision because it was one (`D-19`).
+        #
+        # What it produced: an agent connected over MCP could read a project's
+        # architecture and the person who owns the project could not, and
+        # `/dependencies` was empty on every deployment for want of a route.
+        #
+        # Reads only. `module.define` and `module.relate` stay agent-only for
+        # the reason they always did: Studio's structural editing contract is
+        # unreconciled, and a route written now would fix a shape discussion
+        # has not settled.
     ),
     Capability(
         key="session.manage",

@@ -26,7 +26,7 @@ copying them here would create a second one.
 | `kae_get_clarifications` | Materialise the questions a project's findings justify asking | `clarification.open` |
 | `kae_get_classifications` | Read classified spans of submitted observations | `observation.classifications` |
 | `kae_get_module_context` | Implementation context for one module | `module.context` |
-| `kae_get_module_graph` | Every module and the order they can be built in | `module.graph` |
+| `kae_get_module_graph` | Every module, every edge, and the order they can be built in | `module.graph` |
 | `kae_get_open_decisions` | What is missing, contested, or unresolved | `review.findings` |
 | `kae_get_operational_state` | Where the work stands, as reported | `operational.read` |
 | `kae_get_preliminary_context` | Compose the useful preliminary view of a project too sparse to assemble | `context.preliminary` |
@@ -73,7 +73,6 @@ full in the [capability matrix](capability-matrix.md).
 
 - `kae_define_module` — Register a module as a proposed part of the system
 - `kae_get_module_context` — Implementation context for one module
-- `kae_get_module_graph` — Every module and the order they can be built in
 - `kae_relate_modules` — Record a structural edge between modules, or to a statement
 - `kae_submit_observation` — Record something an agent discovered, as proposed evidence
 

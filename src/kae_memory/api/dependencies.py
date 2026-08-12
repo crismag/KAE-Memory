@@ -24,6 +24,7 @@ from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
+from kae_memory.application.module_service import ModuleService
 from kae_memory.application.preliminary_context_service import PreliminaryContextService
 from kae_memory.application.project_deletion_service import ProjectDeletionService
 from kae_memory.application.readiness_service import ReadinessService
@@ -197,6 +198,18 @@ def authorise_project(request: Request, project_id: str) -> None:
         raise not_found("project", project_id)
 
 
+def get_modules(request: Request) -> ModuleService:
+    """Return the request's module service.
+
+    Wired for reads only. The write path — defining a module and drawing an
+    edge — stays on MCP until somebody rules who may draw an architecture
+    (`D-19`).
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ModuleService(factory)
+
+
 def get_setup(request: Request) -> SetupService:
     """Return the request's preliminary setup service."""
 
@@ -273,3 +286,4 @@ Deliverables = Annotated[DeliverableService, Depends(get_deliverables)]
 Assumptions = Annotated[AssumptionService, Depends(get_assumptions)]
 Preliminary = Annotated[PreliminaryContextService, Depends(get_preliminary)]
 Setup = Annotated[SetupService, Depends(get_setup)]
+Modules = Annotated[ModuleService, Depends(get_modules)]

@@ -3,7 +3,7 @@
 
 # HTTP API
 
-53 paths, 63 operations — 32 GET, 30 POST.
+56 paths, 66 operations — 35 GET, 30 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (32)
+## Reads (35)
 
 | Route | Purpose |
 |---|---|
@@ -43,6 +43,9 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/extraction-coverage` | Report how much submitted content became knowledge |
 | `GET /v1/projects/{project_id}/knowledge` | List a project's knowledge items |
 | `GET /v1/projects/{project_id}/knowledge/search` | Search project knowledge without loading the project |
+| `GET /v1/projects/{project_id}/modules` | Every module, every edge, and the order they can be built in |
+| `GET /v1/projects/{project_id}/modules/graph` | Every module, every edge, and the order they can be built in |
+| `GET /v1/projects/{project_id}/modules/{key}` | Every module, every edge, and the order they can be built in |
 | `GET /v1/projects/{project_id}/operational-state` | Where the work stands, as reported |
 | `GET /v1/projects/{project_id}/preliminary-context` | Compose the useful preliminary view of a project too sparse to assemble |
 | `GET /v1/projects/{project_id}/publication-targets` | List where a project may publish, and why it currently cannot |

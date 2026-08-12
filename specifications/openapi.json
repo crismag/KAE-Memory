@@ -1793,6 +1793,199 @@
         "title": "MessageResponse",
         "type": "object"
       },
+      "ModuleEdgeResponse": {
+        "description": "One directed edge, named by the keys a reader recognises.\n\nModule identifiers are internal; a graph returned in them is one the caller\nhas to resolve before it can be drawn, and every caller would resolve it the\nsame way. Edges to a statement carry `target_knowledge` instead, and the two\nare exclusive.",
+        "properties": {
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target_knowledge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Knowledge"
+          },
+          "target_module": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Module"
+          }
+        },
+        "required": [
+          "source",
+          "relation"
+        ],
+        "title": "ModuleEdgeResponse",
+        "type": "object"
+      },
+      "ModuleGraphResponse": {
+        "description": "Every module, every edge, and the order they can be built in.\n\nBuild order answers the question a dependency graph exists for, and ties\nbreak by key so the answer is stable \u2014 an order that varies between calls\ncannot be compared with the previous one, which is most of what it is for.",
+        "properties": {
+          "build_order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Build Order",
+            "type": "array"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleEdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "modules": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Modules",
+            "type": "array"
+          },
+          "note": {
+            "default": "Build order follows depends_on only. A module with no dependencies may still need knowledge that is not yet confirmed.",
+            "title": "Note",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "modules",
+          "edges",
+          "build_order"
+        ],
+        "title": "ModuleGraphResponse",
+        "type": "object"
+      },
+      "ModuleNeighbourhoodResponse": {
+        "description": "What one module touches, in both directions.\n\nDependencies and dependents are both here because they answer opposite\nquestions a reader needs together: what must exist before I build this, and\nwhat breaks if I change it.",
+        "properties": {
+          "consumes": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Consumes",
+            "type": "array"
+          },
+          "dependents": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Dependents",
+            "type": "array"
+          },
+          "depends_on": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Depends On",
+            "type": "array"
+          },
+          "exposes": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Exposes",
+            "type": "array"
+          },
+          "module": {
+            "$ref": "#/components/schemas/ModuleResponse"
+          },
+          "owned_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModuleResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owns": {
+            "items": {
+              "$ref": "#/components/schemas/ModuleResponse"
+            },
+            "title": "Owns",
+            "type": "array"
+          },
+          "satisfies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Satisfies",
+            "type": "array"
+          },
+          "verified_by": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verified By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "module",
+          "depends_on",
+          "dependents",
+          "exposes",
+          "consumes",
+          "owns",
+          "owned_by",
+          "satisfies",
+          "verified_by"
+        ],
+        "title": "ModuleNeighbourhoodResponse",
+        "type": "object"
+      },
+      "ModuleResponse": {
+        "description": "One part of the system being defined.\n\n`status` is deliberately not progress. How far along an implementation is\nbelongs to operational state and decays differently; this says whether the\nmodule is part of the system at all.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "summary",
+          "status"
+        ],
+        "title": "ModuleResponse",
+        "type": "object"
+      },
       "OpenSessionRequest": {
         "properties": {
           "session_type": {
@@ -5957,6 +6150,148 @@
         "summary": "Reject Knowledge",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/modules": {
+      "get": {
+        "description": "Every module in this project, ordered by key.\n\nAn empty list means the project has no modules \u2014 a real answer, and the one\na caller needs to tell apart from *\"modules cannot be read here\"*, which is\nwhat the absence of this route used to produce.",
+        "operationId": "list_modules_v1_projects__project_id__modules_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModuleResponse"
+                  },
+                  "title": "Response List Modules V1 Projects  Project Id  Modules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Modules",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/modules/graph": {
+      "get": {
+        "description": "Every module, every edge, and the order they can be built in.\n\nEdges are returned in module **keys** rather than identifiers. The graph is\nfor drawing and reading; a caller handed internal ids would have to resolve\nthem first, and every caller would resolve them identically.",
+        "operationId": "module_graph_v1_projects__project_id__modules_graph_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleGraphResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Module Graph",
+        "tags": [
+          "modules"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/modules/{key}": {
+      "get": {
+        "description": "One module and everything it touches, in both directions.\n\nThe *\"dig deeper for module-level information\"* half. Dependencies and\ndependents arrive together because they answer opposite questions a reader\nneeds at the same moment: what must exist before I build this, and what\nbreaks if I change it.",
+        "operationId": "module_neighbourhood_v1_projects__project_id__modules__key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModuleNeighbourhoodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Module Neighbourhood",
+        "tags": [
+          "modules"
         ]
       }
     },

@@ -102,15 +102,40 @@ EXEMPT: dict[str, str] = {
     "RetrievalService.chunk_knowledge": "operational backfill, invoked by hand",
     "RetrievalService.embed_pending": "operational backfill, invoked by hand",
     #
-    # -- implementation details of a reachable method ---------------------
-    "RenderService.render": "used by deliverable recording",
-    "RetrievalService.best_effort": "the search route's implementation",
-    "RetrievalService.indexing_status": "reported inside a search response",
-    "AssemblyService.is_stale": "computed into an assembly manifest, not asked for",
-    "RenderService.is_still_reproducible": "computed into a deliverable response",
-    "RenderService.verify": "the reproduction check's implementation",
-    "ClarificationService.asked": "used when materialising the clarification list",
-    "ClarificationService.unanswered": "used when materialising the clarification list",
+    #
+    # -- described as reached, and reached by nothing ----------------------
+    #
+    # Found by splitting this dictionary in two (`D-20`). Each of these sat
+    # under a comment reading *"implementation details of a reachable method"*
+    # with a sentence naming its caller, and the caller does not exist. The
+    # sentences were plausible, specific, and false — which is why they were
+    # never questioned.
+    #
+    # This is the eighth instance of the defect this file was written to catch,
+    # and it was inside the file's own exemption list.
+    "AssemblyService.is_stale": (
+        "described as computed into an assembly manifest; nothing calls it. "
+        "`AssemblyManifest.is_stale_against` is the one in use"
+    ),
+    "ClarificationService.asked": (
+        "described as used when materialising the clarification list; nothing calls it"
+    ),
+    "ClarificationService.unanswered": (
+        "described as used when materialising the clarification list; nothing calls it"
+    ),
+    "RenderService.is_still_reproducible": (
+        "described as computed into a deliverable response; nothing calls it"
+    ),
+    # These two are reachable only through `publication_service.publish`, which
+    # is itself unreachable behind the publication-ownership decision. Same
+    # shape as `SetupService.resolve_target` below, and stated the same way:
+    # the fact a reader needs is *why*, not just that nothing calls it.
+    "RenderService.render": (
+        "called by RenderService.verify — unreachable only because publication is"
+    ),
+    "RenderService.verify": (
+        "called by publication_service.publish — unreachable only because publication is"
+    ),
     #
     # -- genuinely unreachable, and tracked elsewhere ---------------------
     #
@@ -118,16 +143,9 @@ EXEMPT: dict[str, str] = {
     # They are exempted rather than fixed here because each is somebody's
     # phase, and a test is the wrong place to smuggle in a feature.
     "ModuleService.confirm": "modules are MCP-only by decision — F-006, issue #85",
-    "ModuleService.graph": (
-        "the module graph tool calls list_modules and build_order; this returns the "
-        "graph object and nothing asks for it — F-006"
-    ),
     "PublicationService.publish": (
         "live publication is behind the publication-ownership decision — DEP-D7/D9"
     ),
-    "SetupService.set_value": "setup writes are unexposed; reads are — DEF/setup work",
-    "SetupService.register_target": "setup writes are unexposed",
-    "SetupService.record_connection": "setup writes are unexposed",
     # Not a write, and not uncalled: `publication_service.publish` uses it. It
     # is unreachable only because *that* is, which is a different fact and the
     # one a reader needs — F-022 recorded it as unreached, and that was wrong.
@@ -183,6 +201,21 @@ def _public_methods(service: type) -> list[str]:
         for name, member in vars(service).items()
         if callable(member) and not name.startswith("_")
     )
+
+
+#: Methods that **are** reached, through another method rather than directly.
+#:
+#: Listed for the reader, not exempted from anything — they pass the reachability
+#: check on their own merit, and the assertion below holds them to that.
+#:
+#: They used to sit in `EXEMPT` under a comment saying so, which made the list
+#: two different claims in one dictionary: *"nothing calls this"* and *"something
+#: calls this, indirectly"*. The obsolescence check could not be written against
+#: a list meaning both.
+REACHED_INDIRECTLY: dict[str, str] = {
+    "RetrievalService.best_effort": "the search route's implementation",
+    "RetrievalService.indexing_status": "reported inside a search response",
+}
 
 
 SRC = Path(__file__).resolve().parents[2] / "src"
@@ -279,6 +312,51 @@ def test_every_service_method_is_reachable_or_exempt(service: type) -> None:
     )
 
 
+def test_no_exemption_is_obsolete() -> None:
+    """An exemption for a method that became reachable reads as considered.
+
+    The other half of the check below, and it did not exist. This file argues
+    that an exception without a reason is indistinguishable from an oversight —
+    and an exception whose reason **stopped being true** is worse than both,
+    because it is a sentence asserting the current state of the system that
+    nobody re-reads.
+
+    Four entries were stale when this was written. `SetupService.set_value`,
+    `register_target` and `record_connection` said *"setup writes are
+    unexposed"* after the POST routes shipped; `ModuleService.graph` said
+    *"nothing asks for it"* while `GET /modules/graph` asked for it. Every one
+    of those sentences was true when written, which is the whole difficulty.
+    """
+
+    reachable = _reachable()
+    obsolete = sorted(name for name in EXEMPT if name.split(".", 1)[1] in reachable)
+
+    assert not obsolete, (
+        f"these are exempted as unreachable and something now calls them: {obsolete}. "
+        f"Remove the entry — a reason that has stopped being true is worse than no "
+        f"reason, because it reads as considered."
+    )
+
+
+def test_a_method_listed_as_reached_indirectly_really_is() -> None:
+    """The mirror. A method here that stopped being called is a live gap.
+
+    Without this, moving the indirect entries out of `EXEMPT` would have made
+    them invisible to both checks — the reachability test skips nothing now, so
+    it would catch them, but only as an anonymous name in a list. This says
+    which claim broke.
+    """
+
+    reachable = _reachable()
+    unreached = sorted(
+        name for name in REACHED_INDIRECTLY if name.split(".", 1)[1] not in reachable
+    )
+
+    assert not unreached, (
+        f"listed as reached through another method, and nothing reaches them: {unreached}"
+    )
+
+
 def test_every_exemption_names_something_that_exists() -> None:
     """An exemption for a deleted method hides the next one added under that name.
 
@@ -287,6 +365,6 @@ def test_every_exemption_names_something_that_exists() -> None:
     """
 
     real = {f"{s.__name__}.{m}" for s in SERVICES for m in _public_methods(s)}
-    stale = sorted(set(EXEMPT) - real)
+    stale = sorted((set(EXEMPT) | set(REACHED_INDIRECTLY)) - real)
 
     assert not stale, f"EXEMPT names methods that no longer exist: {stale}"

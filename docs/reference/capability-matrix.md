@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-51 capabilities: 26 on both, 19 HTTP only, 5 MCP only, 1 on neither.
+51 capabilities: 27 on both, 19 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -19,7 +19,7 @@ route the registry does not declare.
 
 ---
 
-## On both adapters (26)
+## On both adapters (27)
 
 Reachable over MCP and HTTP. `tests/api/test_adapter_parity.py` fails if
 either is missing one of these — absence is a defect, not a decision.
@@ -41,6 +41,7 @@ either is missing one of these — absence is a defect, not a decision.
 | `knowledge.correct` | Record corrected wording as a new version | `kae_correct_knowledge` | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` |
 | `knowledge.reject` | Relay a person's decision to refuse a candidate | `kae_reject_knowledge` | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` |
 | `knowledge.search` | Search project knowledge without loading the project | `kae_search_knowledge` | `GET /v1/projects/{project_id}/knowledge/search` |
+| `module.graph` | Every module, every edge, and the order they can be built in | `kae_get_module_graph` | `GET /v1/projects/{project_id}/modules`, `GET /v1/projects/{project_id}/modules/graph`, `GET /v1/projects/{project_id}/modules/{key}` |
 | `observation.classifications` | Read classified spans of submitted observations | `kae_get_classifications` | `GET /v1/projects/{project_id}/classifications` |
 | `operational.read` | Where the work stands, as reported | `kae_get_operational_state` | `GET /v1/projects/{project_id}/operational-state` |
 | `operational.settle` | Relay a person's decision about a reported operational record | `kae_settle_operational_record` | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` |
@@ -84,7 +85,7 @@ carries the reason it is not there.
 
 ---
 
-## MCP only, by decision (5)
+## MCP only, by decision (4)
 
 The agent surface. Same rule in the other direction.
 
@@ -92,7 +93,6 @@ The agent surface. Same rule in the other direction.
 |---|---|---|---|---|
 | `module.context` | Implementation context for one module | `kae_get_module_context` | — | The consumer is a coding agent implementing one module. Studio renders the module graph rather than a bounded implementation package, and will need an HTTP contract when it renders the package itself (N12). |
 | `module.define` | Register a module as a proposed part of the system | `kae_define_module` | — | Modules are proposed by extraction and confirmed by a person. Studio's curation flow is recordModuleDecision, which is a different act with its own contract still to be reconciled (N12). |
-| `module.graph` | Every module and the order they can be built in | `kae_get_module_graph` | — | Build order is what an implementing agent asks for. A Studio view of the same graph is a rendering question, and rendering is Studio's. |
 | `module.relate` | Record a structural edge between modules, or to a statement | `kae_relate_modules` | — | The write path that was missing entirely. Same reason as module.define: Studio's structural editing contract is unreconciled, and a route written now would fix a shape that discussion has not settled. |
 | `observation.submit` | Record something an agent discovered, as proposed evidence | `kae_submit_observation` | — | Studio's equivalent is a conversation message, which is a different durable act with its own session ordering. Offering both over HTTP would give a client two ways to say one thing. |
 

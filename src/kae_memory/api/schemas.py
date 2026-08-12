@@ -1846,3 +1846,102 @@ class AssumptionListResponse(BaseModel):
                 "wherever the output it shaped is disclosed."
             ),
         )
+
+
+# -- modules ------------------------------------------------------------------
+
+
+class ModuleResponse(BaseModel):
+    """One part of the system being defined.
+
+    `status` is deliberately not progress. How far along an implementation is
+    belongs to operational state and decays differently; this says whether the
+    module is part of the system at all.
+    """
+
+    key: str
+    name: str
+    summary: str
+    status: str
+
+    @classmethod
+    def of(cls, module: Any) -> "ModuleResponse":
+        return cls(
+            key=module.key,
+            name=module.name,
+            summary=module.summary,
+            status=module.status.value,
+        )
+
+
+class ModuleEdgeResponse(BaseModel):
+    """One directed edge, named by the keys a reader recognises.
+
+    Module identifiers are internal; a graph returned in them is one the caller
+    has to resolve before it can be drawn, and every caller would resolve it the
+    same way. Edges to a statement carry `target_knowledge` instead, and the two
+    are exclusive.
+    """
+
+    source: str
+    relation: str
+    target_module: str | None = None
+    target_knowledge: str | None = None
+
+
+class ModuleGraphResponse(BaseModel):
+    """Every module, every edge, and the order they can be built in.
+
+    Build order answers the question a dependency graph exists for, and ties
+    break by key so the answer is stable — an order that varies between calls
+    cannot be compared with the previous one, which is most of what it is for.
+    """
+
+    project_id: str
+    modules: list[ModuleResponse]
+    edges: list[ModuleEdgeResponse]
+    build_order: list[str]
+    note: str = (
+        "Build order follows depends_on only. A module with no dependencies may "
+        "still need knowledge that is not yet confirmed."
+    )
+
+
+class ModuleNeighbourhoodResponse(BaseModel):
+    """What one module touches, in both directions.
+
+    Dependencies and dependents are both here because they answer opposite
+    questions a reader needs together: what must exist before I build this, and
+    what breaks if I change it.
+    """
+
+    module: ModuleResponse
+    depends_on: list[ModuleResponse]
+    dependents: list[ModuleResponse]
+    exposes: list[ModuleResponse]
+    consumes: list[ModuleResponse]
+    owns: list[ModuleResponse]
+    owned_by: ModuleResponse | None
+    satisfies: list[str]
+    verified_by: list[str]
+
+    @classmethod
+    def of(cls, neighbourhood: Any) -> "ModuleNeighbourhoodResponse":
+        def modules(values: Sequence[Any]) -> list[ModuleResponse]:
+            return [ModuleResponse.of(module) for module in values]
+
+        return cls(
+            module=ModuleResponse.of(neighbourhood.module),
+            depends_on=modules(neighbourhood.depends_on),
+            dependents=modules(neighbourhood.dependents),
+            exposes=modules(neighbourhood.exposes),
+            consumes=modules(neighbourhood.consumes),
+            owns=modules(neighbourhood.owns),
+            owned_by=(
+                ModuleResponse.of(neighbourhood.owned_by)
+                if neighbourhood.owned_by is not None
+                else None
+            ),
+            satisfies=list(neighbourhood.satisfies),
+            verified_by=list(neighbourhood.verified_by),
+        )
