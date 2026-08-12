@@ -876,6 +876,70 @@ class ProviderConnectionRow(Base):
     detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
 
+class ProjectSourceRow(Base):
+    """Where a project's material comes from, and what was pinned (`D-21`).
+
+    `AUD-005`: Studio held sources in a process dictionary, so a person who
+    connected a repository, set its scope, and pinned a revision lost all of it
+    on the next deploy. `ADR-0004` ruled that Memory owns the source reference —
+    location, pinned revision, digest, disposition — and this is that table.
+
+    **Never the content.** A source names material; it does not hold it. That
+    is the whole point of the ruling it implements: a repository read at volume
+    belongs in the user's own repository with a coordinate here, not copied
+    wholesale into this database.
+
+    `disposition` is nullable and defaults to nothing, deliberately. `ADR-0004`
+    defines five and they gate ingestion at volume; storing the column is the
+    cheap half and making `EPHEMERAL` actually discard content is the half that
+    matters. NULL says **nobody has classified this source**, which must not be
+    able to pass for `MEMORY`.
+    """
+
+    __tablename__ = "project_sources"
+    __table_args__ = (
+        # One source per location per kind. Registering the same repository
+        # twice is one source registered twice — the idempotency projects and
+        # modules already have, so a caller that loses its response can retry.
+        UniqueConstraint("project_id", "kind", "location", name="uq_project_sources_location"),
+        Index("ix_project_sources_project", "project_id"),
+    )
+
+    source_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(UUID_STR, nullable=False)
+    #: `github`, `s3`, `upload` — Studio's vocabulary, carried rather than
+    #: policed. Two systems with an opinion about one lifecycle is how they
+    #: come to disagree.
+    kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    #: What the source names: `owner/repo`, a bucket path, a filename.
+    location: Mapped[str] = mapped_column(String(600), nullable=False)
+    #: The authorization used to reach it, when there is one. Nullable because
+    #: an uploaded file needs no connection, and a connection that is revoked
+    #: must not erase the decision about where material comes from.
+    connection_id: Mapped[str | None] = mapped_column(UUID_STR, nullable=True)
+    #: Include and exclude paths, size ceiling, documentation-only. Stored whole
+    #: because it is Studio's shape and Memory has no rule that reads it.
+    scope: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    #: `configured` → `readable` → `pinned` → `analyzed`. The last is
+    #: unreachable: nothing implements analysis, and a `pinned` source recorded
+    #: as `analyzed` would be a claim about understanding made on the strength
+    #: of a successful HTTP GET.
+    state: Mapped[str] = mapped_column(String(40), nullable=False)
+    #: The immutable revision this source is pinned to. A branch moves; a commit
+    #: does not, and evidence that cannot name a revision cannot be rechecked.
+    pinned_revision: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: What was read at that revision, so a later read can prove it changed.
+    digest: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: One of `ADR-0004`'s five, once somebody decides. NULL means undecided.
+    disposition: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    #: Why the source is in the state it is — a refusal, an unreachable host.
+    #: Carried in the provider's words: a reason paraphrased on the way through
+    #: is one nobody can act on.
+    detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class PublicationTargetRow(Base):
     """A registered destination, described without the means to reach it (N27).
 

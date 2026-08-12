@@ -3,7 +3,7 @@
 
 # HTTP API
 
-56 paths, 66 operations — 35 GET, 30 POST.
+61 paths, 72 operations — 37 GET, 34 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (35)
+## Reads (37)
 
 | Route | Purpose |
 |---|---|
@@ -56,6 +56,8 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
 | `GET /v1/projects/{project_id}/setup` | Report what a project is configured to do, apart from what it knows |
 | `GET /v1/projects/{project_id}/setup/questions` | List unsettled questions about configuration, not about the product |
+| `GET /v1/projects/{project_id}/sources` | Where a project's material comes from, and what revision was pinned |
+| `GET /v1/projects/{project_id}/sources/{source_id}` | Where a project's material comes from, and what revision was pinned |
 | `GET /v1/runs/{run_id}` | Enqueue agent work and follow its progress |
 | `GET /v1/runs/{run_id}/events` | Enqueue agent work and follow its progress |
 | `GET /v1/runs/{run_id}/knowledge` | Enqueue agent work and follow its progress |
@@ -63,7 +65,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (30)
+## Writes (34)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -100,6 +102,10 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/runs` | Enqueue agent work and follow its progress |
 | `POST /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
 | `POST /v1/projects/{project_id}/setup/configuration` | Set a project's configuration — its repository, branch, kind, output format |
+| `POST /v1/projects/{project_id}/sources` | Where a project's material comes from, and what revision was pinned |
+| `POST /v1/projects/{project_id}/sources/{source_id}/disposition` | Where a project's material comes from, and what revision was pinned |
+| `POST /v1/projects/{project_id}/sources/{source_id}/pin` | Where a project's material comes from, and what revision was pinned |
+| `POST /v1/projects/{project_id}/sources/{source_id}/state` | Where a project's material comes from, and what revision was pinned |
 | `POST /v1/sessions/{session_id}/close` | Open, close, and read conversation sessions |
 | `POST /v1/sessions/{session_id}/messages` | Open, close, and read conversation sessions |
 

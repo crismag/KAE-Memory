@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-51 capabilities: 27 on both, 19 HTTP only, 4 MCP only, 1 on neither.
+52 capabilities: 27 on both, 20 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -56,7 +56,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (19)
+## HTTP only, by decision (20)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -82,6 +82,7 @@ carries the reason it is not there.
 | `run.manage` | Enqueue agent work and follow its progress | — | `POST /v1/projects/{project_id}/runs`, `GET /v1/projects/{project_id}/runs`, `GET /v1/runs/{run_id}`, `GET /v1/runs/{run_id}/events`, `GET /v1/runs/{run_id}/knowledge` | Studio shows progress. An agent that *is* the work does not submit runs to itself, and a tool that let it would invite recursion nobody bounded. |
 | `session.manage` | Open, close, and read conversation sessions | — | `POST /v1/projects/{project_id}/sessions`, `GET /v1/projects/{project_id}/sessions`, `POST /v1/sessions/{session_id}/close`, `GET /v1/sessions/{session_id}/messages`, `POST /v1/sessions/{session_id}/messages` | ADR-0006 gives Memory durable conversation and Studio the interview. An agent submits observations rather than holding a session. |
 | `setup.configure` | Set a project's configuration — its repository, branch, kind, output format | — | `POST /v1/projects/{project_id}/setup/configuration` | Setup is a person deciding how their project is wired. An agent that could rewrite `primary_repository` mid-run would change where the next publication goes without anybody choosing it. Reading it over MCP is right; writing it is not. |
+| `source.reference` | Where a project's material comes from, and what revision was pinned | — | `POST /v1/projects/{project_id}/sources`, `GET /v1/projects/{project_id}/sources`, `GET /v1/projects/{project_id}/sources/{source_id}`, `POST /v1/projects/{project_id}/sources/{source_id}/state`, `POST /v1/projects/{project_id}/sources/{source_id}/pin`, `POST /v1/projects/{project_id}/sources/{source_id}/disposition` | Acquisition is Studio's (ADR-0005) and this is the durable half of it: Studio contacts the provider, resolves a revision, and records what it was told. An agent reads the evidence a source produced, not the configuration that produced it — and a tool that registered sources would be a second party configuring a project nobody asked it to. |
 
 ---
 

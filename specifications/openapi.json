@@ -809,6 +809,19 @@
         "title": "ClassificationResponse",
         "type": "object"
       },
+      "ClassifySourceRequest": {
+        "properties": {
+          "disposition": {
+            "title": "Disposition",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition"
+        ],
+        "title": "ClassifySourceRequest",
+        "type": "object"
+      },
       "ConfigureFieldRequest": {
         "description": "Set one configuration field.\n\n`state` is the caller's claim about *how well established* the value is, and\nit is not decoration. `confirmed` means a person chose it and must name who;\n`inferred` and `suggested` must carry evidence. The domain enforces both, so\na caller cannot record \"the user confirmed this\" about a guess.",
         "properties": {
@@ -2159,6 +2172,35 @@
         "title": "OperationalStateResponse",
         "type": "object"
       },
+      "PinSourceRequest": {
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "string"
+          },
+          "state": {
+            "default": "pinned",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "PinSourceRequest",
+        "type": "object"
+      },
       "PreliminaryContextResponse": {
         "description": "What a project knows, what it is guessing, and what nobody decided.\n\nFour separate collections rather than one annotated list. A reader who\ncannot tell a confirmed requirement from a plausible guess has a document\nthat is worse than nothing \u2014 the same document with the warning removed.",
         "properties": {
@@ -3047,6 +3089,75 @@
         "title": "RecordMessageRequest",
         "type": "object"
       },
+      "RecordSourceStateRequest": {
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "RecordSourceStateRequest",
+        "type": "object"
+      },
+      "RegisterSourceRequest": {
+        "description": "Where a project's material comes from.\n\n`kind` and `state` are Studio's vocabulary and are carried rather than\nvalidated against an enumeration here. Memory has no rule that reads them,\nand two systems with an opinion about one lifecycle is how they come to\ndisagree \u2014 `SourceState` lives in Studio's acquisition model and is the one\nplace it should live.",
+        "properties": {
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "title": "Scope",
+            "type": "object"
+          },
+          "state": {
+            "default": "configured",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "location"
+        ],
+        "title": "RegisterSourceRequest",
+        "type": "object"
+      },
       "RegisterTargetRequest": {
         "description": "Register where a project may publish.\n\n`configuration` carries the coordinate \u2014 `{\"repository\": \"owner/name\",\n\"path\": \"docs/\"}` \u2014 and the domain refuses any key that looks like a\ncredential. `make_default` is explicit: a target that silently became the\ndefault would route the next publication somewhere nobody chose.",
         "properties": {
@@ -3759,6 +3870,130 @@
           "targets"
         ],
         "title": "SetupStateResponse",
+        "type": "object"
+      },
+      "SourceResponse": {
+        "description": "One source, with what was pinned and what nobody has decided.\n\n`disposition` is `null` until somebody classifies the source. That is not\nthe same as *\"keep it in Memory\"*, and no default is supplied, because a\nsource nobody has classified passing for one somebody decided to keep is\nthe more expensive of the two mistakes.",
+        "properties": {
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "pinned": {
+            "title": "Pinned",
+            "type": "boolean"
+          },
+          "pinned_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Revision"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "title": "Scope",
+            "type": "object"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "source_id",
+          "project_id",
+          "kind",
+          "location",
+          "state",
+          "connection_id",
+          "scope",
+          "pinned_revision",
+          "digest",
+          "disposition",
+          "detail",
+          "pinned",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SourceResponse",
         "type": "object"
       },
       "StatedEntryResponse": {
@@ -7319,6 +7554,341 @@
         "summary": "Setup Questions",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources": {
+      "get": {
+        "description": "Every source this project has, oldest first.\n\nAn empty list means the project has none \u2014 a real answer, and the one that\ncould not be given while the store lived in a process that had just\nrestarted.",
+        "operationId": "list_sources_v1_projects__project_id__sources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceResponse"
+                  },
+                  "title": "Response List Sources V1 Projects  Project Id  Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "sources"
+        ]
+      },
+      "post": {
+        "description": "Record where material comes from, or return the source already there.\n\nIdempotent by `(kind, location)`. Registering the same repository twice is\none source registered twice, so a caller that loses its response can retry\nwithout first asking whether it succeeded.\n\n`201` either way, deliberately: the caller's intent \u2014 *this project draws on\nthis location* \u2014 holds after both, and a `200`/`201` split would invite a\nclient to branch on which of two identical outcomes occurred.",
+        "operationId": "register_source_v1_projects__project_id__sources_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterSourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Register Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}": {
+      "get": {
+        "operationId": "get_source_v1_projects__project_id__sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}/disposition": {
+      "post": {
+        "description": "Record where this source's material is to live (`ADR-0004`).\n\n**Stored, and enforced by nothing yet.** The five dispositions gate\ningestion at volume; making `EPHEMERAL` actually discard content is\nbehaviour these routes do not implement. Recording the decision first is the\ncheaper order \u2014 reclassifying real data afterwards is the expensive one \u2014\nand it must not be read as the rule being in force.",
+        "operationId": "classify_source_v1_projects__project_id__sources__source_id__disposition_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClassifySourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classify Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}/pin": {
+      "post": {
+        "description": "Fix this source to an immutable revision.\n\nThe point of the record. A branch moves and a commit does not, so a claim\ndrawn from *\"the main branch\"* cannot be rechecked against what the branch\nactually said at the time it was read.",
+        "operationId": "pin_source_v1_projects__project_id__sources__source_id__pin_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PinSourceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pin Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}/state": {
+      "post": {
+        "description": "Record what Studio observed against the provider.",
+        "operationId": "record_source_state_v1_projects__project_id__sources__source_id__state_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSourceStateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Source State",
+        "tags": [
+          "sources"
         ]
       }
     },

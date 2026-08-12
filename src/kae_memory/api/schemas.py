@@ -1945,3 +1945,88 @@ class ModuleNeighbourhoodResponse(BaseModel):
             satisfies=list(neighbourhood.satisfies),
             verified_by=list(neighbourhood.verified_by),
         )
+
+
+# -- sources ------------------------------------------------------------------
+
+
+class RegisterSourceRequest(BaseModel):
+    """Where a project's material comes from.
+
+    `kind` and `state` are Studio's vocabulary and are carried rather than
+    validated against an enumeration here. Memory has no rule that reads them,
+    and two systems with an opinion about one lifecycle is how they come to
+    disagree — `SourceState` lives in Studio's acquisition model and is the one
+    place it should live.
+    """
+
+    kind: str
+    location: str
+    state: str = "configured"
+    connection_id: str | None = None
+    scope: dict[str, Any] = Field(default_factory=dict)
+    disposition: str | None = None
+
+
+class RecordSourceStateRequest(BaseModel):
+    state: str
+    #: The provider's own words for a refusal or an unreachable host. A reason
+    #: paraphrased on the way through is one nobody can act on.
+    detail: str = ""
+
+
+class PinSourceRequest(BaseModel):
+    revision: str
+    digest: str | None = None
+    state: str = "pinned"
+
+
+class ClassifySourceRequest(BaseModel):
+    disposition: str
+
+
+class SourceResponse(BaseModel):
+    """One source, with what was pinned and what nobody has decided.
+
+    `disposition` is `null` until somebody classifies the source. That is not
+    the same as *"keep it in Memory"*, and no default is supplied, because a
+    source nobody has classified passing for one somebody decided to keep is
+    the more expensive of the two mistakes.
+    """
+
+    source_id: str
+    project_id: str
+    kind: str
+    location: str
+    state: str
+    connection_id: str | None
+    scope: dict[str, Any]
+    pinned_revision: str | None
+    digest: str | None
+    disposition: str | None
+    detail: str
+    #: Whether this source names an immutable revision. Computed rather than
+    #: left to each caller, because "is this recheckable" is the question the
+    #: record exists to answer.
+    pinned: bool
+    created_at: datetime | None
+    updated_at: datetime | None
+
+    @classmethod
+    def of(cls, source: Any) -> "SourceResponse":
+        return cls(
+            source_id=source.source_id,
+            project_id=source.project_id,
+            kind=source.kind,
+            location=source.location,
+            state=source.state,
+            connection_id=source.connection_id,
+            scope=dict(source.scope),
+            pinned_revision=source.pinned_revision,
+            digest=source.digest,
+            disposition=source.disposition,
+            detail=source.detail,
+            pinned=source.is_pinned,
+            created_at=source.created_at,
+            updated_at=source.updated_at,
+        )

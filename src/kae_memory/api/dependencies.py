@@ -31,6 +31,7 @@ from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.application.setup_service import SetupService
+from kae_memory.application.source_service import SourceService
 from kae_memory.persistence import providers
 
 from .errors import not_found
@@ -210,6 +211,13 @@ def get_modules(request: Request) -> ModuleService:
     return ModuleService(factory)
 
 
+def get_sources(request: Request) -> SourceService:
+    """Return the request's source service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return SourceService(factory)
+
+
 def get_setup(request: Request) -> SetupService:
     """Return the request's preliminary setup service."""
 
@@ -287,3 +295,4 @@ Assumptions = Annotated[AssumptionService, Depends(get_assumptions)]
 Preliminary = Annotated[PreliminaryContextService, Depends(get_preliminary)]
 Setup = Annotated[SetupService, Depends(get_setup)]
 Modules = Annotated[ModuleService, Depends(get_modules)]
+Sources = Annotated[SourceService, Depends(get_sources)]

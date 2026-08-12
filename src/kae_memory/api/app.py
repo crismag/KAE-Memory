@@ -24,7 +24,15 @@ from .dependencies import (
     migration_revision,
 )
 from .errors import install_error_handlers
-from .routers import blueprint, classification, modules, pipeline, readiness, workspace
+from .routers import (
+    blueprint,
+    classification,
+    modules,
+    pipeline,
+    readiness,
+    sources,
+    workspace,
+)
 from .schemas import HealthResponse
 from .security import AuthPolicy, TrustBoundaryMiddleware, resolve_policy
 
@@ -98,6 +106,7 @@ def create_app(
     app.include_router(pipeline.router)
     app.include_router(classification.router)
     app.include_router(modules.router)
+    app.include_router(sources.router)
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:

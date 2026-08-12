@@ -402,6 +402,26 @@ REGISTRY: tuple[Capability, ...] = (
         http=("POST /v1/projects/{project_id}/operational-state/{record_id}/settle",),
     ),
     Capability(
+        key="source.reference",
+        summary="Where a project's material comes from, and what revision was pinned",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=(
+            "POST /v1/projects/{project_id}/sources",
+            "GET /v1/projects/{project_id}/sources",
+            "GET /v1/projects/{project_id}/sources/{source_id}",
+            "POST /v1/projects/{project_id}/sources/{source_id}/state",
+            "POST /v1/projects/{project_id}/sources/{source_id}/pin",
+            "POST /v1/projects/{project_id}/sources/{source_id}/disposition",
+        ),
+        reason=(
+            "Acquisition is Studio's (ADR-0005) and this is the durable half of it: "
+            "Studio contacts the provider, resolves a revision, and records what it "
+            "was told. An agent reads the evidence a source produced, not the "
+            "configuration that produced it — and a tool that registered sources "
+            "would be a second party configuring a project nobody asked it to."
+        ),
+    ),
+    Capability(
         key="module.context",
         summary="Implementation context for one module",
         exposure=Exposure.AGENT_ONLY,
