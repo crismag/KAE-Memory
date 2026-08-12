@@ -264,9 +264,45 @@ def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
 #:           "Every invoice carries a client reference for reconciliation."
 #:     0.00  an invoicing rule and an approval rule
 #:
-#: `0.42` takes everything down to the reworded pairs and leaves the 0.27 pair
-#: apart, which is right: those two are about different obligations that happen
-#: to mention the same noun.
+#: **Recalibrated against real statements after deploying** (`D-16`). Those
+#: figures came from statements written to illustrate the problem. Real
+#: extracted ones are longer, hedged and full of qualifying clauses, so the same
+#: meaning shares a smaller fraction of its words — on the first live project,
+#: 32 statements and 496 pairs produced a **maximum similarity of 0.33** and the
+#: threshold grouped nothing at all.
+#:
+#: **The threshold is unchanged, and that is the finding.** The obvious response
+#: was to lower it until real statements grouped. Measured in full, the numbers
+#: refuse:
+#:
+#:     0.300  one question asked twice
+#:            "What is 'that repository' — which repository is being referred
+#:             to, and what does it contain?"
+#:            "What repository is being referred to, and where is it located or
+#:             how would KAE access it?"
+#:
+#:     0.286  two unrelated statements
+#:            "What is the project or system being worked on?"
+#:            "The system must be able to read reference works."
+#:
+#: **Fourteen thousandths** separate a true pair from a false one. That is not a
+#: threshold to tune; it is a measure that cannot tell them apart, and any value
+#: chosen between them would be fitted to two examples and wrong on the third.
+#:
+#: Jaccard's weakness is length: it divides by the *union*, so the same meaning
+#: expressed at different lengths scores low, and a short statement can never
+#: score high against a long one. An overlap coefficient — dividing by the
+#: smaller set — separates the same two pairs by 0.10 rather than 0.014, and
+#: brings its own failure: the two-word actor "Qualified supervisor" scores
+#: **1.00** against every rule that mentions it.
+#:
+#: So the real work is a measure that handles both, and it is `GROUP-MEASURE`
+#: rather than something changed while unattended — it decides how a person
+#: reads their own project.
+#:
+#: Until then this groups genuine near-duplicates and finds nothing on the live
+#: project, which is a true answer rather than a useful one. The surface renders
+#: nothing rather than something false.
 #:
 #: And the number that makes the polarity guard non-negotiable: **a rule and its
 #: exact negation score `1.00`.** Similarity alone would group the two

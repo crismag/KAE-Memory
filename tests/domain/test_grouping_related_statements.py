@@ -205,3 +205,71 @@ class TestTheThreshold:
 
     def test_nothing_at_all_groups_into_nothing(self) -> None:
         assert group_related([]) == ()
+
+
+class TestAgainstStatementsFromARealProject:
+    """Calibration, pinned to text this product actually produced.
+
+    `ES-5` shipped and grouped **nothing** on the first live project: 32
+    statements, 496 pairs, maximum similarity 0.33 against a threshold of 0.42.
+    A feature that never fires on real data is indistinguishable from one that
+    was never wired, and the only way to tell them apart is to look.
+
+    The threshold had been calibrated on statements written to illustrate the
+    problem, which score 0.78–0.83 for genuine paraphrase. Real extracted ones
+    are longer, hedged, and full of qualifying clauses, so the same meaning
+    shares a smaller fraction of its words.
+
+    These are verbatim from that project. They exist so the next change to the
+    threshold has to face them.
+    """
+
+    # Two wordings of one question, from the deployed `Cris Test 2`.
+    SAME_QUESTION = (
+        "What is 'that repository' — which repository is being referred to, and "
+        "what does it contain?",
+        "What repository is being referred to, and where is it located or how would KAE access it?",
+    )
+
+    # Adjacent nouns, unrelated obligations. The pair that must stay apart.
+    DIFFERENT_SUBJECTS = (
+        "What is the project or system being worked on?",
+        "The system must be able to read reference works.",
+    )
+
+    def test_neither_pair_groups_today(self) -> None:
+        """Including the one that should.
+
+        This is the honest state and it is asserted rather than hidden: on real
+        statements the measure finds nothing, so the surface renders nothing.
+        A true answer rather than a useful one.
+        """
+
+        assert group_related([("a", self.SAME_QUESTION[0]), ("b", self.SAME_QUESTION[1])]) == ()
+        assert (
+            group_related([("a", self.DIFFERENT_SUBJECTS[0]), ("b", self.DIFFERENT_SUBJECTS[1])])
+            == ()
+        )
+
+    def test_the_measure_cannot_separate_them(self) -> None:
+        """Fourteen thousandths between a true pair and a false one.
+
+        **The reason the threshold was not simply lowered.** Any value chosen
+        between 0.286 and 0.300 is fitted to two examples and wrong on the
+        third — that is not a threshold to tune, it is a measure that cannot
+        tell them apart.
+
+        Pinned so the next person to reach for the constant meets the evidence
+        first. The fix is `GROUP-MEASURE`.
+        """
+
+        from kae_memory.domain.lexical import similarity
+
+        true_pair = similarity(*self.SAME_QUESTION)
+        false_pair = similarity(*self.DIFFERENT_SUBJECTS)
+
+        assert true_pair > false_pair, "the true pair does at least score higher"
+        assert true_pair - false_pair < 0.02, (
+            f"a true pair at {true_pair:.3f} and a false one at {false_pair:.3f} — "
+            "no threshold separates these; see GROUP-MEASURE"
+        )
