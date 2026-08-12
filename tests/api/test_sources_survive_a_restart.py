@@ -21,6 +21,7 @@ losing its revision.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -54,11 +55,12 @@ REPOSITORY = {
 }
 
 
-def register(client: TestClient, project: str, **overrides: object) -> dict:
+def register(client: TestClient, project: str, **overrides: object) -> dict[str, Any]:
     body = {**REPOSITORY, **overrides}
     response = client.post(f"/v1/projects/{project}/sources", json=body)
     assert response.status_code == 201, response.text
-    return response.json()
+    registered: dict[str, Any] = response.json()
+    return registered
 
 
 class TestItSurvivesTheProcess:
