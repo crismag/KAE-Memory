@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 
 from kae_memory.domain.execution import AgentRole, RunStatus
 from kae_memory.domain.identifiers import AgentRunId, KnowledgeItemId, ProjectId, SessionId
+from kae_memory.domain.lexical import group_related
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.workspace import ActorType, MessagePurpose, MessageType, SessionType
 
@@ -229,6 +230,14 @@ def list_messages(session_id: str, memory: Memory) -> list[MessageResponse]:
     ]
 
 
+#: Above this many statements, the listing stops grouping.
+#:
+#: Grouping compares every statement with every other. The number is a budget on
+#: that, not a judgement about projects: past it the answer would still be
+#: correct and would cost a reader more time than the grouping saves them.
+MAX_GROUPED_STATEMENTS = 400
+
+
 @router.get("/projects/{project_id}/knowledge", response_model=list[KnowledgeResponse])
 def list_knowledge(
     project_id: str, memory: Memory, readiness: Readiness, lifecycle: str | None = None
@@ -265,11 +274,32 @@ def list_knowledge(
                 link.claim_key
             )
 
+    # Which statements say adjacent things (`PPA-15`, `ES-5`).
+    #
+    # **Computed here and stored nowhere.** Grouping is not merging: every
+    # statement stays whole, visible and separately confirmable, which is why
+    # this can ship while `EM-3`'s ruling on unattended merging stays open.
+    #
+    # Bounded rather than left to grow. Grouping is O(n²) in a project's
+    # statements — a few milliseconds at the largest real project seen so far
+    # (178 statements), and not a promise for a project ten times that. Past the
+    # cap the listing returns no groups **and says so** through the absence,
+    # because a slow listing is worse than an ungrouped one and a silently
+    # partial grouping is worse than both.
+    group_of: dict[str, int] = {}
+    if len(items) <= MAX_GROUPED_STATEMENTS:
+        for index, group in enumerate(
+            group_related([(str(item.id), item.current_version.content) for item in items])
+        ):
+            for member in group:
+                group_of[member] = index
+
     return [
         KnowledgeResponse.of(
             item,
             sorted(by_item.get(str(item.id), [])),
             claims_by_item.get(str(item.id)),
+            group_of.get(str(item.id)),
         )
         for item in items
     ]

@@ -1656,6 +1656,17 @@
             "title": "Project Id",
             "type": "string"
           },
+          "related_group": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Related Group"
+          },
           "versions": {
             "items": {
               "$ref": "#/components/schemas/KnowledgeVersionResponse"

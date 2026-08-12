@@ -28,6 +28,9 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
 from kae_memory.api.security import AuthPolicy
+from kae_memory.application import MemoryService, WriteKnowledgeRequest
+from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.identifiers import ProjectId
 
 
 @pytest.fixture
@@ -395,3 +398,87 @@ class TestSetupStaysApartFromKnowledge:
 
         assert "percentage" not in setup
         assert "setup_state" not in readiness
+
+
+class TestTheListingSaysWhichStatementsBelongTogether:
+    """`ES-5`'s other half — a domain function with a reader.
+
+    `group_related` shipped and nothing called it, which would have made it the
+    eighth *built and unreachable* capability in this estate. The grouping rides
+    the listing rather than a second endpoint: a consumer that fetched the
+    statements and forgot to fetch the groups would render exactly the flat list
+    `PPA-15` complains about, and one read cannot drift from itself.
+    """
+
+    def _record(self, factory: sessionmaker[Session], project: str, *texts: str) -> None:
+        """Write statements the way a run does. There is no HTTP write path for
+        knowledge, and there should not be: extraction proposes, a person
+        confirms."""
+
+        memory = MemoryService(factory)
+        run = memory.start_run(ProjectId(project), AgentRole.REQUIREMENTS, "grouping")
+        memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(kind="requirement", content=text, source=text)
+                for text in texts
+            ],
+        )
+
+    def test_adjacent_statements_share_a_group(
+        self, client: TestClient, project: str, factory: sessionmaker[Session]
+    ) -> None:
+        self._record(
+            factory,
+            project,
+            "An invoice must be sent within three days of a job finishing.",
+            "Invoices are sent within three working days after a job finishes.",
+            "Only an authorised approver may approve a report.",
+        )
+
+        items = client.get(f"/v1/projects/{project}/knowledge").json()
+        group = {item["current_content"]: item["related_group"] for item in items}
+        invoice_a = "An invoice must be sent within three days of a job finishing."
+        invoice_b = "Invoices are sent within three working days after a job finishes."
+        approval = "Only an authorised approver may approve a report."
+
+        assert group[invoice_a] is not None
+        assert group[invoice_a] == group[invoice_b]
+        # The unrelated one belongs to nothing, and `None` is the honest answer
+        # rather than a group of its own.
+        assert group[approval] is None
+
+    def test_a_statement_resembling_nothing_carries_no_group(
+        self, client: TestClient, project: str, factory: sessionmaker[Session]
+    ) -> None:
+        self._record(
+            factory,
+            project,
+            "Invoices are sent within three days.",
+            "Only a supervisor may sign off completed work.",
+        )
+
+        items = client.get(f"/v1/projects/{project}/knowledge").json()
+
+        assert all(item["related_group"] is None for item in items)
+
+    def test_every_statement_is_still_returned_whole(
+        self, client: TestClient, project: str, factory: sessionmaker[Session]
+    ) -> None:
+        """The line that lets this ship while `EM-3` is unruled.
+
+        Grouping is not merging: nothing is hidden, folded, or replaced by a
+        representative. A listing that returned one member of each group would
+        be merging performed by the transport.
+        """
+
+        texts = (
+            "An invoice must be sent within three days of a job finishing.",
+            "Invoices are sent within three working days after a job finishes.",
+        )
+        self._record(factory, project, *texts)
+
+        items = client.get(f"/v1/projects/{project}/knowledge").json()
+
+        assert len(items) == 2
+        assert {item["current_content"] for item in items} == set(texts)

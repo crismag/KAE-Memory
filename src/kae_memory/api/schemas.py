@@ -191,6 +191,22 @@ class KnowledgeResponse(BaseModel):
     #: Absent for a statement whose link names no claim, which is a fact about
     #: the assignment rather than a missing field.
     claims: dict[str, str] = Field(default_factory=dict)
+    #: Which set of adjacent statements this one belongs to, if any.
+    #:
+    #: `PPA-15`: seventy flat statements is *"'I don't know how to organise my
+    #: project' becomes 'KAE generated 70 things I don't know how to organise'"*.
+    #: Statements sharing a group say adjacent things and are worth reading
+    #: together.
+    #:
+    #: **A group is not a merge.** Every member is returned whole and stays
+    #: separately confirmable; the grouping is computed per read and stored
+    #: nowhere, so `EM-3`'s ruling on unattended merging is untouched.
+    #:
+    #: `None` means this statement resembles nothing else — which is a fact
+    #: about it, not a missing field. It is also `None` for every statement on a
+    #: project too large to group, and a consumer must not read that as
+    #: "nothing here resembles anything".
+    related_group: int | None = None
     versions: list[KnowledgeVersionResponse]
 
     @classmethod
@@ -199,6 +215,7 @@ class KnowledgeResponse(BaseModel):
         item: KnowledgeItem,
         areas: Sequence[str] = (),
         claims: Mapping[str, str] | None = None,
+        related_group: int | None = None,
     ) -> "KnowledgeResponse":
         return cls(
             id=str(item.id),
@@ -208,6 +225,7 @@ class KnowledgeResponse(BaseModel):
             current_content=item.current_version.content,
             areas=list(areas),
             claims=dict(claims or {}),
+            related_group=related_group,
             versions=[
                 KnowledgeVersionResponse(
                     number=version.number,
