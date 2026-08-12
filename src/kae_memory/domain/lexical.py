@@ -15,6 +15,7 @@ to notice than missing a rare inflection.
 """
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 MIN_COVERAGE = 0.5
@@ -239,10 +240,102 @@ def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
     return LexicalMatch(score=len(hit) / len(query_terms), matched_terms=hit)
 
 
+#: How alike two statements must be to sit in one group on a review surface.
+#:
+#: **Lower than `NEAR_DUPLICATE_SIMILARITY` on purpose.** A duplicate is a claim
+#: about sameness and deserves a high bar; a *group* is a claim about
+#: adjacency — "read these together" — and the cost of being slightly wrong is
+#: that somebody reads two related statements at once, which is what they were
+#: going to do anyway.
+#:
+#: **Measured rather than chosen.** Jaccard over content stems is harsh on
+#: paraphrase, because synonyms share no stems at all — "sent" and "go out" are
+#: unrelated to it. Against real statements of the kind this product extracts:
+#:
+#:     0.83  "Only a supervisor may sign off completed work."
+#:           "Completed work is signed off by a supervisor."
+#:     0.78  "An invoice must be sent within three days of a job finishing."
+#:           "Invoices are sent within three working days after a job finishes."
+#:     0.50  "Invoices are sent within three days of a job finishing."
+#:           "Invoices go out three days after a job finishes."
+#:     0.43  "Invoices are not sent before a job finishes."
+#:           "Invoices are not issued until the job has finished."
+#:     0.27  "Invoices must be sent within three days and carry a client reference."
+#:           "Every invoice carries a client reference for reconciliation."
+#:     0.00  an invoicing rule and an approval rule
+#:
+#: `0.42` takes everything down to the reworded pairs and leaves the 0.27 pair
+#: apart, which is right: those two are about different obligations that happen
+#: to mention the same noun.
+#:
+#: And the number that makes the polarity guard non-negotiable: **a rule and its
+#: exact negation score `1.00`.** Similarity alone would group the two
+#: statements a person most needs to see apart.
+GROUPING_SIMILARITY = 0.42
+
+
+def group_related(
+    statements: Sequence[tuple[str, str]], threshold: float = GROUPING_SIMILARITY
+) -> tuple[tuple[str, ...], ...]:
+    """Cluster statements that say adjacent things, by id.
+
+    `PPA-15`: *"'I don't know how to organise my project' becomes 'KAE generated
+    70 things I don't know how to organise'."* Seventy flat statements is the
+    original problem restated in the product's own words, and grouping is what
+    turns it into a dozen readings.
+
+    **Grouping is not merging.** Every statement stays whole, stays visible, and
+    stays separately confirmable — so this decides nothing on the project's
+    behalf, which is why it can ship while `EM-3`'s ruling on unattended merging
+    stays open.
+
+    Single-link clustering: A groups with C when both are close to B, even if A
+    and C are not close to each other. That is the right shape for *"read these
+    together"* and the wrong shape for *"these are the same"* — which is the
+    other reason this is not a duplicate check.
+
+    Polarity is respected through `is_near_duplicate`'s own rule at the pair
+    level: a rule and its exact negation share almost every content word, and
+    putting them in one group would suggest agreement where there is a conflict.
+
+    Returns groups of two or more, largest first, each in input order. A
+    statement in no group is absent rather than a group of one — a caller
+    rendering "groups" should not have to filter out singletons to find the ones
+    that mean something.
+    """
+
+    parent: dict[str, str] = {identifier: identifier for identifier, _ in statements}
+
+    def root(identifier: str) -> str:
+        while parent[identifier] != identifier:
+            parent[identifier] = parent[parent[identifier]]
+            identifier = parent[identifier]
+        return identifier
+
+    for index, (left_id, left_text) in enumerate(statements):
+        for right_id, right_text in statements[index + 1 :]:
+            if is_negated(left_text) != is_negated(right_text):
+                # Opposite polarity. Nearly every content word is shared, and
+                # grouping them would read as agreement about a conflict.
+                continue
+            if similarity(left_text, right_text) >= threshold:
+                parent[root(right_id)] = root(left_id)
+
+    clustered: dict[str, list[str]] = {}
+    for identifier, _ in statements:
+        clustered.setdefault(root(identifier), []).append(identifier)
+
+    groups = [tuple(members) for members in clustered.values() if len(members) > 1]
+    groups.sort(key=len, reverse=True)
+    return tuple(groups)
+
+
 __all__ = [
+    "GROUPING_SIMILARITY",
     "NEAR_DUPLICATE_SIMILARITY",
     "LexicalMatch",
     "content_words",
+    "group_related",
     "is_near_duplicate",
     "is_negated",
     "match",
