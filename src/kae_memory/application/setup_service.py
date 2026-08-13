@@ -662,11 +662,16 @@ class SetupService:
                     next_action="register a target, or publish locally by registering a local one",
                 )
             )
-        else:
+        usable: list[PublicationTarget] = []
+        if registered:
             for target in registered:
                 authorization = self.authorization_for(project_id, target.connection_id)
                 reason = target.unavailable_reason(authorization)
                 if reason is None:
+                    # Collected for `_state_for`, which must not call a project
+                    # ready to publish on the strength of a target this same
+                    # loop is about to report as unauthorised (`D-59`).
+                    usable.append(target)
                     continue
                 gaps.append(
                     SetupGap(
@@ -682,7 +687,7 @@ class SetupService:
 
         return SetupReadiness(
             project_id=str(project_id),
-            state=_state_for(configuration, questions, registered, gaps),
+            state=_state_for(configuration, questions, usable, gaps),
             gaps=tuple(gaps),
         )
 
@@ -699,7 +704,7 @@ def _capability_for(purpose: SetupPurpose) -> str:
 def _state_for(
     configuration: ProjectConfiguration,
     questions: Sequence[SetupQuestion],
-    targets: Sequence[PublicationTarget],
+    usable_targets: Sequence[PublicationTarget],
     gaps: Sequence[SetupGap],
 ) -> SetupState:
     """Name where setup has got to.
@@ -721,7 +726,13 @@ def _state_for(
 
     if any(question.blocks for question in questions):
         return SetupState.NEEDS_INPUT
-    if targets:
+    # **Usable**, not merely registered. `ready_for_publication` documents three
+    # conditions — a target exists, is authorised, and its provider is reachable
+    # — and testing only the first told a project it could publish through a
+    # connection nobody had granted, while the same response listed that target
+    # as a gap (`D-59`). The verdict is the caller's, already computed for the
+    # gaps, so nothing is decided twice.
+    if usable_targets:
         return SetupState.READY_FOR_PUBLICATION
     if configuration.values:
         return SetupState.READY_FOR_GENERATION

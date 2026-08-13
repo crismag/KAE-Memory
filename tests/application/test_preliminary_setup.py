@@ -129,6 +129,56 @@ class TestSetupReadinessIsNotKnowledgeReadiness:
         assert readiness.blocks_anything is False
         assert readiness.state is SetupState.READY_FOR_PUBLICATION
 
+    def test_an_unauthorised_target_is_not_readiness_to_publish(
+        self, setup: SetupService, project_id: ProjectId
+    ) -> None:
+        """`ready_for_publication` says *a target exists, is authorised, and its
+        provider is reachable*. It tested only the first (`D-59`).
+
+        The same response listed this target in `gaps` as unauthorised, so one
+        service gave two answers about one target: cannot publish through it,
+        and ready to publish.
+        """
+
+        connection = setup.record_connection(project_id, Provider.GITHUB, "env:TOKEN")
+        setup.register_target(
+            project_id,
+            Provider.GITHUB,
+            "planning docs",
+            configuration={"repository": "crismag/KAE-Studio"},
+            connection_id=str(connection.id),
+            make_default=True,
+        )
+
+        readiness = setup.readiness(project_id)
+
+        assert readiness.state is not SetupState.READY_FOR_PUBLICATION
+        # The gap is still reported, and still not blocking on its own.
+        assert any(gap.field_name == "target:planning docs" for gap in readiness.gaps)
+
+    def test_granting_the_connection_makes_it_readiness_to_publish(
+        self, setup: SetupService, project_id: ProjectId
+    ) -> None:
+        """The other half. A rule that never says yes is not a rule."""
+
+        connection = setup.record_connection(project_id, Provider.GITHUB, "env:TOKEN")
+        setup.authorize_connection(
+            project_id, str(connection.id), AuthorizationState.GRANTED, "cris"
+        )
+        setup.register_target(
+            project_id,
+            Provider.GITHUB,
+            "planning docs",
+            configuration={"repository": "crismag/KAE-Studio"},
+            connection_id=str(connection.id),
+            make_default=True,
+        )
+
+        readiness = setup.readiness(project_id)
+
+        assert readiness.state is SetupState.READY_FOR_PUBLICATION
+        assert not any(gap.field_name.startswith("target:") for gap in readiness.gaps)
+
     def test_no_gap_mentions_knowledge(self, setup: SetupService, project_id: ProjectId) -> None:
         """Every blocking gap must name an unmade choice or a missing
         authorisation, never how much is known."""
