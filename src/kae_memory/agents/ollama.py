@@ -39,11 +39,21 @@ from .embedding import (
 )
 
 OLLAMA_URL = "http://127.0.0.1:11434"
-EMBEDDING_MODEL = "nomic-embed-text"
 
-#: What `nomic-embed-text` produces. Declared so a mismatch is a failure with a
-#: number in it rather than a vector of unexpected width reaching the database.
-NOMIC_DIMENSIONS = 768
+#: 1024, to match `knowledge_chunks.embedding` — which is `vector(1024)` and is
+#: enforced per insert whether or not a row uses it (`D-74`). `nomic-embed-text`
+#: is the obvious local choice and produces 768, which the database refuses.
+#:
+#: The compatibility constraint lives here, in configuration, rather than as a
+#: coercion inside the adapter or a migration that follows whichever model was
+#: tried first. Changing to a 768 model is a migration **and** a re-embed of
+#: every chunk, taken deliberately.
+EMBEDDING_MODEL = "mxbai-embed-large"
+
+#: What `mxbai-embed-large` produces, and what `ADR-0008` chose for the schema.
+#: Named for the width rather than the model: the model is configuration and the
+#: width is a contract with the column.
+LOCAL_DIMENSIONS = 1024
 
 
 class OllamaEmbeddingAdapter:
@@ -53,7 +63,7 @@ class OllamaEmbeddingAdapter:
         self,
         base_url: str = OLLAMA_URL,
         model: str = EMBEDDING_MODEL,
-        dimensions: int = NOMIC_DIMENSIONS,
+        dimensions: int = LOCAL_DIMENSIONS,
         timeout: float = 120.0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:

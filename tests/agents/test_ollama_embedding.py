@@ -5,9 +5,12 @@ the production corpus has ever been embedded** — 2030 rows, all `pending`. So
 this adapter is not swapping one provider for another; it is the first one that
 will actually write a vector.
 
-Most of these are about what it will not do. Titan returns 1,024 dimensions and
-`nomic-embed-text` returns 768, and the tempting fix — pad, or truncate — yields
-a vector that indexes and ranks perfectly happily and means nothing.
+Most of these are about what it will not do. `knowledge_chunks.embedding` is
+`vector(1024)` and Postgres enforces that per insert, so the local model has to
+produce 1,024 too (`D-74`). The tempting fixes
+— pad, truncate, or widen the column to whichever model was tried first — each
+yield something that indexes and ranks perfectly happily and means less than it
+appears to.
 
 The live test at the end runs against a real Ollama when one is there, and skips
 with its reason when it is not. A mocked transport proves our end of the
@@ -28,7 +31,7 @@ from kae_memory.agents.embedding import (
     InvalidEmbeddingError,
     is_normalised,
 )
-from kae_memory.agents.ollama import NOMIC_DIMENSIONS, OllamaEmbeddingAdapter
+from kae_memory.agents.ollama import LOCAL_DIMENSIONS, OllamaEmbeddingAdapter
 
 
 def responding(handler: Any) -> OllamaEmbeddingAdapter:
@@ -48,13 +51,13 @@ class TestWhatItProduces:
         """
 
         adapter = responding(
-            lambda request: httpx.Response(200, json={"embedding": vector_of(NOMIC_DIMENSIONS)})
+            lambda request: httpx.Response(200, json={"embedding": vector_of(LOCAL_DIMENSIONS)})
         )
 
         result = adapter.embed(["a booking system for a clinic"])
 
-        assert result.dimensions == NOMIC_DIMENSIONS
-        assert result.model == "nomic-embed-text"
+        assert result.dimensions == LOCAL_DIMENSIONS
+        assert result.model == "mxbai-embed-large"
         assert is_normalised(result.vectors[0])
 
     def test_each_text_is_embedded(self) -> None:
@@ -62,7 +65,7 @@ class TestWhatItProduces:
 
         def handler(request: httpx.Request) -> httpx.Response:
             seen.append(json.loads(request.content)["prompt"])
-            return httpx.Response(200, json={"embedding": vector_of(NOMIC_DIMENSIONS)})
+            return httpx.Response(200, json={"embedding": vector_of(LOCAL_DIMENSIONS)})
 
         result = responding(handler).embed(["first", "second", "third"])
 
@@ -90,20 +93,20 @@ class TestWhatItRefuses:
     def test_a_vector_of_the_wrong_width_is_refused_not_padded(self) -> None:
         """The whole of `D-72`.
 
-        Titan's 1,024 and nomic's 768 are different models, and a padded vector
-        ranks against everything while meaning nothing. The failure names both
-        numbers because *"expected 768, got 1024"* identifies the mistake and
-        *"invalid embedding"* does not.
+        A 768-wide model and a 1,024-wide one are different models, and a padded
+        vector ranks against everything while meaning nothing. The failure names
+        both numbers because *"expected 1024, got 768"* identifies the mistake
+        and *"invalid embedding"* does not.
         """
 
         adapter = responding(
-            lambda request: httpx.Response(200, json={"embedding": vector_of(1024)})
+            lambda request: httpx.Response(200, json={"embedding": vector_of(768)})
         )
 
         with pytest.raises(InvalidEmbeddingError) as raised:
             adapter.embed(["x"])
 
-        assert "768" in str(raised.value) and "1024" in str(raised.value)
+        assert "1024" in str(raised.value) and "768" in str(raised.value)
 
     def test_a_zero_vector_is_refused(self) -> None:
         """Normalising it divides by zero; inventing a unit vector from nothing
@@ -118,7 +121,7 @@ class TestWhatItRefuses:
 
         adapter = responding(
             lambda request: httpx.Response(
-                200, json={"embedding": vector_of(NOMIC_DIMENSIONS, 0.0)}
+                200, json={"embedding": vector_of(LOCAL_DIMENSIONS, 0.0)}
             )
         )
 
@@ -143,7 +146,7 @@ class TestWhenItCannotWork:
         with pytest.raises(EmbeddingProviderUnavailableError) as raised:
             adapter.embed(["x"])
 
-        assert "ollama pull nomic-embed-text" in str(raised.value)
+        assert "ollama pull mxbai-embed-large" in str(raised.value)
 
     def test_ollama_not_running_says_so_and_where(self) -> None:
         def refuse(request: httpx.Request) -> httpx.Response:
@@ -188,5 +191,5 @@ def test_the_real_model_returns_something_that_ranks() -> None:
     close = similarity(result.vectors[0], result.vectors[1])
     far = similarity(result.vectors[0], result.vectors[2])
 
-    assert result.dimensions == NOMIC_DIMENSIONS
+    assert result.dimensions == LOCAL_DIMENSIONS
     assert close > far, f"related text scored {close}, unrelated {far}"
