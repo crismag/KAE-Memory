@@ -572,10 +572,24 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
     **Deterministic by default.** The demonstrable path must not depend on a
     provider being reachable, on credentials, or on a bill — and a fixture
     adapter makes the workflow reproducible for anyone who clones the repository.
-    Set ``KAE_EXTRACTION=bedrock`` for the live adapter.
+    Set ``KAE_EXTRACTION=ollama`` for a model on this machine, or ``bedrock``
+    for the hosted one.
     """
 
-    if os.environ.get("KAE_EXTRACTION", "deterministic").lower() != "bedrock":
+    chosen = os.environ.get("KAE_EXTRACTION", "deterministic").lower()
+
+    # A model on this machine (`ADR-0006`). Named explicitly rather than made
+    # the default: the fixture adapter is what keeps `python -m kae_memory.worker`
+    # demonstrable on a clone with nothing installed, and silently swapping it
+    # for a provider that may not be running would trade one surprise for
+    # another.
+    if chosen == "ollama":
+        from kae_memory.agents.ollama_extraction import OllamaExtractionAdapter
+
+        model = os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
+        return OllamaExtractionAdapter(model=model) if model else OllamaExtractionAdapter()
+
+    if chosen != "bedrock":
         return DeterministicExtractionAdapter()
 
     if build_bedrock is not None:  # pragma: no cover - injected only by tests
