@@ -93,3 +93,23 @@ class SnapshotId(Identifier):
 @dataclass(frozen=True, slots=True)
 class ReviewEventId(Identifier):
     """Stable knowledge-review-event identifier."""
+
+
+@dataclass(frozen=True, slots=True)
+class SynthesizedObjectId(Identifier):
+    """Stable identifier for one object in the synthesized project model."""
+
+
+@dataclass(frozen=True, slots=True)
+class AttentionItemId(Identifier):
+    """Stable identifier for one human-attention item."""
+
+
+@dataclass(frozen=True, slots=True)
+class ReconciliationEventId(Identifier):
+    """Stable identifier for one idempotent reconciliation/change event."""
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceBindingId(Identifier):
+    """Stable identifier for one synthesized-object ↔ evidence link."""

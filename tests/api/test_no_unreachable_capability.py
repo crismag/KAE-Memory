@@ -174,6 +174,14 @@ EXEMPT: dict[str, str] = {
     "MemoryService.provenance_for_item": (
         "the trace route builds provenance from the repository directly"
     ),
+    #
+    # -- synthesis layer reads that sit behind a write ----------------------
+    #
+    # Role is set over HTTP. This getter is for synthesizers and tests; serving
+    # it as its own route would imply a product surface that does not exist yet.
+    "SynthesisService.evidence_role": (
+        "read helper for the evidence-role table; POST .../evidence-role is the write"
+    ),
 }
 
 

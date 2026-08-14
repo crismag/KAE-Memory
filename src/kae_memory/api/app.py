@@ -31,6 +31,7 @@ from .routers import (
     pipeline,
     readiness,
     sources,
+    synthesis,
     workspace,
 )
 from .schemas import HealthResponse
@@ -107,6 +108,7 @@ def create_app(
     app.include_router(classification.router)
     app.include_router(modules.router)
     app.include_router(sources.router)
+    app.include_router(synthesis.router)
 
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:

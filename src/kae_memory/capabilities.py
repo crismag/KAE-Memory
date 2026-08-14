@@ -26,6 +26,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+_SYNTHESIS_HTTP_ONLY = (
+    "Studio is the current consumer of the synthesized model and attention "
+    "queue. CIE continues to write extracted evidence through existing "
+    "knowledge tools until Phase 3 produces a model worth interviewing. "
+    "Exposing empty synthesis collections on MCP would present a second "
+    "knowledge surface agents would treat as authoritative."
+)
+
 
 class Exposure(StrEnum):
     """Where a capability is expected to be reachable."""
@@ -107,7 +115,10 @@ REGISTRY: tuple[Capability, ...] = (
     ),
     Capability(
         key="knowledge.confirm",
-        summary="Relay a person's decision to accept a candidate",
+        summary=(
+            "Transitional: relay a person's decision to accept an extracted "
+            "candidate row. Not the attention queue (ADR-0007)."
+        ),
         exposure=Exposure.BOTH,
         mcp=("kae_confirm_knowledge",),
         http=("POST /v1/knowledge/{item_id}/confirm",),
@@ -126,7 +137,10 @@ REGISTRY: tuple[Capability, ...] = (
     ),
     Capability(
         key="knowledge.confirm_set",
-        summary="Relay a person's single decision to accept a named set of candidates",
+        summary=(
+            "Transitional: relay a person's single decision to accept a named "
+            "set of extracted candidate rows. Not the attention queue (ADR-0007)."
+        ),
         exposure=Exposure.PRODUCT_ONLY,
         http=("POST /v1/projects/{project_id}/knowledge/confirm",),
         reason=(
@@ -141,7 +155,10 @@ REGISTRY: tuple[Capability, ...] = (
     ),
     Capability(
         key="knowledge.reject",
-        summary="Relay a person's decision to refuse a candidate",
+        summary=(
+            "Transitional: relay a person's decision to refuse an extracted "
+            "candidate row. Not the attention queue (ADR-0007)."
+        ),
         exposure=Exposure.BOTH,
         mcp=("kae_reject_knowledge",),
         http=("POST /v1/projects/{project_id}/knowledge/{item_id}/reject",),
@@ -567,6 +584,97 @@ REGISTRY: tuple[Capability, ...] = (
         exposure=Exposure.BOTH,
         mcp=("kae_accept_assumption",),
         http=("POST /v1/projects/{project_id}/assumptions/{assumption_id}/accept",),
+    ),
+    Capability(
+        key="synthesis.model.list",
+        summary="Read the synthesized project model (empty until a synthesizer runs)",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/model",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.model.put",
+        summary="Create or update a working-model object, idempotent by identity",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.model.get",
+        summary="Read one synthesized object and the evidence it is mapped to",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/model/{object_id}",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.model.correct",
+        summary="Record a person's wording as the authoritative synthesized object",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/{object_id}/correct",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.model.bind_evidence",
+        summary="Map a synthesized object onto an extracted row without deleting it",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/{object_id}/evidence",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.evidence.role",
+        summary="Set how an extracted row participates in reasoning",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.attention.list",
+        summary="Read the human-attention queue (not unconfirmed extraction)",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/attention",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.attention.put",
+        summary="Create an attention item; extraction must not call this",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/attention",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.attention.resolve",
+        summary="Close an attention item so it leaves the live queue",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/attention/{item_id}/resolve",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.reconciliation.record",
+        summary="Record an idempotent reconciliation or human-act change event",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/reconciliation/events",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.reconciliation.list",
+        summary="List recorded reconciliation and human-act change events",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/reconciliation/events",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.reconciliation.run",
+        summary="Run deterministic evidence-graph reconciliation without minting a model",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/reconciliation/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.reconciliation.neighborhood",
+        summary="Read bounded related evidence for later LLM context",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/reconciliation/neighborhoods/{item_id}",),
+        reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
         key="embedding.reembed",

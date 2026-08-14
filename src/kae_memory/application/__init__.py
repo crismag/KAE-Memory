@@ -26,9 +26,11 @@ from .ingestion_service import (
 )
 from .memory_service import MemoryService, ReviewOutcome, WriteKnowledgeRequest
 from .readiness_service import ReadinessService
+from .reconciliation_service import ReconciliationReport, ReconciliationService
 from .reembedding_service import ChunkFailure, MigrationReport, ReembeddingService
 from .retrieval_service import RetrievalService, SearchHit
 from .review_service import Finding, FindingKind, ReviewService, Severity
+from .synthesis_service import SynthesisService, SynthesizedObjectView
 
 __all__ = [
     "AnsweredClarification",
@@ -51,6 +53,8 @@ __all__ = [
     "MemoryService",
     "MigrationReport",
     "ReadinessService",
+    "ReconciliationReport",
+    "ReconciliationService",
     "ReembeddingService",
     "RetrievalService",
     "ReviewOutcome",
@@ -58,6 +62,8 @@ __all__ = [
     "SearchHit",
     "Severity",
     "StatementLabel",
+    "SynthesisService",
+    "SynthesizedObjectView",
     "WriteKnowledgeRequest",
     "policy_from_environment",
     "questions_for",

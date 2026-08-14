@@ -58,3 +58,12 @@ class AlreadyAnsweredError(DomainError):
     different answers under one question is not: nothing downstream could say
     which one the project believes, and extraction would run over both.
     """
+
+
+class AuthoritativeOverrideError(DomainError):
+    """Working-model synthesis tried to change a human-authoritative object.
+
+    Accepted decisions and human corrections outrank unconfirmed observations.
+    New evidence may create an attention item; it must not silently rewrite the
+    object a person already settled.
+    """

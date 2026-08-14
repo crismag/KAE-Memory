@@ -1012,3 +1012,135 @@ class PublicationAttemptRow(Base):
     requested_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeEvidenceRoleRow(Base):
+    """Epistemic role of one extracted knowledge item (ADR-0007).
+
+    Separate from ``knowledge_items.lifecycle``. Lifecycle is statement
+    confirmation (transitional). This is how the row participates in
+    reasoning. A missing row means ``active``. Writing a role never deletes
+    the knowledge item.
+    """
+
+    __tablename__ = "knowledge_evidence_roles"
+    __table_args__ = (Index("ix_knowledge_evidence_roles_project", "project_id", "role"),)
+
+    knowledge_item_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_items.id", ondelete="NO ACTION"), primary_key=True
+    )
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SynthesizedObjectRow(Base):
+    """One object in the current project model, not an extracted sentence.
+
+    Identity is ``(project_id, domain, identity_key)`` so a synthesizer that
+    reruns unchanged evidence updates this row instead of minting a twin.
+    """
+
+    __tablename__ = "synthesized_objects"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "domain", "identity_key", name="uq_synthesized_objects_identity"
+        ),
+        Index("ix_synthesized_objects_project", "project_id", "domain"),
+    )
+
+    object_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    domain: Mapped[str] = mapped_column(String(80), nullable=False)
+    identity_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(400), nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    lifecycle: Mapped[str] = mapped_column(String(32), nullable=False)
+    authority: Mapped[str] = mapped_column(String(32), nullable=False)
+    revision: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SynthesizedEvidenceLinkRow(Base):
+    """Provenance from a synthesized object to extracted evidence.
+
+    The mapping is the point of storage separation: the model points at
+    evidence; it does not replace it.
+    """
+
+    __tablename__ = "synthesized_evidence_links"
+    __table_args__ = (
+        UniqueConstraint(
+            "synthesized_object_id",
+            "knowledge_item_id",
+            name="uq_synthesized_evidence_links_pair",
+        ),
+        Index("ix_synthesized_evidence_links_project", "project_id"),
+        Index("ix_synthesized_evidence_links_item", "knowledge_item_id"),
+    )
+
+    link_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    synthesized_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    knowledge_item_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_items.id", ondelete="NO ACTION"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AttentionItemRow(Base):
+    """A human-attention item. Unconfirmed extraction is not one of these."""
+
+    __tablename__ = "attention_items"
+    __table_args__ = (
+        Index("ix_attention_items_project_status", "project_id", "status"),
+        Index(
+            "uq_attention_items_identity",
+            "project_id",
+            "identity_key",
+            unique=True,
+            postgresql_where=text("identity_key IS NOT NULL"),
+        ),
+    )
+
+    item_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    title: Mapped[str] = mapped_column(String(400), nullable=False)
+    explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    identity_key: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    recommendation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    synthesized_object_id: Mapped[str | None] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=True
+    )
+    priority: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    actions: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ReconciliationEventRow(Base):
+    """Idempotent change event for reconciliation and human acts.
+
+    Unique per ``(project_id, idempotency_key)``. A retry with the same payload
+    returns this row; a retry with a different payload is a conflict.
+    """
+
+    __tablename__ = "reconciliation_events"
+    __table_args__ = (
+        UniqueConstraint("project_id", "idempotency_key", name="uq_reconciliation_events_key"),
+        Index("ix_reconciliation_events_project", "project_id", "created_at"),
+    )
+
+    event_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(40), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

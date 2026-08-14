@@ -397,6 +397,83 @@ class ChunkRepository:
                 )
         return tuple(results)
 
+    def semantic_neighbors(
+        self,
+        project_id: ProjectId,
+        knowledge_id: KnowledgeItemId,
+        *,
+        kind: str | None = None,
+        limit: int = 12,
+        embedding_version: int = EMBEDDING_VERSION,
+        max_distance: float | None = MAX_DISTANCE,
+        lifecycle: frozenset[LifecycleState] = RETRIEVABLE,
+    ) -> tuple[tuple[KnowledgeItemId, float], ...]:
+        """Nearest *items* to one item, by the vectors already stored.
+
+        ## Why this is not ``search``
+
+        ``search`` answers *what is near this question*, and takes a vector the
+        caller produced. Reconciliation asks *what is near this statement*, and
+        the statement is already embedded — every chunk of the corpus carries
+        its vector in this table. Re-embedding the text to ask would call a
+        model to recompute a number the database is holding, and would fail on a
+        deployment whose model is not running while the corpus is fully indexed
+        (`ADR-0006`).
+
+        ## Why item-level, not chunk-level
+
+        A long statement is several chunks, so a chunk ranking returns the same
+        neighbour repeatedly and crowds out the others inside ``LIMIT``. The
+        distance for an item is its **closest** chunk, aggregated in SQL before
+        the limit applies.
+
+        Returns an empty tuple when the focus has no embedding — a real answer
+        meaning *this item cannot be compared this way*, which the caller must
+        distinguish from *nothing is near it*.
+        """
+
+        distance = self._adapter.cosine_distance("c.embedding", "f.embedding")
+        states = sorted(state.value for state in lifecycle)
+        placeholders = ", ".join(f":life_{index}" for index in range(len(states)))
+        sql = (
+            "WITH focus AS ("
+            "  SELECT embedding FROM knowledge_chunks"
+            "  WHERE knowledge_id = :knowledge_id"
+            "    AND project_id = :project_id"
+            "    AND embedding IS NOT NULL"
+            "    AND embedding_version = :embedding_version"
+            "  ORDER BY chunk_index LIMIT 1"
+            ") "
+            f"SELECT c.knowledge_id, MIN({distance}) AS distance "
+            "FROM knowledge_chunks c "
+            "JOIN knowledge_items k ON k.id = c.knowledge_id "
+            "CROSS JOIN focus f "
+            "WHERE c.project_id = :project_id "
+            "  AND c.knowledge_id <> :knowledge_id "
+            "  AND c.embedding IS NOT NULL "
+            "  AND c.embedding_version = :embedding_version "
+            f"  AND k.lifecycle IN ({placeholders}) "
+        )
+        params: dict[str, object] = {
+            "project_id": str(project_id),
+            "knowledge_id": str(knowledge_id),
+            "embedding_version": embedding_version,
+            "limit": limit,
+        }
+        params.update({f"life_{index}": state for index, state in enumerate(states)})
+        if kind is not None:
+            sql += "  AND c.knowledge_kind = :kind "
+            params["kind"] = kind
+        sql += "GROUP BY c.knowledge_id "
+        if max_distance is not None:
+            # After the aggregate, so an item qualifies on its closest chunk.
+            sql += f"HAVING MIN({distance}) <= :max_distance "
+            params["max_distance"] = float(max_distance)
+        sql += "ORDER BY distance LIMIT :limit"
+
+        rows = self._session.execute(text(sql), params).all()
+        return tuple((KnowledgeItemId(str(item_id)), float(dist)) for item_id, dist in rows)
+
     def search_lexical(
         self,
         project_id: ProjectId,

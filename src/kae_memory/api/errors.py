@@ -22,10 +22,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from kae_memory.domain.errors import (
+    AuthoritativeOverrideError,
     DomainInvariantError,
+    IdempotencyConflictError,
     InvalidIdentifierError,
     InvalidLifecycleTransitionError,
     InvalidRunTransitionError,
+    KnowledgeNotFoundError,
     StaleVersionError,
 )
 
@@ -71,6 +74,9 @@ _STATUS_BY_TYPE: tuple[tuple[type[Exception], int, str], ...] = (
     # and the wording moved underneath them. 422 would tell them to fix their
     # request; 409 tells them to re-read and decide again, which is what they
     # actually have to do.
+    (AuthoritativeOverrideError, 409, "authoritative_override_refused"),
+    (IdempotencyConflictError, 409, "idempotency_conflict"),
+    (KnowledgeNotFoundError, 404, "resource_not_found"),
     (StaleVersionError, 409, "version_conflict"),
     (InvalidLifecycleTransitionError, 409, "invalid_lifecycle_transition"),
     (InvalidRunTransitionError, 409, "invalid_run_transition"),

@@ -311,6 +311,9 @@ def confirm_knowledge(item_id: str, memory: Memory) -> KnowledgeResponse:
 
     Confirmation is a human act. No agent performs it, which is why this is an
     endpoint and not a step inside a run.
+
+    **Transitional (ADR-0007).** This confirms an extracted row. It is not the
+    attention queue; ``POST /v1/projects/{project_id}/attention`` is.
     """
 
     return KnowledgeResponse.of(memory.confirm_knowledge(KnowledgeItemId(item_id)))

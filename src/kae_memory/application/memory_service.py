@@ -1143,7 +1143,12 @@ class MemoryService:
         return self._run(operation)
 
     def confirm_knowledge(self, item_id: KnowledgeItemId) -> KnowledgeItem:
-        """Confirm a candidate. Confirmation is a human act; no agent performs it."""
+        """Confirm a candidate. Confirmation is a human act; no agent performs it.
+
+        **Transitional (ADR-0007).** This confirms an extracted knowledge row.
+        It is not the human-attention queue. Studio Reviews still call this;
+        the durable attention surface is ``SynthesisService``.
+        """
 
         def operation(db_session: DbSession) -> KnowledgeItem:
             repository = SqlAlchemyKnowledgeRepository(db_session)

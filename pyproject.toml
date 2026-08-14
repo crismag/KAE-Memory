@@ -69,6 +69,7 @@ markers = [
     "real_commits: needs writes visible across connections, not rolled back",
     "slow: expensive enough to exclude from the developer loop",
     "provider: calls or simulates an external provider",
+    "synthesis_gate: qualitative golden-corpus assertions that fail until domain synthesizers exist",
 ]
 
 [tool.ruff]

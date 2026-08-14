@@ -2030,3 +2030,271 @@ class SourceResponse(BaseModel):
             created_at=source.created_at,
             updated_at=source.updated_at,
         )
+
+
+class PutSynthesizedObjectRequest(BaseModel):
+    """Create or update a working-model object. Idempotent by identity_key."""
+
+    domain: str = Field(min_length=1)
+    identity_key: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+
+
+class CorrectSynthesizedObjectRequest(BaseModel):
+    """A person's wording for a synthesized object. Evidence is not deleted."""
+
+    title: str = Field(min_length=1)
+    statement: str = Field(min_length=1)
+
+
+class BindEvidenceRequest(BaseModel):
+    knowledge_item_id: str = Field(min_length=1)
+    kind: str = Field(min_length=1)
+
+
+class SetEvidenceRoleRequest(BaseModel):
+    role: str = Field(min_length=1)
+
+
+class PutAttentionRequest(BaseModel):
+    kind: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+    explanation: str = Field(min_length=1)
+    identity_key: str | None = None
+    recommendation: str | None = None
+    synthesized_object_id: str | None = None
+    priority: int = 0
+    actions: list[str] = Field(default_factory=list)
+
+
+class ResolveAttentionRequest(BaseModel):
+    status: str = "resolved"
+
+
+class RecordChangeRequest(BaseModel):
+    idempotency_key: str = Field(min_length=1)
+    trigger: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+
+
+class EvidenceBindingResponse(BaseModel):
+    id: str
+    knowledge_item_id: str
+    kind: str
+    created_at: datetime | None
+
+    @classmethod
+    def of(cls, binding: Any) -> "EvidenceBindingResponse":
+        return cls(
+            id=str(binding.id),
+            knowledge_item_id=str(binding.knowledge_item_id),
+            kind=binding.kind.value,
+            created_at=binding.created_at,
+        )
+
+
+class SynthesizedObjectResponse(BaseModel):
+    """One object in the current project model, not an extracted sentence."""
+
+    id: str
+    project_id: str
+    domain: str
+    identity_key: str
+    title: str
+    statement: str
+    lifecycle: str
+    authority: str
+    revision: int
+    evidence: list[EvidenceBindingResponse] = Field(default_factory=list)
+    created_at: datetime | None
+    updated_at: datetime | None
+
+    @classmethod
+    def of(cls, obj: Any, evidence: Sequence[Any] = ()) -> "SynthesizedObjectResponse":
+        return cls(
+            id=str(obj.id),
+            project_id=str(obj.project_id),
+            domain=obj.domain,
+            identity_key=obj.identity_key,
+            title=obj.title,
+            statement=obj.statement,
+            lifecycle=obj.lifecycle.value,
+            authority=obj.authority.value,
+            revision=obj.revision,
+            evidence=[EvidenceBindingResponse.of(binding) for binding in evidence],
+            created_at=obj.created_at,
+            updated_at=obj.updated_at,
+        )
+
+
+class EvidenceRoleResponse(BaseModel):
+    knowledge_item_id: str
+    role: str
+
+    @classmethod
+    def of(cls, knowledge_item_id: str, role: Any) -> "EvidenceRoleResponse":
+        value = role.value if hasattr(role, "value") else str(role)
+        return cls(knowledge_item_id=knowledge_item_id, role=value)
+
+
+class AttentionItemResponse(BaseModel):
+    """A human-attention item. Unconfirmed extraction is not one of these."""
+
+    id: str
+    project_id: str
+    kind: str
+    title: str
+    explanation: str
+    status: str
+    identity_key: str | None
+    recommendation: str | None
+    synthesized_object_id: str | None
+    priority: int
+    actions: list[str]
+    created_at: datetime | None
+    updated_at: datetime | None
+
+    @classmethod
+    def of(cls, item: Any) -> "AttentionItemResponse":
+        object_id = item.synthesized_object_id
+        return cls(
+            id=str(item.id),
+            project_id=str(item.project_id),
+            kind=item.kind.value,
+            title=item.title,
+            explanation=item.explanation,
+            status=item.status.value,
+            identity_key=item.identity_key,
+            recommendation=item.recommendation,
+            synthesized_object_id=None if object_id is None else str(object_id),
+            priority=item.priority,
+            actions=list(item.actions),
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+
+
+class ReconciliationEventResponse(BaseModel):
+    id: str
+    project_id: str
+    idempotency_key: str
+    trigger: str
+    summary: str
+    created_at: datetime | None
+
+    @classmethod
+    def of(cls, event: Any) -> "ReconciliationEventResponse":
+        return cls(
+            id=str(event.id),
+            project_id=str(event.project_id),
+            idempotency_key=event.idempotency_key,
+            trigger=event.trigger.value,
+            summary=event.summary,
+            created_at=event.created_at,
+        )
+
+
+class RunReconciliationRequest(BaseModel):
+    """Optional key and incremental focus for a deterministic reconciliation pass."""
+
+    idempotency_key: str | None = None
+    item_ids: list[str] = Field(default_factory=list)
+
+
+class AffectedSectionResponse(BaseModel):
+    domain: str
+    item_ids: list[str]
+    reasons: list[str]
+
+
+class ReconciliationEdgeResponse(BaseModel):
+    source_id: str
+    target_id: str
+    type: str
+    reason: str
+
+
+class ReconciliationRoleResponse(BaseModel):
+    knowledge_item_id: str
+    role: str
+
+
+class ReconciliationReportResponse(BaseModel):
+    """Result of a deterministic reconciliation pass. Not a synthesized model."""
+
+    project_id: str
+    replayed: bool
+    event: ReconciliationEventResponse
+    edges_written: int
+    roles_written: int
+    resolved_item_ids: list[str]
+    affected: list[AffectedSectionResponse]
+    edges: list[ReconciliationEdgeResponse]
+    roles: list[ReconciliationRoleResponse]
+
+    @classmethod
+    def of(cls, report: Any) -> "ReconciliationReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            event=ReconciliationEventResponse.of(report.event),
+            edges_written=report.edges_written,
+            roles_written=report.roles_written,
+            resolved_item_ids=[str(item_id) for item_id in report.resolved_item_ids],
+            affected=[
+                AffectedSectionResponse(
+                    domain=section.domain,
+                    item_ids=[str(item_id) for item_id in section.item_ids],
+                    reasons=list(section.reasons),
+                )
+                for section in report.affected
+            ],
+            edges=[
+                ReconciliationEdgeResponse(
+                    source_id=str(edge.source_id),
+                    target_id=str(edge.target_id),
+                    type=edge.type.value,
+                    reason=edge.reason,
+                )
+                for edge in report.graph.edges
+            ],
+            roles=[
+                ReconciliationRoleResponse(knowledge_item_id=str(item_id), role=role.value)
+                for item_id, role in report.graph.roles
+            ],
+        )
+
+
+class NeighborhoodNeighborResponse(BaseModel):
+    knowledge_item_id: str
+    score: float
+    relation: str | None = None
+
+
+class NeighborhoodResponse(BaseModel):
+    knowledge_item_id: str
+    neighbors: list[NeighborhoodNeighborResponse]
+    measure: str
+    """How the neighbourhood was found: ``semantic``, ``lexical`` or ``none``.
+
+    Carried because an empty list means two different things. ``none`` says
+    this deployment holds no vector for the item and stem coverage found
+    nothing either — a fact about the deployment. ``semantic`` or ``lexical``
+    with an empty list says nothing is related — a fact about the project.
+    """
+
+    @classmethod
+    def of(cls, item_id: str, neighborhood: Any) -> "NeighborhoodResponse":
+        return cls(
+            knowledge_item_id=item_id,
+            measure=neighborhood.measure.value,
+            neighbors=[
+                NeighborhoodNeighborResponse(
+                    knowledge_item_id=str(neighbor.item_id),
+                    score=neighbor.score,
+                    relation=neighbor.relation,
+                )
+                for neighbor in neighborhood.neighbors
+            ],
+        )

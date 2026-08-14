@@ -212,6 +212,22 @@ def similarity(first: str, second: str) -> float:
     return len(left & right) / len(left | right)
 
 
+def overlap_coefficient(first: str, second: str) -> float:
+    """Return how completely the shorter statement is contained in the longer.
+
+    Jaccard divides by the union, so a short paraphrase of a long statement
+    scores low even when every short-side stem is present. Overlap divides by
+    the smaller set instead. That is the right shape for *support* and the
+    wrong shape for grouping a two-word actor against every rule that names
+    it — callers must still require a minimum stem count on both sides.
+    """
+
+    left, right = content_words(first), content_words(second)
+    if not left or not right:
+        return 0.0
+    return len(left & right) / min(len(left), len(right))
+
+
 def is_near_duplicate(
     first: str, second: str, threshold: float = NEAR_DUPLICATE_SIMILARITY
 ) -> bool:
@@ -375,6 +391,7 @@ __all__ = [
     "is_near_duplicate",
     "is_negated",
     "match",
+    "overlap_coefficient",
     "similarity",
     "stem",
     "terms",

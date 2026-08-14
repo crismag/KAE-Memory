@@ -52,14 +52,14 @@ See [the knowledge lifecycle](../concepts/knowledge-lifecycle.md).
 |---|---|---|
 | `kae_accept_assumption` | Relay a person taking responsibility for an assumption | `assumption.accept` |
 | `kae_answer_clarification` | Record an answer and queue the extraction it justifies | `clarification.answer` |
-| `kae_confirm_knowledge` | Relay a person's decision to accept a candidate | `knowledge.confirm` |
+| `kae_confirm_knowledge` | Transitional: relay a person's decision to accept an extracted candidate row. Not the attention queue (ADR-0007). | `knowledge.confirm` |
 | `kae_correct_knowledge` | Record corrected wording as a new version | `knowledge.correct` |
 | `kae_create_project` | Create a project, idempotent by key | `project.create` |
 | `kae_define_module` | Register a module as a proposed part of the system | `module.define` |
 | `kae_ingest_document` | Record a document as evidence and queue its extraction | `document.ingest` |
 | `kae_record_assumption` | Record what KAE proceeded on in place of missing information | `assumption.record` |
 | `kae_record_deliverable` | Record an assembled output as a durable deliverable | `deliverable.record` |
-| `kae_reject_knowledge` | Relay a person's decision to refuse a candidate | `knowledge.reject` |
+| `kae_reject_knowledge` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). | `knowledge.reject` |
 | `kae_relate_modules` | Record a structural edge between modules, or to a statement | `module.relate` |
 | `kae_settle_operational_record` | Relay a person's decision about a reported operational record | `operational.settle` |
 | `kae_submit_observation` | Record something an agent discovered, as proposed evidence | `observation.submit` |

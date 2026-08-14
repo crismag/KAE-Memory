@@ -127,6 +127,23 @@ class RelationshipRepository:
         rows = self._session.scalars(statement.order_by(KnowledgeRelationshipRow.created_at)).all()
         return tuple(_relationship_to_domain(row) for row in rows)
 
+    def get_between(
+        self,
+        source_id: KnowledgeItemId,
+        target_id: KnowledgeItemId,
+        relationship_type: RelationshipType,
+    ) -> Relationship | None:
+        """Return the typed edge between two items, if it already exists."""
+
+        row = self._session.scalars(
+            select(KnowledgeRelationshipRow).where(
+                KnowledgeRelationshipRow.source_knowledge_item_id == str(source_id),
+                KnowledgeRelationshipRow.target_knowledge_item_id == str(target_id),
+                KnowledgeRelationshipRow.relationship_type == relationship_type.value,
+            )
+        ).first()
+        return None if row is None else _relationship_to_domain(row)
+
     def unresolved_contradiction_items(self, project_id: ProjectId) -> frozenset[str]:
         """Return the knowledge items on either end of an open contradiction."""
 

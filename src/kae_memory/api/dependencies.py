@@ -28,10 +28,12 @@ from kae_memory.application.module_service import ModuleService
 from kae_memory.application.preliminary_context_service import PreliminaryContextService
 from kae_memory.application.project_deletion_service import ProjectDeletionService
 from kae_memory.application.readiness_service import ReadinessService
+from kae_memory.application.reconciliation_service import ReconciliationService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.application.setup_service import SetupService
 from kae_memory.application.source_service import SourceService
+from kae_memory.application.synthesis_service import SynthesisService
 from kae_memory.persistence import providers
 
 from .errors import not_found
@@ -218,6 +220,20 @@ def get_sources(request: Request) -> SourceService:
     return SourceService(factory)
 
 
+def get_synthesis(request: Request) -> SynthesisService:
+    """Return the request's synthesis-layer service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return SynthesisService(factory)
+
+
+def get_reconciliation(request: Request) -> ReconciliationService:
+    """Return the request's reconciliation service."""
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ReconciliationService(factory)
+
+
 def get_setup(request: Request) -> SetupService:
     """Return the request's preliminary setup service."""
 
@@ -296,3 +312,5 @@ Preliminary = Annotated[PreliminaryContextService, Depends(get_preliminary)]
 Setup = Annotated[SetupService, Depends(get_setup)]
 Modules = Annotated[ModuleService, Depends(get_modules)]
 Sources = Annotated[SourceService, Depends(get_sources)]
+Synthesis = Annotated[SynthesisService, Depends(get_synthesis)]
+Reconciliation = Annotated[ReconciliationService, Depends(get_reconciliation)]

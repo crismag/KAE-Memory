@@ -3,7 +3,7 @@
 
 # HTTP API
 
-61 paths, 72 operations — 37 GET, 34 POST.
+71 paths, 85 operations — 42 GET, 42 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (37)
+## Reads (42)
 
 | Route | Purpose |
 |---|---|
@@ -30,6 +30,7 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects` | Identify the projects this environment can read |
 | `GET /v1/projects/{project_id}` | Read one project's identity |
 | `GET /v1/projects/{project_id}/assumptions` | What a project is proceeding on without knowing |
+| `GET /v1/projects/{project_id}/attention` | Read the human-attention queue (not unconfirmed extraction) |
 | `GET /v1/projects/{project_id}/blockers` | Raise and resolve blockers |
 | `GET /v1/projects/{project_id}/blueprint` | Confirmed statements organised by area |
 | `GET /v1/projects/{project_id}/blueprint.md` | Confirmed statements organised by area |
@@ -43,6 +44,8 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/extraction-coverage` | Report how much submitted content became knowledge |
 | `GET /v1/projects/{project_id}/knowledge` | List a project's knowledge items |
 | `GET /v1/projects/{project_id}/knowledge/search` | Search project knowledge without loading the project |
+| `GET /v1/projects/{project_id}/model` | Read the synthesized project model (empty until a synthesizer runs) |
+| `GET /v1/projects/{project_id}/model/{object_id}` | Read one synthesized object and the evidence it is mapped to |
 | `GET /v1/projects/{project_id}/modules` | Every module, every edge, and the order they can be built in |
 | `GET /v1/projects/{project_id}/modules/graph` | Every module, every edge, and the order they can be built in |
 | `GET /v1/projects/{project_id}/modules/{key}` | Every module, every edge, and the order they can be built in |
@@ -51,6 +54,8 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/publication-targets` | List where a project may publish, and why it currently cannot |
 | `GET /v1/projects/{project_id}/readiness` | Report how well understood a project is |
 | `GET /v1/projects/{project_id}/readiness/history` | Read past readiness snapshots |
+| `GET /v1/projects/{project_id}/reconciliation/events` | List recorded reconciliation and human-act change events |
+| `GET /v1/projects/{project_id}/reconciliation/neighborhoods/{item_id}` | Read bounded related evidence for later LLM context |
 | `GET /v1/projects/{project_id}/review` | What is missing, contested, or unresolved |
 | `GET /v1/projects/{project_id}/runs` | Enqueue agent work and follow its progress |
 | `GET /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
@@ -65,7 +70,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (34)
+## Writes (42)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -74,10 +79,12 @@ that mutates is one a browser prefetch performs again
 
 | Route | Purpose |
 |---|---|
-| `POST /v1/knowledge/{item_id}/confirm` | Relay a person's decision to accept a candidate |
+| `POST /v1/knowledge/{item_id}/confirm` | Transitional: relay a person's decision to accept an extracted candidate row. Not the attention queue (ADR-0007). |
 | `POST /v1/projects` | Create a project, idempotent by key |
 | `POST /v1/projects/{project_id}/assumptions` | Record what KAE proceeded on in place of missing information |
 | `POST /v1/projects/{project_id}/assumptions/{assumption_id}/accept` | Relay a person taking responsibility for an assumption |
+| `POST /v1/projects/{project_id}/attention` | Create an attention item; extraction must not call this |
+| `POST /v1/projects/{project_id}/attention/{item_id}/resolve` | Close an attention item so it leaves the live queue |
 | `POST /v1/projects/{project_id}/blockers` | Raise and resolve blockers |
 | `POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve` | Raise and resolve blockers |
 | `POST /v1/projects/{project_id}/clarifications` | Materialise the questions a project's findings justify asking |
@@ -90,14 +97,20 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/supersede` | Supersede or withdraw a recorded deliverable |
 | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Supersede or withdraw a recorded deliverable |
 | `POST /v1/projects/{project_id}/documents` | Record a document as evidence and queue its extraction |
-| `POST /v1/projects/{project_id}/knowledge/confirm` | Relay a person's single decision to accept a named set of candidates |
+| `POST /v1/projects/{project_id}/knowledge/confirm` | Transitional: relay a person's single decision to accept a named set of extracted candidate rows. Not the attention queue (ADR-0007). |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` | Record corrected wording as a new version |
-| `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Relay a person's decision to refuse a candidate |
+| `POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role` | Set how an extracted row participates in reasoning |
+| `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). |
+| `POST /v1/projects/{project_id}/model` | Create or update a working-model object, idempotent by identity |
+| `POST /v1/projects/{project_id}/model/{object_id}/correct` | Record a person's wording as the authoritative synthesized object |
+| `POST /v1/projects/{project_id}/model/{object_id}/evidence` | Map a synthesized object onto an extracted row without deleting it |
 | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` | Relay a person's decision about a reported operational record |
 | `POST /v1/projects/{project_id}/publication-targets` | Register where a project may publish, and change which target is the default |
 | `POST /v1/projects/{project_id}/publication-targets/default` | Register where a project may publish, and change which target is the default |
 | `POST /v1/projects/{project_id}/readiness/areas` | Assign knowledge to readiness areas |
 | `POST /v1/projects/{project_id}/readiness/calculate` | Recalculate and snapshot readiness |
+| `POST /v1/projects/{project_id}/reconciliation/events` | Record an idempotent reconciliation or human-act change event |
+| `POST /v1/projects/{project_id}/reconciliation/runs` | Run deterministic evidence-graph reconciliation without minting a model |
 | `POST /v1/projects/{project_id}/review/runs` | Queue the review pass that classifies extracted knowledge |
 | `POST /v1/projects/{project_id}/runs` | Enqueue agent work and follow its progress |
 | `POST /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |

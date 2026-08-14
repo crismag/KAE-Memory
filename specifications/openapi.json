@@ -15,6 +15,35 @@
         "title": "AcceptAssumptionRequest",
         "type": "object"
       },
+      "AffectedSectionResponse": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Item Ids",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "item_ids",
+          "reasons"
+        ],
+        "title": "AffectedSectionResponse",
+        "type": "object"
+      },
       "AnswerClarificationRequest": {
         "description": "What a person said about a question \u2014 which is not always a decision.\n\n`disposition` defaults to `answered`. Anything else records the response and\nleaves the question open, because \"I don't know yet, pick something\nreasonable\" settles nothing and must not be stored as though it did.",
         "properties": {
@@ -376,6 +405,120 @@
         "title": "AssumptionResponse",
         "type": "object"
       },
+      "AttentionItemResponse": {
+        "description": "A human-attention item. Unconfirmed extraction is not one of these.",
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "identity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Key"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synthesized Object Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "kind",
+          "title",
+          "explanation",
+          "status",
+          "identity_key",
+          "recommendation",
+          "synthesized_object_id",
+          "priority",
+          "actions",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AttentionItemResponse",
+        "type": "object"
+      },
       "AuthorizeConnectionRequest": {
         "description": "Move a connection's authorisation state after checking it.",
         "properties": {
@@ -405,6 +548,26 @@
           "state"
         ],
         "title": "AuthorizeConnectionRequest",
+        "type": "object"
+      },
+      "BindEvidenceRequest": {
+        "properties": {
+          "kind": {
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "minLength": 1,
+            "title": "Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "kind"
+        ],
+        "title": "BindEvidenceRequest",
         "type": "object"
       },
       "BlockerResponse": {
@@ -969,6 +1132,27 @@
         "title": "CorrectKnowledgeRequest",
         "type": "object"
       },
+      "CorrectSynthesizedObjectRequest": {
+        "description": "A person's wording for a synthesized object. Evidence is not deleted.",
+        "properties": {
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "statement"
+        ],
+        "title": "CorrectSynthesizedObjectRequest",
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "properties": {
           "description": {
@@ -1381,6 +1565,60 @@
           "idempotency_key"
         ],
         "title": "EnqueueRunRequest",
+        "type": "object"
+      },
+      "EvidenceBindingResponse": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "knowledge_item_id",
+          "kind",
+          "created_at"
+        ],
+        "title": "EvidenceBindingResponse",
+        "type": "object"
+      },
+      "EvidenceRoleResponse": {
+        "properties": {
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "role"
+        ],
+        "title": "EvidenceRoleResponse",
         "type": "object"
       },
       "ExtractionCoverageResponse": {
@@ -1999,6 +2237,61 @@
         "title": "ModuleResponse",
         "type": "object"
       },
+      "NeighborhoodNeighborResponse": {
+        "properties": {
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "score"
+        ],
+        "title": "NeighborhoodNeighborResponse",
+        "type": "object"
+      },
+      "NeighborhoodResponse": {
+        "properties": {
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "measure": {
+            "title": "Measure",
+            "type": "string"
+          },
+          "neighbors": {
+            "items": {
+              "$ref": "#/components/schemas/NeighborhoodNeighborResponse"
+            },
+            "title": "Neighbors",
+            "type": "array"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "neighbors",
+          "measure"
+        ],
+        "title": "NeighborhoodResponse",
+        "type": "object"
+      },
       "OpenSessionRequest": {
         "properties": {
           "session_type": {
@@ -2615,6 +2908,110 @@
         "title": "PublicationTargetResponse",
         "type": "object"
       },
+      "PutAttentionRequest": {
+        "properties": {
+          "actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "explanation": {
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "identity_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Key"
+          },
+          "kind": {
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "priority": {
+            "default": 0,
+            "title": "Priority",
+            "type": "integer"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommendation"
+          },
+          "synthesized_object_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synthesized Object Id"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "explanation"
+        ],
+        "title": "PutAttentionRequest",
+        "type": "object"
+      },
+      "PutSynthesizedObjectRequest": {
+        "description": "Create or update a working-model object. Idempotent by identity_key.",
+        "properties": {
+          "domain": {
+            "minLength": 1,
+            "title": "Domain",
+            "type": "string"
+          },
+          "identity_key": {
+            "minLength": 1,
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "statement": {
+            "minLength": 1,
+            "title": "Statement",
+            "type": "string"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "identity_key",
+          "title",
+          "statement"
+        ],
+        "title": "PutSynthesizedObjectRequest",
+        "type": "object"
+      },
       "QuestionCandidateListResponse": {
         "properties": {
           "candidates": {
@@ -2880,6 +3277,163 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ReconciliationEdgeResponse": {
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "target_id": {
+            "title": "Target Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "target_id",
+          "type",
+          "reason"
+        ],
+        "title": "ReconciliationEdgeResponse",
+        "type": "object"
+      },
+      "ReconciliationEventResponse": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "trigger": {
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "idempotency_key",
+          "trigger",
+          "summary",
+          "created_at"
+        ],
+        "title": "ReconciliationEventResponse",
+        "type": "object"
+      },
+      "ReconciliationReportResponse": {
+        "description": "Result of a deterministic reconciliation pass. Not a synthesized model.",
+        "properties": {
+          "affected": {
+            "items": {
+              "$ref": "#/components/schemas/AffectedSectionResponse"
+            },
+            "title": "Affected",
+            "type": "array"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationEdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "edges_written": {
+            "title": "Edges Written",
+            "type": "integer"
+          },
+          "event": {
+            "$ref": "#/components/schemas/ReconciliationEventResponse"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "resolved_item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resolved Item Ids",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciliationRoleResponse"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "roles_written": {
+            "title": "Roles Written",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "event",
+          "edges_written",
+          "roles_written",
+          "resolved_item_ids",
+          "affected",
+          "edges",
+          "roles"
+        ],
+        "title": "ReconciliationReportResponse",
+        "type": "object"
+      },
+      "ReconciliationRoleResponse": {
+        "properties": {
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "knowledge_item_id",
+          "role"
+        ],
+        "title": "ReconciliationRoleResponse",
+        "type": "object"
+      },
       "RecordAssumptionRequest": {
         "properties": {
           "assumed_value": {
@@ -2938,6 +3492,32 @@
           "reason"
         ],
         "title": "RecordAssumptionRequest",
+        "type": "object"
+      },
+      "RecordChangeRequest": {
+        "properties": {
+          "idempotency_key": {
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "trigger": {
+            "minLength": 1,
+            "title": "Trigger",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "trigger",
+          "summary"
+        ],
+        "title": "RecordChangeRequest",
         "type": "object"
       },
       "RecordConnectionRequest": {
@@ -3254,6 +3834,17 @@
         "title": "RejectKnowledgeRequest",
         "type": "object"
       },
+      "ResolveAttentionRequest": {
+        "properties": {
+          "status": {
+            "default": "resolved",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "ResolveAttentionRequest",
+        "type": "object"
+      },
       "ResolveRequest": {
         "properties": {
           "note": {
@@ -3313,6 +3904,31 @@
           "findings"
         ],
         "title": "ReviewResponse",
+        "type": "object"
+      },
+      "RunReconciliationRequest": {
+        "description": "Optional key and incremental focus for a deterministic reconciliation pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "item_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Item Ids",
+            "type": "array"
+          }
+        },
+        "title": "RunReconciliationRequest",
         "type": "object"
       },
       "RunResponse": {
@@ -3639,6 +4255,20 @@
           "target_id"
         ],
         "title": "SetDefaultTargetRequest",
+        "type": "object"
+      },
+      "SetEvidenceRoleRequest": {
+        "properties": {
+          "role": {
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "SetEvidenceRoleRequest",
         "type": "object"
       },
       "SettleOperationalRequest": {
@@ -4102,6 +4732,93 @@
         "title": "SupersedeDeliverableRequest",
         "type": "object"
       },
+      "SynthesizedObjectResponse": {
+        "description": "One object in the current project model, not an extracted sentence.",
+        "properties": {
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceBindingResponse"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "identity_key": {
+            "title": "Identity Key",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "domain",
+          "identity_key",
+          "title",
+          "statement",
+          "lifecycle",
+          "authority",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SynthesizedObjectResponse",
+        "type": "object"
+      },
       "TraceResponse": {
         "description": "A knowledge item's chain of custody: project, session, message, run, versions.",
         "properties": {
@@ -4355,7 +5072,7 @@
     },
     "/v1/knowledge/{item_id}/confirm": {
       "post": {
-        "description": "Confirm a candidate.\n\nConfirmation is a human act. No agent performs it, which is why this is an\nendpoint and not a step inside a run.",
+        "description": "Confirm a candidate.\n\nConfirmation is a human act. No agent performs it, which is why this is an\nendpoint and not a step inside a run.\n\n**Transitional (ADR-0007).** This confirms an extracted row. It is not the\nattention queue; ``POST /v1/projects/{project_id}/attention`` is.",
         "operationId": "confirm_knowledge_v1_knowledge__item_id__confirm_post",
         "parameters": [
           {
@@ -4764,6 +5481,176 @@
         "summary": "Accept Assumption",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/attention": {
+      "get": {
+        "description": "Return the human-attention queue. Unconfirmed extraction is not this list.",
+        "operationId": "list_attention_v1_projects__project_id__attention_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AttentionItemResponse"
+                  },
+                  "title": "Response List Attention V1 Projects  Project Id  Attention Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Attention",
+        "tags": [
+          "synthesis"
+        ]
+      },
+      "post": {
+        "description": "Create an attention item. Extraction must not call this.",
+        "operationId": "put_attention_v1_projects__project_id__attention_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutAttentionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Attention",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/attention/{item_id}/resolve": {
+      "post": {
+        "description": "Close an attention item. Resolved items leave the queue with provenance.",
+        "operationId": "resolve_attention_v1_projects__project_id__attention__item_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveAttentionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Attention",
+        "tags": [
+          "synthesis"
         ]
       }
     },
@@ -6326,6 +7213,68 @@
         ]
       }
     },
+    "/v1/projects/{project_id}/knowledge/{item_id}/evidence-role": {
+      "post": {
+        "description": "Set how an extracted row participates in reasoning. The row stays.",
+        "operationId": "set_evidence_role_v1_projects__project_id__knowledge__item_id__evidence_role_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetEvidenceRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRoleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Evidence Role",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
     "/v1/projects/{project_id}/knowledge/{item_id}/reject": {
       "post": {
         "description": "Record a person's decision to refuse a candidate.\n\nHTTP had `confirm` and neither `reject` nor `correct`, which made review\none-sided: a reviewer could accept a proposal through this adapter and had\nto leave the adapter to refuse one.\n\n`expected_version` is required, not optional. A decision must not be applied\nto wording that changed after the reviewer read it, and the version is what\nties the two together.",
@@ -6385,6 +7334,296 @@
         "summary": "Reject Knowledge",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model": {
+      "get": {
+        "description": "Return the synthesized project model. Empty until a synthesizer runs.",
+        "operationId": "list_model_v1_projects__project_id__model_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SynthesizedObjectResponse"
+                  },
+                  "title": "Response List Model V1 Projects  Project Id  Model Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Model",
+        "tags": [
+          "synthesis"
+        ]
+      },
+      "post": {
+        "description": "Create or update a working-model object. Idempotent by identity_key.",
+        "operationId": "put_model_v1_projects__project_id__model_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutSynthesizedObjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizedObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Model",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/{object_id}": {
+      "get": {
+        "description": "Return one synthesized object and the evidence it is mapped to.",
+        "operationId": "get_model_object_v1_projects__project_id__model__object_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizedObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Model Object",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/{object_id}/correct": {
+      "post": {
+        "description": "Record a person's wording as authoritative. Evidence is not deleted.",
+        "operationId": "correct_model_object_v1_projects__project_id__model__object_id__correct_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectSynthesizedObjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizedObjectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Correct Model Object",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/{object_id}/evidence": {
+      "post": {
+        "description": "Map a synthesized object onto an extracted row without deleting the row.",
+        "operationId": "bind_model_evidence_v1_projects__project_id__model__object_id__evidence_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindEvidenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceBindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bind Model Evidence",
+        "tags": [
+          "synthesis"
         ]
       }
     },
@@ -7097,6 +8336,221 @@
         "summary": "Readiness History",
         "tags": [
           "readiness"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/reconciliation/events": {
+      "get": {
+        "description": "Return recorded reconciliation/change events.",
+        "operationId": "list_changes_v1_projects__project_id__reconciliation_events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReconciliationEventResponse"
+                  },
+                  "title": "Response List Changes V1 Projects  Project Id  Reconciliation Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Changes",
+        "tags": [
+          "synthesis"
+        ]
+      },
+      "post": {
+        "description": "Record a change event, or return the one already stored under this key.",
+        "operationId": "record_change_v1_projects__project_id__reconciliation_events_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationEventResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Change",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/reconciliation/neighborhoods/{item_id}": {
+      "get": {
+        "description": "Return bounded related evidence for later LLM context. Not attention.",
+        "operationId": "get_neighborhood_v1_projects__project_id__reconciliation_neighborhoods__item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NeighborhoodResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Neighborhood",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/reconciliation/runs": {
+      "post": {
+        "description": "Run deterministic evidence-graph reconciliation. Does not mint a model.",
+        "operationId": "run_reconciliation_v1_projects__project_id__reconciliation_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunReconciliationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconciliationReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Reconciliation",
+        "tags": [
+          "synthesis"
         ]
       }
     },
