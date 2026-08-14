@@ -14,6 +14,7 @@ traceable to a sentence that does not exist.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import httpx
@@ -160,7 +161,7 @@ class TestWhenItCannotWork:
             transport=httpx.MockTransport(lambda _: httpx.Response(404, json={"error": "no"}))
         )
 
-        with pytest.raises(ProviderUnavailableError, match="ollama pull qwen2.5:14b"):
+        with pytest.raises(ProviderUnavailableError, match=re.escape("ollama pull qwen2.5:14b")):
             adapter.extract(request())
 
     def test_ollama_not_running_names_the_setting_that_changes_it(self) -> None:
