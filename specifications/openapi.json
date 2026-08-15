@@ -1709,6 +1709,51 @@
         "title": "FindingResponse",
         "type": "object"
       },
+      "GoalSynthesisReportResponse": {
+        "description": "What one goal-synthesis run concluded, including its exclusions.",
+        "properties": {
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "judged": {
+            "title": "Judged",
+            "type": "boolean"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "promoted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Promoted",
+            "type": "array"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "withheld": {
+            "items": {
+              "$ref": "#/components/schemas/WithheldCandidateResponse"
+            },
+            "title": "Withheld",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "judged",
+          "considered",
+          "promoted",
+          "withheld"
+        ],
+        "title": "GoalSynthesisReportResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3906,6 +3951,24 @@
         "title": "ReviewResponse",
         "type": "object"
       },
+      "RunGoalSynthesisRequest": {
+        "description": "Optional idempotency key for a goal-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunGoalSynthesisRequest",
+        "type": "object"
+      },
       "RunReconciliationRequest": {
         "description": "Optional key and incremental focus for a deterministic reconciliation pass.",
         "properties": {
@@ -5037,6 +5100,25 @@
           "reason"
         ],
         "title": "WithdrawDeliverableRequest",
+        "type": "object"
+      },
+      "WithheldCandidateResponse": {
+        "description": "A statement that did not enter the model, and why it did not.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "reason"
+        ],
+        "title": "WithheldCandidateResponse",
         "type": "object"
       }
     }
@@ -7446,6 +7528,59 @@
           }
         },
         "summary": "Put Model",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/goals/runs": {
+      "post": {
+        "description": "Cluster goal evidence into the project's goal model.\n\nRerunning unchanged evidence writes nothing new: the same clusters produce\nthe same identity keys, so `put_object` returns what is already there.\n\nReturns what was **withheld** as well as what was promoted. A synthesizer\nthat reported only its output would make its own exclusions unauditable, and\nthe first question anybody asks about a model this small is what is not in\nit.",
+        "operationId": "run_goal_synthesis_v1_projects__project_id__model_goals_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunGoalSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Goal Synthesis",
         "tags": [
           "synthesis"
         ]

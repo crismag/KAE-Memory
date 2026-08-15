@@ -40,9 +40,10 @@ above it.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from itertools import combinations
+from math import sqrt
 from typing import Protocol
 
 from ..identifiers import KnowledgeItemId
@@ -92,6 +93,44 @@ def is_conversation_local(text: str) -> bool:
     if not scoped:
         return False
     return bool(_SECOND_PERSON_INSTRUCTION.match(text)) or lowered.startswith("in this ")
+
+
+def cosine_distance(left: Sequence[float], right: Sequence[float]) -> float | None:
+    """Cosine distance in `[0, 2]`, or ``None`` where it is not defined.
+
+    The same measure the database uses, computed here so clustering can be
+    tested without one. A zero-length vector has no direction and therefore no
+    angle to anything: that is `None`, not zero — a model that returns zeros on
+    failure would otherwise merge every failed row into one confident cluster.
+    """
+
+    if len(left) != len(right) or not left:
+        return None
+    dot = sum(a * b for a, b in zip(left, right, strict=True))
+    left_norm = sqrt(sum(a * a for a in left))
+    right_norm = sqrt(sum(b * b for b in right))
+    if left_norm == 0.0 or right_norm == 0.0:
+        return None
+    return 1.0 - (dot / (left_norm * right_norm))
+
+
+def distance_over(
+    vectors: Mapping[KnowledgeItemId, Sequence[float]],
+) -> Callable[[KnowledgeItemId, KnowledgeItemId], float | None]:
+    """A distance function over stored vectors, missing ones included.
+
+    An item with no vector is incomparable to everything, so it clusters alone
+    and keeps its own wording. That is the honest rendering of *nothing here
+    could compare this*.
+    """
+
+    def distance(left: KnowledgeItemId, right: KnowledgeItemId) -> float | None:
+        first, second = vectors.get(left), vectors.get(right)
+        if first is None or second is None:
+            return None
+        return cosine_distance(first, second)
+
+    return distance
 
 
 @dataclass(frozen=True, slots=True)

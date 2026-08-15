@@ -397,6 +397,51 @@ class ChunkRepository:
                 )
         return tuple(results)
 
+    def embeddings_for(
+        self,
+        project_id: ProjectId,
+        knowledge_ids: Sequence[KnowledgeItemId],
+        *,
+        embedding_version: int = EMBEDDING_VERSION,
+    ) -> dict[KnowledgeItemId, tuple[float, ...]]:
+        """The stored vector for each item that has one, by first chunk.
+
+        Clustering needs every pair, not a ranked few, so it reads the vectors
+        once and does the arithmetic in the domain where it can be tested
+        without a database. `semantic_neighbors` stays the right call for *what
+        is near this*; this is the right call for *how do all of these relate*.
+
+        An item absent from the result has no vector. The caller must treat that
+        as incomparable rather than as distance zero — the two are opposite, and
+        one of them merges everything.
+        """
+
+        if not knowledge_ids:
+            return {}
+        wanted = [str(item_id) for item_id in knowledge_ids]
+        placeholders = ", ".join(f":item_{index}" for index in range(len(wanted)))
+        sql = (
+            "SELECT DISTINCT ON (knowledge_id) knowledge_id, embedding "
+            "FROM knowledge_chunks "
+            "WHERE project_id = :project_id "
+            f"  AND knowledge_id IN ({placeholders}) "
+            "  AND embedding IS NOT NULL "
+            "  AND embedding_version = :embedding_version "
+            "ORDER BY knowledge_id, chunk_index"
+        )
+        params: dict[str, object] = {
+            "project_id": str(project_id),
+            "embedding_version": embedding_version,
+        }
+        params.update({f"item_{index}": value for index, value in enumerate(wanted)})
+        rows = self._session.execute(text(sql), params).all()
+        found: dict[KnowledgeItemId, tuple[float, ...]] = {}
+        for knowledge_id, embedding in rows:
+            if embedding is None:
+                continue
+            found[KnowledgeItemId(str(knowledge_id))] = tuple(float(value) for value in embedding)
+        return found
+
     def semantic_neighbors(
         self,
         project_id: ProjectId,

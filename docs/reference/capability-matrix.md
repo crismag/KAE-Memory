@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-65 capabilities: 27 on both, 33 HTTP only, 4 MCP only, 1 on neither.
+66 capabilities: 27 on both, 34 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -56,7 +56,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (33)
+## HTTP only, by decision (34)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -87,6 +87,7 @@ carries the reason it is not there.
 | `synthesis.attention.put` | Create an attention item; extraction must not call this | — | `POST /v1/projects/{project_id}/attention` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.attention.resolve` | Close an attention item so it leaves the live queue | — | `POST /v1/projects/{project_id}/attention/{item_id}/resolve` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.evidence.role` | Set how an extracted row participates in reasoning | — | `POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.goals.run` | Cluster goal evidence into the project's goal model | — | `POST /v1/projects/{project_id}/model/goals/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.model.bind_evidence` | Map a synthesized object onto an extracted row without deleting it | — | `POST /v1/projects/{project_id}/model/{object_id}/evidence` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.model.correct` | Record a person's wording as the authoritative synthesized object | — | `POST /v1/projects/{project_id}/model/{object_id}/correct` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.model.get` | Read one synthesized object and the evidence it is mapped to | — | `GET /v1/projects/{project_id}/model/{object_id}` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |

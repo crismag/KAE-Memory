@@ -2202,6 +2202,52 @@ class RunReconciliationRequest(BaseModel):
     item_ids: list[str] = Field(default_factory=list)
 
 
+class RunGoalSynthesisRequest(BaseModel):
+    """Optional idempotency key for a goal-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class WithheldCandidateResponse(BaseModel):
+    """A statement that did not enter the model, and why it did not."""
+
+    statement: str
+    reason: str
+
+
+class GoalSynthesisReportResponse(BaseModel):
+    """What one goal-synthesis run concluded, including its exclusions."""
+
+    project_id: str
+    replayed: bool
+    judged: bool
+    """False when no judge was configured, and only corroborated clusters ran.
+
+    A caller must be able to tell a smaller model from a fuller one: the same
+    project synthesized with and without a judge produces different output for
+    the same evidence, and reading one as the other would look like knowledge
+    disappearing (`D-101`).
+    """
+
+    considered: int
+    promoted: list[str]
+    withheld: list[WithheldCandidateResponse]
+
+    @classmethod
+    def of(cls, report: Any) -> "GoalSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            judged=report.judged,
+            considered=report.considered,
+            promoted=[str(object_id) for object_id, _ in report.promoted],
+            withheld=[
+                WithheldCandidateResponse(statement=statement, reason=reason)
+                for statement, reason in report.withheld
+            ],
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

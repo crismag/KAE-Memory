@@ -649,6 +649,13 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.goals.run",
+        summary="Cluster goal evidence into the project's goal model",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/goals/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.reconciliation.record",
         summary="Record an idempotent reconciliation or human-act change event",
         exposure=Exposure.PRODUCT_ONLY,

@@ -16,12 +16,14 @@ from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents import provider as embedding_provider
+from kae_memory.agents.goal_judge import default_goal_judge
 from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
 from kae_memory.application.deliverable_service import DeliverableService
+from kae_memory.application.goal_synthesis_service import GoalSynthesisService
 from kae_memory.application.ingestion_service import IngestionService
 from kae_memory.application.memory_service import MemoryService
 from kae_memory.application.module_service import ModuleService
@@ -227,6 +229,17 @@ def get_synthesis(request: Request) -> SynthesisService:
     return SynthesisService(factory)
 
 
+def get_goal_synthesis(request: Request) -> GoalSynthesisService:
+    """Return the goal synthesizer, with whatever judge this deployment has.
+
+    `None` is a supported deployment: synthesis then promotes only corroborated
+    clusters and reports that it was unjudged (`D-101`).
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return GoalSynthesisService(factory, judge=default_goal_judge())
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -314,3 +327,4 @@ Modules = Annotated[ModuleService, Depends(get_modules)]
 Sources = Annotated[SourceService, Depends(get_sources)]
 Synthesis = Annotated[SynthesisService, Depends(get_synthesis)]
 Reconciliation = Annotated[ReconciliationService, Depends(get_reconciliation)]
+GoalSynthesis = Annotated[GoalSynthesisService, Depends(get_goal_synthesis)]

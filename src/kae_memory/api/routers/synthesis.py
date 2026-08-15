@@ -28,7 +28,7 @@ from kae_memory.domain.synthesis import (
     EvidenceRole,
 )
 
-from ..dependencies import Memory, Reconciliation, Synthesis
+from ..dependencies import GoalSynthesis, Memory, Reconciliation, Synthesis
 from ..errors import ApiError, not_found
 from ..schemas import (
     AttentionItemResponse,
@@ -36,6 +36,7 @@ from ..schemas import (
     CorrectSynthesizedObjectRequest,
     EvidenceBindingResponse,
     EvidenceRoleResponse,
+    GoalSynthesisReportResponse,
     NeighborhoodResponse,
     PutAttentionRequest,
     PutSynthesizedObjectRequest,
@@ -43,6 +44,7 @@ from ..schemas import (
     ReconciliationReportResponse,
     RecordChangeRequest,
     ResolveAttentionRequest,
+    RunGoalSynthesisRequest,
     RunReconciliationRequest,
     SetEvidenceRoleRequest,
     SynthesizedObjectResponse,
@@ -263,6 +265,30 @@ def list_changes(
 
     resolved = _project(project_id, memory)
     return [ReconciliationEventResponse.of(event) for event in synthesis.list_changes(resolved)]
+
+
+@router.post("/model/goals/runs", response_model=GoalSynthesisReportResponse)
+def run_goal_synthesis(
+    project_id: str,
+    body: RunGoalSynthesisRequest,
+    memory: Memory,
+    goals: GoalSynthesis,
+) -> GoalSynthesisReportResponse:
+    """Cluster goal evidence into the project's goal model.
+
+    Rerunning unchanged evidence writes nothing new: the same clusters produce
+    the same identity keys, so `put_object` returns what is already there.
+
+    Returns what was **withheld** as well as what was promoted. A synthesizer
+    that reported only its output would make its own exclusions unauditable, and
+    the first question anybody asks about a model this small is what is not in
+    it.
+    """
+
+    resolved = _project(project_id, memory)
+    return GoalSynthesisReportResponse.of(
+        goals.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
 
 
 @router.post("/reconciliation/runs", response_model=ReconciliationReportResponse)

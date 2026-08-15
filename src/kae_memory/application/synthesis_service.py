@@ -205,6 +205,27 @@ class SynthesisService:
 
         return run_transaction(self._session_factory, operation)
 
+    def list_bindings(
+        self, project_id: ProjectId, object_id: SynthesizedObjectId
+    ) -> tuple[EvidenceBinding, ...]:
+        """The evidence behind one synthesized object.
+
+        The other half of `ADR-0007`'s storage separation, and the reason the
+        separation is worth having: a model a reader cannot trace back to what
+        produced it is a summary, and this estate has been careful not to ship
+        one. Writing bindings without a way to read them would have left the
+        provenance unprovable.
+        """
+
+        def operation(session: DbSession) -> tuple[EvidenceBinding, ...]:
+            repo = SynthesisRepository(session)
+            obj = repo.get_object(object_id)
+            if obj is None or obj.project_id != project_id:
+                raise KnowledgeNotFoundError(f"unknown synthesized object: {object_id}")
+            return repo.list_bindings(object_id)
+
+        return run_transaction(self._session_factory, operation)
+
     def bind_evidence(
         self,
         project_id: ProjectId,
