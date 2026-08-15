@@ -2230,6 +2230,13 @@ class GoalSynthesisReportResponse(BaseModel):
     """
 
     considered: int
+    clustered: bool
+    """False when the deployment's vectors measure the chunk envelope (`D-102`).
+
+    Every observation then stands alone. A reader must be able to tell a model
+    that was compacted from one that merely was not compared.
+    """
+
     promoted: list[str]
     withheld: list[WithheldCandidateResponse]
 
@@ -2240,6 +2247,7 @@ class GoalSynthesisReportResponse(BaseModel):
             replayed=report.replayed,
             judged=report.judged,
             considered=report.considered,
+            clustered=report.clustered,
             promoted=[str(object_id) for object_id, _ in report.promoted],
             withheld=[
                 WithheldCandidateResponse(statement=statement, reason=reason)

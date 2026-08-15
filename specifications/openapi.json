@@ -1712,6 +1712,10 @@
       "GoalSynthesisReportResponse": {
         "description": "What one goal-synthesis run concluded, including its exclusions.",
         "properties": {
+          "clustered": {
+            "title": "Clustered",
+            "type": "boolean"
+          },
           "considered": {
             "title": "Considered",
             "type": "integer"
@@ -1748,6 +1752,7 @@
           "replayed",
           "judged",
           "considered",
+          "clustered",
           "promoted",
           "withheld"
         ],

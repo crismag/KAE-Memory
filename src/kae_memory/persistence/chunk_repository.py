@@ -80,6 +80,25 @@ class LexicalChunk:
     """The owning item's state, read live. See :class:`RetrievedChunk`."""
 
 
+def _as_vector(value: object) -> tuple[float, ...] | None:
+    """Read a stored embedding as floats, however the driver hands it back.
+
+    Through the ORM a `Vector` column arrives as a sequence; through raw SQL the
+    same column can arrive as its text form, `"[0.1,0.2,...]"`. Iterating that
+    string yields characters, and `float("[")` raises — which is how this was
+    found, by a test that was the first thing ever to read a stored vector back.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        body = value.strip().strip("[]")
+        if not body:
+            return None
+        return tuple(float(part) for part in body.split(","))
+    return tuple(float(part) for part in cast(Sequence[float], value))
+
+
 class ChunkRepository:
     """Persistence boundary for knowledge chunks and their embeddings."""
 
@@ -437,10 +456,58 @@ class ChunkRepository:
         rows = self._session.execute(text(sql), params).all()
         found: dict[KnowledgeItemId, tuple[float, ...]] = {}
         for knowledge_id, embedding in rows:
-            if embedding is None:
+            vector = _as_vector(embedding)
+            if vector is None:
                 continue
-            found[KnowledgeItemId(str(knowledge_id))] = tuple(float(value) for value in embedding)
+            found[KnowledgeItemId(str(knowledge_id))] = vector
         return found
+
+    def statement_space(
+        self,
+        project_id: ProjectId,
+        knowledge_ids: Sequence[KnowledgeItemId],
+        *,
+        embedding_version: int = EMBEDDING_VERSION,
+    ) -> bool:
+        """Whether these vectors measure the sentence or the envelope (`D-102`).
+
+        Every stored chunk begins with `Type:`, `Project:`, `Status:` and a blank
+        line (`D-75`). Those three lines are identical for every item of one kind
+        in one project, so embedding them compresses the space: mean pair
+        distance across the golden corpus is **0.144** as stored against
+        **0.510** as statements.
+
+        A radius measured in one space and applied to the other is not a tuning
+        error, it is a different question. `D-100`'s 0.45 puts all 47 goals in a
+        single cluster when read from enveloped vectors — the whole goal model as
+        one object.
+
+        So a caller that clusters must ask first. `False` means *these vectors
+        cannot answer how far apart two sentences are*, which is a fact about the
+        deployment's index rather than about the project.
+        """
+
+        if not knowledge_ids:
+            return False
+        wanted = [str(item_id) for item_id in knowledge_ids]
+        placeholders = ", ".join(f":item_{index}" for index in range(len(wanted)))
+        sql = (
+            "SELECT chunk_text FROM knowledge_chunks "
+            "WHERE project_id = :project_id "
+            f"  AND knowledge_id IN ({placeholders}) "
+            "  AND embedding IS NOT NULL "
+            "  AND embedding_version = :embedding_version "
+            "LIMIT 1"
+        )
+        params: dict[str, object] = {
+            "project_id": str(project_id),
+            "embedding_version": embedding_version,
+        }
+        params.update({f"item_{index}": value for index, value in enumerate(wanted)})
+        row = self._session.execute(text(sql), params).first()
+        if row is None:
+            return False
+        return strip_metadata_prefix(str(row[0])) == str(row[0])
 
     def semantic_neighbors(
         self,

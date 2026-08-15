@@ -76,6 +76,15 @@ class GoalSynthesisReport:
     replayed: bool
     judged: bool
     considered: int
+    clustered: bool
+    """Whether evidence could be compared at all.
+
+    `False` means the deployment's vectors measure the chunk envelope rather
+    than the sentence (`D-102`), so every observation stood alone. A caller must
+    be able to tell a model that was *compacted* from one that merely was not —
+    the second looks like a project with no duplicate ideas.
+    """
+
     promoted: tuple[tuple[SynthesizedObjectId, str], ...]
     withheld: tuple[tuple[str, str], ...]
     """Statements that did not enter the model, each with the reason."""
@@ -96,12 +105,13 @@ class GoalSynthesisService:
     ) -> GoalSynthesisReport:
         """Cluster, judge, and persist the goal model for one project."""
 
-        candidates, identity, judged_ids = self._read(project_id)
+        candidates, identity, judged_ids, clustered = self._read(project_id)
         plan = plan_goal_model(candidates, identity, self._judge)
 
         summary = (
             f"goals: {len(plan.promoted)} promoted, {len(plan.withheld)} withheld, "
             f"from {len(judged_ids)} observations"
+            + ("" if clustered else " (uncompared: evidence vectors are not statement-space)")
         )
         key = (idempotency_key or f"goal-synthesis:{len(judged_ids)}:{len(plan.promoted)}").strip()
         fingerprint = payload_fingerprint(ChangeTrigger.RECONCILIATION, summary)
@@ -140,18 +150,19 @@ class GoalSynthesisService:
             replayed=event.payload_fingerprint == fingerprint and not promoted,
             judged=plan.judged,
             considered=len(judged_ids),
+            clustered=clustered,
             promoted=tuple(promoted),
             withheld=tuple((candidate.statement, reason) for candidate, reason in plan.withheld),
         )
 
     def _read(
         self, project_id: ProjectId
-    ) -> tuple[tuple[GoalCandidate, ...], tuple[str, ...], tuple[KnowledgeItemId, ...]]:
+    ) -> tuple[tuple[GoalCandidate, ...], tuple[str, ...], tuple[KnowledgeItemId, ...], bool]:
         """Read goal evidence and cluster it, outside any write."""
 
         def operation(
             session: DbSession,
-        ) -> tuple[tuple[GoalCandidate, ...], tuple[str, ...], tuple[KnowledgeItemId, ...]]:
+        ) -> tuple[tuple[GoalCandidate, ...], tuple[str, ...], tuple[KnowledgeItemId, ...], bool]:
             knowledge = SqlAlchemyKnowledgeRepository(session)
             goals = [
                 item
@@ -164,7 +175,22 @@ class GoalSynthesisService:
             item_ids = [item.id for item in goals]
             content = {item.id: item.current_version.content for item in goals}
 
-            vectors = ChunkRepository(session).embeddings_for(project_id, item_ids)
+            chunks = ChunkRepository(session)
+            # **Refuse to cluster on envelope vectors** (`D-102`). Every stored
+            # chunk begins with `Type:`/`Project:`/`Status:`, identical for every
+            # item of one kind in one project, so those vectors measure the
+            # template: mean pair distance 0.144 as stored against 0.510 as
+            # statements. `D-100`'s radius was measured on statements and puts
+            # all 47 corpus goals in **one cluster** when read from enveloped
+            # ones — the whole model as a single object.
+            #
+            # Lowering the radius does not rescue it; at every radius tried the
+            # prefixed space mixes regression cases. So the honest answer is that
+            # these vectors cannot say how far apart two sentences are, and every
+            # candidate stands alone until `CHUNK-ENVELOPE` provides ones that
+            # can.
+            comparable = chunks.statement_space(project_id, item_ids)
+            vectors = chunks.embeddings_for(project_id, item_ids) if comparable else {}
             distance = distance_over(vectors)
             clusters = cluster_by_complete_linkage(item_ids, distance)
 
@@ -201,7 +227,7 @@ class GoalSynthesisService:
             identity = tuple(
                 dict.fromkeys([candidate.statement for candidate in corroborated] + confirmed)
             )[:IDENTITY_LIMIT]
-            return candidates, identity, tuple(item_ids)
+            return candidates, identity, tuple(item_ids), comparable
 
         return run_transaction(self._session_factory, operation)
 
