@@ -1391,6 +1391,109 @@ placed *somewhere* is still right — it is only *where* that cannot be graded.
 """
 
 
+# --- `EPI-4` ground truth: which chunk-local question the corpus answers ------
+#
+# `D-137`, and `D-110`'s order applied a second time: the labels are written
+# **before** any resolution rule, because a rule and its own grading key written
+# together always agree.
+#
+# `CHUNK_LOCAL_QUESTION` is documented above as a question *"that the corpus
+# answers"*. Read against all 180 rows, three of the nine are. The rest are the
+# finding.
+
+QUESTIONS_THE_CORPUS_ANSWERS: Final[Mapping[str, tuple[str, ...]]] = {
+    SAFE_DELETE_QUESTION_TEXT: (
+        SAFE_DELETE_ANSWER_TEXT,
+        "A worker must delete the message only when it is safe to do so, meaning not "
+        "before task completion.",
+    ),
+    "What constitutes 'conservative' receive/delete behavior — at-least-once delivery, "
+    "explicit delete only after processing, or visibility timeout management?": (
+        SAFE_DELETE_ANSWER_TEXT,
+        "A worker must delete the message only when it is safe to do so, meaning not "
+        "before task completion.",
+        "On a transient dependency failure, let the visibility timeout expire so the "
+        "message is retried automatically.",
+    ),
+    "What guarantees are required for 'receiving messages safely' — at-least-once "
+    "delivery, idempotency, or visibility timeout handling?": (
+        "Consumers must tolerate duplicate message delivery (idempotency).",
+        "Consumers should be idempotent because duplicate delivery is normal, especially "
+        "when a consumer crashes after completing work but before deleting the message.",
+        "Receive and delete behavior must be safe, and receive state must be tracked.",
+    ),
+}
+"""The question, and the statements that really answer it.
+
+All three are about receive/delete safety, and all three are answerable because
+the corpus states the *sequence* and the *guarantee*, not merely the topic. A
+rule that resolves these is right to.
+"""
+
+QUESTIONS_THE_CORPUS_NEVER_ANSWERS: Final[Mapping[str, str]] = {
+    "What constitutes 'large' data for the purpose of the rule against sending binary "
+    "payloads through SQS?": (
+        "The rule states that large data goes to S3 with a pointer. No statement "
+        "anywhere gives a size."
+    ),
+    "What criteria determine when a backlog is large enough to trigger automated EC2 "
+    "worker launch?": (
+        "Four statements say to alert on backlog growth and to add workers, and the "
+        "scaling signals are named. The threshold is not."
+    ),
+    "What threshold of delivery attempts triggers the redrive policy move to the "
+    "dead-letter queue?": (
+        "Nine DLQ statements. The nearest names the mechanism and not the count: "
+        "routed to the DLQ *after reaching the max receive count*."
+    ),
+    "What threshold of failures triggers transfer to the dead-letter queue, and is it "
+    "configurable per queue?": (
+        "The same nine. `Repeated failures` and `fail too many times` are the whole of "
+        "what the corpus says, and per-queue configurability is never addressed."
+    ),
+}
+"""Questions with no answer in the corpus, and why — a correct non-resolution.
+
+**These four are the reason the labels precede the rule.** Each shares its whole
+vocabulary with a cluster of statements about its topic: the DLQ pair shares
+`dead`, `letter`, `queue` and `redrive` with nine rows, and answers none of
+them. Stem overlap resolves these most confidently of the nine and is wrong
+about every one — `D-16`, measured rather than feared.
+
+What the labels therefore require of any rule `EPI-4` writes: **topic overlap is
+not resolution**. A question resolves only when a statement supplies the
+specific thing it asks for.
+"""
+
+QUESTIONS_ANSWERED_BY_A_CONTRADICTION: Final[Mapping[str, tuple[str, ...]]] = {
+    "Which AWS profile do the SQS admin commands run under?": (
+        ADMIN_PROFILE_DECISION_TEXT,
+        ADMIN_PROFILE_RULE_TEXT,
+    ),
+}
+"""A question the corpus answers twice, differently — the corpus's own `PROFILE_CONFLICT`.
+
+The decision separates the CLIs by privilege and puts admin under
+``aws-compute-lab-admin``; the rule requires ``aws-compute-lab`` to be exported
+before running admin commands. Resolving this question to either statement would
+record an answer the project does not have. Labelled separately from both the
+answered and the unanswered because it is neither: the right outcome is the
+conflict `SYN-2` already produces, not a resolution.
+"""
+
+UNGRADABLE_QUESTIONS: Final[tuple[str, ...]] = (
+    "What mechanism or format is used for the status events that workers publish for "
+    "dashboard consumption?",
+)
+"""Held unlabelled on purpose, the way `AMBIGUOUS_DESPITE_THE_TAG` holds its five.
+
+The question asks for *mechanism or format*. The mechanism is stated — *"a status
+or result queue must exist for workers to publish back to a local monitor or
+dashboard"* — and the format is not. Both readings are defensible, so grading it
+either way would score a rule wrong for taking the other one.
+"""
+
+
 def collapse_key(observation: ExtractedObservation) -> tuple[str, str]:
     """Match Memory's identical-statement identity (kind + normalised text)."""
 

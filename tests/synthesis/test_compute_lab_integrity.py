@@ -38,16 +38,35 @@ from tests.synthesis.compute_lab import (
     OBSERVATIONS,
     OBSERVED_FACT,
     PROFILE_CONFLICT,
+    QUESTIONS_ANSWERED_BY_A_CONTRADICTION,
+    QUESTIONS_THE_CORPUS_ANSWERS,
+    QUESTIONS_THE_CORPUS_NEVER_ANSWERS,
     REPEATED_IMPLEMENTATION,
     SAFE_DELETE_ANSWER_TEXT,
     SAFE_DELETE_QUESTION_TEXT,
     TRUNCATION_ARTIFACT,
+    UNGRADABLE_QUESTIONS,
     collapse_key,
     count_by_kind,
     observations_for,
 )
 
 _TRIAGED = set(EXPECTED_AREAS) | set(AREA_UNREACHABLE_FOR_KIND) | set(AMBIGUOUS_DESPITE_THE_TAG)
+
+_LABELLED_QUESTIONS = (
+    set(QUESTIONS_THE_CORPUS_ANSWERS)
+    | set(QUESTIONS_THE_CORPUS_NEVER_ANSWERS)
+    | set(QUESTIONS_ANSWERED_BY_A_CONTRADICTION)
+    | set(UNGRADABLE_QUESTIONS)
+)
+_CONTRADICTING_ANSWERS = tuple(QUESTIONS_ANSWERED_BY_A_CONTRADICTION.values())
+
+
+def _words(text: str) -> set[str]:
+    """Crudely stemmed tokens — `SYN-3c` matches on stems, so the guard must too."""
+
+    stripped = (word.strip(".,;:'\"()—-").lower() for word in text.split())
+    return {word.removesuffix("s") for word in stripped}
 
 
 def _would_classify(kind: KnowledgeKind) -> bool:
@@ -298,3 +317,68 @@ class TestGroundTruthIsUsable:
             assert area_key in keys
             area = next(area for area in SOFTWARE_TEMPLATE.areas if area.key == area_key)
             assert kinds[content] not in area.kinds, f"{area_key} does accept {kinds[content]}"
+
+
+class TestTheChunkLocalQuestionLabelsAreHonest:
+    """`EPI-4`'s ground truth is checkable before any resolution rule exists.
+
+    `D-137`, and `D-110`'s order a second time. These check the labels, not a
+    rule: a question labelled answered by a sentence the corpus does not contain
+    would make the eventual gate unsatisfiable, and a question falling out of all
+    four tables would be one nobody decided about.
+    """
+
+    def test_every_chunk_local_question_is_labelled_exactly_once(self) -> None:
+        sizes = (
+            len(QUESTIONS_THE_CORPUS_ANSWERS),
+            len(QUESTIONS_THE_CORPUS_NEVER_ANSWERS),
+            len(QUESTIONS_ANSWERED_BY_A_CONTRADICTION),
+            len(UNGRADABLE_QUESTIONS),
+        )
+        assert len(_LABELLED_QUESTIONS) == sum(sizes)
+
+        asked = {item.content for item in observations_for(CHUNK_LOCAL_QUESTION)}
+        assert asked == _LABELLED_QUESTIONS
+
+    def test_every_named_answer_is_a_statement_the_corpus_really_makes(self) -> None:
+        """The claim that makes the positive labels gradeable. An answer written
+        from memory rather than read off the corpus would be a gate no rule
+        could pass."""
+
+        statements = {
+            item.content for item in OBSERVATIONS if item.kind is not KnowledgeKind.UNKNOWN
+        }
+        for answers in (*QUESTIONS_THE_CORPUS_ANSWERS.values(), *_CONTRADICTING_ANSWERS):
+            assert answers
+            assert set(answers) <= statements
+
+    def test_the_corpus_answers_some_questions_and_not_others(self) -> None:
+        """Both directions have to be non-empty or the labels cannot fail a rule.
+        With no positives, a rule that resolves nothing scores perfectly; with no
+        negatives, one that resolves everything does."""
+
+        assert QUESTIONS_THE_CORPUS_ANSWERS
+        assert QUESTIONS_THE_CORPUS_NEVER_ANSWERS
+
+    def test_the_contradicting_answers_are_the_corpus_s_own_profile_conflict(self) -> None:
+        """`PROFILE_CONFLICT` is a named case in the fixture. The label points at
+        it rather than asserting a disagreement of its own."""
+
+        conflicting = {item.content for item in observations_for(PROFILE_CONFLICT)}
+        for answers in QUESTIONS_ANSWERED_BY_A_CONTRADICTION.values():
+            assert len(answers) > 1
+            assert conflicting & set(answers)
+
+    def test_the_unanswerable_questions_share_their_topic_with_the_corpus(self) -> None:
+        """The reason these labels are worth the increment (`D-16`). Each
+        unanswered question overlaps a cluster of statements about its topic, so
+        a stem-overlap rule resolves it confidently and wrongly. A question with
+        no overlap would not have tested anything."""
+
+        statements = [
+            item.content for item in OBSERVATIONS if item.kind is not KnowledgeKind.UNKNOWN
+        ]
+        for question in QUESTIONS_THE_CORPUS_NEVER_ANSWERS:
+            words = {word for word in _words(question) if len(word) > 4}
+            overlapping = [text for text in statements if len(words & _words(text)) >= 2]
+            assert overlapping, question
