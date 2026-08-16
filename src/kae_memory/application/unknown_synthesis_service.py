@@ -195,14 +195,22 @@ class UnknownSynthesisService:
         `D-152`: the name, weight and mandatory flag come from the snapshot's own
         rows rather than from `SOFTWARE_TEMPLATE`, so a project pinned to an
         earlier template version is ranked under the semantics its coverage was
-        measured with.
+        measured with. `D-154` adds `contradicted` for the same reason and from
+        the same row — it is a fact about the calculation that measured the area,
+        not about the contradictions standing today.
         """
 
         snapshot = ReadinessSnapshotRepository(session).latest(project_id)
         if snapshot is None:
             return None
         return tuple(
-            UncoveredArea(key=area.key, name=area.name, weight=area.weight, required=area.mandatory)
+            UncoveredArea(
+                key=area.key,
+                name=area.name,
+                weight=area.weight,
+                required=area.mandatory,
+                contradicted=area.contradicted,
+            )
             for area in snapshot.areas
             if area.state not in {AreaState.SUFFICIENT, AreaState.NOT_APPLICABLE}
         )

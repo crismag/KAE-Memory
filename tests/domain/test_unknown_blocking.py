@@ -130,6 +130,61 @@ class TestMaterialityWeighsWhatIsBlocked:
         assert blocked_areas(BOTH, (optional, CRITERIA)) == (CRITERIA, optional)
 
 
+class TestConflictBreaksTheTiesMaterialityLeaves:
+    """`D-154`. A blocked area whose statements disagree cannot be closed by one
+    more answer, so the question in front of it leads — below weight, above
+    repetition."""
+
+    CONTESTED = UncoveredArea(MODEL.key, MODEL.name, MODEL.weight, True, contradicted=True)
+
+    def _theme(self, name: str, *blocks: UncoveredArea, asked: int = 1) -> UnknownTheme:
+        members = tuple(_item(f"{name}{n}") for n in range(asked))
+        return UnknownTheme(members, members[0], ACCEPTANCE, "minor", blocks)
+
+    def test_a_contested_area_outranks_a_quiet_one_of_the_same_weight(self) -> None:
+        quiet = UncoveredArea(CRITERIA.key, CRITERIA.name, MODEL.weight, True)
+
+        assert theme_priority(self._theme("a", self.CONTESTED)) > theme_priority(
+            self._theme("b", quiet)
+        )
+
+    def test_conflict_never_outranks_a_heavier_blocked_area(self) -> None:
+        """It is a condition on what is blocked, not a measure of consequence."""
+
+        heavier = UncoveredArea("functional_requirements", "Functional requirements", 2.0, True)
+
+        assert theme_priority(self._theme("a", heavier)) > theme_priority(
+            self._theme("b", self.CONTESTED)
+        )
+
+    def test_conflict_outranks_any_amount_of_repetition(self) -> None:
+        quiet = UncoveredArea(CRITERIA.key, CRITERIA.name, MODEL.weight, True)
+
+        assert theme_priority(self._theme("a", self.CONTESTED)) > theme_priority(
+            self._theme("b", quiet, asked=20_000)
+        )
+
+    def test_no_achievable_materiality_reaches_the_required_band(self) -> None:
+        """`D-152`'s lesson one band up: a term with something underneath it is a
+        band only if it is capped. Every area the software template defines,
+        blocked at once and none of them required, must still lose to one
+        required area."""
+
+        every_optional = tuple(
+            UncoveredArea(f"a{n}", f"A{n}", 5.0, required=False) for n in range(40)
+        )
+        required_one = UncoveredArea("users_and_stakeholders", "Users", 0.5, required=True)
+
+        assert theme_priority(self._theme("a", required_one)) > theme_priority(
+            self._theme("b", *every_optional)
+        )
+
+    def test_a_contested_area_leads_the_areas_the_reader_is_shown(self) -> None:
+        quiet = UncoveredArea(CRITERIA.key, CRITERIA.name, MODEL.weight, True)
+
+        assert blocked_areas(BOTH, (quiet, self.CONTESTED)) == (self.CONTESTED, quiet)
+
+
 class TestThePlanNeverClaimsARankingItDidNotPerform:
     def _plan(self, uncovered: tuple[UncoveredArea, ...] | None) -> UnknownPlan:
         ids = [_item("a"), _item("b")]
@@ -206,6 +261,32 @@ class TestTheSentenceFollowsTheFlag:
         theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical", (CRITERIA,))
 
         assert "not required" not in explain(theme, ranked_by_blocking=True)
+
+    def test_a_contested_area_says_so_and_says_why_it_is_not_one_answer_away(self) -> None:
+        """`D-154`. Otherwise the card offers an area that looks empty when what
+        is actually there is two statements that disagree."""
+
+        contested = UncoveredArea(CRITERIA.key, CRITERIA.name, 1.5, True, contradicted=True)
+        theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical", (contested,))
+
+        assert "statements there already contradict each other" in explain(
+            theme, ranked_by_blocking=True
+        )
+
+    def test_an_optional_contested_area_says_both_things(self) -> None:
+        contested = UncoveredArea(
+            DELIVERY.key, DELIVERY.name, DELIVERY.weight, False, contradicted=True
+        )
+        theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical", (contested,))
+        sentence = explain(theme, ranked_by_blocking=True)
+
+        assert "not required for readiness" in sentence
+        assert "contradict each other" in sentence
+
+    def test_a_quiet_area_is_not_described_as_contested(self) -> None:
+        theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical", (CRITERIA,))
+
+        assert "contradict" not in explain(theme, ranked_by_blocking=True)
 
     def test_it_refuses_the_claim_without_a_snapshot(self) -> None:
         theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical")

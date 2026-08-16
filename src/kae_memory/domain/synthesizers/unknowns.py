@@ -55,9 +55,17 @@ weight and the mandatory flag the template gave it when coverage was measured. A
 question standing in front of a required area outranks one standing in front of
 any number of optional ones, and among equals the heavier area leads.
 
-The remaining seven dimensions of `SYN-11` — urgency, confidence, conflict,
-authority, reversibility, information gain, novelty — are not built. `OD-NAV-2`
-is the same blocking question one layer up.
+**Conflict** — `SYN-11`/`D-154` — is the third dimension from the same snapshot:
+each area records whether a statement counted toward it is party to an unresolved
+contradiction, so a question standing in front of a contested blocked area leads
+one standing in front of a quiet area of the same weight. It breaks ties below
+materiality and never displaces it. Its limit is that `blocks` holds only areas
+below `sufficient`, so a *covered* area that is contradicted is not seen here at
+all — conflict as its own attention source is still owed.
+
+The remaining dimensions of `SYN-11` — urgency, confidence, authority,
+reversibility, information gain, novelty — are not built. `OD-NAV-2` is the same
+blocking question one layer up.
 """
 
 from __future__ import annotations
@@ -103,6 +111,16 @@ class UncoveredArea:
     weight: float
     required: bool
     """`AreaDefinition.mandatory`: whether readiness is unreachable without it."""
+
+    contradicted: bool = False
+    """Whether a statement counted toward this area is party to an unresolved
+    contradiction (`D-154`).
+
+    `AreaResult.contradicted`, recorded by the same calculation that produced the
+    state. `ADR-0008` keeps it beside the coverage ladder rather than inside it,
+    because short of coverage and internally inconsistent are two facts, and an
+    area is routinely both.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,13 +195,15 @@ def blocked_areas(
     of an empty area would be ranking by wording.
 
     Ordered by consequence — required before optional, heavier before lighter,
-    key last so the order is stable — because this order is both what ranks the
-    theme and what the reader is shown.
+    contested before quiet, key last so the order is stable — because this order
+    is both what ranks the theme and what the reader is shown.
     """
 
     named = set(areas_named_by(question))
     blocked = [area for area in uncovered_areas if area.key in named]
-    blocked.sort(key=lambda area: (not area.required, -area.weight, area.key))
+    blocked.sort(
+        key=lambda area: (not area.required, -area.weight, not area.contradicted, area.key)
+    )
     return tuple(blocked)
 
 
@@ -195,6 +215,21 @@ def blocked_areas(
 #: absurdly-repeated themes equally corroborated, which is a claim worth making;
 #: promoting repetition above blocking impact silently is not.
 CORROBORATION_CEILING = 9_999
+
+#: Ceiling on the materiality term, in hundredths of a weight unit.
+#:
+#: The same argument one band up (`D-154`): a term with something underneath it
+#: has to be bounded or the band beneath it is a claim rather than an
+#: arithmetic fact. Ninety-nine weight units of blocked area is far past any
+#: template — the software template's ten areas sum to well under it — so the cap
+#: is unreachable in practice and the band separation is provable rather than
+#: assumed.
+MATERIALITY_CEILING = 9_999
+
+#: The bands, low to high. Each is wider than everything below it can reach.
+CONFLICT_BAND = 100_000
+MATERIALITY_BAND = 1_000_000
+REQUIRED_BAND = 10_000_000_000
 
 
 def theme_priority(theme: UnknownTheme) -> int:
@@ -211,6 +246,13 @@ def theme_priority(theme: UnknownTheme) -> int:
     optional one only moves the score; within that, the summed weight the
     template gave those areas decides.
 
+    **Conflict breaks the ties materiality leaves** (`D-154`). An area whose
+    statements already disagree cannot be closed by adding one more, so the
+    question standing in front of it is worth more attention than one standing in
+    front of a quiet area of the same weight. It sits below materiality rather
+    than beside it: the weight is what the template records about consequence,
+    and contradiction is a condition on what is blocked.
+
     Corroboration stays the last tie-break: a question the conversation returned
     to six times is more likely to matter than one asked once. It is a weaker
     claim than blocking impact, and the emitted item says which claim it is
@@ -219,11 +261,17 @@ def theme_priority(theme: UnknownTheme) -> int:
 
     severity = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
     corroboration = min(theme.asked, CORROBORATION_CEILING) * 10 + severity
+    conflict = CONFLICT_BAND if any(area.contradicted for area in theme.blocks) else 0
     # Hundredths of a weight unit, so a template expressing weights more finely
     # than the software template's halves still orders correctly.
-    materiality = round(sum(area.weight for area in theme.blocks) * 100)
+    materiality = min(round(sum(area.weight for area in theme.blocks) * 100), MATERIALITY_CEILING)
     blocks_required = any(area.required for area in theme.blocks)
-    return (1_000_000_000 if blocks_required else 0) + materiality * 100_000 + corroboration
+    return (
+        (REQUIRED_BAND if blocks_required else 0)
+        + materiality * MATERIALITY_BAND
+        + conflict
+        + corroboration
+    )
 
 
 def plan_unknowns(
@@ -330,11 +378,22 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
 
 
 def area_phrase(area: UncoveredArea) -> str:
-    """How one blocked area is said in a sentence somebody reads."""
+    """How one blocked area is said in a sentence somebody reads.
 
-    if area.required:
+    A qualifier appears only where it changes what the reader should conclude: an
+    area readiness does not require (`D-152`), and one whose statements already
+    disagree (`D-154`) — the second because it says why the area is not closed by
+    one more answer, which is the reason it ranked where it did.
+    """
+
+    qualifiers = []
+    if not area.required:
+        qualifiers.append("not required for readiness")
+    if area.contradicted:
+        qualifiers.append("statements there already contradict each other")
+    if not qualifiers:
         return area.name
-    return f"{area.name} (not required for readiness)"
+    return f"{area.name} ({', and '.join(qualifiers)})"
 
 
 def _are(areas: tuple[UncoveredArea, ...]) -> str:
