@@ -123,3 +123,8 @@ class ResponsibilityAssignmentId(Identifier):
 @dataclass(frozen=True, slots=True)
 class ConstraintEffectId(Identifier):
     """Stable identifier for one accepted constraint bearing on one open item."""
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptanceCriterionId(Identifier):
+    """Stable identifier for one criterion a person wrote against a requirement."""

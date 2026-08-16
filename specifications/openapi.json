@@ -15,6 +15,30 @@
         "title": "AcceptAssumptionRequest",
         "type": "object"
       },
+      "AcceptanceCriterionResponse": {
+        "description": "One stored criterion, and the requirement it says *done* for.",
+        "properties": {
+          "criterion_id": {
+            "title": "Criterion Id",
+            "type": "string"
+          },
+          "requirement_object_id": {
+            "title": "Requirement Object Id",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "criterion_id",
+          "requirement_object_id",
+          "statement"
+        ],
+        "title": "AcceptanceCriterionResponse",
+        "type": "object"
+      },
       "ActorSynthesisReportResponse": {
         "description": "What one actor-synthesis run concluded, including what it refused.",
         "properties": {
@@ -74,6 +98,20 @@
           "downgraded"
         ],
         "title": "ActorSynthesisReportResponse",
+        "type": "object"
+      },
+      "AddAcceptanceCriterionRequest": {
+        "description": "One criterion a person writes against a requirement.\n\nDoc 06 lists *Add acceptance criteria* among the human actions, and this is\nthe only way a row reaches ``acceptance_criteria``: no synthesis path writes\none, because a criterion KAE generated would make its requirement\nimplementation-ready by the act of synthesising it (`D-131`).",
+        "properties": {
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement"
+        ],
+        "title": "AddAcceptanceCriterionRequest",
         "type": "object"
       },
       "AffectedSectionResponse": {
@@ -3614,6 +3652,25 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ReclassifiedStatementResponse": {
+        "description": "A statement separated out of the requirement list, and named.\n\nDoc 06's mixed list is separated rather than filtered: deleting a principle\nloses a real statement, and leaving it among the requirements is the failure.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "kind"
+        ],
+        "title": "ReclassifiedStatementResponse",
+        "type": "object"
+      },
       "ReconciliationEdgeResponse": {
         "properties": {
           "reason": {
@@ -4171,6 +4228,88 @@
         "title": "RejectKnowledgeRequest",
         "type": "object"
       },
+      "RequirementSplitResponse": {
+        "description": "A compound requirement named in halves, applied to nothing.\n\nDoc 06: *web MVP with mobile later* rather than a binary Confirm/Reject.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "first": {
+            "title": "First",
+            "type": "string"
+          },
+          "second": {
+            "title": "Second",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "first",
+          "second",
+          "basis"
+        ],
+        "title": "RequirementSplitResponse",
+        "type": "object"
+      },
+      "RequirementSynthesisReportResponse": {
+        "description": "What one requirement-synthesis run concluded, and what it separated out.",
+        "properties": {
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "implementation_ready": {
+            "title": "Implementation Ready",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "reclassified": {
+            "items": {
+              "$ref": "#/components/schemas/ReclassifiedStatementResponse"
+            },
+            "title": "Reclassified",
+            "type": "array"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedRequirementResponse"
+            },
+            "title": "Requirements",
+            "type": "array"
+          },
+          "splits": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementSplitResponse"
+            },
+            "title": "Splits",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "requirements",
+          "reclassified",
+          "splits",
+          "implementation_ready"
+        ],
+        "title": "RequirementSynthesisReportResponse",
+        "type": "object"
+      },
       "ResolveAttentionRequest": {
         "properties": {
           "status": {
@@ -4362,6 +4501,24 @@
           }
         },
         "title": "RunReconciliationRequest",
+        "type": "object"
+      },
+      "RunRequirementSynthesisRequest": {
+        "description": "Optional idempotency key for a requirement-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunRequirementSynthesisRequest",
         "type": "object"
       },
       "RunResponse": {
@@ -5370,6 +5527,56 @@
           "updated_at"
         ],
         "title": "SynthesizedObjectResponse",
+        "type": "object"
+      },
+      "SynthesizedRequirementResponse": {
+        "description": "One requirement, and the reading behind whether it can be built to.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "capability_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Areas",
+            "type": "array"
+          },
+          "criteria": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Criteria",
+            "type": "array"
+          },
+          "implementation_ready": {
+            "title": "Implementation Ready",
+            "type": "boolean"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          },
+          "verifiability": {
+            "title": "Verifiability",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "verifiability",
+          "capability_areas",
+          "accepted",
+          "criteria",
+          "implementation_ready"
+        ],
+        "title": "SynthesizedRequirementResponse",
         "type": "object"
       },
       "SynthesizedRoleResponse": {
@@ -8435,6 +8642,184 @@
           }
         },
         "summary": "Run Goal Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/requirements/criteria": {
+      "get": {
+        "description": "The project's acceptance criteria, optionally for one requirement.\n\nEmpty is the ordinary answer and doc 06's finding: a requirement nobody has\nsaid *done* for is a candidate, not something to build to.",
+        "operationId": "list_acceptance_criteria_v1_projects__project_id__model_requirements_criteria_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "object_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AcceptanceCriterionResponse"
+                  },
+                  "title": "Response List Acceptance Criteria V1 Projects  Project Id  Model Requirements Criteria Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Acceptance Criteria",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/requirements/runs": {
+      "post": {
+        "description": "Turn requirement-like evidence into the project's requirement model.\n\nThe requirements themselves are read back through\n`GET /model?domain=requirement`. What the run adds beyond them is doc 06's\ntwo separations: `reclassified` names the statements that are not\nrequirements at all \u2014 principles, positioning, governance, capability\nheadings \u2014 and `splits` names the compound ones in halves.\n\nNeither is applied. A reclassified statement is reported rather than\ndeleted, because deleting it loses a real sentence, and a split is a\nproposal rather than a verdict \u2014 doc 06 says in those words that *web MVP\nwith mobile later* must not be forced into binary Confirm/Reject.\n\n**`implementation_ready` is usually zero, and that is the finding.** A\nrequirement is ready when it is observable, accepted, and carries at least\none acceptance criterion, and KAE writes no criteria: one it generated would\nmake the requirement ready by the act of synthesising it (`D-131`). Criteria\narrive through `POST /model/requirements/{id}/criteria`, from a person.\n\nNothing here raises attention \u2014 an unready requirement is a state of the\nmodel, not an interruption.\n\nRerunning unchanged evidence writes nothing new; identity is the normalised\nstatement.",
+        "operationId": "run_requirement_synthesis_v1_projects__project_id__model_requirements_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequirementSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequirementSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Requirement Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/requirements/{object_id}/criteria": {
+      "post": {
+        "description": "Record what a person says *done* looks like for one requirement.\n\nThis is the **only** way a criterion is created. No synthesis path writes\none, because a criterion KAE generated would make its requirement\nimplementation-ready by the act of synthesising it \u2014 `ADR-0008`'s objection\nin one line (`D-131`). Doc 06 lists *Add acceptance criteria* among the\nhuman actions, and this is that action.\n\nIdempotent by wording: re-adding the same criterion updates it rather than\nstacking a second. `404` if the object is not this project's, or is not a\nrequirement.",
+        "operationId": "add_acceptance_criterion_v1_projects__project_id__model_requirements__object_id__criteria_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAcceptanceCriterionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcceptanceCriterionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add Acceptance Criterion",
         "tags": [
           "synthesis"
         ]

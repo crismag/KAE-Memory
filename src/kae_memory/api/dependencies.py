@@ -34,6 +34,7 @@ from kae_memory.application.preliminary_context_service import PreliminaryContex
 from kae_memory.application.project_deletion_service import ProjectDeletionService
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.reconciliation_service import ReconciliationService
+from kae_memory.application.requirement_synthesis_service import RequirementSynthesisService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.application.setup_service import SetupService
@@ -297,6 +298,19 @@ def get_constraint_synthesis(request: Request) -> ConstraintSynthesisService:
     return ConstraintSynthesisService(factory)
 
 
+def get_requirement_synthesis(request: Request) -> RequirementSynthesisService:
+    """Return the requirement synthesizer, which takes no embedder either.
+
+    Doc 06's separations are readings of one sentence — what kind of statement
+    it is, and whether a test could watch it happen — so nothing here compares
+    two requirements by distance. Deduplication is the normalised wording, as it
+    is everywhere else in synthesis.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return RequirementSynthesisService(factory)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -389,3 +403,4 @@ UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthe
 ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]
 DecisionSynthesis = Annotated[DecisionSynthesisService, Depends(get_decision_synthesis)]
 ConstraintSynthesis = Annotated[ConstraintSynthesisService, Depends(get_constraint_synthesis)]
+RequirementSynthesis = Annotated[RequirementSynthesisService, Depends(get_requirement_synthesis)]

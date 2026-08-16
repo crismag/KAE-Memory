@@ -287,6 +287,103 @@ class TestConstraintsAreProducedOverHttpAndOnlyAcceptanceWrites:
         assert response.status_code == 404
 
 
+class TestRequirementsAreProducedOverHttpAndOnlyAPersonWritesCriteria:
+    """`SYN-5b`. Three surfaces: the run, the criterion a person adds, and the
+    criteria a reader lists. The requirements themselves are read through
+    `GET /model?domain=requirement` (`D-131`)."""
+
+    def _seed(self, factory: sessionmaker[Session], project_id: str, *, accept: bool) -> None:
+        memory = MemoryService(factory)
+        run = memory.start_run(
+            ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-requirements"
+        )
+        written = memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(
+                    kind="requirement",
+                    content="Original source notes must be preserved.",
+                    source="i",
+                )
+            ],
+        )
+        if accept:
+            memory.confirm_knowledge(written[0].id)
+
+    def test_a_run_reports_a_requirement_that_nothing_can_be_built_to_yet(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Requirements"}).json()["id"])
+        self._seed(factory, project, accept=True)
+
+        response = client.post(
+            f"/v1/projects/{project}/model/requirements/runs", json={"idempotency_key": "first"}
+        )
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["considered"] == 1
+        assert report["implementation_ready"] == 0
+        assert report["requirements"][0]["criteria"] == []
+        assert report["requirements"][0]["accepted"] is True
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+
+    def test_a_person_adds_the_criterion_and_the_requirement_becomes_ready(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Ready"}).json()["id"])
+        self._seed(factory, project, accept=True)
+        first = client.post(f"/v1/projects/{project}/model/requirements/runs", json={}).json()
+        object_id = first["requirements"][0]["synthesized_object_id"]
+
+        added = client.post(
+            f"/v1/projects/{project}/model/requirements/{object_id}/criteria",
+            json={"statement": "A note is retrievable after the item it backs is updated."},
+        )
+
+        assert added.status_code == 201, added.text
+        listed = client.get(f"/v1/projects/{project}/model/requirements/criteria")
+        assert [one["requirement_object_id"] for one in listed.json()] == [object_id]
+
+        second = client.post(
+            f"/v1/projects/{project}/model/requirements/runs", json={"idempotency_key": "second"}
+        ).json()
+        assert second["implementation_ready"] == 1
+
+    def test_a_criterion_against_something_that_is_not_a_requirement_is_refused(
+        self, client: TestClient, project: str
+    ) -> None:
+        """The route is the only way into the table, so it is the only place
+        that can keep a criterion off an actor or a constraint."""
+
+        created = client.post(
+            f"/v1/projects/{project}/model",
+            json={
+                "domain": "constraint",
+                "identity_key": "collaboration outside mvp",
+                "title": "Team collaboration is outside MVP.",
+                "statement": "Team collaboration is outside MVP.",
+            },
+        )
+        assert created.status_code in (200, 201), created.text
+        object_id = created.json()["id"]
+
+        response = client.post(
+            f"/v1/projects/{project}/model/requirements/{object_id}/criteria",
+            json={"statement": "Something is observable."},
+        )
+
+        assert response.status_code == 404
+
+    def test_an_unknown_project_is_not_found(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/projects/00000000-0000-0000-0000-000000000000/model/requirements/runs",
+            json={},
+        )
+
+        assert response.status_code == 404
+
+
 class TestChangeEventsReplay:
     def test_the_same_key_returns_the_same_event(self, client: TestClient, project: str) -> None:
         body = {

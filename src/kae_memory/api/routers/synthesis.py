@@ -35,12 +35,15 @@ from ..dependencies import (
     GoalSynthesis,
     Memory,
     Reconciliation,
+    RequirementSynthesis,
     Synthesis,
     UnknownSynthesis,
 )
 from ..errors import ApiError, not_found
 from ..schemas import (
+    AcceptanceCriterionResponse,
     ActorSynthesisReportResponse,
+    AddAcceptanceCriterionRequest,
     AttentionItemResponse,
     BindEvidenceRequest,
     ConstraintSynthesisReportResponse,
@@ -55,6 +58,7 @@ from ..schemas import (
     ReconciliationEventResponse,
     ReconciliationReportResponse,
     RecordChangeRequest,
+    RequirementSynthesisReportResponse,
     ResolveAttentionRequest,
     ResponsibilityAssignmentResponse,
     RunActorSynthesisRequest,
@@ -62,6 +66,7 @@ from ..schemas import (
     RunDecisionSynthesisRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
+    RunRequirementSynthesisRequest,
     RunUnknownSynthesisRequest,
     SetEvidenceRoleRequest,
     StoredConstraintEffectResponse,
@@ -397,6 +402,45 @@ def run_constraint_synthesis(
     )
 
 
+@router.post("/model/requirements/runs", response_model=RequirementSynthesisReportResponse)
+def run_requirement_synthesis(
+    project_id: str,
+    body: RunRequirementSynthesisRequest,
+    memory: Memory,
+    requirements: RequirementSynthesis,
+) -> RequirementSynthesisReportResponse:
+    """Turn requirement-like evidence into the project's requirement model.
+
+    The requirements themselves are read back through
+    `GET /model?domain=requirement`. What the run adds beyond them is doc 06's
+    two separations: `reclassified` names the statements that are not
+    requirements at all — principles, positioning, governance, capability
+    headings — and `splits` names the compound ones in halves.
+
+    Neither is applied. A reclassified statement is reported rather than
+    deleted, because deleting it loses a real sentence, and a split is a
+    proposal rather than a verdict — doc 06 says in those words that *web MVP
+    with mobile later* must not be forced into binary Confirm/Reject.
+
+    **`implementation_ready` is usually zero, and that is the finding.** A
+    requirement is ready when it is observable, accepted, and carries at least
+    one acceptance criterion, and KAE writes no criteria: one it generated would
+    make the requirement ready by the act of synthesising it (`D-131`). Criteria
+    arrive through `POST /model/requirements/{id}/criteria`, from a person.
+
+    Nothing here raises attention — an unready requirement is a state of the
+    model, not an interruption.
+
+    Rerunning unchanged evidence writes nothing new; identity is the normalised
+    statement.
+    """
+
+    resolved = _project(project_id, memory)
+    return RequirementSynthesisReportResponse.of(
+        requirements.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
 @router.post("/model/decisions/runs", response_model=DecisionSynthesisReportResponse)
 def run_decision_synthesis(
     project_id: str,
@@ -455,6 +499,65 @@ def list_responsibilities(
             letter=record.letter,
         )
         for record in synthesis.list_assignments(resolved, subject_key)
+    ]
+
+
+@router.post(
+    "/model/requirements/{object_id}/criteria",
+    response_model=AcceptanceCriterionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_acceptance_criterion(
+    project_id: str,
+    object_id: str,
+    body: AddAcceptanceCriterionRequest,
+    memory: Memory,
+    requirements: RequirementSynthesis,
+) -> AcceptanceCriterionResponse:
+    """Record what a person says *done* looks like for one requirement.
+
+    This is the **only** way a criterion is created. No synthesis path writes
+    one, because a criterion KAE generated would make its requirement
+    implementation-ready by the act of synthesising it — `ADR-0008`'s objection
+    in one line (`D-131`). Doc 06 lists *Add acceptance criteria* among the
+    human actions, and this is that action.
+
+    Idempotent by wording: re-adding the same criterion updates it rather than
+    stacking a second. `404` if the object is not this project's, or is not a
+    requirement.
+    """
+
+    resolved = _project(project_id, memory)
+    record = requirements.record_criterion(resolved, SynthesizedObjectId(object_id), body.statement)
+    return AcceptanceCriterionResponse(
+        criterion_id=str(record.id),
+        requirement_object_id=str(record.requirement_object_id),
+        statement=record.statement,
+    )
+
+
+@router.get("/model/requirements/criteria", response_model=list[AcceptanceCriterionResponse])
+def list_acceptance_criteria(
+    project_id: str,
+    memory: Memory,
+    requirements: RequirementSynthesis,
+    object_id: str | None = Query(default=None),
+) -> list[AcceptanceCriterionResponse]:
+    """The project's acceptance criteria, optionally for one requirement.
+
+    Empty is the ordinary answer and doc 06's finding: a requirement nobody has
+    said *done* for is a candidate, not something to build to.
+    """
+
+    resolved = _project(project_id, memory)
+    requirement = None if object_id is None else SynthesizedObjectId(object_id)
+    return [
+        AcceptanceCriterionResponse(
+            criterion_id=str(record.id),
+            requirement_object_id=str(record.requirement_object_id),
+            statement=record.statement,
+        )
+        for record in requirements.list_criteria(resolved, requirement)
     ]
 
 

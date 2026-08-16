@@ -684,6 +684,27 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.requirements.run",
+        summary="Turn requirement-like evidence into a model, separating what is not a requirement",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/requirements/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.requirements.criteria.add",
+        summary="Record what a person says done looks like for one requirement",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/requirements/{object_id}/criteria",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.requirements.criteria.read",
+        summary="Read the acceptance criteria the project's requirements carry",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/model/requirements/criteria",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.decisions.run",
         summary="Turn decision evidence into the project's proposals and settled choices",
         exposure=Exposure.PRODUCT_ONLY,

@@ -19,6 +19,7 @@ from enum import StrEnum
 
 from .errors import DomainInvariantError, InvalidLifecycleTransitionError
 from .identifiers import (
+    AcceptanceCriterionId,
     AttentionItemId,
     ConstraintEffectId,
     EvidenceBindingId,
@@ -314,6 +315,31 @@ class ConstraintEffectRecord:
             raise DomainInvariantError("constraint effect kind must not be empty")
         if not self.basis.strip():
             raise DomainInvariantError("constraint effect basis must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptanceCriterionRecord:
+    """One criterion a person wrote against a requirement (doc 06, `SYN-5b`).
+
+    The requirement is a synthesized object; the statement is what *done* looks
+    like for it. Nothing derives one and no run writes one — a criterion KAE
+    generated would make its requirement implementation-ready by the act of
+    synthesising it (`D-131`), so the row's existence is a person's authorship.
+    """
+
+    id: AcceptanceCriterionId
+    project_id: ProjectId
+    requirement_object_id: SynthesizedObjectId
+    identity_key: str
+    statement: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.identity_key.strip():
+            raise DomainInvariantError("acceptance criterion identity key must not be empty")
+        if not self.statement.strip():
+            raise DomainInvariantError("acceptance criterion statement must not be empty")
 
 
 @dataclass(frozen=True, slots=True)

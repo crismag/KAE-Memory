@@ -2624,6 +2624,122 @@ class ConstraintSynthesisReportResponse(BaseModel):
         )
 
 
+class AddAcceptanceCriterionRequest(BaseModel):
+    """One criterion a person writes against a requirement.
+
+    Doc 06 lists *Add acceptance criteria* among the human actions, and this is
+    the only way a row reaches ``acceptance_criteria``: no synthesis path writes
+    one, because a criterion KAE generated would make its requirement
+    implementation-ready by the act of synthesising it (`D-131`).
+    """
+
+    statement: str
+
+
+class AcceptanceCriterionResponse(BaseModel):
+    """One stored criterion, and the requirement it says *done* for."""
+
+    criterion_id: str
+    requirement_object_id: str
+    statement: str
+
+
+class RunRequirementSynthesisRequest(BaseModel):
+    """Optional idempotency key for a requirement-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedRequirementResponse(BaseModel):
+    """One requirement, and the reading behind whether it can be built to."""
+
+    synthesized_object_id: str
+    statement: str
+    verifiability: str
+    """`observable`, `compound` or `vague` — read from the wording, not stored."""
+
+    capability_areas: list[str]
+    accepted: bool
+    """Whether a person accepted it. *Must* and *shall* confer nothing (`D-129`)."""
+
+    criteria: list[str]
+    """The criteria somebody wrote. Empty is the common case and the finding."""
+
+    implementation_ready: bool
+    """Derived from the other three, never stored (`D-125`)."""
+
+
+class ReclassifiedStatementResponse(BaseModel):
+    """A statement separated out of the requirement list, and named.
+
+    Doc 06's mixed list is separated rather than filtered: deleting a principle
+    loses a real statement, and leaving it among the requirements is the failure.
+    """
+
+    statement: str
+    kind: str
+
+
+class RequirementSplitResponse(BaseModel):
+    """A compound requirement named in halves, applied to nothing.
+
+    Doc 06: *web MVP with mobile later* rather than a binary Confirm/Reject.
+    """
+
+    statement: str
+    first: str
+    second: str
+    basis: str
+
+
+class RequirementSynthesisReportResponse(BaseModel):
+    """What one requirement-synthesis run concluded, and what it separated out."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    requirements: list[SynthesizedRequirementResponse]
+    reclassified: list[ReclassifiedStatementResponse]
+    splits: list[RequirementSplitResponse]
+
+    implementation_ready: int
+    """How many are ready. Zero until somebody writes criteria, and that is the point."""
+
+    @classmethod
+    def of(cls, report: Any) -> "RequirementSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            requirements=[
+                SynthesizedRequirementResponse(
+                    synthesized_object_id=str(requirement.object_id),
+                    statement=requirement.statement,
+                    verifiability=requirement.verifiability.value,
+                    capability_areas=list(requirement.capability_areas),
+                    accepted=requirement.accepted,
+                    criteria=list(requirement.criteria),
+                    implementation_ready=requirement.implementation_ready,
+                )
+                for requirement in report.requirements
+            ],
+            reclassified=[
+                ReclassifiedStatementResponse(statement=one.statement, kind=one.kind.value)
+                for one in report.reclassified
+            ],
+            splits=[
+                RequirementSplitResponse(
+                    statement=split.statement,
+                    first=split.first,
+                    second=split.second,
+                    basis=split.basis,
+                )
+                for split in report.splits
+            ],
+            implementation_ready=report.implementation_ready,
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

@@ -1153,6 +1153,38 @@ class ConstraintEffectRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AcceptanceCriterionRow(Base):
+    """One criterion a person wrote against a requirement (doc 06, `SYN-5b`).
+
+    Identity is ``(requirement_object_id, identity_key)``: the same criterion
+    reworded is the same criterion, so re-adding it updates the wording rather
+    than stacking a second row.
+
+    **No synthesis run writes here** (`D-131`). A criterion KAE generated would
+    make its requirement implementation-ready by the act of synthesising it, so
+    a row exists because a person wrote it — which is why there is no status
+    column for a reader to forget to filter on.
+    """
+
+    __tablename__ = "acceptance_criteria"
+    __table_args__ = (
+        UniqueConstraint(
+            "requirement_object_id", "identity_key", name="uq_acceptance_criteria_wording"
+        ),
+        Index("ix_acceptance_criteria_requirement", "project_id", "requirement_object_id"),
+    )
+
+    criterion_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requirement_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    identity_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    statement: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttentionItemRow(Base):
     """A human-attention item. Unconfirmed extraction is not one of these."""
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import (
+    AcceptanceCriterionId,
     AttentionItemId,
     ConstraintEffectId,
     EvidenceBindingId,
@@ -19,6 +20,7 @@ from kae_memory.domain.identifiers import (
     SynthesizedObjectId,
 )
 from kae_memory.domain.synthesis import (
+    AcceptanceCriterionRecord,
     AttentionItem,
     AttentionKind,
     AttentionStatus,
@@ -35,6 +37,7 @@ from kae_memory.domain.synthesis import (
     SynthesizedObject,
 )
 from kae_memory.persistence.tables import (
+    AcceptanceCriterionRow,
     AttentionItemRow,
     ConstraintEffectRow,
     KnowledgeEvidenceRoleRow,
@@ -289,6 +292,56 @@ class SynthesisRepository:
         row.basis = record.basis
         row.updated_at = _stamp(record.updated_at)
 
+    def get_criterion(
+        self, requirement_object_id: SynthesizedObjectId, identity_key: str
+    ) -> AcceptanceCriterionRecord | None:
+        """Return this requirement's criterion with this wording, if it has one."""
+
+        row = self._session.scalars(
+            select(AcceptanceCriterionRow).where(
+                AcceptanceCriterionRow.requirement_object_id == str(requirement_object_id),
+                AcceptanceCriterionRow.identity_key == identity_key,
+            )
+        ).first()
+        return None if row is None else _criterion_from_row(row)
+
+    def list_criteria(
+        self, project_id: ProjectId, requirement_object_id: SynthesizedObjectId | None = None
+    ) -> tuple[AcceptanceCriterionRecord, ...]:
+        """Return the project's acceptance criteria, optionally for one requirement."""
+
+        stmt = select(AcceptanceCriterionRow).where(
+            AcceptanceCriterionRow.project_id == str(project_id)
+        )
+        if requirement_object_id is not None:
+            stmt = stmt.where(
+                AcceptanceCriterionRow.requirement_object_id == str(requirement_object_id)
+            )
+        stmt = stmt.order_by(
+            AcceptanceCriterionRow.requirement_object_id, AcceptanceCriterionRow.identity_key
+        )
+        return tuple(_criterion_from_row(row) for row in self._session.scalars(stmt))
+
+    def save_criterion(self, record: AcceptanceCriterionRecord) -> None:
+        """Insert or update one acceptance criterion."""
+
+        row = self._session.get(AcceptanceCriterionRow, str(record.id))
+        if row is None:
+            self._session.add(
+                AcceptanceCriterionRow(
+                    criterion_id=str(record.id),
+                    project_id=str(record.project_id),
+                    requirement_object_id=str(record.requirement_object_id),
+                    identity_key=record.identity_key,
+                    statement=record.statement,
+                    created_at=_stamp(record.created_at),
+                    updated_at=_stamp(record.updated_at),
+                )
+            )
+            return
+        row.statement = record.statement
+        row.updated_at = _stamp(record.updated_at)
+
     def get_attention(self, item_id: AttentionItemId) -> AttentionItem | None:
         """Return one attention item, or ``None``."""
 
@@ -450,6 +503,18 @@ def _effect_from_row(row: ConstraintEffectRow) -> ConstraintEffectRecord:
         knowledge_item_id=KnowledgeItemId(row.knowledge_item_id),
         kind=row.kind,
         basis=row.basis,
+        created_at=as_aware(row.created_at),
+        updated_at=as_aware(row.updated_at),
+    )
+
+
+def _criterion_from_row(row: AcceptanceCriterionRow) -> AcceptanceCriterionRecord:
+    return AcceptanceCriterionRecord(
+        id=AcceptanceCriterionId(row.criterion_id),
+        project_id=ProjectId(row.project_id),
+        requirement_object_id=SynthesizedObjectId(row.requirement_object_id),
+        identity_key=row.identity_key,
+        statement=row.statement,
         created_at=as_aware(row.created_at),
         updated_at=as_aware(row.updated_at),
     )
