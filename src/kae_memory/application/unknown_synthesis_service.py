@@ -34,6 +34,7 @@ from kae_memory.domain.synthesizers.goals import distance_over
 from kae_memory.domain.synthesizers.unknowns import (
     ATTENTION_BOUND,
     UNKNOWN_ACTIONS,
+    UncoveredArea,
     UnknownPlan,
     explain,
     plan_unknowns,
@@ -175,26 +176,33 @@ class UnknownSynthesisService:
                 severities,
                 {item_id: roles.get(item_id) for item_id in item_ids},
                 distance_over(vectors),
-                incomplete_areas=self._incomplete_areas(session, project_id),
+                uncovered_areas=self._uncovered_areas(session, project_id),
             )
             return plan, bool(vectors), len(item_ids)
 
         return run_transaction(self._session_factory, operation)
 
-    def _incomplete_areas(self, session: DbSession, project_id: ProjectId) -> frozenset[str] | None:
-        """Area keys the last readiness snapshot leaves short of coverage.
+    def _uncovered_areas(
+        self, session: DbSession, project_id: ProjectId
+    ) -> tuple[UncoveredArea, ...] | None:
+        """The areas the last readiness snapshot leaves short of coverage.
 
         `D-149`. ``None`` means the project has never had readiness calculated,
         and the plan reports `ranked_by_blocking` false rather than ranking
         against an empty set — which would look exactly like a project whose
         areas are all covered.
+
+        `D-152`: the name, weight and mandatory flag come from the snapshot's own
+        rows rather than from `SOFTWARE_TEMPLATE`, so a project pinned to an
+        earlier template version is ranked under the semantics its coverage was
+        measured with.
         """
 
         snapshot = ReadinessSnapshotRepository(session).latest(project_id)
         if snapshot is None:
             return None
-        return frozenset(
-            area.key
+        return tuple(
+            UncoveredArea(key=area.key, name=area.name, weight=area.weight, required=area.mandatory)
             for area in snapshot.areas
             if area.state not in {AreaState.SUFFICIENT, AreaState.NOT_APPLICABLE}
         )

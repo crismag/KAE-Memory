@@ -49,20 +49,25 @@ recorded severity, which is corroboration rather than blocking impact. Both
 orderings are one function, so a project without readiness ranks exactly as it
 did before the relation existed.
 
-The other eight dimensions of `SYN-11` — materiality, urgency, confidence,
-conflict, authority, reversibility, information gain, novelty — are not built.
-`OD-NAV-2` is the same blocking question one layer up.
+**Materiality** — `SYN-11`/`D-152` — is how much of that blocking matters, and it
+is derived from the same snapshot rather than invented: every area carries the
+weight and the mandatory flag the template gave it when coverage was measured. A
+question standing in front of a required area outranks one standing in front of
+any number of optional ones, and among equals the heavier area leads.
+
+The remaining seven dimensions of `SYN-11` — urgency, confidence, conflict,
+authority, reversibility, information gain, novelty — are not built. `OD-NAV-2`
+is the same blocking question one layer up.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from ..area_classification import areas_named_by
 from ..clustering import cluster_by_complete_linkage
 from ..identifiers import KnowledgeItemId
-from ..readiness import SOFTWARE_TEMPLATE, ReadinessTemplate
 from .goals import CLUSTER_RADIUS, medoid
 
 #: How many themes may reach a person from one project.
@@ -82,6 +87,25 @@ UNKNOWN_ACTIONS: tuple[str, ...] = ("answer", "discuss", "defer")
 
 
 @dataclass(frozen=True, slots=True)
+class UncoveredArea:
+    """One discovery area a readiness snapshot leaves short of coverage.
+
+    Name, weight and mandatory flag are read off **that snapshot** rather than
+    off the current template (`D-152`). A snapshot records the semantics its
+    number was computed under, and `ReadinessSnapshot.is_behind_template` exists
+    precisely because a project can sit on an older version indefinitely — so
+    weighing its coverage with today's template would rank a question by a rule
+    its measurement never used.
+    """
+
+    key: str
+    name: str
+    weight: float
+    required: bool
+    """`AreaDefinition.mandatory`: whether readiness is unreachable without it."""
+
+
+@dataclass(frozen=True, slots=True)
 class UnknownTheme:
     """One unresolved question, however many times it was asked."""
 
@@ -90,8 +114,11 @@ class UnknownTheme:
     question: str
     severity: str
 
-    blocks: tuple[str, ...] = ()
-    """Area keys this question names that measured coverage has not reached.
+    blocks: tuple[UncoveredArea, ...] = ()
+    """Areas this question names that measured coverage has not reached.
+
+    Ordered as the ranking read them — required first, then heaviest — so the
+    sentence a person sees lists them in the order that produced the rank.
 
     Empty where the question names no area, where every area it names is already
     ``sufficient``, and — indistinguishably — where the project has no readiness
@@ -139,34 +166,64 @@ def is_current(role: str | None) -> bool:
     return role in {None, "active", "supporting", "conflicting"}
 
 
-def blocked_areas(question: str, incomplete_areas: Collection[str]) -> tuple[str, ...]:
+def blocked_areas(
+    question: str, uncovered_areas: Sequence[UncoveredArea]
+) -> tuple[UncoveredArea, ...]:
     """The areas ``question`` names that measured coverage has not yet reached.
 
     Naming is not blocking: a question about acceptance criteria in a project
     whose acceptance criteria are already ``sufficient`` is a question the
     project answered somewhere else, and ranking it above one standing in front
     of an empty area would be ranking by wording.
+
+    Ordered by consequence — required before optional, heavier before lighter,
+    key last so the order is stable — because this order is both what ranks the
+    theme and what the reader is shown.
     """
 
-    named = areas_named_by(question)
-    return tuple(area for area in named if area in incomplete_areas)
+    named = set(areas_named_by(question))
+    blocked = [area for area in uncovered_areas if area.key in named]
+    blocked.sort(key=lambda area: (not area.required, -area.weight, area.key))
+    return tuple(blocked)
+
+
+#: Ceiling on the corroboration term, so it cannot climb into the band above it.
+#:
+#: `D-152`: the terms below were bands in intent and not in arithmetic — a theme
+#: asked a thousand times outscored a theme that blocks an area, because
+#: ``asked * 10`` was free to exceed the blocking band's width. Capping makes two
+#: absurdly-repeated themes equally corroborated, which is a claim worth making;
+#: promoting repetition above blocking impact silently is not.
+CORROBORATION_CEILING = 9_999
 
 
 def theme_priority(theme: UnknownTheme) -> int:
-    """Rank, high first. What it blocks, then corroboration, then severity.
+    """Rank, high first. What it blocks, how much that weighs, then corroboration.
 
     Blocking impact leads where it is known — doc 09 asks for exactly that — and
     a theme with an empty `UnknownTheme.blocks` scores as it did before the
     relation existed, so a project with no readiness snapshot is ranked by the
     same function rather than by a second code path.
 
-    Corroboration stays the tie-break: a question the conversation returned to
-    six times is more likely to matter than one asked once. It is a weaker claim
-    than blocking impact, and the emitted item says which claim it is making.
+    **Materiality is layered over blocking rather than beside it** (`D-152`).
+    Blocking anything ``required`` outranks blocking any quantity of optional
+    areas, because a mandatory area is what makes readiness unreachable while an
+    optional one only moves the score; within that, the summed weight the
+    template gave those areas decides.
+
+    Corroboration stays the last tie-break: a question the conversation returned
+    to six times is more likely to matter than one asked once. It is a weaker
+    claim than blocking impact, and the emitted item says which claim it is
+    making.
     """
 
-    weight = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
-    return len(theme.blocks) * 10_000 + theme.asked * 10 + weight
+    severity = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
+    corroboration = min(theme.asked, CORROBORATION_CEILING) * 10 + severity
+    # Hundredths of a weight unit, so a template expressing weights more finely
+    # than the software template's halves still orders correctly.
+    materiality = round(sum(area.weight for area in theme.blocks) * 100)
+    blocks_required = any(area.required for area in theme.blocks)
+    return (1_000_000_000 if blocks_required else 0) + materiality * 100_000 + corroboration
 
 
 def plan_unknowns(
@@ -177,16 +234,17 @@ def plan_unknowns(
     distance: Callable[[KnowledgeItemId, KnowledgeItemId], float | None],
     *,
     bound: int = ATTENTION_BOUND,
-    incomplete_areas: Collection[str] | None = None,
+    uncovered_areas: Sequence[UncoveredArea] | None = None,
 ) -> UnknownPlan:
     """Reconcile extracted unknowns into current themes and a bounded queue.
 
     Pure. Storage, transactions and the evidence graph belong above it.
 
-    ``incomplete_areas`` is the set of area keys the project's last readiness
-    snapshot records as below ``sufficient``. ``None`` means *no snapshot*, which
-    is not the same as *every area covered*: the first cannot rank by blocking
-    impact at all, the second ranks by it and finds nothing blocked.
+    ``uncovered_areas`` are the areas the project's last readiness snapshot
+    records as below ``sufficient``, carrying that snapshot's own weights.
+    ``None`` means *no snapshot*, which is not the same as *every area covered*:
+    the first cannot rank by blocking impact at all, the second ranks by it and
+    finds nothing blocked.
     """
 
     resolved = tuple(item for item in item_ids if not is_current(roles.get(item)))
@@ -208,7 +266,7 @@ def plan_unknowns(
                 question=question,
                 severity=severity,
                 blocks=(
-                    () if incomplete_areas is None else blocked_areas(question, incomplete_areas)
+                    () if uncovered_areas is None else blocked_areas(question, uncovered_areas)
                 ),
             )
         )
@@ -221,7 +279,7 @@ def plan_unknowns(
         # Read off the input rather than asserted: the ranking is by blocking
         # impact exactly when there were measured area states to intersect
         # against, so the flag cannot drift from what the sort actually did.
-        ranked_by_blocking=incomplete_areas is not None,
+        ranked_by_blocking=uncovered_areas is not None,
     )
 
 
@@ -243,7 +301,10 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
 
     An area is named by the template's word for it and never by its key
     (`D-151`): this string is read on an attention card, and `acceptance_criteria`
-    is a column value wearing a sentence's clothes.
+    is a column value wearing a sentence's clothes. An area readiness does not
+    require says so (`D-152`), because *"Delivery and operational context is not
+    yet covered"* otherwise reads as something the project cannot proceed
+    without, which the template denies.
     """
 
     times = "asked once" if theme.asked == 1 else f"asked {theme.asked} times"
@@ -253,7 +314,7 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
             "KAE cannot yet say which areas depend on an open question"
         )
     elif theme.blocks:
-        areas = ", ".join(area_labels(theme.blocks))
+        areas = ", ".join(area_phrase(area) for area in theme.blocks)
         basis = f"ranked by what it blocks: {areas} {_are(theme.blocks)} not yet covered"
     else:
         basis = (
@@ -268,14 +329,13 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
     return f"{asked} {basis[0].upper()}{basis[1:]}."
 
 
-def area_labels(
-    keys: Sequence[str], template: ReadinessTemplate = SOFTWARE_TEMPLATE
-) -> tuple[str, ...]:
-    """The template's human name for each area key, in the order given."""
+def area_phrase(area: UncoveredArea) -> str:
+    """How one blocked area is said in a sentence somebody reads."""
 
-    names = {area.key: area.name for area in template.areas}
-    return tuple(names[key] for key in keys)
+    if area.required:
+        return area.name
+    return f"{area.name} (not required for readiness)"
 
 
-def _are(areas: tuple[str, ...]) -> str:
+def _are(areas: tuple[UncoveredArea, ...]) -> str:
     return "is" if len(areas) == 1 else "are"
