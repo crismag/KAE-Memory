@@ -13,6 +13,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .authority import best_standing, scope_of, standing_rank
 from .identifiers import KnowledgeItemId
 from .lexical import (
     MIN_COVERAGE,
@@ -27,7 +28,7 @@ from .lexical import (
     terms,
 )
 from .lifecycle import LifecycleState
-from .models import KnowledgeItem, KnowledgeKind
+from .models import KnowledgeItem, KnowledgeKind, KnowledgeSourceType
 from .relationships import KnowledgeRelation
 from .synthesis import EvidenceRole
 
@@ -126,6 +127,14 @@ class EvidenceSnapshot:
     kind: str
     content: str
     lifecycle: LifecycleState
+    source_types: frozenset[KnowledgeSourceType] = frozenset()
+    """Where this row came from, for `EPI-2`'s conflict direction.
+
+    Defaulted so every caller that does not care about authority keeps working,
+    and empty means *no producing link named a source* rather than *not fetched* —
+    `EPI-5b`'s ruling, which :func:`~kae_memory.domain.authority.best_standing`
+    reads as establishing nothing.
+    """
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,14 +205,23 @@ class Neighborhood:
         return self.measure is not NeighborhoodMeasure.NONE
 
 
-def snapshot_from_item(item: KnowledgeItem) -> EvidenceSnapshot:
-    """Project a knowledge item onto the fields reconciliation uses."""
+def snapshot_from_item(
+    item: KnowledgeItem,
+    source_types: frozenset[KnowledgeSourceType] = frozenset(),
+) -> EvidenceSnapshot:
+    """Project a knowledge item onto the fields reconciliation uses.
+
+    ``source_types`` is passed in rather than read off the item, because the
+    producing links live in their own table and one query for the whole project
+    is what `EPI-5b`'s readiness pass already does.
+    """
 
     return EvidenceSnapshot(
         id=item.id,
         kind=item.kind,
         content=item.current_version.content,
         lifecycle=item.lifecycle,
+        source_types=source_types,
     )
 
 
@@ -661,11 +679,37 @@ def _canonical(members: Sequence[EvidenceSnapshot]) -> EvidenceSnapshot:
 def _conflict_direction(
     left: EvidenceSnapshot, right: EvidenceSnapshot
 ) -> tuple[EvidenceSnapshot, EvidenceSnapshot]:
+    """Name the better-grounded side of a contradiction first.
+
+    Three steps, and the middle one is `EPI-2` (`D-148`):
+
+    1. **acceptance first.** Doc 17 calls acceptance an authority event, and it
+       is an event about the row rather than about where the row came from — a
+       source policy able to overrule a person's validation would make
+       confirmation advisory;
+    2. **then what each side's sources can establish about the claim's scope.**
+       Doc 17: conflicts are evaluated by what a source is capable of
+       establishing, not by which arrived last. Both sides of a polarity
+       conflict share a kind, so the pair has exactly one scope;
+    3. **then the identifier**, which is arbitrary and is what step 2 exists to
+       stop being the answer. It remains the tiebreak because two equally
+       grounded rows have no better order, and a stable one keeps the pass
+       idempotent.
+    """
+
     validated = LifecycleState.VALIDATED
     if left.lifecycle is validated and right.lifecycle is not validated:
         return left, right
     if right.lifecycle is validated and left.lifecycle is not validated:
         return right, left
+    scope = scope_of(left.kind)
+    if scope is not None:
+        ranks = (
+            standing_rank(best_standing(left.source_types, scope)),
+            standing_rank(best_standing(right.source_types, scope)),
+        )
+        if ranks[0] != ranks[1]:
+            return (left, right) if ranks[0] > ranks[1] else (right, left)
     ordered = sorted((left, right), key=lambda item: str(item.id))
     return ordered[0], ordered[1]
 

@@ -11,7 +11,7 @@ change event and writes nothing further.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -29,7 +29,7 @@ from kae_memory.domain.identifiers import (
     RelationshipId,
 )
 from kae_memory.domain.lifecycle import RETRIEVABLE
-from kae_memory.domain.models import Relationship
+from kae_memory.domain.models import KnowledgeSourceType, Relationship
 from kae_memory.domain.reconciliation import (
     NEIGHBORHOOD_LIMIT,
     AffectedSection,
@@ -57,6 +57,7 @@ from kae_memory.persistence.readiness_repositories import (
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.synthesis_repository import SynthesisRepository
 from kae_memory.persistence.transactions import run_transaction
+from kae_memory.persistence.workspace_repositories import ProvenanceLinkRepository
 
 
 def _now() -> datetime:
@@ -67,11 +68,25 @@ def _new_id() -> str:
     return str(uuid4())
 
 
+def _source_types(
+    by_item: Mapping[str, frozenset[str]], item_id: KnowledgeItemId
+) -> frozenset[KnowledgeSourceType]:
+    return frozenset(KnowledgeSourceType(value) for value in by_item.get(str(item_id), frozenset()))
+
+
 def evidence_digest(snapshots: Sequence[EvidenceSnapshot]) -> str:
-    """Stable digest of retrievable evidence identity, kind, lifecycle, and text."""
+    """Stable digest of retrievable evidence identity, kind, lifecycle, text and origin.
+
+    Provenance is in the digest because `EPI-2` made it an input to the plan
+    (`D-148`): a digest that ignored it would replay a graph computed from
+    different evidence. The cost is one extra pass the first time a project is
+    reconciled after this landed, writing rows it already holds, because both
+    persistence steps are upserts.
+    """
 
     material = "\n".join(
-        f"{item.id}\t{item.kind}\t{item.lifecycle.value}\t{item.content}"
+        f"{item.id}\t{item.kind}\t{item.lifecycle.value}\t"
+        f"{','.join(sorted(item.source_types))}\t{item.content}"
         for item in sorted(snapshots, key=lambda item: str(item.id))
     )
     return hashlib.sha256(material.encode()).hexdigest()
@@ -123,7 +138,10 @@ class ReconciliationService:
             knowledge = SqlAlchemyKnowledgeRepository(session)
             stored = knowledge.list_for_project(project_id, None)
             retrievable = tuple(item for item in stored if item.lifecycle in RETRIEVABLE)
-            snapshots = tuple(snapshot_from_item(item) for item in retrievable)
+            by_item = ProvenanceLinkRepository(session).source_types_by_item(project_id)
+            snapshots = tuple(
+                snapshot_from_item(item, _source_types(by_item, item.id)) for item in retrievable
+            )
             focus = _resolve_focus(item_ids, snapshots)
             graph = plan_reconciliation(snapshots, focus)
             digest = evidence_digest(snapshots)
