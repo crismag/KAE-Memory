@@ -95,6 +95,30 @@ _IDENTITY_ALLOWED = _IDENTITY_CORE | _IDENTITY_FILLER
 _TURNS = re.compile(r"\bturns?\b")
 _IS_A = re.compile(r"\bis an?\b")
 
+_ENUMERATION = "—"
+_CANDIDATE_SPLIT = re.compile(r"\s*,\s*|\s+or\s+")
+_LEADING_OR = re.compile(r"^or\s+")
+_CANDIDATE_FRAME = re.compile(
+    r"^(?:is|are|does|do|should|will)\s+\w+\s+\w+(?:\s+by|\s+as|\s+through)\s+"
+)
+"""The interrogative frame the first candidate carries and the rest share.
+
+*"is it defined by task completion, result publication, or …"* enumerates three
+answers, and only the first one wears the verb. Left in place it adds ``defined``
+to that candidate's words, which no answering statement contains.
+"""
+
+_GRAMMAR_NOT_SUBJECT = frozenset(
+    stem(word) for word in ("could", "did", "do", "does", "shall", "should", "where", "would")
+)
+"""Modals and interrogatives :data:`_STOPWORDS` happens to omit.
+
+Local rather than added to the lexical stopword list, which every search in the
+estate reads. A question's subject is what it asks *about*, and ``should`` is
+grammar — without this, *"Where **should** domain synthesizers live — Memory or
+CIE?"* counts *"Home **should** say what the project is"* as being on its topic.
+"""
+
 
 class PairRelation(StrEnum):
     """How two evidence rows relate, before persistence."""
@@ -243,6 +267,70 @@ def is_identity_statement(kind: str, text: str) -> bool:
     return bool(_IS_A.search(lowered) and named_kind)
 
 
+def enumerated_candidates(text: str) -> tuple[str, ...]:
+    """Return the answers a question offers itself, empty when it offers none.
+
+    `EPI-4`, `D-138`. An extractor working one chunk at a time writes questions
+    the rest of the corpus already answers, and the hard part is that it also
+    writes questions the corpus only shares a *topic* with. Enumeration is what
+    separates them: *"— at-least-once delivery, idempotency, or visibility
+    timeout handling?"* names what would count as an answer, and *"what threshold
+    of delivery attempts triggers the redrive policy?"* names only its subject,
+    which nine statements share and none answers.
+    """
+
+    if _ENUMERATION not in text:
+        return ()
+    _, tail = text.split(_ENUMERATION, 1)
+    candidates: list[str] = []
+    for part in _CANDIDATE_SPLIT.split(tail.strip().rstrip("?").strip()):
+        candidate = _CANDIDATE_FRAME.sub("", _LEADING_OR.sub("", part.strip()))
+        if candidate:
+            candidates.append(candidate)
+    return tuple(candidates)
+
+
+def question_subject(text: str) -> frozenset[str]:
+    """Return the words naming what a question asks about, grammar removed."""
+
+    subject = text.split(_ENUMERATION, 1)[0] if _ENUMERATION in text else text
+    return content_words(subject) - _GRAMMAR_NOT_SUBJECT
+
+
+def asserts_candidate(statement: str, candidate: str) -> bool:
+    """Return whether ``statement`` supplies the whole of ``candidate``.
+
+    Whole, not a share of it: a partial match is a statement about the same
+    subject as the candidate, which is the thing this rule exists to refuse.
+    """
+
+    wanted = content_words(candidate)
+    return bool(wanted) and wanted <= content_words(statement)
+
+
+def is_candidate_resolution(statement: EvidenceSnapshot, unknown: EvidenceSnapshot) -> bool:
+    """Return whether a statement answers an unknown that enumerated its answers.
+
+    Two conditions, no threshold. The unknown must offer candidates, and a
+    statement must assert one **and** be about what was asked — at least one word
+    shared with the question's subject. The second condition is not decoration:
+    without it *"Where should domain synthesizers live — Memory or CIE?"*
+    resolves against *"Memory must not become a blob warehouse"*, because the
+    bare candidate ``Memory`` is asserted whole by any sentence naming it.
+    """
+
+    if unknown.kind != KnowledgeKind.UNKNOWN.value or not is_question(unknown.content):
+        return False
+    if statement.kind == KnowledgeKind.UNKNOWN.value or is_question(statement.content):
+        return False
+    candidates = enumerated_candidates(unknown.content)
+    if not candidates:
+        return False
+    if not question_subject(unknown.content) & content_words(statement.content):
+        return False
+    return any(asserts_candidate(statement.content, candidate) for candidate in candidates)
+
+
 def claims_area_sufficient(kind: str, text: str, lifecycle: LifecycleState) -> bool:
     """Return whether a validated decision claims a discovery area is done."""
 
@@ -329,6 +417,8 @@ def classify_pair(left: EvidenceSnapshot, right: EvidenceSnapshot) -> PairRelati
     if is_polarity_conflict(left, right) or is_sufficiency_conflict(left, right):
         return PairRelation.CONTRADICT
     if is_identity_resolution(left, right):
+        return PairRelation.RESOLVE
+    if is_candidate_resolution(left, right) or is_candidate_resolution(right, left):
         return PairRelation.RESOLVE
     if is_support_pair(left, right):
         return PairRelation.SUPPORT
@@ -507,6 +597,15 @@ def _add_resolution_edges(
     consider: Callable[[EvidenceSnapshot, EvidenceSnapshot], bool],
     add: Callable[[IntendedEdge], None],
 ) -> None:
+    _add_identity_resolution_edges(snapshots, consider, add)
+    _add_candidate_resolution_edges(snapshots, consider, add)
+
+
+def _add_identity_resolution_edges(
+    snapshots: tuple[EvidenceSnapshot, ...],
+    consider: Callable[[EvidenceSnapshot, EvidenceSnapshot], bool],
+    add: Callable[[IntendedEdge], None],
+) -> None:
     statements = [item for item in snapshots if is_identity_statement(item.kind, item.content)]
     unknowns = [item for item in snapshots if is_identity_unknown(item.kind, item.content)]
     if not statements or not unknowns:
@@ -521,6 +620,41 @@ def _add_resolution_edges(
                 target_id=unknown.id,
                 type=KnowledgeRelation.SUPERSEDES,
                 reason="identity_resolution",
+            )
+        )
+
+
+def _add_candidate_resolution_edges(
+    snapshots: tuple[EvidenceSnapshot, ...],
+    consider: Callable[[EvidenceSnapshot, EvidenceSnapshot], bool],
+    add: Callable[[IntendedEdge], None],
+) -> None:
+    """`EPI-4`: one edge per unknown that enumerated its answers and got one.
+
+    Only the canonical resolver, the way identity resolution takes one: a
+    question answered by three statements is answered once, and three edges would
+    make the same fact read as corroboration.
+    """
+
+    unknowns = [item for item in snapshots if enumerated_candidates(item.content)]
+    if not unknowns:
+        return
+    for unknown in unknowns:
+        resolvers = [
+            item
+            for item in snapshots
+            if item.id != unknown.id
+            and consider(item, unknown)
+            and is_candidate_resolution(item, unknown)
+        ]
+        if not resolvers:
+            continue
+        add(
+            IntendedEdge(
+                source_id=_canonical(resolvers).id,
+                target_id=unknown.id,
+                type=KnowledgeRelation.SUPERSEDES,
+                reason="candidate_resolution",
             )
         )
 
@@ -610,9 +744,12 @@ __all__ = [
     "IntendedGraph",
     "Neighbor",
     "PairRelation",
+    "asserts_candidate",
     "claims_area_sufficient",
     "claims_open_candidate_review",
     "classify_pair",
+    "enumerated_candidates",
+    "is_candidate_resolution",
     "is_identity_resolution",
     "is_identity_statement",
     "is_identity_unknown",
@@ -622,5 +759,6 @@ __all__ = [
     "is_support_pair",
     "lexical_neighborhood",
     "plan_reconciliation",
+    "question_subject",
     "snapshot_from_item",
 ]
