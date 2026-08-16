@@ -237,30 +237,35 @@ class TestAgainstStatementsFromARealProject:
         "The system must be able to read reference works.",
     )
 
-    def test_neither_pair_groups_today(self) -> None:
-        """Including the one that should.
+    def test_the_true_pair_groups_and_the_false_one_does_not(self) -> None:
+        """Both used to score below the threshold, and that was the honest state.
 
-        This is the honest state and it is asserted rather than hidden: on real
-        statements the measure finds nothing, so the surface renders nothing.
-        A true answer rather than a useful one.
+        `D-139` changed it without touching the threshold or the measure: two
+        questions are mostly grammar, and *"where"*, *"would"* and *"does"* were
+        counted as shared meaning by one pair and as bulk by the other.
         """
 
-        assert group_related([("a", self.SAME_QUESTION[0]), ("b", self.SAME_QUESTION[1])]) == ()
+        assert group_related([("a", self.SAME_QUESTION[0]), ("b", self.SAME_QUESTION[1])]) == (
+            ("a", "b"),
+        )
         assert (
             group_related([("a", self.DIFFERENT_SUBJECTS[0]), ("b", self.DIFFERENT_SUBJECTS[1])])
             == ()
         )
 
-    def test_the_measure_cannot_separate_them(self) -> None:
-        """Fourteen thousandths between a true pair and a false one.
+    def test_the_measure_separates_them_once_grammar_is_out_of_the_union(self) -> None:
+        """0.143 apart, where it was 0.014.
 
-        **The reason the threshold was not simply lowered.** Any value chosen
-        between 0.286 and 0.300 is fitted to two examples and wrong on the
-        third — that is not a threshold to tune, it is a measure that cannot
-        tell them apart.
+        **The number that said no threshold could work**: a true pair at 0.300
+        and a false one at 0.286, so any value between them was fitted to two
+        examples. Removing three grammar words from the union — and only from
+        the union, since the false pair shares none of them — leaves the true
+        pair at 0.429 and the false one unmoved at 0.286.
 
-        Pinned so the next person to reach for the constant meets the evidence
-        first. The fix is `GROUP-MEASURE`.
+        This does not close `GROUP-MEASURE`, which `D-75` already answered with
+        cosine. It says the lexical fallback is no longer *unable* to tell these
+        two apart, and it is pinned so the next change to the constant meets the
+        current evidence rather than the old.
         """
 
         from kae_memory.domain.lexical import similarity
@@ -268,8 +273,6 @@ class TestAgainstStatementsFromARealProject:
         true_pair = similarity(*self.SAME_QUESTION)
         false_pair = similarity(*self.DIFFERENT_SUBJECTS)
 
-        assert true_pair > false_pair, "the true pair does at least score higher"
-        assert true_pair - false_pair < 0.02, (
-            f"a true pair at {true_pair:.3f} and a false one at {false_pair:.3f} — "
-            "no threshold separates these; see GROUP-MEASURE"
-        )
+        assert round(true_pair, 3) == 0.429
+        assert round(false_pair, 3) == 0.286
+        assert true_pair >= GROUPING_SIMILARITY > false_pair

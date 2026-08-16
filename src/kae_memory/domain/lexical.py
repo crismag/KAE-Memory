@@ -73,6 +73,10 @@ _STOPWORDS = frozenset(
         "but",
         "by",
         "can",
+        "could",
+        "did",
+        "do",
+        "does",
         "for",
         "from",
         "has",
@@ -89,6 +93,8 @@ _STOPWORDS = frozenset(
         "of",
         "on",
         "or",
+        "shall",
+        "should",
         "that",
         "the",
         "their",
@@ -100,14 +106,28 @@ _STOPWORDS = frozenset(
         "were",
         "what",
         "when",
+        "where",
         "which",
         "who",
         "why",
         "will",
         "with",
+        "would",
     }
 )
-"""Words that match everything and therefore rank nothing."""
+"""Words that match everything and therefore rank nothing.
+
+Three families, each complete: interrogatives, modals, and the auxiliaries of
+*be*, *have* and *do*. They were half-present until `LEX-MODALS` — ``what`` was
+here and ``where`` was not, ``must`` was and ``should`` was not — and a missing
+member is worse than an absent family, because it ranks. Against *"where should
+reports be stored"*, ``should`` was a quarter of the query, so *"A submitter
+should not approve their own report"* tied with the statement that answers it.
+
+Measured before widening, over both regression corpora and every consumer: not
+one of 31,320 pairs changes relation, and grouping and near-duplicates are
+untouched. Grammar carries no meaning to lose (`D-139`).
+"""
 
 _WORD = re.compile(r"[a-z0-9]+")
 
@@ -301,9 +321,18 @@ def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
 #:            "What is the project or system being worked on?"
 #:            "The system must be able to read reference works."
 #:
-#: **Fourteen thousandths** separate a true pair from a false one. That is not a
-#: threshold to tune; it is a measure that cannot tell them apart, and any value
-#: chosen between them would be fitted to two examples and wrong on the third.
+#: **Fourteen thousandths** separated a true pair from a false one. That was not
+#: a threshold to tune; it was a measure that could not tell them apart, and any
+#: value chosen between them would have been fitted to two examples and wrong on
+#: the third.
+#:
+#: **Those two figures are now 0.429 and 0.286** (`D-139`), and the threshold
+#: still has not moved. Two questions are mostly grammar, so ``where``, ``would``
+#: and ``does`` were counted as shared meaning by the true pair and as bulk by
+#: the false one; completing the stopword families took them out of the union of
+#: the first and left the second untouched. The lexical fallback separates these
+#: two by 0.143 — which does not close `GROUP-MEASURE`, answered by `D-75` with
+#: cosine, but does mean the fallback is no longer blind to the difference.
 #:
 #: Jaccard's weakness is length: it divides by the *union*, so the same meaning
 #: expressed at different lengths scores low, and a short statement can never
@@ -316,9 +345,9 @@ def match(query_terms: tuple[str, ...], text: str) -> LexicalMatch:
 #: rather than something changed while unattended — it decides how a person
 #: reads their own project.
 #:
-#: Until then this groups genuine near-duplicates and finds nothing on the live
-#: project, which is a true answer rather than a useful one. The surface renders
-#: nothing rather than something false.
+#: Until then this groups genuine near-duplicates, and on the live project's
+#: pinned pairs it now groups the one that should and leaves the one that should
+#: not. The surface renders nothing rather than something false.
 #:
 #: And the number that makes the polarity guard non-negotiable: **a rule and its
 #: exact negation score `1.00`.** Similarity alone would group the two

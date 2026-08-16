@@ -108,17 +108,6 @@ answers, and only the first one wears the verb. Left in place it adds ``defined`
 to that candidate's words, which no answering statement contains.
 """
 
-_GRAMMAR_NOT_SUBJECT = frozenset(
-    stem(word) for word in ("could", "did", "do", "does", "shall", "should", "where", "would")
-)
-"""Modals and interrogatives :data:`_STOPWORDS` happens to omit.
-
-Local rather than added to the lexical stopword list, which every search in the
-estate reads. A question's subject is what it asks *about*, and ``should`` is
-grammar — without this, *"Where **should** domain synthesizers live — Memory or
-CIE?"* counts *"Home **should** say what the project is"* as being on its topic.
-"""
-
 
 class PairRelation(StrEnum):
     """How two evidence rows relate, before persistence."""
@@ -291,10 +280,16 @@ def enumerated_candidates(text: str) -> tuple[str, ...]:
 
 
 def question_subject(text: str) -> frozenset[str]:
-    """Return the words naming what a question asks about, grammar removed."""
+    """Return the words naming what a question asks about, grammar removed.
+
+    Nothing is subtracted here any more. `D-138` kept a local list of the modals
+    and interrogatives :data:`~kae_memory.domain.lexical._STOPWORDS` happened to
+    omit; `D-139` measured the widening and made the shared list complete, so a
+    second copy could only rot.
+    """
 
     subject = text.split(_ENUMERATION, 1)[0] if _ENUMERATION in text else text
-    return content_words(subject) - _GRAMMAR_NOT_SUBJECT
+    return content_words(subject)
 
 
 def asserts_candidate(statement: str, candidate: str) -> bool:
