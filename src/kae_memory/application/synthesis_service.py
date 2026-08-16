@@ -38,6 +38,7 @@ from kae_memory.domain.identifiers import (
     KnowledgeItemId,
     ProjectId,
     ReconciliationEventId,
+    ResponsibilityAssignmentId,
     SynthesizedObjectId,
 )
 from kae_memory.domain.synthesis import (
@@ -52,6 +53,7 @@ from kae_memory.domain.synthesis import (
     EvidenceRole,
     EvidenceRoleRecord,
     ReconciliationEvent,
+    ResponsibilityAssignmentRecord,
     SynthesizedLifecycle,
     SynthesizedObject,
 )
@@ -300,6 +302,69 @@ class SynthesisService:
         def operation(session: DbSession) -> EvidenceRole:
             record = SynthesisRepository(session).get_role(knowledge_item_id)
             return EvidenceRole.ACTIVE if record is None else record.role
+
+        return run_transaction(self._session_factory, operation)
+
+    def assign_responsibility(
+        self,
+        project_id: ProjectId,
+        role_object_id: SynthesizedObjectId,
+        subject_key: str,
+        letter: str,
+        basis: str,
+    ) -> ResponsibilityAssignmentRecord:
+        """Record that a role holds a responsibility over a subject.
+
+        Idempotent by ``(role, subject)``: a rerun over unchanged evidence reads
+        the same letter and returns the stored cell. A changed letter updates it,
+        because a role holds one responsibility over one subject — two would be
+        the matrix contradicting itself rather than saying more.
+        """
+
+        subject_key = subject_key.strip()
+        basis = basis.strip()
+
+        def operation(session: DbSession) -> ResponsibilityAssignmentRecord:
+            repo = SynthesisRepository(session)
+            role = repo.get_object(role_object_id)
+            if role is None or role.project_id != project_id:
+                raise KnowledgeNotFoundError(f"unknown synthesized object: {role_object_id}")
+            now = _now()
+            existing = repo.get_assignment(role_object_id, subject_key)
+            if existing is not None:
+                if existing.letter == letter and existing.basis == basis:
+                    return existing
+                updated = replace(existing, letter=letter, basis=basis, updated_at=now)
+                repo.save_assignment(updated)
+                bump_knowledge_revision(session, project_id)
+                return updated
+            record = ResponsibilityAssignmentRecord(
+                id=ResponsibilityAssignmentId(_new_id()),
+                project_id=project_id,
+                role_object_id=role_object_id,
+                subject_key=subject_key,
+                letter=letter,
+                basis=basis,
+                created_at=now,
+                updated_at=now,
+            )
+            repo.save_assignment(record)
+            bump_knowledge_revision(session, project_id)
+            return record
+
+        return run_transaction(self._session_factory, operation)
+
+    def list_assignments(
+        self, project_id: ProjectId, subject_key: str | None = None
+    ) -> tuple[ResponsibilityAssignmentRecord, ...]:
+        """The project's responsibility matrix, which may legitimately be empty.
+
+        Empty means no evidence named both a role and a subject, which doc 03
+        calls a legitimate finding rather than a gap to fill with guesses.
+        """
+
+        def operation(session: DbSession) -> tuple[ResponsibilityAssignmentRecord, ...]:
+            return SynthesisRepository(session).list_assignments(project_id, subject_key)
 
         return run_transaction(self._session_factory, operation)
 

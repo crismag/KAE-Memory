@@ -1092,6 +1092,35 @@ class SynthesizedEvidenceLinkRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ResponsibilityAssignmentRow(Base):
+    """One cell of ``Role × Subject → Responsibility`` (doc 03, `SYN-5a`).
+
+    Identity is ``(role_object_id, subject_key)``: a role holds one letter over
+    a subject, so a rerun updates the letter rather than stacking a second
+    reading of the same evidence. The role's kind is not stored — a persona is
+    a role with no row here, and duplicating that would let the two disagree.
+    """
+
+    __tablename__ = "responsibility_assignments"
+    __table_args__ = (
+        UniqueConstraint(
+            "role_object_id", "subject_key", name="uq_responsibility_assignments_cell"
+        ),
+        Index("ix_responsibility_assignments_project", "project_id", "subject_key"),
+    )
+
+    assignment_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    role_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    subject_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    letter: Mapped[str] = mapped_column(String(32), nullable=False)
+    basis: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttentionItemRow(Base):
     """A human-attention item. Unconfirmed extraction is not one of these."""
 

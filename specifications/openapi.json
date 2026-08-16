@@ -15,6 +15,67 @@
         "title": "AcceptAssumptionRequest",
         "type": "object"
       },
+      "ActorSynthesisReportResponse": {
+        "description": "What one actor-synthesis run concluded, including what it refused.",
+        "properties": {
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ResponsibilityAssignmentResponse"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "clustered": {
+            "title": "Clustered",
+            "type": "boolean"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "downgraded": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Downgraded",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedRoleResponse"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "clustered",
+          "roles",
+          "assignments",
+          "conflicts",
+          "downgraded"
+        ],
+        "title": "ActorSynthesisReportResponse",
+        "type": "object"
+      },
       "AffectedSectionResponse": {
         "properties": {
           "domain": {
@@ -3961,6 +4022,30 @@
         "title": "ResolvedResponse",
         "type": "object"
       },
+      "ResponsibilityAssignmentResponse": {
+        "description": "One cell of `Role \u00d7 Subject \u2192 Responsibility`.",
+        "properties": {
+          "letter": {
+            "title": "Letter",
+            "type": "string"
+          },
+          "role_statement": {
+            "title": "Role Statement",
+            "type": "string"
+          },
+          "subject_key": {
+            "title": "Subject Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_statement",
+          "subject_key",
+          "letter"
+        ],
+        "title": "ResponsibilityAssignmentResponse",
+        "type": "object"
+      },
       "ReviewResponse": {
         "description": "What a reviewer needs without inspecting the database (FR-015).",
         "properties": {
@@ -3989,6 +4074,24 @@
           "findings"
         ],
         "title": "ReviewResponse",
+        "type": "object"
+      },
+      "RunActorSynthesisRequest": {
+        "description": "Optional idempotency key for an actor-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunActorSynthesisRequest",
         "type": "object"
       },
       "RunGoalSynthesisRequest": {
@@ -4938,6 +5041,30 @@
           "updated_at"
         ],
         "title": "SynthesizedObjectResponse",
+        "type": "object"
+      },
+      "SynthesizedRoleResponse": {
+        "description": "One role in the project's actor model, and what kind of thing it is.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "kind"
+        ],
+        "title": "SynthesizedRoleResponse",
         "type": "object"
       },
       "TraceResponse": {
@@ -7641,6 +7768,122 @@
           }
         },
         "summary": "Put Model",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/actors/responsibilities": {
+      "get": {
+        "description": "The stored responsibility matrix, optionally one subject's column.\n\nEmpty is a real answer and not an error: doc 03 keeps an unowned subject a\nlegitimate finding rather than filling it with a guessed owner.",
+        "operationId": "list_responsibilities_v1_projects__project_id__model_actors_responsibilities_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "subject_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResponsibilityAssignmentResponse"
+                  },
+                  "title": "Response List Responsibilities V1 Projects  Project Id  Model Actors Responsibilities Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Responsibilities",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/actors/runs": {
+      "post": {
+        "description": "Turn actor evidence into roles and the responsibilities they hold.\n\nThe response separates the cast list from the model: every candidate is\nreturned with the kind the **relation** gave it, so a reader can see that a\nhuman-shaped row holding nothing anywhere is a persona rather than a project\nrole \u2014 doc 03 line 10, and the discriminator `D-119` refused to defer.\n\nReturns what was **refused** as well as what was written. Conflicts are the\nsubjects two parties claim to answer for, and are also attention items.\nDowngrades are non-human claimants of Accountable, which are refused and\nreported here only: a governance rule that fired correctly is not somebody's\ninterruption.\n\nRerunning unchanged evidence writes nothing new \u2014 identity is the normalised\nstatement, so `put_object` and `assign_responsibility` return what is there.",
+        "operationId": "run_actor_synthesis_v1_projects__project_id__model_actors_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunActorSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Actor Synthesis",
         "tags": [
           "synthesis"
         ]

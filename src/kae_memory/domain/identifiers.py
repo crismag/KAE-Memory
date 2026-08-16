@@ -113,3 +113,8 @@ class ReconciliationEventId(Identifier):
 @dataclass(frozen=True, slots=True)
 class EvidenceBindingId(Identifier):
     """Stable identifier for one synthesized-object ↔ evidence link."""
+
+
+@dataclass(frozen=True, slots=True)
+class ResponsibilityAssignmentId(Identifier):
+    """Stable identifier for one cell of the role × subject responsibility matrix."""

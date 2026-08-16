@@ -3,7 +3,7 @@
 
 # HTTP API
 
-73 paths, 87 operations — 42 GET, 44 POST.
+75 paths, 89 operations — 43 GET, 45 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (42)
+## Reads (43)
 
 | Route | Purpose |
 |---|---|
@@ -45,6 +45,7 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/knowledge` | List a project's knowledge items |
 | `GET /v1/projects/{project_id}/knowledge/search` | Search project knowledge without loading the project |
 | `GET /v1/projects/{project_id}/model` | Read the synthesized project model (empty until a synthesizer runs) |
+| `GET /v1/projects/{project_id}/model/actors/responsibilities` | Read who is Responsible or Accountable for each subject |
 | `GET /v1/projects/{project_id}/model/{object_id}` | Read one synthesized object and the evidence it is mapped to |
 | `GET /v1/projects/{project_id}/modules` | Every module, every edge, and the order they can be built in |
 | `GET /v1/projects/{project_id}/modules/graph` | Every module, every edge, and the order they can be built in |
@@ -70,7 +71,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (44)
+## Writes (45)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -102,6 +103,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role` | Set how an extracted row participates in reasoning |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). |
 | `POST /v1/projects/{project_id}/model` | Create or update a working-model object, idempotent by identity |
+| `POST /v1/projects/{project_id}/model/actors/runs` | Turn actor evidence into the project's role and responsibility model |
 | `POST /v1/projects/{project_id}/model/goals/runs` | Cluster goal evidence into the project's goal model |
 | `POST /v1/projects/{project_id}/model/unknowns/runs` | Turn current unknowns into themes and raise the material few |
 | `POST /v1/projects/{project_id}/model/{object_id}/correct` | Record a person's wording as the authoritative synthesized object |

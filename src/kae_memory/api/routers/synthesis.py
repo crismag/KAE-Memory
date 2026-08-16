@@ -28,9 +28,17 @@ from kae_memory.domain.synthesis import (
     EvidenceRole,
 )
 
-from ..dependencies import GoalSynthesis, Memory, Reconciliation, Synthesis, UnknownSynthesis
+from ..dependencies import (
+    ActorSynthesis,
+    GoalSynthesis,
+    Memory,
+    Reconciliation,
+    Synthesis,
+    UnknownSynthesis,
+)
 from ..errors import ApiError, not_found
 from ..schemas import (
+    ActorSynthesisReportResponse,
     AttentionItemResponse,
     BindEvidenceRequest,
     CorrectSynthesizedObjectRequest,
@@ -44,6 +52,8 @@ from ..schemas import (
     ReconciliationReportResponse,
     RecordChangeRequest,
     ResolveAttentionRequest,
+    ResponsibilityAssignmentResponse,
+    RunActorSynthesisRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
     RunUnknownSynthesisRequest,
@@ -314,6 +324,64 @@ def run_unknown_synthesis(
     return UnknownSynthesisReportResponse.of(
         unknowns.synthesize(resolved, idempotency_key=body.idempotency_key)
     )
+
+
+@router.post("/model/actors/runs", response_model=ActorSynthesisReportResponse)
+def run_actor_synthesis(
+    project_id: str,
+    body: RunActorSynthesisRequest,
+    memory: Memory,
+    actors: ActorSynthesis,
+) -> ActorSynthesisReportResponse:
+    """Turn actor evidence into roles and the responsibilities they hold.
+
+    The response separates the cast list from the model: every candidate is
+    returned with the kind the **relation** gave it, so a reader can see that a
+    human-shaped row holding nothing anywhere is a persona rather than a project
+    role — doc 03 line 10, and the discriminator `D-119` refused to defer.
+
+    Returns what was **refused** as well as what was written. Conflicts are the
+    subjects two parties claim to answer for, and are also attention items.
+    Downgrades are non-human claimants of Accountable, which are refused and
+    reported here only: a governance rule that fired correctly is not somebody's
+    interruption.
+
+    Rerunning unchanged evidence writes nothing new — identity is the normalised
+    statement, so `put_object` and `assign_responsibility` return what is there.
+    """
+
+    resolved = _project(project_id, memory)
+    return ActorSynthesisReportResponse.of(
+        actors.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
+@router.get(
+    "/model/actors/responsibilities",
+    response_model=list[ResponsibilityAssignmentResponse],
+)
+def list_responsibilities(
+    project_id: str,
+    memory: Memory,
+    synthesis: Synthesis,
+    subject_key: str | None = Query(default=None),
+) -> list[ResponsibilityAssignmentResponse]:
+    """The stored responsibility matrix, optionally one subject's column.
+
+    Empty is a real answer and not an error: doc 03 keeps an unowned subject a
+    legitimate finding rather than filling it with a guessed owner.
+    """
+
+    resolved = _project(project_id, memory)
+    statement_of = {obj.id: obj.statement for obj in synthesis.list_objects(resolved)}
+    return [
+        ResponsibilityAssignmentResponse(
+            role_statement=statement_of[record.role_object_id],
+            subject_key=record.subject_key,
+            letter=record.letter,
+        )
+        for record in synthesis.list_assignments(resolved, subject_key)
+    ]
 
 
 @router.post("/reconciliation/runs", response_model=ReconciliationReportResponse)

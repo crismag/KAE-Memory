@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents import provider as embedding_provider
 from kae_memory.agents.goal_judge import default_goal_judge
+from kae_memory.application.actor_synthesis_service import ActorSynthesisService
 from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
@@ -254,6 +255,19 @@ def get_unknown_synthesis(request: Request) -> UnknownSynthesisService:
     return UnknownSynthesisService(factory, embedder=request.app.state.embedder)
 
 
+def get_actor_synthesis(request: Request) -> ActorSynthesisService:
+    """Return the actor synthesizer, which takes no embedder on purpose.
+
+    The other two synthesizers share `app.state.embedder` so one project is not
+    compacted in two vector spaces. Actor synthesis compares nothing: distance
+    between two actor noun phrases measures shared subject matter rather than
+    shared identity, which was measured before it was assumed (`D-121`).
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ActorSynthesisService(factory)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -343,3 +357,4 @@ Synthesis = Annotated[SynthesisService, Depends(get_synthesis)]
 Reconciliation = Annotated[ReconciliationService, Depends(get_reconciliation)]
 GoalSynthesis = Annotated[GoalSynthesisService, Depends(get_goal_synthesis)]
 UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthesis)]
+ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]

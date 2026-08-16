@@ -14,6 +14,7 @@ from kae_memory.domain.identifiers import (
     KnowledgeItemId,
     ProjectId,
     ReconciliationEventId,
+    ResponsibilityAssignmentId,
     SynthesizedObjectId,
 )
 from kae_memory.domain.synthesis import (
@@ -27,6 +28,7 @@ from kae_memory.domain.synthesis import (
     EvidenceRole,
     EvidenceRoleRecord,
     ReconciliationEvent,
+    ResponsibilityAssignmentRecord,
     SynthesizedLifecycle,
     SynthesizedObject,
 )
@@ -34,6 +36,7 @@ from kae_memory.persistence.tables import (
     AttentionItemRow,
     KnowledgeEvidenceRoleRow,
     ReconciliationEventRow,
+    ResponsibilityAssignmentRow,
     SynthesizedEvidenceLinkRow,
     SynthesizedObjectRow,
 )
@@ -187,6 +190,56 @@ class SynthesisRepository:
         row.role = record.role.value
         row.updated_at = _stamp(record.updated_at)
 
+    def get_assignment(
+        self, role_object_id: SynthesizedObjectId, subject_key: str
+    ) -> ResponsibilityAssignmentRecord | None:
+        """Return the cell this role occupies over this subject, if any."""
+
+        row = self._session.scalars(
+            select(ResponsibilityAssignmentRow).where(
+                ResponsibilityAssignmentRow.role_object_id == str(role_object_id),
+                ResponsibilityAssignmentRow.subject_key == subject_key,
+            )
+        ).first()
+        return None if row is None else _assignment_from_row(row)
+
+    def list_assignments(
+        self, project_id: ProjectId, subject_key: str | None = None
+    ) -> tuple[ResponsibilityAssignmentRecord, ...]:
+        """Return the project's responsibility matrix, optionally one column of it."""
+
+        stmt = select(ResponsibilityAssignmentRow).where(
+            ResponsibilityAssignmentRow.project_id == str(project_id)
+        )
+        if subject_key is not None:
+            stmt = stmt.where(ResponsibilityAssignmentRow.subject_key == subject_key)
+        stmt = stmt.order_by(
+            ResponsibilityAssignmentRow.subject_key, ResponsibilityAssignmentRow.letter
+        )
+        return tuple(_assignment_from_row(row) for row in self._session.scalars(stmt))
+
+    def save_assignment(self, record: ResponsibilityAssignmentRecord) -> None:
+        """Insert or update one cell of the responsibility matrix."""
+
+        row = self._session.get(ResponsibilityAssignmentRow, str(record.id))
+        if row is None:
+            self._session.add(
+                ResponsibilityAssignmentRow(
+                    assignment_id=str(record.id),
+                    project_id=str(record.project_id),
+                    role_object_id=str(record.role_object_id),
+                    subject_key=record.subject_key,
+                    letter=record.letter,
+                    basis=record.basis,
+                    created_at=_stamp(record.created_at),
+                    updated_at=_stamp(record.updated_at),
+                )
+            )
+            return
+        row.letter = record.letter
+        row.basis = record.basis
+        row.updated_at = _stamp(record.updated_at)
+
     def get_attention(self, item_id: AttentionItemId) -> AttentionItem | None:
         """Return one attention item, or ``None``."""
 
@@ -323,6 +376,19 @@ def _role_from_row(row: KnowledgeEvidenceRoleRow) -> EvidenceRoleRecord:
         knowledge_item_id=KnowledgeItemId(row.knowledge_item_id),
         project_id=ProjectId(row.project_id),
         role=EvidenceRole(row.role),
+        updated_at=as_aware(row.updated_at),
+    )
+
+
+def _assignment_from_row(row: ResponsibilityAssignmentRow) -> ResponsibilityAssignmentRecord:
+    return ResponsibilityAssignmentRecord(
+        id=ResponsibilityAssignmentId(row.assignment_id),
+        project_id=ProjectId(row.project_id),
+        role_object_id=SynthesizedObjectId(row.role_object_id),
+        subject_key=row.subject_key,
+        letter=row.letter,
+        basis=row.basis,
+        created_at=as_aware(row.created_at),
         updated_at=as_aware(row.updated_at),
     )
 

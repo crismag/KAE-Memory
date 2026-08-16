@@ -2331,6 +2331,85 @@ class UnknownSynthesisReportResponse(BaseModel):
         )
 
 
+class RunActorSynthesisRequest(BaseModel):
+    """Optional idempotency key for an actor-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedRoleResponse(BaseModel):
+    """One role in the project's actor model, and what kind of thing it is."""
+
+    synthesized_object_id: str
+    statement: str
+    kind: str
+    """`project_role`, `persona`, `ai_role`, `system` or `unclassified`.
+
+    Derived from the relation rather than stored: a human-shaped role holding no
+    responsibility anywhere is a persona (doc 03 line 10).
+    """
+
+
+class ResponsibilityAssignmentResponse(BaseModel):
+    """One cell of `Role × Subject → Responsibility`."""
+
+    role_statement: str
+    subject_key: str
+    letter: str
+
+
+class ActorSynthesisReportResponse(BaseModel):
+    """What one actor-synthesis run concluded, including what it refused."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    clustered: bool
+    """Always false, and sent rather than omitted (`D-121`).
+
+    Actor descriptions are noun phrases in the project's own vocabulary, so
+    embedding distance between two of them measures shared subject matter — the
+    nearest pair in the golden corpus is a human and the AI product. Nothing is
+    clustered, and a caller must be able to tell that from a model that was.
+    """
+
+    roles: list[SynthesizedRoleResponse]
+    assignments: list[ResponsibilityAssignmentResponse]
+    conflicts: list[str]
+    """Second Accountable claimants. Each is also an attention item."""
+
+    downgraded: list[str]
+    """Non-human claimants of Accountable, refused and reported here only.
+
+    A governance rule that fired correctly is not an interruption, so these do
+    not enter the attention queue. Omitting them would hide that the evidence
+    made the claim at all.
+    """
+
+    @classmethod
+    def of(cls, report: Any) -> "ActorSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            clustered=report.clustered,
+            roles=[
+                SynthesizedRoleResponse(
+                    synthesized_object_id=str(object_id), statement=statement, kind=kind.value
+                )
+                for object_id, statement, kind in report.roles
+            ],
+            assignments=[
+                ResponsibilityAssignmentResponse(
+                    role_statement=role_statement, subject_key=subject_key, letter=letter
+                )
+                for role_statement, subject_key, letter in report.assignments
+            ],
+            conflicts=[reason for _, reason in report.conflicts],
+            downgraded=[reason for _, reason in report.downgraded],
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

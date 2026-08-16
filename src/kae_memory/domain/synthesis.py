@@ -24,6 +24,7 @@ from .identifiers import (
     KnowledgeItemId,
     ProjectId,
     ReconciliationEventId,
+    ResponsibilityAssignmentId,
     SynthesizedObjectId,
 )
 from .models import KnowledgeKind
@@ -259,6 +260,32 @@ class EvidenceBinding:
     knowledge_item_id: KnowledgeItemId
     kind: EvidenceBindingKind
     created_at: datetime | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ResponsibilityAssignmentRecord:
+    """One cell of doc 03's ``Role × Subject → Responsibility`` matrix, stored.
+
+    The role is a synthesized object; the subject is a readiness area key. What
+    is deliberately *not* here is the role's kind: a persona is a role holding
+    no assignment anywhere, so storing the kind beside the assignments would
+    store an answer this table already contains and let the two disagree.
+    """
+
+    id: ResponsibilityAssignmentId
+    project_id: ProjectId
+    role_object_id: SynthesizedObjectId
+    subject_key: str
+    letter: str
+    basis: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.subject_key.strip():
+            raise DomainInvariantError("responsibility assignment subject_key must not be empty")
+        if not self.basis.strip():
+            raise DomainInvariantError("responsibility assignment basis must not be empty")
 
 
 @dataclass(frozen=True, slots=True)

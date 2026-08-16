@@ -656,6 +656,20 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.actors.run",
+        summary="Turn actor evidence into the project's role and responsibility model",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/actors/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.actors.responsibilities",
+        summary="Read who is Responsible or Accountable for each subject",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/model/actors/responsibilities",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.unknowns.run",
         summary="Turn current unknowns into themes and raise the material few",
         exposure=Exposure.PRODUCT_ONLY,
