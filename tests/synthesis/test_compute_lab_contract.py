@@ -62,13 +62,6 @@ from tests.synthesis.compute_lab_load import LoadedRepositoryCorpus, load_comput
 
 pytestmark = pytest.mark.synthesis_gate
 
-_CLASSIFICATION_IS_THE_USERS = (
-    "strict=True xfail: `EPI-3` is not built. `classify_offline` assigns the two "
-    "kinds exactly one area accepts and leaves the other six to a person, so "
-    "unclassified is still a user queue rather than KAE's processing backlog. "
-    "Since `D-110` this class grades placements as well as counting them."
-)
-
 _NO_REPOSITORY_SYNTHESIS = (
     "strict=True xfail: `EPI-1` and `EPI-6` are not built. Repository ingestion "
     "writes candidates straight to review and nothing derives a model from them, "
@@ -166,14 +159,20 @@ class TestEvidenceAndProvenanceSurvive:
         assert all(item.current_version.provenance.source.strip() for item in ingested.corpus.items)
 
 
-@pytest.mark.xfail(strict=True, reason=_CLASSIFICATION_IS_THE_USERS)
 class TestUnclassifiedIsKaesBacklogNotTheUsers:
-    """Outcome 3. `EPI-3`.
+    """Outcome 3. `EPI-3`, and the first of these gates to pass.
 
     Doc 17: *"The user should not become KAE-Memory's taxonomy clerk."* Its
     remedies are all internal — retry with broader context, cluster, attach as
     supporting evidence, classify as incidental — and escalation only where the
     ambiguity itself is material.
+
+    Satisfied by `EPI-3b` (`D-111`): the offline classifier reads the statement
+    instead of only its kind, so 157 of the 180 rows are placed and the 23 that
+    are not are ``unknown``, whose kind no area accepts. The last assertion is
+    the one that keeps this honest — placing rows is worth nothing if they land
+    in the wrong areas, and `EXPECTED_AREAS` was written before the classifier
+    existed.
     """
 
     def test_the_majority_of_observations_are_classified_without_a_human(
@@ -498,7 +497,6 @@ class TestOnlyMaterialMattersReachAPerson:
             assert item.actions, f"{item.title!r} says what is wrong but not what to do"
 
 
-@pytest.mark.xfail(strict=True, reason=_READINESS_COUNTS_CONFIRMATIONS)
 class TestReadinessDescribesEvidenceNotConfirmations:
     """Outcome 7's other half. `EPI-5`.
 
@@ -506,6 +504,13 @@ class TestReadinessDescribesEvidenceNotConfirmations:
     knowledge without a user having clicked Confirm on any extracted record."*
     `ADR-0003` still rules that area state is discrete, so this asserts states
     rather than a percentage.
+
+    **It took both halves of `EPI-5`, and then `EPI-3b`.** `EPI-5b` built the
+    ladder that lets repository-sourced evidence read as ``evidenced`` without a
+    confirmation, and this still failed afterwards (`D-107`) because the areas
+    it would have lifted held nothing: a ladder cannot lift an empty area. What
+    classification supplies is the evidence; what the ladder supplies is
+    permission to count it without a person.
     """
 
     def test_no_mandatory_area_reports_missing_after_a_full_ingest(

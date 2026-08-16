@@ -1,14 +1,20 @@
-"""Load the AWS Compute Lab corpus, and record what consuming a repository does today.
+"""Load the AWS Compute Lab corpus, and record what the kind-only rule did to it.
 
-These pass on the current product. That is the point: doc 17's failure was a
-screenshot, and a screenshot cannot regress. Running the product's own write
-and offline-classification paths over a fixture in the live project's shape
-turns *803 candidates await review, 692 items need classification* into
-something a test suite can watch stop being true.
+Doc 17's failure was a screenshot, and a screenshot cannot regress. Running the
+product's own write path and ``classify_offline`` over a fixture in the live
+project's shape turns *803 candidates await review, 692 items need
+classification* into something a test suite can watch stop being true.
+
+**These pin the classifier by name, and that is now load-bearing.** `EPI-3b`
+made content classification the offline default, so the corpus no longer strands
+85% of itself unless the kind-only rule is asked for explicitly — which is what
+these ask for. They characterise the state the gates in
+`test_compute_lab_contract.py` describe the exit from; they are not a claim
+about what the product does now.
 
 They also guard the fixture from the other direction. A later phase that
-satisfies the gates in `test_compute_lab_contract.py` by making the corpus
-smaller, tamer, or better classified at load would break these first.
+satisfied those gates by making the corpus smaller or tamer would break these
+first.
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.application import MemoryService, ReadinessService, SynthesisService
+from kae_memory.application.review_service import classify_offline
 from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeKind, Project
 from kae_memory.domain.readiness import AreaState
@@ -41,7 +48,7 @@ class TestTheRepositoryCorpusLoadsIntact:
         self, project: tuple[MemoryService, ReadinessService, Project]
     ) -> None:
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
 
         assert len(loaded.items) == len(OBSERVATIONS)
 
@@ -51,7 +58,7 @@ class TestTheRepositoryCorpusLoadsIntact:
         """Near-duplicates are the pathology, so none of them may collapse."""
 
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
         stored: dict[str, int] = dict.fromkeys(HEADLINE_COUNTS, 0)
         for item in loaded.items:
             stored[item.kind] += 1
@@ -62,7 +69,7 @@ class TestTheRepositoryCorpusLoadsIntact:
         self, project: tuple[MemoryService, ReadinessService, Project]
     ) -> None:
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
 
         assert all(
             item.current_version.provenance.source.startswith("repository:aws-compute-lab:")
@@ -77,7 +84,7 @@ class TestTodayConsumingARepositoryProducesABacklog:
         """809 rows in, 803 awaiting review. That is the defect `EPI-6` names."""
 
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
         proposed = [item for item in loaded.items if item.lifecycle is LifecycleState.PROPOSED]
         validated = [item for item in loaded.items if item.lifecycle is LifecycleState.VALIDATED]
 
@@ -93,7 +100,7 @@ class TestTodayConsumingARepositoryProducesABacklog:
         filing job."""
 
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
 
         share = len(loaded.unclassified) / len(loaded.items)
         assert abs(share - LIVE_UNCLASSIFIED_COUNT / LIVE_ITEM_COUNT) < 0.02
@@ -102,7 +109,7 @@ class TestTodayConsumingARepositoryProducesABacklog:
         self, project: tuple[MemoryService, ReadinessService, Project]
     ) -> None:
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
 
         assert {link.area_key for link in loaded.area_links} == {
             "users_and_stakeholders",
@@ -116,7 +123,7 @@ class TestTodayConsumingARepositoryProducesABacklog:
         answers them. `EPI-4`."""
 
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
         unknowns = [item for item in loaded.items if item.kind == KnowledgeKind.UNKNOWN.value]
 
         assert len(unknowns) == HEADLINE_COUNTS[KnowledgeKind.UNKNOWN.value]
@@ -129,7 +136,7 @@ class TestTodayConsumingARepositoryProducesABacklog:
         reported as having nothing. `EPI-5`."""
 
         memory, readiness, proj = project
-        load_compute_lab_corpus(memory, readiness, proj.id)
+        load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
         snapshot = readiness.calculate(proj.id)
 
         missing = [area for area in snapshot.areas if area.state is AreaState.MISSING]
@@ -147,7 +154,7 @@ class TestTheSynthesizedLayerStartsEmpty:
         because there is no model — every one of the 180 rows is the model."""
 
         memory, readiness, proj = project
-        loaded = load_compute_lab_corpus(memory, readiness, proj.id)
+        loaded = load_compute_lab_corpus(memory, readiness, proj.id, classify_offline)
         synthesis = SynthesisService(factory)
 
         assert len(loaded.items) == len(OBSERVATIONS)

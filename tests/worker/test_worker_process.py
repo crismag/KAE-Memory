@@ -281,13 +281,11 @@ def test_extraction_asks_for_the_review_that_makes_readiness_mean_anything(
 
     summary = reviewed.output_summary or {}
 
-    # `areas_assigned` is deliberately not asserted above zero here. This worker
-    # has no review adapter, so it classifies offline — only where a knowledge
-    # kind leaves no choice — and for this corpus that is nothing: `goal` fits
-    # both problem_and_value and scope_and_boundaries, `requirement` fits four
-    # areas. That is the two-of-ten fixture signature, and it is the subject of
-    # the reviewer work, not of the trigger this test is about.
-    assert summary["classification"] == "offline_by_kind"
+    # `areas_assigned` is deliberately not asserted here. This worker has no
+    # review adapter, so it classifies offline from the statement's own wording
+    # (`EPI-3b`) — how well it does that is the subject of its own tests, not of
+    # the trigger this one is about.
+    assert summary["classification"] == "offline_by_content"
 
     # What this test does assert about readiness: the review recalculated it,
     # inside the same run. A review that assigns areas and leaves the snapshot

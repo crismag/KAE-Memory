@@ -240,7 +240,7 @@ class TestReadinessSaysHowItWasClassified:
     ) -> None:
         """Three states, not two. *Never reviewed* is a fourth.
 
-        `offline_by_kind` is a deployment with no review engine configured;
+        `offline_by_content` is a deployment with no review engine configured;
         `None` is a project no review has run over. Collapsing them would tell
         somebody their project had been classified as far as it could be, when
         nothing had looked at it.
@@ -254,7 +254,7 @@ class TestReadinessSaysHowItWasClassified:
 
         report = readiness.classification(project)
 
-        assert report.engine == "offline_by_kind"
+        assert report.engine == "offline_by_content"
         assert report.by_model is False
         assert report.by_fixture is False
         assert report.degraded is True

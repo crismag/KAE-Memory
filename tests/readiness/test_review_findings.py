@@ -264,12 +264,15 @@ def test_a_review_run_classifies_what_it_can_and_reports_the_rest(
     assert executed is not None
     assert executed.status is RunStatus.SUCCEEDED
     summary = executed.output_summary or {}
-    assert summary["areas_assigned"] == 1, "only the unambiguous actor is classified"
+    assert summary["areas_assigned"] == 2, "both statements reach an area (`EPI-3b`)"
     assert summary["critical_findings"] > 0
-    assert summary["classification"] == "offline_by_kind"
+    assert summary["classification"] == "offline_by_content"
 
     links = readiness.area_links(project.id)
-    assert [link.area_key for link in links] == ["users_and_stakeholders"]
+    assert {link.area_key for link in links} == {
+        "users_and_stakeholders",
+        "functional_requirements",
+    }
     assert links[0].assigned_by_agent_run_id == executed.id, "classification is attributable"
 
 

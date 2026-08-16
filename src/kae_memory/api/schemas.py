@@ -394,24 +394,32 @@ class ClassificationResponse(BaseModel):
 
     @classmethod
     def of(cls, report: ClassificationReport) -> "ClassificationResponse":
-        offline_ceiling = (
-            "which assigns only unambiguous kinds. This percentage is lower "
-            "than a model would have reached, for a reason that is not about "
-            "the project."
+        # Two different offline behaviours, so two different sentences. The
+        # fixture reviewer still assigns only the kinds exactly one area
+        # accepts; the offline rule reads the statement (`EPI-3b`). Saying
+        # "only unambiguous kinds" about both was true until it was not.
+        not_about_the_project = (
+            "This percentage may differ from what a model would have reached, "
+            "for a reason that is not about the project."
+        )
+        offline_rule = (
+            "It places a statement from its own wording, and where the wording "
+            f"decides nothing it uses the default area for that kind. {not_about_the_project}"
         )
         if report.engine is None:
             note = "No review has run. Areas reflect whatever links already exist."
         elif report.by_fixture:
             note = (
-                "Classified by the fixture reviewer, which replays recorded "
-                f"payloads rather than judging, {offline_ceiling}"
+                "Classified by the fixture reviewer, which replays recorded payloads "
+                "rather than judging and assigns only kinds exactly one area accepts. "
+                f"{not_about_the_project}"
             )
-        elif report.engine == "offline_by_kind":
-            note = f"No review engine is configured, so the offline rule ran, {offline_ceiling}"
+        elif report.engine and report.engine.startswith("offline_by"):
+            note = f"No review engine is configured, so the offline rule ran. {offline_rule}"
         elif report.degraded:
             note = (
                 "Classification fell back to the offline rule for some or all "
-                f"statements, {offline_ceiling}"
+                f"statements. {offline_rule}"
             )
         else:
             note = "Classified by the configured review model."

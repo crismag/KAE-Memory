@@ -330,6 +330,6 @@ class TestF014:
         from kae_memory.worker import execution
 
         source = inspect.getsource(execution.AgentStepExecutor)
-        assert "offline_by_kind_after_reviewer_error" in source, (
+        assert "offline_by_content_after_reviewer_error" in source, (
             "the reviewer's degraded path must remain labelled in the run summary"
         )

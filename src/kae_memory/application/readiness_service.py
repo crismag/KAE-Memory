@@ -255,8 +255,10 @@ class ClassificationReport:
     """
 
     #: `reviewed_by_model`, `partially_reviewed_by_model`,
-    #: `reviewed_by_fixture`, `partially_reviewed_by_fixture`, `offline_by_kind`,
-    #: `offline_by_kind_after_reviewer_error`, or `None` when none has run.
+    #: `reviewed_by_fixture`, `partially_reviewed_by_fixture`,
+    #: `offline_by_content`, `offline_by_content_after_reviewer_error`, or
+    #: `None` when none has run. The two `offline_by_kind` spellings are what
+    #: runs before `EPI-3b` recorded, and are still read for what they meant.
     engine: str | None
     reviewed_at: datetime | None
 
@@ -294,6 +296,11 @@ class ClassificationReport:
             "partially_reviewed_by_model",
             "reviewed_by_fixture",
             "partially_reviewed_by_fixture",
+            "offline_by_content",
+            "offline_by_content_after_reviewer_error",
+            # Runs recorded before `EPI-3b`. A stored engine name is history,
+            # and dropping these would silently re-read an old degraded run as
+            # a judged one.
             "offline_by_kind",
             "offline_by_kind_after_reviewer_error",
         }

@@ -70,20 +70,43 @@ def project(factory: sessionmaker[Session]) -> tuple[MemoryService, ReadinessSer
 
 
 class TestWithoutAReviewer:
-    def test_only_unambiguous_kinds_are_classified(
+    def test_every_kind_that_can_reach_an_area_is_classified(
         self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
-        """Refusing to guess is the point when nothing can judge."""
+        """`EPI-3b`. Refusing to guess left the guessing to a person.
+
+        All three seeded statements are placed. Only the ``actor`` is one an
+        area accepts uniquely, and before this it was the only one placed.
+        """
 
         _, readiness, project_id = project
 
         executed = _review(factory, project_id, None)
 
         assert executed.status is RunStatus.SUCCEEDED
-        assert (executed.output_summary or {})["classification"] == "offline_by_kind"
-        assert [link.area_key for link in readiness.area_links(project_id)] == [
-            "users_and_stakeholders"
-        ]
+        assert (executed.output_summary or {})["classification"] == "offline_by_content"
+        assert len(readiness.area_links(project_id)) == len(SEED)
+        assert "users_and_stakeholders" in {
+            link.area_key for link in readiness.area_links(project_id)
+        }
+
+    def test_the_run_says_how_much_of_the_placement_the_statements_chose(
+        self, factory: sessionmaker[Session], project: tuple[Any, ...]
+    ) -> None:
+        """No column on an area link carries confidence, so the run reports it.
+
+        Without this the summary is an assigned count, and a run that read
+        every statement is indistinguishable from one that defaulted them all.
+        """
+
+        _, _readiness, project_id = project
+
+        summary = _review(factory, project_id, None).output_summary or {}
+
+        assert sum(summary["offline_confidence"].values()) == len(SEED)
+        # The `actor` is placed because one area accepts it; the other two say
+        # nothing that chooses between the areas their kinds reach.
+        assert summary["offline_confidence"] == {"high": 1, "low": 2}
 
 
 class TestWithAReviewer:
@@ -176,10 +199,12 @@ class TestResilience:
     def test_a_reviewer_failure_falls_back_rather_than_failing_the_run(
         self, factory: sessionmaker[Session], project: tuple[Any, ...]
     ) -> None:
-        """Losing the ambiguous cases costs coverage a human can still supply.
+        """A reviewer that cannot be trusted costs judgement, not placement.
 
-        Losing the run would cost the unambiguous ones too, and take the lease
-        and checkpoint with it.
+        Losing the run would cost the lease and the checkpoint with it. The
+        fallback is the offline content rule, so the batch still lands
+        somewhere — the run says so in its engine name rather than by leaving
+        the statements unplaced.
         """
 
         _, readiness, project_id = project
@@ -200,7 +225,7 @@ class TestResilience:
         assert executed.status is RunStatus.SUCCEEDED
         assert (executed.output_summary or {})[
             "classification"
-        ] == "offline_by_kind_after_reviewer_error"
+        ] == "offline_by_content_after_reviewer_error"
         # Plural, and a list. Requests are batched now, so a run can degrade on
         # some batches and not others, and "which failure" needs an answer that
         # a single code cannot give once there can be more than one.
@@ -208,9 +233,8 @@ class TestResilience:
             UnverifiableReviewError.error_code
         ]
         assert (executed.output_summary or {})["batches_degraded"] == 1
-        assert [link.area_key for link in readiness.area_links(project_id)] == [
-            "users_and_stakeholders"
-        ]
+        assert len(readiness.area_links(project_id)) == len(SEED)
+        assert (executed.output_summary or {})["offline_confidence"] == {"high": 1, "low": 2}
 
     def test_an_impossible_pairing_is_dropped_not_fatal(
         self, factory: sessionmaker[Session], project: tuple[Any, ...]
@@ -345,7 +369,7 @@ class TestBatching:
         assert summary["batches"] == 3
         assert summary["batches_degraded"] == 1
         assert summary["reviewer_errors"] == ["provider_timeout"]
-        # Not "offline_by_kind_after_reviewer_error": two batches really were
+        # Not "offline_by_content_after_reviewer_error": two batches really were
         # reviewed by the model, and saying otherwise understates the run.
         assert summary["classification"] == "partially_reviewed_by_model"
         assert readiness.area_links(project_id), "the surviving batches still classified"
@@ -368,7 +392,7 @@ class TestBatching:
 
         summary = _review(factory, project_id, AlwaysFailing()).output_summary or {}
 
-        assert summary["classification"] == "offline_by_kind_after_reviewer_error"
+        assert summary["classification"] == "offline_by_content_after_reviewer_error"
         assert summary["batches_degraded"] == summary["batches"]
         assert summary["reviewer_errors"] == ["provider_timeout"]
 

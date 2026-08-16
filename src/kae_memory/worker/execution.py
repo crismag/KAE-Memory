@@ -12,7 +12,8 @@ the same run is how a run reaches an illegal transition.
 """
 
 import os
-from collections.abc import Callable, Sequence
+from collections import Counter
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,7 +34,12 @@ from kae_memory.agents.review_adapter import DeterministicReviewAdapter
 from kae_memory.application.ingestion_service import DEFAULT_MAX_ITEMS_PER_CHUNK
 from kae_memory.application.memory_service import MemoryService, WriteKnowledgeRequest
 from kae_memory.application.readiness_service import ReadinessService
-from kae_memory.application.review_service import ReviewService, Severity, classify_offline
+from kae_memory.application.review_service import (
+    ReviewService,
+    Severity,
+    classify_offline_by_content,
+)
+from kae_memory.domain.area_classification import Placement
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.execution import AgentRole, AgentRun
 from kae_memory.domain.identifiers import KnowledgeItemId, MessageId
@@ -42,6 +48,21 @@ from kae_memory.domain.models import KnowledgeItem
 from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
 
 from .runner import FollowUp, StepResult
+
+
+def _confidence_provenance(placements: Iterable[Placement]) -> dict[str, Any]:
+    """How much of an offline classification the statements themselves chose.
+
+    Reported because the area link cannot carry it. Every kind with more than
+    one candidate area gets placed, so a run that placed everything at ``low``
+    and one that placed everything at ``high`` are indistinguishable from the
+    assigned count alone — and only the second is evidence that the text was
+    read. Omitted entirely when nothing was placed offline, so a fully reviewed
+    run does not carry an empty histogram.
+    """
+
+    counts: Counter[str] = Counter(placement.confidence for placement in placements)
+    return {"offline_confidence": dict(sorted(counts.items()))} if counts else {}
 
 
 class UnsupportedRoleError(RuntimeError):
@@ -316,7 +337,12 @@ class AgentStepExecutor:
         """
 
         if self.reviewer is None or not candidates:
-            return classify_offline(candidates), "offline_by_kind", {}
+            placements = classify_offline_by_content(candidates)
+            return (
+                tuple((item_id, placement.area_key) for item_id, placement in placements),
+                "offline_by_content",
+                _confidence_provenance(placement for _, placement in placements),
+            )
 
         area_keys = tuple(area.key for area in SOFTWARE_TEMPLATE.areas)
         batch_size = review_batch_size()
@@ -326,6 +352,7 @@ class AgentStepExecutor:
         degraded: list[str] = []
         reviewed_batches = 0
         provenance: dict[str, Any] = {}
+        fallback_placements: list[Placement] = []
 
         for start in range(0, len(candidates), batch_size):
             batch = candidates[start : start + batch_size]
@@ -341,11 +368,13 @@ class AgentStepExecutor:
             try:
                 result = self.reviewer.review(request)
             except ExtractionError as error:
-                # This batch only. The offline classifier still assigns the
-                # unambiguous kinds within it, and the batches that succeeded
-                # keep the judgement they were given.
+                # This batch only. The offline classifier still places what it
+                # can within it, and the batches that succeeded keep the
+                # judgement they were given.
                 degraded.append(error.error_code)
-                proposals.extend(classify_offline(batch))
+                fallback = classify_offline_by_content(batch)
+                fallback_placements.extend(placement for _, placement in fallback)
+                proposals.extend((item_id, placement.area_key) for item_id, placement in fallback)
                 continue
 
             reviewed_batches += 1
@@ -374,7 +403,7 @@ class AgentStepExecutor:
         # output (`AUD-007`), one layer up (`AUD-039`).
         judged = "model" if judges(self.reviewer) else "fixture"
         if not reviewed_batches:
-            engine = "offline_by_kind_after_reviewer_error"
+            engine = "offline_by_content_after_reviewer_error"
         elif degraded:
             engine = f"partially_reviewed_by_{judged}"
         else:
@@ -392,6 +421,7 @@ class AgentStepExecutor:
                 # The codes, not just the count. "which failure" is the first
                 # question asked, and a count cannot answer it.
                 "reviewer_errors": sorted(set(degraded)),
+                **_confidence_provenance(fallback_placements),
                 **provenance,
             },
         )

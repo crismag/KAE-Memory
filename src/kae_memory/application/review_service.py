@@ -19,6 +19,7 @@ from enum import StrEnum
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.domain.area_classification import Placement, classify_by_content
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
 from kae_memory.domain.lexical import is_near_duplicate
 from kae_memory.domain.lifecycle import LifecycleState
@@ -340,7 +341,12 @@ def unambiguous_area_for(kind: str, template: ReadinessTemplate = SOFTWARE_TEMPL
 def classify_offline(
     items: Sequence[KnowledgeItem], template: ReadinessTemplate = SOFTWARE_TEMPLATE
 ) -> tuple[tuple[KnowledgeItemId, str], ...]:
-    """Return the area assignments that need no judgement."""
+    """Return the area assignments that need no judgement.
+
+    The kind-only rule, kept because it is what the AWS Compute Lab baseline
+    reproduces: it strands 85% of a repository ingest, which is the defect
+    `EPI-3` names. `classify_offline_by_content` is what the product runs.
+    """
 
     assignments = []
     for item in items:
@@ -350,12 +356,32 @@ def classify_offline(
     return tuple(assignments)
 
 
+def classify_offline_by_content(
+    items: Sequence[KnowledgeItem], template: ReadinessTemplate = SOFTWARE_TEMPLATE
+) -> tuple[tuple[KnowledgeItemId, Placement], ...]:
+    """Return an area for every item whose kind can reach one (`EPI-3b`).
+
+    The placement rather than the area key alone: a caller that records only
+    where a statement went cannot afterwards say which placements the statement
+    chose and which took its kind's default. The worker reports that split in
+    its run summary, because no column on the link carries it.
+    """
+
+    placed = []
+    for item in items:
+        placement = classify_by_content(item.kind, item.current_version.content, template)
+        if placement is not None:
+            placed.append((item.id, placement))
+    return tuple(placed)
+
+
 __all__ = [
     "Finding",
     "FindingKind",
     "ReviewService",
     "Severity",
     "classify_offline",
+    "classify_offline_by_content",
     "unambiguous_area_for",
 ]
 

@@ -2,22 +2,28 @@
 
 Two steps, because the live failure took two: extraction wrote every
 observation as a proposed candidate, and a later review run assigned discovery
-areas with ``classify_offline`` — which assigns only the kinds exactly one area
-accepts. The 692 unclassified items are the second step declining to guess on
-the other six kinds, not the first step failing.
+areas. The 692 unclassified items are the second step declining to guess on six
+of the eight kinds, not the first step failing.
 
 Both steps use the product's own code. Nothing here asserts the pathology; it
 reproduces it and lets the tests measure what comes out.
+
+**Which classifier is a parameter, because the two of them are the before and
+after of `EPI-3b`.** The default is what the product runs offline today;
+``test_compute_lab_baseline.py`` passes ``classify_offline`` by name, so the
+kind-only rule that stranded 85% of the corpus stays reproducible instead of
+becoming a paragraph about what used to happen.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
-from kae_memory.application.review_service import classify_offline
+from kae_memory.application.review_service import classify_offline_by_content as classify_by_content
 from kae_memory.domain.execution import AgentRole
-from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
 from kae_memory.domain.models import KnowledgeItem, KnowledgeSourceType
 from kae_memory.domain.readiness import KnowledgeAreaLink
 from tests.synthesis.compute_lab import OBSERVATIONS, ExtractedObservation
@@ -40,8 +46,18 @@ class LoadedRepositoryCorpus:
         return tuple(item for item in self.items if str(item.id) not in linked)
 
 
+Classifier = Callable[[Sequence[KnowledgeItem]], Sequence[tuple[KnowledgeItemId, str]]]
+
+
+def _by_content(items: Sequence[KnowledgeItem]) -> tuple[tuple[KnowledgeItemId, str], ...]:
+    return tuple((item_id, placement.area_key) for item_id, placement in classify_by_content(items))
+
+
 def load_compute_lab_corpus(
-    memory: MemoryService, readiness: ReadinessService, project_id: ProjectId
+    memory: MemoryService,
+    readiness: ReadinessService,
+    project_id: ProjectId,
+    classifier: Classifier = _by_content,
 ) -> LoadedRepositoryCorpus:
     """Write every observation, confirm the two a person got to, classify offline.
 
@@ -81,7 +97,7 @@ def load_compute_lab_corpus(
 
     readiness.install_template()
     stored = memory.retrieve_knowledge(project_id, lifecycle=None)
-    for item_id, area_key in classify_offline(stored):
+    for item_id, area_key in classifier(stored):
         readiness.assign_area(project_id, item_id, area_key)
 
     return LoadedRepositoryCorpus(
