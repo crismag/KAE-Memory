@@ -48,6 +48,7 @@ class FindingKind(StrEnum):
     MISSING_AREA = "missing_area"
     PARTIAL_AREA = "partial_area"
     UNCLASSIFIED_KNOWLEDGE = "unclassified_knowledge"
+    AWAITING_CLASSIFICATION = "awaiting_classification"
     UNCONFIRMED_KNOWLEDGE = "unconfirmed_knowledge"
     OPEN_QUESTION = "open_question"
     UNRESOLVED_CONTRADICTION = "unresolved_contradiction"
@@ -241,18 +242,50 @@ class ReviewService:
                     )
                 )
 
-            unclassified = [item for item in live if str(item.id) not in classified]
-            if unclassified:
+            # Split by cause, because the two causes are owned by different code
+            # and neither is owned by a person (`D-108`, doc 17). A kind exactly
+            # one area accepts and no link means classification never ran; a kind
+            # several accept means `unambiguous_area_for` declined on purpose.
+            unrouted: list[KnowledgeItem] = []
+            undecided: list[KnowledgeItem] = []
+            for item in live:
+                if str(item.id) in classified:
+                    continue
+                if unambiguous_area_for(item.kind, self._template) is None:
+                    undecided.append(item)
+                else:
+                    unrouted.append(item)
+
+            if unrouted:
                 found.append(
                     Finding(
                         kind=FindingKind.UNCLASSIFIED_KNOWLEDGE,
-                        severity=Severity.MAJOR,
+                        severity=Severity.MINOR,
                         summary=(
-                            f"{len(unclassified)} item(s) belong to no discovery area, so they "
-                            "contribute nothing to readiness."
+                            f"{len(unrouted)} item(s) have a kind exactly one area accepts and "
+                            "were never placed."
                         ),
-                        recommended_action="Assign each item to the area it serves.",
-                        knowledge_item_ids=tuple(item.id for item in unclassified),
+                        recommended_action=(
+                            "Run classification over this project. Nothing here needed a "
+                            "judgement, so no one has to make one."
+                        ),
+                        knowledge_item_ids=tuple(item.id for item in unrouted),
+                    )
+                )
+            if undecided:
+                found.append(
+                    Finding(
+                        kind=FindingKind.AWAITING_CLASSIFICATION,
+                        severity=Severity.MINOR,
+                        summary=(
+                            f"{len(undecided)} item(s) have a kind several areas accept, so KAE "
+                            "has not placed them yet."
+                        ),
+                        recommended_action=(
+                            "KAE's own backlog. These are held back rather than guessed at, and "
+                            "they wait on classification, not on you."
+                        ),
+                        knowledge_item_ids=tuple(item.id for item in undecided),
                     )
                 )
 

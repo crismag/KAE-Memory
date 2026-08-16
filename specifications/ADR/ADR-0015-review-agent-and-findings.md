@@ -49,7 +49,8 @@ every time:
 | --- | --- |
 | `missing_area` | A mandatory area has no confirmed knowledge |
 | `partial_area` | An area has confirmed knowledge below its configured minimum |
-| `unclassified_knowledge` | A knowledge item is linked to no readiness area |
+| `unclassified_knowledge` | A knowledge item whose kind exactly one area accepts holds no link — classification never ran over it |
+| `awaiting_classification` | A knowledge item whose kind several areas accept holds no link — KAE declined to guess and owes the judgement (`D-108`) |
 | `unconfirmed_knowledge` | A proposed candidate is still awaiting human review |
 | `open_question` | An `unknown` knowledge item — a gap the project recorded about itself |
 | `unresolved_contradiction` | A `CONTRADICTS` relationship with no `resolved_at` |
@@ -121,11 +122,17 @@ materialised snapshot, and the latter would reintroduce exactly the cache this
 decision avoids. Recorded rather than solved.
 
 **Accepted limit.** Offline classification reaches only two of eight kinds, so an
-offline demonstration will show `unclassified_knowledge` for nearly everything
+offline demonstration will show `awaiting_classification` for nearly everything
 and readiness will barely move without a human assigning areas. That is honest —
 the work genuinely has not been done — but it means the offline path demonstrates
 the *mechanism*, not the assistance. Live classification is what makes the Review
 Agent feel like an agent.
+
+`D-108` corrects who that backlog belongs to, not its size: the finding is
+`minor` and its action names KAE, because doc 17 rules that a classifier having
+declined is not a reason to create human work. Making the count itself fall is
+`EPI-3`'s second half and needs a content-based classifier — **not** a widening
+of which kinds an area accepts, which `RUN-C1` already refused.
 
 ## Related
 

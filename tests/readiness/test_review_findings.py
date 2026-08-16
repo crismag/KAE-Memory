@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
 from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
+from kae_memory.application.clarification_service import _is_askable
 from kae_memory.application.review_service import (
     FindingKind,
     ReviewService,
@@ -85,7 +86,110 @@ def test_unconfirmed_and_unclassified_knowledge_is_reported(
     kinds = _kinds(review, project.id)
 
     assert FindingKind.UNCONFIRMED_KNOWLEDGE in kinds
-    assert FindingKind.UNCLASSIFIED_KNOWLEDGE in kinds
+    # `requirement` is accepted by four areas, so this is KAE's own outstanding
+    # judgement rather than the pipeline having skipped the item (`D-108`).
+    assert FindingKind.AWAITING_CLASSIFICATION in kinds
+
+
+class TestUnplacedKnowledgeIsKaesBacklog:
+    """`EPI-3`, first half. `D-108`.
+
+    Doc 17: *"The user should not become KAE-Memory's taxonomy clerk."* One
+    finding over every unlinked item said *"Assign each item to the area it
+    serves"* to a person, for two causes that are both KAE's.
+    """
+
+    def test_a_kind_several_areas_accept_is_awaiting_kaes_judgement(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        memory = MemoryService(factory)
+        review = ReviewService(factory)
+        project = memory.create_project("Ambiguous kind")
+        _write(memory, project.id, "requirement", "r")
+
+        kinds = _kinds(review, project.id)
+
+        assert FindingKind.AWAITING_CLASSIFICATION in kinds
+        assert FindingKind.UNCLASSIFIED_KNOWLEDGE not in kinds
+
+    def test_a_kind_one_area_accepts_and_no_link_is_a_pipeline_defect(
+        self, factory: sessionmaker[Session]
+    ) -> None:
+        """Nothing declined here. `classify_offline` would have placed it, so
+        the only explanation is that classification never ran."""
+
+        memory = MemoryService(factory)
+        review = ReviewService(factory)
+        project = memory.create_project("Never classified")
+        _write(memory, project.id, "actor", "a")
+
+        kinds = _kinds(review, project.id)
+
+        assert FindingKind.UNCLASSIFIED_KNOWLEDGE in kinds
+        assert FindingKind.AWAITING_CLASSIFICATION not in kinds
+
+    def test_neither_cause_is_raised_above_minor(self, factory: sessionmaker[Session]) -> None:
+        """The severity is the substance. Renaming the sentence and leaving it
+        at `MAJOR` would be `D-32` again — prose changed, behaviour not."""
+
+        memory = MemoryService(factory)
+        review = ReviewService(factory)
+        project = memory.create_project("Not urgent")
+        _write(memory, project.id, "actor", "a")
+        _write(memory, project.id, "requirement", "r")
+
+        unplaced = [
+            finding
+            for finding in review.findings(project.id)
+            if finding.kind
+            in (FindingKind.UNCLASSIFIED_KNOWLEDGE, FindingKind.AWAITING_CLASSIFICATION)
+        ]
+
+        assert len(unplaced) == 2
+        assert all(finding.severity is Severity.MINOR for finding in unplaced)
+
+    def test_no_unplaced_item_is_asked_of_a_person(self, factory: sessionmaker[Session]) -> None:
+        """The clarification queue is what turns a finding into a question. A
+        kind KAE owns must not reach it under either name."""
+
+        memory = MemoryService(factory)
+        review = ReviewService(factory)
+        project = memory.create_project("Not a question")
+        _write(memory, project.id, "actor", "a")
+        _write(memory, project.id, "requirement", "r")
+
+        askable = [finding for finding in review.findings(project.id) if _is_askable(finding)]
+
+        assert askable, "the guard would pass vacuously if nothing were askable"
+        assert not [
+            finding
+            for finding in askable
+            if finding.kind
+            in (FindingKind.UNCLASSIFIED_KNOWLEDGE, FindingKind.AWAITING_CLASSIFICATION)
+        ]
+
+    def test_the_split_loses_no_item(self, factory: sessionmaker[Session]) -> None:
+        """Two findings where there was one, over exactly the same items."""
+
+        memory = MemoryService(factory)
+        readiness = ReadinessService(factory)
+        review = ReviewService(factory)
+        project = memory.create_project("Conservation")
+        for kind, key in (("actor", "a"), ("requirement", "r"), ("decision", "d")):
+            _write(memory, project.id, kind, key)
+
+        reported = {
+            item_id
+            for finding in review.findings(project.id)
+            if finding.kind
+            in (FindingKind.UNCLASSIFIED_KNOWLEDGE, FindingKind.AWAITING_CLASSIFICATION)
+            for item_id in finding.knowledge_item_ids
+        }
+        linked = {link.knowledge_item_id for link in readiness.area_links(project.id)}
+        everything = {item.id for item in memory.retrieve_knowledge(project.id, lifecycle=None)}
+
+        assert reported == everything - linked
+        assert len(reported) == 3
 
 
 def test_an_open_question_is_reported_as_one(factory: sessionmaker[Session]) -> None:

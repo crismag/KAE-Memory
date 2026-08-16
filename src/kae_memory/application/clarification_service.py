@@ -673,10 +673,14 @@ class ClarificationService:
 _ASKABLE = {"missing_area", "partial_area", "open_question", "open_blocker"}
 """Finding kinds that describe something a person can answer.
 
-Excluded on purpose: ``unconfirmed_knowledge`` and ``unclassified_knowledge``
-are queues of work, and ``duplicate_knowledge`` and
-``unresolved_contradiction`` are choices between statements already recorded.
-None of them is a gap in what the project knows.
+Excluded on purpose: ``unconfirmed_knowledge``, ``unclassified_knowledge`` and
+``awaiting_classification`` are queues of work — the last two are KAE's own
+(`D-108`) — and ``duplicate_knowledge`` and ``unresolved_contradiction`` are
+choices between statements already recorded. None of them is a gap in what the
+project knows.
+
+An allowlist rather than a denylist, so a finding kind added later is silently
+unaskable rather than silently asked.
 """
 
 

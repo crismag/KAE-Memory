@@ -426,7 +426,10 @@ def _knowledge_health(
         "assumptions": labels.get("assumption", 0),
         "open_questions": len(blueprint.open_questions),
         "awaiting_review": ids_for("unconfirmed_knowledge"),
-        "unclassified": ids_for("unclassified_knowledge"),
+        # Both halves of the split (`D-108`). This is a diagnostic count of items
+        # holding no area, and it would understate by the larger half if it read
+        # only the kind that kept the old name.
+        "unclassified": ids_for("unclassified_knowledge") + ids_for("awaiting_classification"),
         "contradictions": sum(1 for f in findings if f.kind.value == "unresolved_contradiction"),
         "coverage_percentage": snapshot.percentage,
     }
