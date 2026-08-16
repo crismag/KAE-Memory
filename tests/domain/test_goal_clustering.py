@@ -16,12 +16,12 @@ from collections.abc import Callable, Sequence
 
 import pytest
 
+from kae_memory.domain.clustering import cluster_by_complete_linkage
 from kae_memory.domain.identifiers import KnowledgeItemId
 from kae_memory.domain.synthesizers.goals import (
     CLUSTER_RADIUS,
     GoalCandidate,
     GoalJudgement,
-    cluster_by_complete_linkage,
     is_conversation_local,
     medoid,
     plan_goal_model,
@@ -86,7 +86,7 @@ class TestItCannotChain:
             same_side = str(left).startswith("far") == str(right).startswith("far")
             return 0.05 if same_side else 0.9
 
-        clusters = cluster_by_complete_linkage(near + far, distance)
+        clusters = cluster_by_complete_linkage(near + far, distance, radius=CLUSTER_RADIUS)
 
         assert sorted(len(cluster) for cluster in clusters) == [3, 3]
 
@@ -105,7 +105,7 @@ class TestWhatCannotBeCompared:
         def distance(left: KnowledgeItemId, right: KnowledgeItemId) -> float | None:
             return None if "item-2" in {str(left), str(right)} else 0.1
 
-        clusters = cluster_by_complete_linkage(items, distance)
+        clusters = cluster_by_complete_linkage(items, distance, radius=CLUSTER_RADIUS)
 
         assert (KnowledgeItemId("item-2"),) in clusters
 
@@ -127,8 +127,8 @@ class TestWhatCannotBeCompared:
         items = _ids(8)
         distance = _line(CLUSTER_RADIUS / 3)
 
-        first = cluster_by_complete_linkage(items, distance)
-        second = cluster_by_complete_linkage(items, distance)
+        first = cluster_by_complete_linkage(items, distance, radius=CLUSTER_RADIUS)
+        second = cluster_by_complete_linkage(items, distance, radius=CLUSTER_RADIUS)
 
         assert first == second
 

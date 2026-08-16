@@ -9,12 +9,12 @@ current state. One prompt over all of them would produce prose that is not any
 of those shapes.
 """
 
+from ..clustering import cluster_by_complete_linkage
 from .goals import (
     CLUSTER_RADIUS,
     GoalCandidate,
     GoalJudge,
     GoalJudgement,
-    cluster_by_complete_linkage,
     cosine_distance,
     distance_over,
     is_conversation_local,

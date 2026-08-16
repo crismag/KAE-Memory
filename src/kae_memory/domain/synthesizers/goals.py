@@ -42,7 +42,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from itertools import combinations
 from math import sqrt
 from typing import Protocol
 
@@ -172,54 +171,6 @@ class GoalJudge(Protocol):
     def judge(self, statement: str, identity: Sequence[str]) -> GoalJudgement:
         """Return a verdict with a reason. Never raises for an unclear case."""
         ...
-
-
-def cluster_by_complete_linkage(
-    item_ids: Sequence[KnowledgeItemId],
-    distance: Callable[[KnowledgeItemId, KnowledgeItemId], float | None],
-    *,
-    radius: float = CLUSTER_RADIUS,
-) -> tuple[tuple[KnowledgeItemId, ...], ...]:
-    """Group items so that every pair inside a group is within ``radius``.
-
-    Agglomerative, merging the closest admissible pair of clusters first, where
-    a pair's score is the **largest** distance across them. That maximum is what
-    makes this resist chaining: admitting a member that is close to one existing
-    member but far from another would raise the score above the radius and the
-    merge is refused.
-
-    ``distance`` returns ``None`` where two items cannot be compared — an
-    unembedded row, say. Unknown is not zero and not infinity: the pair simply
-    never merges, so an unindexed item stays a cluster of one rather than
-    joining the first thing it is asked about.
-
-    Deterministic: ties break on the ordering of ``item_ids``, so the same
-    evidence produces the same clusters and the same identity keys.
-    """
-
-    groups: list[list[KnowledgeItemId]] = [[item] for item in item_ids]
-
-    while True:
-        best: tuple[float, int, int] | None = None
-        for left, right in combinations(range(len(groups)), 2):
-            worst = 0.0
-            admissible = True
-            for a in groups[left]:
-                for b in groups[right]:
-                    gap = distance(a, b)
-                    if gap is None or gap > radius:
-                        admissible = False
-                        break
-                    worst = max(worst, gap)
-                if not admissible:
-                    break
-            if admissible and (best is None or worst < best[0]):
-                best = (worst, left, right)
-        if best is None:
-            return tuple(tuple(group) for group in groups)
-        _, left, right = best
-        groups[left] = groups[left] + groups[right]
-        del groups[right]
 
 
 def medoid(

@@ -21,9 +21,11 @@ These assert that line as behaviour rather than as intent.
 
 from __future__ import annotations
 
+from itertools import combinations
+
 import pytest
 
-from kae_memory.domain.lexical import GROUPING_SIMILARITY, group_related
+from kae_memory.domain.lexical import GROUPING_SIMILARITY, group_related, similarity
 
 
 def statements(*pairs: tuple[str, str]) -> list[tuple[str, str]]:
@@ -59,19 +61,18 @@ class TestItGroupsWhatBelongsTogether:
 
         assert groups == ()
 
-    def test_it_follows_a_chain(self) -> None:
-        """A groups with C when both are close to B.
+    def test_three_statements_all_close_to_each_other_group(self) -> None:
+        """Measured: a-b 0.50, b-c 0.89, a-c 0.455 — every pair above the
+        threshold, so this is a clique and not a chain.
 
-        Single-link clustering, deliberately. *"Read these together"* is
-        transitive in a way *"these are the same"* is not — which is the other
-        reason this is not a duplicate check.
+        It was named `test_it_follows_a_chain` and its comment called it one,
+        which is why `D-146` measured before editing: moving to complete linkage
+        was expected to break this and does not, because there was never a link
+        here doing work no other pair could do.
         """
 
         groups = group_related(
             statements(
-                # Measured: a-b 0.50, b-c 0.89, a-c 0.45 — all above the
-                # threshold, so this is a chain rather than three pairs. The
-                # point stands either way: b is what links them.
                 ("a", "Invoices must be sent within three days of a job finishing."),
                 ("b", "Invoices must be sent within three days and carry a client reference."),
                 ("c", "Every invoice must carry a client reference and be sent within three days."),
@@ -80,6 +81,48 @@ class TestItGroupsWhatBelongsTogether:
 
         assert len(groups) == 1
         assert set(groups[0]) == {"a", "b", "c"}
+
+    def test_a_statement_joins_only_what_it_is_itself_close_to(self) -> None:
+        """`D-76`'s defect, in three verbatim statements from the golden corpus.
+
+        The goal is 0.429 from the first question and **0.333 from the second**,
+        below the threshold. Single linkage grouped all three anyway, because the
+        goal was close enough to *one* of them; complete linkage scores the merge
+        by the furthest pair and refuses it. The two questions, which are 0.60
+        apart, stay together — the refusal costs nothing true.
+        """
+
+        groups = group_related(
+            statements(
+                ("goal", "Transform rough project material into a development-ready plan."),
+                ("q1", "When is a plan development-ready?"),
+                ("q2", "How do we know the plan is development-ready?"),
+            )
+        )
+
+        assert groups == (("q1", "q2"),)
+
+    def test_every_pair_inside_a_group_meets_the_threshold(self) -> None:
+        """The invariant, stated over the output rather than over the algorithm.
+
+        A group is a claim about all of its members. Under single linkage it was
+        a claim about a path through them, and a person reading one could not
+        tell which.
+        """
+
+        given = statements(
+            ("a", "Invoices must be sent within three days of a job finishing."),
+            ("b", "Invoices must be sent within three days and carry a client reference."),
+            ("c", "Every invoice must carry a client reference and be sent within three days."),
+            ("d", "Transform rough project material into a development-ready plan."),
+            ("e", "When is a plan development-ready?"),
+            ("f", "How do we know the plan is development-ready?"),
+        )
+        text = dict(given)
+
+        for group in group_related(given):
+            for left, right in combinations(group, 2):
+                assert similarity(text[left], text[right]) >= GROUPING_SIMILARITY
 
     def test_the_largest_group_comes_first(self) -> None:
         groups = group_related(

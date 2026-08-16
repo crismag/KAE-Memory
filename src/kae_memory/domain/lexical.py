@@ -18,6 +18,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from .clustering import cluster_by_complete_linkage
+
 MIN_COVERAGE = 0.5
 """The share of a query's terms a text must contain to count as a result.
 
@@ -370,14 +372,20 @@ def group_related(
     behalf, which is why it can ship while `EM-3`'s ruling on unattended merging
     stays open.
 
-    Single-link clustering: A groups with C when both are close to B, even if A
-    and C are not close to each other. That is the right shape for *"read these
-    together"* and the wrong shape for *"these are the same"* — which is the
-    other reason this is not a duplicate check.
+    **Complete linkage, at a radius of ``1 - threshold``** (`D-146`). Every pair
+    inside a group is at least as similar as the threshold, so a statement joins
+    only what it is itself close to. `D-76` measured what the previous single-link
+    version cost: A grouped with C whenever both were close to B, which chained 26
+    of 88 statements on one live project into a single unreadable group. On the
+    golden corpus it joined *"Transform rough project material into a
+    development-ready plan"* to two questions about readiness, at 0.333 against
+    one of them.
 
-    Polarity is respected through `is_near_duplicate`'s own rule at the pair
-    level: a rule and its exact negation share almost every content word, and
-    putting them in one group would suggest agreement where there is a conflict.
+    Polarity is respected at the pair level: a rule and its exact negation share
+    almost every content word, and putting them in one group would suggest
+    agreement where there is a conflict. They score the **maximum** distance
+    rather than `None`, which the clusterer reserves for pairs that cannot be
+    compared at all.
 
     Returns groups of two or more, largest first, each in input order. A
     statement in no group is absent rather than a group of one — a caller
@@ -385,29 +393,24 @@ def group_related(
     that mean something.
     """
 
-    parent: dict[str, str] = {identifier: identifier for identifier, _ in statements}
+    text = dict(statements)
+    order = {identifier: index for index, (identifier, _) in enumerate(statements)}
 
-    def root(identifier: str) -> str:
-        while parent[identifier] != identifier:
-            parent[identifier] = parent[parent[identifier]]
-            identifier = parent[identifier]
-        return identifier
+    def distance(left: str, right: str) -> float:
+        if is_negated(text[left]) != is_negated(text[right]):
+            return 1.0
+        return 1.0 - similarity(text[left], text[right])
 
-    for index, (left_id, left_text) in enumerate(statements):
-        for right_id, right_text in statements[index + 1 :]:
-            if is_negated(left_text) != is_negated(right_text):
-                # Opposite polarity. Nearly every content word is shared, and
-                # grouping them would read as agreement about a conflict.
-                continue
-            if similarity(left_text, right_text) >= threshold:
-                parent[root(right_id)] = root(left_id)
-
-    clustered: dict[str, list[str]] = {}
-    for identifier, _ in statements:
-        clustered.setdefault(root(identifier), []).append(identifier)
-
-    groups = [tuple(members) for members in clustered.values() if len(members) > 1]
-    groups.sort(key=len, reverse=True)
+    groups = [
+        tuple(sorted(members, key=order.__getitem__))
+        for members in cluster_by_complete_linkage(
+            [identifier for identifier, _ in statements],
+            distance,
+            radius=1.0 - threshold,
+        )
+        if len(members) > 1
+    ]
+    groups.sort(key=lambda members: (-len(members), order[members[0]]))
     return tuple(groups)
 
 

@@ -33,14 +33,15 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.agents.embedding import EmbeddingError, EmbeddingPort
 from kae_memory.application.synthesis_service import SynthesisService, payload_fingerprint
+from kae_memory.domain.clustering import cluster_by_complete_linkage
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SynthesizedObjectId
 from kae_memory.domain.lifecycle import RETRIEVABLE
 from kae_memory.domain.models import KnowledgeKind
 from kae_memory.domain.synthesis import ChangeTrigger, EvidenceBindingKind, EvidenceRole
 from kae_memory.domain.synthesizers.goals import (
+    CLUSTER_RADIUS,
     GoalCandidate,
     GoalJudge,
-    cluster_by_complete_linkage,
     distance_over,
     medoid,
     plan_goal_model,
@@ -237,7 +238,7 @@ class GoalSynthesisService:
             # to another one.
             vectors = self._statement_vectors(session, project_id, item_ids, content)
             distance = distance_over(vectors)
-            clusters = cluster_by_complete_linkage(item_ids, distance)
+            clusters = cluster_by_complete_linkage(item_ids, distance, radius=CLUSTER_RADIUS)
             comparable = bool(vectors)
 
             candidates = tuple(

@@ -51,8 +51,9 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
+from ..clustering import cluster_by_complete_linkage
 from ..identifiers import KnowledgeItemId
-from .goals import CLUSTER_RADIUS, cluster_by_complete_linkage, medoid
+from .goals import CLUSTER_RADIUS, medoid
 
 #: How many themes may reach a person from one project.
 #:
