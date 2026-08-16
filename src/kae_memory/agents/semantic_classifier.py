@@ -222,30 +222,7 @@ class BedrockObservationClassifier:
             return self._fallback.classify(text)
 
         self._degraded = False
-        spans: list[ClassifiedSpan] = []
-        for index, (sentence, span) in enumerate(sentences):
-            classification, confidence, rationale = assigned.get(
-                index,
-                # A sentence the model skipped. Unclassified routes it to a
-                # person, which is the right outcome for text nothing read.
-                (ObservationClass.UNCLASSIFIED, 0.0, "the model returned no class"),
-            )
-            spans.append(
-                ClassifiedSpan(
-                    classification=classification,
-                    confidence=confidence,
-                    span=span,
-                    # Whitespace-normalised only, as with the deterministic
-                    # adapter. The model never rewrites the record.
-                    normalized_text=" ".join(sentence.split()),
-                    # Deterministic even here: dates, ids and status words are
-                    # exactly what a rule reads correctly every time, and a
-                    # model has no advantage over a regular expression at it.
-                    fields=extract_fields(sentence),
-                    rationale=rationale,
-                )
-            )
-        return tuple(spans)
+        return spans_for(sentences, assigned)
 
     def _ask(
         self, sentences: Sequence[tuple[str, Span]]
@@ -299,6 +276,45 @@ def split_sentences(text: str) -> tuple[tuple[str, Span], ...]:
         start = match.start() + (len(raw) - len(raw.lstrip()))
         found.append((stripped, Span(start, start + len(stripped))))
     return tuple(found)
+
+
+def spans_for(
+    sentences: Sequence[tuple[str, Span]],
+    assigned: dict[int, tuple[ObservationClass, float, str]],
+) -> tuple[ClassifiedSpan, ...]:
+    """Build the spans from sentences this module split and a model's answer.
+
+    Shared by every semantic adapter rather than written once per provider. The
+    three properties this module promises live here — the offset comes from the
+    split and never from the model, a sentence nothing answered for becomes
+    `unclassified`, and the text is whitespace-normalised rather than rewritten —
+    so a second provider cannot quietly hold a different set.
+    """
+
+    spans: list[ClassifiedSpan] = []
+    for index, (sentence, span) in enumerate(sentences):
+        classification, confidence, rationale = assigned.get(
+            index,
+            # A sentence the model skipped. Unclassified routes it to a person,
+            # which is the right outcome for text nothing read.
+            (ObservationClass.UNCLASSIFIED, 0.0, "the model returned no class"),
+        )
+        spans.append(
+            ClassifiedSpan(
+                classification=classification,
+                confidence=confidence,
+                span=span,
+                # Whitespace-normalised only, as with the deterministic adapter.
+                # The model never rewrites the record.
+                normalized_text=" ".join(sentence.split()),
+                # Deterministic even here: dates, ids and status words are
+                # exactly what a rule reads correctly every time, and a model
+                # has no advantage over a regular expression at it.
+                fields=extract_fields(sentence),
+                rationale=rationale,
+            )
+        )
+    return tuple(spans)
 
 
 def parse_assignments(

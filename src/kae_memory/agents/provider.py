@@ -13,8 +13,11 @@ report ``semantic_search_available`` correctly and still be wrong about why.
 * ``ollama`` — a local model over HTTP (ADR-0006). Ranks meaning, costs nothing
   and reaches no network beyond the host.
 
-The default is deterministic on purpose. A cloned repository must walk the whole
-workflow with no account, no credentials, and no bill.
+``KAE_OBSERVATION_CLASSIFIER`` selects the same way, over ``deterministic``
+(default), ``semantic`` (Claude on Bedrock) and ``ollama`` (`D-122`).
+
+The default is deterministic on purpose, for both. A cloned repository must walk
+the whole workflow with no account, no credentials, and no bill.
 """
 
 import os
@@ -23,6 +26,7 @@ from collections.abc import Mapping
 from .embedding import DeterministicEmbeddingAdapter, EmbeddingPort
 from .observation_classifier import DeterministicObservationClassifier, ObservationClassifier
 from .ollama import OLLAMA_URL, OllamaEmbeddingAdapter
+from .ollama_classifier import OllamaObservationClassifier
 from .semantic_classifier import BedrockObservationClassifier
 from .titan import TitanEmbeddingAdapter
 
@@ -41,8 +45,16 @@ must never be presented as semantic.
 
 CLASSIFIER_DETERMINISTIC = "deterministic"
 CLASSIFIER_SEMANTIC = "semantic"
+CLASSIFIER_OLLAMA = "ollama"
+"""A local model over HTTP (`ADR-0006`, `D-122`).
 
-_SEMANTIC_CLASSIFIERS = frozenset({CLASSIFIER_SEMANTIC})
+The asymmetry with `semantic` is deliberate and recorded rather than fixed here:
+that value already means Bedrock in every deployment that sets it, so renaming
+it to `bedrock` would be a vocabulary migration rather than part of adding a
+provider.
+"""
+
+_SEMANTIC_CLASSIFIERS = frozenset({CLASSIFIER_SEMANTIC, CLASSIFIER_OLLAMA})
 """Classifiers that read meaning rather than wording (N43).
 
 Separate from `_SEMANTIC_PROVIDERS`, which is about embeddings. A deployment
@@ -167,9 +179,17 @@ def build_classifier(
             )
         return BedrockObservationClassifier(region=region), name
 
+    if name == CLASSIFIER_OLLAMA:
+        # Nothing to refuse at build time, as with the Ollama embedder: no
+        # credential and no region. An unreachable Ollama degrades per call to
+        # the deterministic classifier, and `last_degraded` says that it did.
+        return OllamaObservationClassifier(
+            base_url=environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+        ), name
+
     raise ProviderConfigurationError(
         f"unknown KAE_OBSERVATION_CLASSIFIER={name!r}. "
-        f"Valid: {CLASSIFIER_DETERMINISTIC}, {CLASSIFIER_SEMANTIC}"
+        f"Valid: {CLASSIFIER_DETERMINISTIC}, {CLASSIFIER_SEMANTIC}, {CLASSIFIER_OLLAMA}"
     )
 
 
@@ -203,6 +223,7 @@ def describe(environ: Mapping[str, str] | None = None) -> dict[str, object]:
 
 __all__ = [
     "CLASSIFIER_DETERMINISTIC",
+    "CLASSIFIER_OLLAMA",
     "CLASSIFIER_SEMANTIC",
     "DETERMINISTIC",
     "OLLAMA",
