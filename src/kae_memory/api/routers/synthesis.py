@@ -219,13 +219,20 @@ def list_attention(
     memory: Memory,
     synthesis: Synthesis,
     open_only: bool = Query(default=True),
+    include_deferred: bool = Query(default=False),
 ) -> list[AttentionItemResponse]:
-    """Return the human-attention queue. Unconfirmed extraction is not this list."""
+    """Return the human-attention queue. Unconfirmed extraction is not this list.
+
+    Deferred items are owed and are not recommended, so they are out of the
+    default read and `include_deferred` asks for them.
+    """
 
     resolved = _project(project_id, memory)
     return [
         AttentionItemResponse.of(item)
-        for item in synthesis.list_attention(resolved, open_only=open_only)
+        for item in synthesis.list_attention(
+            resolved, open_only=open_only, include_deferred=include_deferred
+        )
     ]
 
 
@@ -273,6 +280,28 @@ def resolve_attention(
     resolved = _project(project_id, memory)
     status_value = _parse(AttentionStatus, body.status, "attention status")
     item = synthesis.resolve_attention(resolved, AttentionItemId(item_id), status_value)
+    return AttentionItemResponse.of(item)
+
+
+@router.post("/attention/{item_id}/defer", response_model=AttentionItemResponse)
+def defer_attention(
+    project_id: str, item_id: str, memory: Memory, synthesis: Synthesis
+) -> AttentionItemResponse:
+    """Postpone an item. It stays owed; it stops being recommended."""
+
+    resolved = _project(project_id, memory)
+    item = synthesis.defer_attention(resolved, AttentionItemId(item_id))
+    return AttentionItemResponse.of(item)
+
+
+@router.post("/attention/{item_id}/reopen", response_model=AttentionItemResponse)
+def reopen_attention(
+    project_id: str, item_id: str, memory: Memory, synthesis: Synthesis
+) -> AttentionItemResponse:
+    """Return a deferred item to the live queue."""
+
+    resolved = _project(project_id, memory)
+    item = synthesis.reopen_attention(resolved, AttentionItemId(item_id))
     return AttentionItemResponse.of(item)
 
 

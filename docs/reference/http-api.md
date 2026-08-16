@@ -3,7 +3,7 @@
 
 # HTTP API
 
-87 paths, 101 operations — 47 GET, 53 POST.
+89 paths, 103 operations — 47 GET, 55 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -75,7 +75,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (53)
+## Writes (55)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -89,6 +89,8 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/assumptions` | Record what KAE proceeded on in place of missing information |
 | `POST /v1/projects/{project_id}/assumptions/{assumption_id}/accept` | Relay a person taking responsibility for an assumption |
 | `POST /v1/projects/{project_id}/attention` | Create an attention item; extraction must not call this |
+| `POST /v1/projects/{project_id}/attention/{item_id}/defer` | Postpone an attention item: still owed, no longer recommended |
+| `POST /v1/projects/{project_id}/attention/{item_id}/reopen` | Return a deferred attention item to the live queue |
 | `POST /v1/projects/{project_id}/attention/{item_id}/resolve` | Close an attention item so it leaves the live queue |
 | `POST /v1/projects/{project_id}/blockers` | Raise and resolve blockers |
 | `POST /v1/projects/{project_id}/blockers/{blocker_id}/resolve` | Raise and resolve blockers |

@@ -8,7 +8,12 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.application import MemoryService, SynthesisService, WriteKnowledgeRequest
-from kae_memory.domain.errors import AuthoritativeOverrideError, IdempotencyConflictError
+from kae_memory.domain.errors import (
+    AuthoritativeOverrideError,
+    DomainInvariantError,
+    IdempotencyConflictError,
+    InvalidLifecycleTransitionError,
+)
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.lifecycle import LifecycleState
@@ -217,3 +222,97 @@ class TestAttentionIsNotUnconfirmedExtraction:
         history = synthesis.list_attention(project_id, open_only=False)
         assert len(history) == 1
         assert history[0].status is AttentionStatus.RESOLVED
+
+
+class TestDeferringIsNotClosingAndNotIgnoring:
+    """Doc 01: deferring means *stop recommending this*, never *this is settled*."""
+
+    def _item(self, synthesis: SynthesisService, project_id: ProjectId) -> Any:
+        return synthesis.put_attention(
+            project_id,
+            AttentionKind.UNKNOWN,
+            "Which storage backs uploads?",
+            "Three chunks asked and none answered.",
+            identity_key="uploads-storage",
+        )
+
+    def test_a_deferred_item_leaves_the_recommended_queue_and_stays_owed(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+
+        deferred = synthesis.defer_attention(project_id, item.id)
+
+        assert deferred.status is AttentionStatus.DEFERRED
+        # Not recommended...
+        assert synthesis.list_attention(project_id) == ()
+        # ...and not gone. Both halves, or "not asked again" quietly becomes
+        # "no longer owed".
+        asked_for = synthesis.list_attention(project_id, include_deferred=True)
+        assert [row.id for row in asked_for] == [item.id]
+        history = synthesis.list_attention(project_id, open_only=False)
+        assert [row.id for row in history] == [item.id]
+
+    def test_a_deferred_item_returns_when_reopened(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+        synthesis.defer_attention(project_id, item.id)
+
+        reopened = synthesis.reopen_attention(project_id, item.id)
+
+        assert reopened.status is AttentionStatus.OPEN
+        assert [row.id for row in synthesis.list_attention(project_id)] == [item.id]
+
+    def test_synthesis_running_again_does_not_undo_a_deferral(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        """Look again must not re-recommend what a person deliberately postponed."""
+
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+        synthesis.defer_attention(project_id, item.id)
+
+        rerun = synthesis.put_attention(
+            project_id,
+            AttentionKind.UNKNOWN,
+            "Which storage backs uploads?",
+            "Four chunks asked and none answered.",
+            identity_key="uploads-storage",
+        )
+
+        assert rerun.id == item.id
+        assert rerun.status is AttentionStatus.DEFERRED
+        assert synthesis.list_attention(project_id) == ()
+
+    def test_deferring_twice_is_the_same_deferral(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+
+        synthesis.defer_attention(project_id, item.id)
+        again = synthesis.defer_attention(project_id, item.id)
+
+        assert again.status is AttentionStatus.DEFERRED
+
+    def test_resolve_refuses_to_defer_and_names_the_method_that_does(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+
+        with pytest.raises(DomainInvariantError, match="defer_attention"):
+            synthesis.resolve_attention(project_id, item.id, AttentionStatus.DEFERRED)
+
+    def test_a_closed_item_cannot_be_deferred(
+        self, project: tuple[MemoryService, SynthesisService, ProjectId]
+    ) -> None:
+        _memory, synthesis, project_id = project
+        item = self._item(synthesis, project_id)
+        synthesis.resolve_attention(project_id, item.id, AttentionStatus.RESOLVED)
+
+        with pytest.raises(InvalidLifecycleTransitionError):
+            synthesis.defer_attention(project_id, item.id)

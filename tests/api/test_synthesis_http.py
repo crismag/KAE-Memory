@@ -154,6 +154,69 @@ class TestTheAttentionQueueIsProducedOverHttp:
         assert response.status_code == 404
 
 
+class TestDeferIsAGestureTheApiActuallyHas:
+    """`SYN-4`. Every unknown-derived item names `defer` among its actions, so
+    the route that performs it has to exist before Studio may draw the control.
+    """
+
+    def _one_item(self, client: TestClient, factory: sessionmaker[Session]) -> tuple[str, str]:
+        project = str(client.post("/v1/projects", json={"name": "Deferral"}).json()["id"])
+        _seed_unknowns(factory, project, 1)
+        run = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+        assert run.status_code == 200, run.text
+        queue = client.get(f"/v1/projects/{project}/attention").json()
+        assert len(queue) == 1
+        assert "defer" in queue[0]["actions"]
+        return project, queue[0]["id"]
+
+    def test_deferring_empties_the_queue_and_asking_still_finds_it(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, item_id = self._one_item(client, factory)
+
+        deferred = client.post(f"/v1/projects/{project}/attention/{item_id}/defer")
+
+        assert deferred.status_code == 200, deferred.text
+        assert deferred.json()["status"] == "deferred"
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+        asked_for = client.get(
+            f"/v1/projects/{project}/attention", params={"include_deferred": True}
+        ).json()
+        assert [row["id"] for row in asked_for] == [item_id]
+
+    def test_reopening_puts_it_back(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, item_id = self._one_item(client, factory)
+        client.post(f"/v1/projects/{project}/attention/{item_id}/defer")
+
+        reopened = client.post(f"/v1/projects/{project}/attention/{item_id}/reopen")
+
+        assert reopened.status_code == 200, reopened.text
+        assert reopened.json()["status"] == "open"
+        assert [row["id"] for row in client.get(f"/v1/projects/{project}/attention").json()] == [
+            item_id
+        ]
+
+    def test_looking_again_does_not_re_recommend_a_deferred_item(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, item_id = self._one_item(client, factory)
+        client.post(f"/v1/projects/{project}/attention/{item_id}/defer")
+
+        again = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+
+        assert again.status_code == 200, again.text
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+
+    def test_deferring_an_unknown_item_is_not_found(self, client: TestClient, project: str) -> None:
+        response = client.post(
+            f"/v1/projects/{project}/attention/00000000-0000-0000-0000-000000000000/defer"
+        )
+
+        assert response.status_code == 404
+
+
 class TestDecisionsAreProducedOverHttpAndInterruptNobody:
     """`SYN-5f`. The run route is the only new surface: the decisions
     themselves are read through `GET /model?domain=decision`, because the

@@ -511,12 +511,24 @@ class SynthesisService:
         return run_transaction(self._session_factory, operation)
 
     def list_attention(
-        self, project_id: ProjectId, *, open_only: bool = True
+        self, project_id: ProjectId, *, open_only: bool = True, include_deferred: bool = False
     ) -> tuple[AttentionItem, ...]:
-        """Return attention items. Default is the live queue, not history."""
+        """Return attention items. Default is the live queue, not history.
+
+        A deferred item is still owed — `open_only=False` and
+        `include_deferred=True` both return it — but it is not recommended, so
+        the default read leaves it out. Counting it and re-suggesting it are
+        different things, and only the second is what deferring refuses.
+        """
 
         def operation(session: DbSession) -> tuple[AttentionItem, ...]:
-            statuses = tuple(OPEN_ATTENTION) if open_only else None
+            statuses: tuple[AttentionStatus, ...] | None
+            if not open_only:
+                statuses = None
+            elif include_deferred:
+                statuses = tuple(OPEN_ATTENTION)
+            else:
+                statuses = tuple(OPEN_ATTENTION - {AttentionStatus.DEFERRED})
             return SynthesisRepository(session).list_attention(project_id, statuses)
 
         return run_transaction(self._session_factory, operation)
@@ -531,9 +543,35 @@ class SynthesisService:
 
         if status not in {AttentionStatus.RESOLVED, AttentionStatus.DISMISSED}:
             raise DomainInvariantError(
-                "resolve_attention closes the queue; use put_attention to defer"
+                "resolve_attention closes the queue; use defer_attention to postpone"
             )
+        return self._move_attention(project_id, item_id, status)
 
+    def defer_attention(self, project_id: ProjectId, item_id: AttentionItemId) -> AttentionItem:
+        """Postpone an item: still owed, no longer recommended.
+
+        Doc 01 draws the line this method exists for — deferring means *do not
+        prioritise or repeatedly recommend this until some future condition*,
+        and never *I looked at this and did not act*. So the item keeps its
+        place in history and leaves the default queue read, and `reopen_attention`
+        is the way back.
+        """
+
+        return self._move_attention(project_id, item_id, AttentionStatus.DEFERRED)
+
+    def reopen_attention(self, project_id: ProjectId, item_id: AttentionItemId) -> AttentionItem:
+        """Return a deferred item to the live queue.
+
+        Ships with `defer_attention` rather than after it: every defer trigger
+        doc 01 names is a future condition, so postponing without a way back is
+        a one-way door out of the queue.
+        """
+
+        return self._move_attention(project_id, item_id, AttentionStatus.OPEN)
+
+    def _move_attention(
+        self, project_id: ProjectId, item_id: AttentionItemId, status: AttentionStatus
+    ) -> AttentionItem:
         def operation(session: DbSession) -> AttentionItem:
             repo = SynthesisRepository(session)
             existing = repo.get_attention(item_id)
@@ -541,10 +579,10 @@ class SynthesisService:
                 raise KnowledgeNotFoundError(f"unknown attention item: {item_id}")
             if existing.status is status:
                 return existing
-            resolved = replace(existing.transition_to(status), updated_at=_now())
-            repo.save_attention(resolved)
+            moved = replace(existing.transition_to(status), updated_at=_now())
+            repo.save_attention(moved)
             bump_knowledge_revision(session, project_id)
-            return resolved
+            return moved
 
         return run_transaction(self._session_factory, operation)
 

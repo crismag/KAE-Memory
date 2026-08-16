@@ -649,6 +649,20 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.attention.defer",
+        summary="Postpone an attention item: still owed, no longer recommended",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/attention/{item_id}/defer",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.attention.reopen",
+        summary="Return a deferred attention item to the live queue",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/attention/{item_id}/reopen",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.goals.run",
         summary="Cluster goal evidence into the project's goal model",
         exposure=Exposure.PRODUCT_ONLY,

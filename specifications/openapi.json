@@ -6710,7 +6710,7 @@
     },
     "/v1/projects/{project_id}/attention": {
       "get": {
-        "description": "Return the human-attention queue. Unconfirmed extraction is not this list.",
+        "description": "Return the human-attention queue. Unconfirmed extraction is not this list.\n\nDeferred items are owed and are not recommended, so they are out of the\ndefault read and `include_deferred` asks for them.",
         "operationId": "list_attention_v1_projects__project_id__attention_get",
         "parameters": [
           {
@@ -6729,6 +6729,16 @@
             "schema": {
               "default": true,
               "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deferred",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Deferred",
               "type": "boolean"
             }
           }
@@ -6811,6 +6821,110 @@
           }
         },
         "summary": "Put Attention",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/attention/{item_id}/defer": {
+      "post": {
+        "description": "Postpone an item. It stays owed; it stops being recommended.",
+        "operationId": "defer_attention_v1_projects__project_id__attention__item_id__defer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Defer Attention",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/attention/{item_id}/reopen": {
+      "post": {
+        "description": "Return a deferred item to the live queue.",
+        "operationId": "reopen_attention_v1_projects__project_id__attention__item_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reopen Attention",
         "tags": [
           "synthesis"
         ]
