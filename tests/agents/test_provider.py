@@ -11,8 +11,10 @@ from __future__ import annotations
 import pytest
 
 from kae_memory.agents.embedding import DeterministicEmbeddingAdapter
+from kae_memory.agents.ollama import OllamaEmbeddingAdapter
 from kae_memory.agents.provider import (
     DETERMINISTIC,
+    OLLAMA,
     TITAN,
     ProviderConfigurationError,
     build_embedder,
@@ -99,6 +101,30 @@ class TestSelection:
 
         assert name == TITAN
 
+    def test_ollama_is_built_when_asked_for(self) -> None:
+        """`D-72` built the adapter; nothing could select it until `D-113`.
+
+        The gap was invisible because one script in another repository imported
+        the class directly, so the adapter was exercised while every deployment
+        of KAE-Memory silently fell back to the default.
+        """
+
+        embedder, name = build_embedder({"KAE_EMBEDDING": "ollama"})
+
+        assert isinstance(embedder, OllamaEmbeddingAdapter)
+        assert name == OLLAMA
+
+    def test_ollama_needs_no_credential_and_no_region(self) -> None:
+        """The point of the local provider: nothing to configure, nothing to bill.
+
+        Asserted against an environment holding neither, because a build-time
+        refusal here would make the offline path need the cloud's prerequisites.
+        """
+
+        _, name = build_embedder({"KAE_EMBEDDING": "ollama"})
+
+        assert name == OLLAMA
+
     def test_an_unknown_provider_is_rejected(self) -> None:
         with pytest.raises(ProviderConfigurationError) as raised:
             build_embedder({"KAE_EMBEDDING": "wishful"})
@@ -122,6 +148,12 @@ class TestSemanticClaim:
 
     def test_titan_ranks_by_meaning(self) -> None:
         assert ranks_by_meaning(TITAN) is True
+
+    def test_ollama_ranks_by_meaning(self) -> None:
+        """A local model is not a lesser one. Omitting it here would report a
+        real capability as absent in the same change that added it."""
+
+        assert ranks_by_meaning(OLLAMA) is True
 
     def test_an_unlisted_provider_is_not_semantic(self) -> None:
         """A new provider is non-semantic until someone says otherwise."""

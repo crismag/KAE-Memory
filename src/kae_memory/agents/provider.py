@@ -10,6 +10,8 @@ report ``semantic_search_available`` correctly and still be wrong about why.
 * ``deterministic`` (default) — hash-derived, offline, no credentials. Exercises
   the pipeline and cannot rank meaning.
 * ``titan`` — Amazon Titan Text Embeddings V2 on Bedrock (ADR-0008).
+* ``ollama`` — a local model over HTTP (ADR-0006). Ranks meaning, costs nothing
+  and reaches no network beyond the host.
 
 The default is deterministic on purpose. A cloned repository must walk the whole
 workflow with no account, no credentials, and no bill.
@@ -20,13 +22,15 @@ from collections.abc import Mapping
 
 from .embedding import DeterministicEmbeddingAdapter, EmbeddingPort
 from .observation_classifier import DeterministicObservationClassifier, ObservationClassifier
+from .ollama import OLLAMA_URL, OllamaEmbeddingAdapter
 from .semantic_classifier import BedrockObservationClassifier
 from .titan import TitanEmbeddingAdapter
 
 DETERMINISTIC = "deterministic"
 TITAN = "titan"
+OLLAMA = "ollama"
 
-_SEMANTIC_PROVIDERS = frozenset({TITAN})
+_SEMANTIC_PROVIDERS = frozenset({TITAN, OLLAMA})
 """Providers whose vectors encode meaning.
 
 The deterministic adapter is absent by construction: it produces unit vectors
@@ -107,8 +111,16 @@ def build_embedder(environ: Mapping[str, str] | None = None) -> tuple[EmbeddingP
             )
         return TitanEmbeddingAdapter(region=region), name
 
+    if name == OLLAMA:
+        # No credential to check and no region to resolve, so there is nothing
+        # to refuse at build time. An unreachable Ollama fails per call, with
+        # the adapter's own message naming the URL and the model.
+        return OllamaEmbeddingAdapter(
+            base_url=environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+        ), name
+
     raise ProviderConfigurationError(
-        f"unknown KAE_EMBEDDING={name!r}. Valid: {DETERMINISTIC}, {TITAN}"
+        f"unknown KAE_EMBEDDING={name!r}. Valid: {DETERMINISTIC}, {TITAN}, {OLLAMA}"
     )
 
 
@@ -193,6 +205,7 @@ __all__ = [
     "CLASSIFIER_DETERMINISTIC",
     "CLASSIFIER_SEMANTIC",
     "DETERMINISTIC",
+    "OLLAMA",
     "TITAN",
     "ProviderConfigurationError",
     "build_classifier",
