@@ -241,12 +241,16 @@ class TestHumanWorkloadIsBounded:
         factory: sessionmaker[Session],
         project: tuple[MemoryService, Project],
     ) -> None:
-        """Doc 09 asks for blocking impact. Nothing can supply it yet.
+        """Doc 09 asks for blocking impact. This corpus cannot supply it.
 
-        No unknown carries an area — `classify_offline` places only `actor` and
-        `assumption` — so ranking is by corroboration, and the item says which
-        claim it is making. An overstated basis is worse than a modest one,
-        because a reader believes it.
+        `SYN-11a`/`D-149` derives what a question blocks by intersecting the
+        areas its wording names with the areas the last **readiness snapshot**
+        leaves short of coverage. The corpus is loaded and reconciled and
+        readiness is never calculated over it, so there is no snapshot, nothing
+        is blocked and the run says so. An overstated basis is worse than a
+        modest one, because a reader believes it — and the flag is read off the
+        presence of the measurement rather than asserted, so this stays true by
+        construction rather than by anybody remembering to keep it true.
         """
 
         memory, proj = project

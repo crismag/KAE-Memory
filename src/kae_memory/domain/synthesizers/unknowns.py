@@ -31,26 +31,35 @@ theme is a question nobody asked.
 `ATTENTION_BOUND` is the promise the whole package makes — a project with
 thousands of observations may legitimately have a handful of attention items.
 
-## What ranks a theme, and what does not — yet
+## What ranks a theme
 
 Doc 09 asks for ranking by what an unknown *blocks*: blocks definition, blocks
-architecture, needed before implementation. That needs a blocking relation
-between a question and an area, and **KAE-Memory has none for unknowns** —
-`classify_offline` assigns an area only for `actor` and `assumption`, so no
-unknown carries one.
+architecture, needed before implementation. `SYN-11a`/`D-149` supplies the
+relation, and it is derived rather than invented — a theme's candidate areas are
+the ones its wording names (`areas_named_by`, which scores text against the whole
+template rather than against the kinds a `unknown` can be filed under, because
+`classify_by_content` returns `None` for one by design). Naming an area is not
+blocking it: the blocked set is the named areas intersected with the areas the
+last readiness snapshot records as **below sufficient**.
 
-So this ranks by what is actually knowable: **how often the project returned to
-the question**, and its recorded severity. That is corroboration, not blocking
-impact, and every emitted item says so rather than implying an authority the
-data cannot support. `SYN-11` is the engine that does it properly, and
-`OD-NAV-2` is the same question one layer up.
+Where no snapshot exists there are no area states to intersect against, so
+nothing is blocked, `ranked_by_blocking` stays false and the ranking falls back
+to what it was — **how often the project returned to the question**, and its
+recorded severity, which is corroboration rather than blocking impact. Both
+orderings are one function, so a project without readiness ranks exactly as it
+did before the relation existed.
+
+The other eight dimensions of `SYN-11` — materiality, urgency, confidence,
+conflict, authority, reversibility, information gain, novelty — are not built.
+`OD-NAV-2` is the same blocking question one layer up.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 
+from ..area_classification import areas_named_by
 from ..clustering import cluster_by_complete_linkage
 from ..identifiers import KnowledgeItemId
 from .goals import CLUSTER_RADIUS, medoid
@@ -80,6 +89,16 @@ class UnknownTheme:
     question: str
     severity: str
 
+    blocks: tuple[str, ...] = ()
+    """Area keys this question names that measured coverage has not reached.
+
+    Empty where the question names no area, where every area it names is already
+    ``sufficient``, and — indistinguishably — where the project has no readiness
+    snapshot to intersect against. `UnknownPlan.ranked_by_blocking` is what tells
+    those apart, which is why it travels with the themes rather than with a
+    theme.
+    """
+
     @property
     def asked(self) -> int:
         """How many extracted observations say this. Never a confidence score."""
@@ -101,7 +120,9 @@ class UnknownPlan:
     """Unknowns the evidence graph already answered. Not attention, not lost."""
 
     ranked_by_blocking: bool
-    """False while no blocking relation exists. Never silently true."""
+    """Whether measured coverage was available to rank against. Never silently
+    true: false means the project has no readiness snapshot, so no theme's
+    `UnknownTheme.blocks` could be computed and the order is corroboration."""
 
 
 def is_current(role: str | None) -> bool:
@@ -117,17 +138,34 @@ def is_current(role: str | None) -> bool:
     return role in {None, "active", "supporting", "conflicting"}
 
 
-def theme_priority(theme: UnknownTheme) -> int:
-    """Rank, high first. Corroboration and severity — **not** blocking impact.
+def blocked_areas(question: str, incomplete_areas: Collection[str]) -> tuple[str, ...]:
+    """The areas ``question`` names that measured coverage has not yet reached.
 
-    A question the conversation returned to six times is more likely to matter
-    than one asked once, and that is the strongest signal the data supports
-    today. It is a weaker claim than doc 09 asks for, and the emitted item says
-    which claim it is making.
+    Naming is not blocking: a question about acceptance criteria in a project
+    whose acceptance criteria are already ``sufficient`` is a question the
+    project answered somewhere else, and ranking it above one standing in front
+    of an empty area would be ranking by wording.
+    """
+
+    named = areas_named_by(question)
+    return tuple(area for area in named if area in incomplete_areas)
+
+
+def theme_priority(theme: UnknownTheme) -> int:
+    """Rank, high first. What it blocks, then corroboration, then severity.
+
+    Blocking impact leads where it is known — doc 09 asks for exactly that — and
+    a theme with an empty `UnknownTheme.blocks` scores as it did before the
+    relation existed, so a project with no readiness snapshot is ranked by the
+    same function rather than by a second code path.
+
+    Corroboration stays the tie-break: a question the conversation returned to
+    six times is more likely to matter than one asked once. It is a weaker claim
+    than blocking impact, and the emitted item says which claim it is making.
     """
 
     weight = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
-    return theme.asked * 10 + weight
+    return len(theme.blocks) * 10_000 + theme.asked * 10 + weight
 
 
 def plan_unknowns(
@@ -138,10 +176,16 @@ def plan_unknowns(
     distance: Callable[[KnowledgeItemId, KnowledgeItemId], float | None],
     *,
     bound: int = ATTENTION_BOUND,
+    incomplete_areas: Collection[str] | None = None,
 ) -> UnknownPlan:
     """Reconcile extracted unknowns into current themes and a bounded queue.
 
     Pure. Storage, transactions and the evidence graph belong above it.
+
+    ``incomplete_areas`` is the set of area keys the project's last readiness
+    snapshot records as below ``sufficient``. ``None`` means *no snapshot*, which
+    is not the same as *every area covered*: the first cannot rank by blocking
+    impact at all, the second ranks by it and finds nothing blocked.
     """
 
     resolved = tuple(item for item in item_ids if not is_current(roles.get(item)))
@@ -155,12 +199,16 @@ def plan_unknowns(
         # grade is about consequence, and averaging it would let repetition
         # dilute a real one.
         severity = _strongest({severities.get(member, "minor") for member in members})
+        question = questions[canonical]
         themes.append(
             UnknownTheme(
                 members=members,
                 canonical_id=canonical,
-                question=questions[canonical],
+                question=question,
                 severity=severity,
+                blocks=(
+                    () if incomplete_areas is None else blocked_areas(question, incomplete_areas)
+                ),
             )
         )
 
@@ -169,9 +217,10 @@ def plan_unknowns(
         themes=tuple(themes),
         attention=tuple(themes[:bound]),
         resolved=resolved,
-        # Stated by the type rather than by a docstring, so a caller that starts
-        # ranking by blocking impact has to change this and cannot forget to.
-        ranked_by_blocking=False,
+        # Read off the input rather than asserted: the ranking is by blocking
+        # impact exactly when there were measured area states to intersect
+        # against, so the flag cannot drift from what the sort actually did.
+        ranked_by_blocking=incomplete_areas is not None,
     )
 
 
@@ -186,17 +235,29 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
     """Why this reached a person, in words that do not overclaim.
 
     Doc 01 requires an attention item to say what it is, why it matters and what
-    it affects. The third is exactly what cannot be said honestly yet, so this
-    says how the item was chosen instead — which is a smaller claim and a true
-    one.
+    it affects. The third is answered only where the ranking answered it: with a
+    readiness snapshot the sentence names the areas standing behind the question,
+    and without one it says how the item was chosen instead — the smaller claim,
+    and the true one there.
     """
 
     times = "asked once" if theme.asked == 1 else f"asked {theme.asked} times"
-    basis = (
-        "ranked by what it blocks"
-        if ranked_by_blocking
-        else "ranked by how often the project returned to it, not by what it blocks — "
-        "KAE cannot yet say which areas depend on an open question"
-    )
+    if not ranked_by_blocking:
+        basis = (
+            "ranked by how often the project returned to it, not by what it blocks — "
+            "KAE cannot yet say which areas depend on an open question"
+        )
+    elif theme.blocks:
+        areas = ", ".join(theme.blocks)
+        basis = f"ranked by what it blocks: {areas} {_are(theme.blocks)} not yet covered"
+    else:
+        basis = (
+            "ranked by what it blocks, and it blocks nothing measured — "
+            "no area it names is still short of coverage"
+        )
     asked = f"This is still unresolved and was {times} across the project's evidence."
     return f"{asked} {basis.capitalize()}."
+
+
+def _are(areas: tuple[str, ...]) -> str:
+    return "is" if len(areas) == 1 else "are"
