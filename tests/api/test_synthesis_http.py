@@ -217,6 +217,61 @@ class TestDeferIsAGestureTheApiActuallyHas:
         assert response.status_code == 404
 
 
+class TestEvidenceReachesAReaderAsSentences:
+    """`SYN-4`, `D-144`. A card asking *what evidence supports it* gets an
+    answer only if the read carries the statements, not the row identifiers the
+    synthesizer bound.
+    """
+
+    def _an_item_and_its_object(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> tuple[str, str]:
+        project = str(client.post("/v1/projects", json={"name": "Evidence"}).json()["id"])
+        _seed_unknowns(factory, project, 1)
+        run = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+        assert run.status_code == 200, run.text
+        queue = client.get(f"/v1/projects/{project}/attention").json()
+        assert len(queue) == 1
+        object_id = queue[0]["synthesized_object_id"]
+        assert object_id is not None
+        return project, str(object_id)
+
+    def test_the_object_behind_an_attention_item_carries_what_its_evidence_says(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, object_id = self._an_item_and_its_object(client, factory)
+
+        response = client.get(f"/v1/projects/{project}/model/{object_id}")
+
+        assert response.status_code == 200, response.text
+        evidence = response.json()["evidence"]
+        assert evidence, "the theme's members were bound and must be readable"
+        assert [row["statement"] for row in evidence] == [
+            "Question 0: who owns subsystem 0?",
+        ]
+        assert {row["kind"] for row in evidence} == {"supports"}
+        assert {row["knowledge_kind"] for row in evidence} == {"unknown"}
+        assert {row["lifecycle"] for row in evidence} == {"proposed"}
+
+    def test_binding_evidence_answers_the_link_and_not_the_sentence(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """The write keeps its own shape, so no field means two things (`D-144`)."""
+
+        project, object_id = self._an_item_and_its_object(client, factory)
+        item_id = client.get(f"/v1/projects/{project}/model/{object_id}").json()["evidence"][0][
+            "knowledge_item_id"
+        ]
+
+        rebound = client.post(
+            f"/v1/projects/{project}/model/{object_id}/evidence",
+            json={"knowledge_item_id": item_id, "kind": "supports"},
+        )
+
+        assert rebound.status_code == 200, rebound.text
+        assert "statement" not in rebound.json()
+
+
 class TestDecisionsAreProducedOverHttpAndInterruptNobody:
     """`SYN-5f`. The run route is the only new surface: the decisions
     themselves are read through `GET /model?domain=decision`, because the

@@ -930,6 +930,58 @@
         "title": "BlueprintResponse",
         "type": "object"
       },
+      "BoundEvidenceResponse": {
+        "description": "An evidence link and the sentence it points at.\n\nSeparate from `EvidenceBindingResponse`, which answers *the link was made*\nto a caller that already holds the statement. A statement field there would\nbe empty on the write and populated on the read, and no reader could tell\n*not fetched* from *nothing to say*.",
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "knowledge_kind": {
+            "title": "Knowledge Kind",
+            "type": "string"
+          },
+          "lifecycle": {
+            "title": "Lifecycle",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "knowledge_item_id",
+          "kind",
+          "statement",
+          "knowledge_kind",
+          "lifecycle",
+          "created_at"
+        ],
+        "title": "BoundEvidenceResponse",
+        "type": "object"
+      },
       "CalculateReadinessRequest": {
         "properties": {
           "not_applicable_areas": {
@@ -5773,7 +5825,7 @@
           },
           "evidence": {
             "items": {
-              "$ref": "#/components/schemas/EvidenceBindingResponse"
+              "$ref": "#/components/schemas/BoundEvidenceResponse"
             },
             "title": "Evidence",
             "type": "array"
@@ -9716,7 +9768,7 @@
     },
     "/v1/projects/{project_id}/model/{object_id}": {
       "get": {
-        "description": "Return one synthesized object and the evidence it is mapped to.",
+        "description": "Return one synthesized object and the evidence it is mapped to.\n\nEach evidence row carries what the extracted statement says, not only which\nrow it is: a reader asking *what supports this* cannot be answered with a\nlist of identifiers (`D-144`).",
         "operationId": "get_model_object_v1_projects__project_id__model__object_id__get",
         "parameters": [
           {

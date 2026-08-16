@@ -147,7 +147,12 @@ def put_model(
 def get_model_object(
     project_id: str, object_id: str, memory: Memory, synthesis: Synthesis
 ) -> SynthesizedObjectResponse:
-    """Return one synthesized object and the evidence it is mapped to."""
+    """Return one synthesized object and the evidence it is mapped to.
+
+    Each evidence row carries what the extracted statement says, not only which
+    row it is: a reader asking *what supports this* cannot be answered with a
+    list of identifiers (`D-144`).
+    """
 
     resolved = _project(project_id, memory)
     view = synthesis.get_object(resolved, SynthesizedObjectId(object_id))

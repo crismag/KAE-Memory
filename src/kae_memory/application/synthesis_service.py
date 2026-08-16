@@ -86,11 +86,26 @@ def payload_fingerprint(trigger: ChangeTrigger, summary: str) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundEvidence:
+    """One evidence link, with the sentence it points at.
+
+    The link alone identifies a row; a reader needs what the row says. Held
+    together rather than joined by a caller, because every caller would join it
+    the same way and one of them would forget.
+    """
+
+    binding: EvidenceBinding
+    statement: str
+    knowledge_kind: str
+    lifecycle: str
+
+
+@dataclass(frozen=True, slots=True)
 class SynthesizedObjectView:
     """A synthesized object plus the evidence it is mapped to."""
 
     object: SynthesizedObject
-    evidence: tuple[EvidenceBinding, ...]
+    evidence: tuple[BoundEvidence, ...]
 
 
 class SynthesisService:
@@ -195,7 +210,27 @@ class SynthesisService:
             obj = repo.get_object(object_id)
             if obj is None or obj.project_id != project_id:
                 return None
-            return SynthesizedObjectView(obj, repo.list_bindings(object_id))
+            knowledge = SqlAlchemyKnowledgeRepository(session)
+            evidence = []
+            for binding in repo.list_bindings(object_id):
+                item = knowledge.get(binding.knowledge_item_id)
+                if item is None:
+                    # `bind_evidence` proved the row existed and nothing removes
+                    # a knowledge item. Reporting one fewer supporting sentence
+                    # than the object has would be the under-reporting this read
+                    # exists to fix, one layer down.
+                    raise KnowledgeNotFoundError(
+                        f"evidence {binding.knowledge_item_id} bound to {object_id} is missing"
+                    )
+                evidence.append(
+                    BoundEvidence(
+                        binding=binding,
+                        statement=item.current_version.content,
+                        knowledge_kind=item.kind,
+                        lifecycle=item.lifecycle.value,
+                    )
+                )
+            return SynthesizedObjectView(obj, tuple(evidence))
 
         return run_transaction(self._session_factory, operation)
 

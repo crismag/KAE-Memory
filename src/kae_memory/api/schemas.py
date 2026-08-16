@@ -2111,6 +2111,37 @@ class EvidenceBindingResponse(BaseModel):
         )
 
 
+class BoundEvidenceResponse(BaseModel):
+    """An evidence link and the sentence it points at.
+
+    Separate from `EvidenceBindingResponse`, which answers *the link was made*
+    to a caller that already holds the statement. A statement field there would
+    be empty on the write and populated on the read, and no reader could tell
+    *not fetched* from *nothing to say*.
+    """
+
+    id: str
+    knowledge_item_id: str
+    kind: str
+    statement: str
+    knowledge_kind: str
+    lifecycle: str
+    created_at: datetime | None
+
+    @classmethod
+    def of(cls, evidence: Any) -> "BoundEvidenceResponse":
+        binding = evidence.binding
+        return cls(
+            id=str(binding.id),
+            knowledge_item_id=str(binding.knowledge_item_id),
+            kind=binding.kind.value,
+            statement=evidence.statement,
+            knowledge_kind=evidence.knowledge_kind,
+            lifecycle=evidence.lifecycle,
+            created_at=binding.created_at,
+        )
+
+
 class SynthesizedObjectResponse(BaseModel):
     """One object in the current project model, not an extracted sentence."""
 
@@ -2123,7 +2154,7 @@ class SynthesizedObjectResponse(BaseModel):
     lifecycle: str
     authority: str
     revision: int
-    evidence: list[EvidenceBindingResponse] = Field(default_factory=list)
+    evidence: list[BoundEvidenceResponse] = Field(default_factory=list)
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -2139,7 +2170,7 @@ class SynthesizedObjectResponse(BaseModel):
             lifecycle=obj.lifecycle.value,
             authority=obj.authority.value,
             revision=obj.revision,
-            evidence=[EvidenceBindingResponse.of(binding) for binding in evidence],
+            evidence=[BoundEvidenceResponse.of(bound) for bound in evidence],
             created_at=obj.created_at,
             updated_at=obj.updated_at,
         )
