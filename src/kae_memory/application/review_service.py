@@ -25,6 +25,7 @@ from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import KnowledgeItem, KnowledgeKind, RelationshipType
 from kae_memory.domain.readiness import (
     SOFTWARE_TEMPLATE,
+    UNFINISHED_STATES,
     AreaState,
     BlockerSeverity,
     BlockerStatus,
@@ -154,7 +155,7 @@ class ReviewService:
                             area_key=area.key,
                         )
                     )
-                elif result.state is AreaState.PARTIAL:
+                elif result.state in UNFINISHED_STATES:
                     found.append(
                         Finding(
                             kind=FindingKind.PARTIAL_AREA,

@@ -540,6 +540,35 @@ class ProvenanceLinkRepository:
 
         return self._items_by_link_type(run_id, ProvenanceLinkType.USED_BY)
 
+    def source_types_by_item(self, project_id: ProjectId) -> dict[str, frozenset[str]]:
+        """Return each item's source kinds, from the links that record an origin.
+
+        The input to `ADR-0008`'s ladder: an area may reach `evidenced` only on
+        a source outside KAE, so what is asked of the database is *what kind of
+        source*, never *how many rows*. Consumption is excluded because it is
+        not an origin, and a link still carrying `NULL` contributes nothing
+        rather than a default — a database written before `EPI-5a` should read
+        as ungrounded, not as quietly grounded.
+        """
+
+        rows = self._session.execute(
+            select(
+                ProvenanceLinkRow.knowledge_item_id,
+                ProvenanceLinkRow.source_type,
+            ).where(
+                ProvenanceLinkRow.project_id == str(project_id),
+                ProvenanceLinkRow.link_type.in_(
+                    [link_type.value for link_type in PRODUCING_LINK_TYPES]
+                ),
+                ProvenanceLinkRow.source_type.is_not(None),
+            )
+        ).all()
+
+        by_item: dict[str, set[str]] = {}
+        for item_id, source_type in rows:
+            by_item.setdefault(item_id, set()).add(source_type)
+        return {item_id: frozenset(kinds) for item_id, kinds in by_item.items()}
+
     def _items_by_link_type(
         self, run_id: AgentRunId, link_type: ProvenanceLinkType
     ) -> tuple[KnowledgeItemId, ...]:

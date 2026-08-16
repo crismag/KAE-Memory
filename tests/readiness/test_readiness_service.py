@@ -300,7 +300,11 @@ def test_a_snapshot_explains_itself(factory: sessionmaker[Session]) -> None:
 
     assert reloaded is not None
     area = next(a for a in reloaded.areas if a.key == "functional_requirements")
-    assert area.state is AreaState.PARTIAL
+    # Also the round trip of a rung that did not exist before `EPI-5b`. Area
+    # results persist as JSON strings, so a new state has to survive being
+    # written and read back rather than degrading to an older one — and
+    # `missing_mandatory_areas` below has to keep naming it.
+    assert area.state is AreaState.EVIDENCED
     assert area.confirmed_count == 1
     assert area.minimum_confirmed == 3
     assert "functional_requirements" in reloaded.missing_mandatory_areas

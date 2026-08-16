@@ -19,6 +19,7 @@ from kae_memory.application.memory_service import MemoryService, WriteKnowledgeR
 from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.readiness import UNFINISHED_STATES, AreaState
 from kae_memory.mcp import tools
 
 MINISTRY_KNOWLEDGE = [
@@ -151,7 +152,10 @@ class TestReadinessExplanation:
 
         keys = [area["area"] for area in areas]
         assert len(keys) == len(set(keys))
-        assert {a["state"] for a in areas} <= {"sufficient", "partial", "missing"}
+        # Against the enum rather than a written-down list: `D-107` added two
+        # rungs, and a literal set here is a second copy of the vocabulary that
+        # fails the day the first one grows.
+        assert {a["state"] for a in areas} <= set(AreaState)
 
     def test_a_missing_area_states_what_would_close_it(self, briefed: dict[str, Any]) -> None:
         """ "Missing" without a threshold is a complaint, not an instruction."""
@@ -162,19 +166,22 @@ class TestReadinessExplanation:
         assert all(area["confirmed_needed"] >= 1 for area in missing)
         assert all(area["confirmed_statements"] == 0 for area in missing)
 
-    def test_a_partial_area_reports_the_weight_it_still_owes(self, briefed: dict[str, Any]) -> None:
+    def test_a_started_area_reports_the_weight_it_still_owes(self, briefed: dict[str, Any]) -> None:
         """Half credit on a heavy area is a bigger gap than a light empty one.
 
-        Reporting only earned weight hides it: a partial area sits under
+        Reporting only earned weight hides it: a started area sits under
         ``contributing`` and looks done.
+
+        Keyed on partial credit rather than on the word `partial`, because
+        `D-107` split that one state into three that all carry it.
         """
 
         explanation = briefed["readiness"]["explanation"]
-        partial = [a for a in explanation["areas"] if a["state"] == "partial"]
+        started = [a for a in explanation["areas"] if 0 < a["credit"] < 1.0]
 
-        assert partial, "the seed leaves functional requirements short of its minimum"
-        assert all(0 < a["credit"] < 1.0 for a in partial)
-        assert all(a["weight_outstanding"] > 0 for a in partial)
+        assert started, "the seed leaves functional requirements short of its minimum"
+        assert all(a["state"] in UNFINISHED_STATES for a in started)
+        assert all(a["weight_outstanding"] > 0 for a in started)
 
     def test_projection_is_arithmetic_not_prediction(self, briefed: dict[str, Any]) -> None:
         """Resolving the mandatory areas must land exactly on the weighted score.

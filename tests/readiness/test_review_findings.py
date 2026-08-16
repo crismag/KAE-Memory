@@ -236,7 +236,10 @@ def test_classification_alone_cannot_manufacture_coverage(
     def area_of(snapshot: ReadinessSnapshot) -> AreaResult:
         return next(a for a in snapshot.areas if a.key == "users_and_stakeholders")
 
-    assert area_of(classified_only).state is AreaState.PARTIAL
+    # Grounded — a person's statement — and still not covered, which is the
+    # claim this test makes. Classification moved the area onto `ADR-0008`'s
+    # ladder and only confirmation reaches the top of it.
+    assert area_of(classified_only).state is AreaState.EVIDENCED
     assert area_of(confirmed).state is AreaState.SUFFICIENT
     assert confirmed.score > classified_only.score
 

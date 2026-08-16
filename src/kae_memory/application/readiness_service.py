@@ -36,6 +36,8 @@ from kae_memory.domain.models import KnowledgeItem, Relationship, RelationshipTy
 from kae_memory.domain.readiness import (
     CALCULATION_VERSION,
     DRAFT_THRESHOLD,
+    GROUNDING_SOURCE_TYPES,
+    INFERENCE_SOURCE_TYPE,
     SOFTWARE_TEMPLATE,
     AreaDefinition,
     AreaResult,
@@ -61,7 +63,10 @@ from kae_memory.persistence.readiness_repositories import (
 )
 from kae_memory.persistence.repositories import SqlAlchemyKnowledgeRepository
 from kae_memory.persistence.transactions import RetryPolicy, run_transaction
-from kae_memory.persistence.workspace_repositories import AgentRunRepository
+from kae_memory.persistence.workspace_repositories import (
+    AgentRunRepository,
+    ProvenanceLinkRepository,
+)
 
 
 def _new_id() -> str:
@@ -78,6 +83,7 @@ def evaluate_area(
     contradicted_item_ids: frozenset[str],
     not_applicable: bool = False,
     claims_by_item: Mapping[str, str | None] | None = None,
+    source_types_by_item: Mapping[str, frozenset[str]] | None = None,
 ) -> AreaResult:
     """Return one area's coverage from the knowledge assigned to it.
 
@@ -86,6 +92,14 @@ def evaluate_area(
     an area on its own — otherwise a project could raise its own readiness simply
     by generating more candidates, which is the failure mode this model exists to
     prevent. Rejected and superseded knowledge contributes nothing.
+
+    Between ``PARTIAL`` and ``SUFFICIENT`` sit `ADR-0008`'s two grounded tiers,
+    read from the ``source_type`` `EPI-5a` now writes. An area holding only
+    KAE's own candidates stays ``PARTIAL``; one holding a statement from a
+    repository, a person or an imported document is ``EVIDENCED``; one holding
+    both a grounded source and KAE's reading of it is ``INTERPRETED``. Nothing
+    here counts rows — the question asked of provenance is *what kind of
+    source*, so a project cannot climb by generating more.
     """
 
     allowed = {kind.value for kind in area.kinds}
@@ -97,11 +111,13 @@ def evaluate_area(
     if not_applicable:
         state = AreaState.NOT_APPLICABLE
     elif area.is_divided:
-        state = _divided_state(area, confirmed, proposed, claims_by_item or {})
+        state = _divided_state(
+            area, confirmed, proposed, claims_by_item or {}, source_types_by_item or {}
+        )
     elif len(confirmed) >= area.minimum_confirmed:
         state = AreaState.SUFFICIENT
     elif confirmed or proposed:
-        state = AreaState.PARTIAL
+        state = _grounded_state(confirmed + proposed, source_types_by_item or {})
     else:
         state = AreaState.MISSING
 
@@ -118,11 +134,36 @@ def evaluate_area(
     )
 
 
+def _grounded_state(
+    items: Sequence[KnowledgeItem],
+    source_types_by_item: Mapping[str, frozenset[str]],
+) -> AreaState:
+    """Which of `ADR-0008`'s tiers an incomplete area has reached.
+
+    An item with no recorded source kind contributes nothing rather than a
+    default. Every provenance row written before `EPI-5a` carries ``NULL``, and
+    reading those as grounded would hand a project the state the ADR exists to
+    withhold — on the strength of a column nothing had ever fed.
+    """
+
+    kinds: set[str] = set()
+    for item in items:
+        kinds |= source_types_by_item.get(str(item.id), frozenset())
+
+    grounded = bool(kinds & GROUNDING_SOURCE_TYPES)
+    if grounded and INFERENCE_SOURCE_TYPE in kinds:
+        return AreaState.INTERPRETED
+    if grounded:
+        return AreaState.EVIDENCED
+    return AreaState.PARTIAL
+
+
 def _divided_state(
     area: AreaDefinition,
     confirmed: Sequence[KnowledgeItem],
     proposed: Sequence[KnowledgeItem],
     claims_by_item: Mapping[str, str | None],
+    source_types_by_item: Mapping[str, frozenset[str]],
 ) -> AreaState:
     """Coverage of an area that asks for more than one thing.
 
@@ -146,7 +187,7 @@ def _divided_state(
     if all(established(claim, confirmed) for claim in area.claims):
         return AreaState.SUFFICIENT
     if confirmed or proposed:
-        return AreaState.PARTIAL
+        return _grounded_state([*confirmed, *proposed], source_types_by_item)
     return AreaState.MISSING
 
 
@@ -634,6 +675,7 @@ class ReadinessService:
                 project_id, RelationshipType.CONTRADICTS, unresolved_only=True
             )
             contradicted = relationships.unresolved_contradiction_items(project_id)
+            source_types = ProvenanceLinkRepository(session).source_types_by_item(project_id)
             open_blockers, critical_blockers = count_open_blockers(session, project_id)
             revision = current_knowledge_revision(session, project_id)
 
@@ -656,6 +698,7 @@ class ReadinessService:
                     contradicted,
                     not_applicable=definition.key in excluded,
                     claims_by_item=claims_by_item,
+                    source_types_by_item=source_types,
                 )
                 for definition in template.areas
             )

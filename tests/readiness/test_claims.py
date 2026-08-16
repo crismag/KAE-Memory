@@ -66,7 +66,10 @@ class TestADividedAreaNeedsEveryClaim:
             item = _confirmed(memory, project.id, f"p{n}", f"Scattered thinking, {n}.")
             readiness.assign_area(project.id, item.id, AREA, claim_key="problem_statement")
 
-        assert _state(readiness, project.id) is AreaState.PARTIAL
+        # `EVIDENCED`, not `PARTIAL`, since `EPI-5b`: a person said these, so
+        # the area is grounded outside KAE. What the test is about is unchanged
+        # — grounded or not, one claim of two is not `SUFFICIENT`.
+        assert _state(readiness, project.id) is AreaState.EVIDENCED
 
     def test_both_claims_complete_it(
         self, services: tuple[MemoryService, ReadinessService]
@@ -97,7 +100,8 @@ class TestADividedAreaNeedsEveryClaim:
         item = _confirmed(memory, project.id, "u", "Something about the problem.")
         readiness.assign_area(project.id, item.id, AREA)
 
-        assert _state(readiness, project.id) is AreaState.PARTIAL
+        assert _state(readiness, project.id) is AreaState.EVIDENCED
+        assert _state(readiness, project.id) is not AreaState.SUFFICIENT
 
     def test_an_untouched_divided_area_is_still_missing(
         self, services: tuple[MemoryService, ReadinessService]

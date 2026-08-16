@@ -32,10 +32,34 @@ from .models import KnowledgeKind
 
 
 class AreaState(StrEnum):
-    """The one authoritative coverage state of a discovery area."""
+    """The one authoritative coverage state of a discovery area.
+
+    `ADR-0008`'s progression, discrete throughout — `ADR-0003` still rules that
+    there is no percentage inside an area::
+
+        missing → partial → evidenced → interpreted → sufficient
+
+    `PARTIAL` is the tier the ADR names and had nowhere to put: an area holding
+    only KAE's own candidates, which it calls *"proposal — not evidence"*.
+    `EVIDENCED` requires a source outside KAE; `INTERPRETED` adds KAE's derived
+    reading on top of one.
+
+    **`SUFFICIENT` keeps its name deliberately.** It is the ADR's `confirmed`,
+    and renaming it would be the shape of `D-27`, where a covered area rendered
+    as *missing* for the life of a deployment because Studio compared against a
+    literal Memory had stopped sending. Which vocabulary finally governs is
+    `AREA-STATES`/`D-31`, still open, and it has to land in both repositories at
+    once.
+
+    `conflicted` is **not** a member. `ADR-0008` makes it an orthogonal
+    condition and `AreaResult.contradicted` already carries it; flattening the
+    two into one ladder would lose which of them is true.
+    """
 
     MISSING = "missing"
     PARTIAL = "partial"
+    EVIDENCED = "evidenced"
+    INTERPRETED = "interpreted"
     SUFFICIENT = "sufficient"
     NOT_APPLICABLE = "not_applicable"
 
@@ -43,6 +67,15 @@ class AreaState(StrEnum):
 _CREDIT: dict[AreaState, float] = {
     AreaState.MISSING: 0.0,
     AreaState.PARTIAL: 0.5,
+    # Deliberately identical to PARTIAL, and this is the whole of `D-107`.
+    # `ADR-0008` puts weights out of scope because "changing the semantics and
+    # the calibration at once would make the result unattributable to either",
+    # and credit-per-state is calibration. So no project's percentage moves;
+    # what improves is what an area *says*. Calibrating these is a later
+    # decision, taken once real projects have been observed distributing across
+    # the states.
+    AreaState.EVIDENCED: 0.5,
+    AreaState.INTERPRETED: 0.5,
     AreaState.SUFFICIENT: 1.0,
     AreaState.NOT_APPLICABLE: 0.0,
 }
@@ -56,6 +89,28 @@ def credit_for(state: AreaState) -> float:
     """
 
     return _CREDIT[state]
+
+
+#: Source kinds that ground a statement outside KAE (`ADR-0008`).
+#:
+#: The ADR's provenance table rather than a policy of the calculator: an area
+#: may reach `EVIDENCED` on one of these and on nothing else, which is what
+#: stops a project raising its own readiness by generating statements.
+GROUNDING_SOURCE_TYPES = frozenset({"repository", "user_statement", "imported_document"})
+
+#: What KAE derived with no supporting source. A proposal, never evidence.
+INFERENCE_SOURCE_TYPE = "kae_inference"
+
+#: An area somebody still has work to do in.
+#:
+#: Written as a set rather than repeated as `in (MISSING, PARTIAL)` at each
+#: call site, because that form is what a new tier silently drops out of: an
+#: `EVIDENCED` area is better grounded than a `PARTIAL` one and is still not
+#: finished, and a project should not stop being told so because the ladder
+#: grew a rung.
+UNFINISHED_STATES = frozenset(
+    {AreaState.MISSING, AreaState.PARTIAL, AreaState.EVIDENCED, AreaState.INTERPRETED}
+)
 
 
 class ReadinessStatus(StrEnum):
@@ -340,9 +395,7 @@ class ReadinessSnapshot:
         """Return the mandatory areas that are not yet sufficient."""
 
         return tuple(
-            area.key
-            for area in self.areas
-            if area.mandatory and area.state in (AreaState.MISSING, AreaState.PARTIAL)
+            area.key for area in self.areas if area.mandatory and area.state in UNFINISHED_STATES
         )
 
     def is_stale_against(self, current_revision: int) -> bool:
@@ -519,7 +572,10 @@ type: templates are data, addressed by key and version.
 __all__ = [
     "CALCULATION_VERSION",
     "DRAFT_THRESHOLD",
+    "GROUNDING_SOURCE_TYPES",
+    "INFERENCE_SOURCE_TYPE",
     "SOFTWARE_TEMPLATE",
+    "UNFINISHED_STATES",
     "AreaDefinition",
     "AreaResult",
     "AreaState",
