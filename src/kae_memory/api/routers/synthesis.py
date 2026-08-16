@@ -31,6 +31,7 @@ from kae_memory.domain.synthesizers.rules import RuleOrigin
 
 from ..dependencies import (
     ActorSynthesis,
+    AssumptionSynthesis,
     ConstraintSynthesis,
     DecisionSynthesis,
     GoalSynthesis,
@@ -46,6 +47,7 @@ from ..schemas import (
     AcceptanceCriterionResponse,
     ActorSynthesisReportResponse,
     AddAcceptanceCriterionRequest,
+    AssumptionSynthesisReportResponse,
     AttentionItemResponse,
     AttributeRuleRequest,
     BindEvidenceRequest,
@@ -69,6 +71,7 @@ from ..schemas import (
     RuleEnforcementMechanismResponse,
     RuleSynthesisReportResponse,
     RunActorSynthesisRequest,
+    RunAssumptionSynthesisRequest,
     RunConstraintSynthesisRequest,
     RunDecisionSynthesisRequest,
     RunGoalSynthesisRequest,
@@ -640,6 +643,42 @@ def run_decision_synthesis(
     resolved = _project(project_id, memory)
     return DecisionSynthesisReportResponse.of(
         decisions.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
+@router.post("/model/assumptions/runs", response_model=AssumptionSynthesisReportResponse)
+def run_assumption_synthesis(
+    project_id: str,
+    body: RunAssumptionSynthesisRequest,
+    memory: Memory,
+    assumptions: AssumptionSynthesis,
+) -> AssumptionSynthesisReportResponse:
+    """Turn assumption evidence into project beliefs and what each costs if wrong.
+
+    The assumptions themselves are read back through `GET /model?domain=assumption`,
+    because there is no assumption table: doc 05's lifecycle is the object's own
+    `(lifecycle, authority)` pair, and the consequence domain is a pure function
+    of the statement (`D-136`).
+
+    What this response adds is the reading behind that state, and everything the
+    run **separated**. `scaffolding` is the rows about reading the conversation
+    rather than about the project — doc 05's own complaint — and they are sent
+    by name because a silent filter is indistinguishable from an extractor that
+    never produced them. **No evidence role is written for them**: the role store
+    records no author and `noise` is sticky against reconciliation, so a run
+    could never correct its own write.
+
+    `needing_validation` is a state a reader sorts by and is deliberately not the
+    attention queue. A run raises no attention items at all — one interrupt per
+    unvalidated assumption is the review queue `ADR-0007` exists to remove.
+
+    Rerunning unchanged evidence writes nothing new: identity is the normalised
+    statement.
+    """
+
+    resolved = _project(project_id, memory)
+    return AssumptionSynthesisReportResponse.of(
+        assumptions.synthesize(resolved, idempotency_key=body.idempotency_key)
     )
 
 

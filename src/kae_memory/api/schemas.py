@@ -2504,6 +2504,104 @@ class DecisionSynthesisReportResponse(BaseModel):
         )
 
 
+class RunAssumptionSynthesisRequest(BaseModel):
+    """Optional idempotency key for an assumption-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedAssumptionResponse(BaseModel):
+    """One project assumption, and what the project loses if it is wrong."""
+
+    synthesized_object_id: str
+    statement: str
+    consequence: str
+    """`scope`, `architecture`, `requirements`, `cost`, `workflow`, `outcome` or
+    `undetermined` — derived from the wording rather than stored (`D-136`).
+
+    `undetermined` is a real answer and the common one: an assumption whose
+    falsity KAE cannot connect to anything is doc 05's complaint, not a gap to
+    fill by guessing.
+    """
+
+    settled: bool
+    """Whether a person accepted this as established. Wording never promotes."""
+
+    needs_validation: bool
+    """Doc 05's *material-needs-validation* — still working, and its falsity
+    reaches a named consequence. A state to sort by, never an interruption."""
+
+    basis: str
+
+
+class AssumptionNoteResponse(BaseModel):
+    """One row the run has something to say about, and what it says.
+
+    The statement travels with the reason, as `DecisionNoteResponse` does and
+    for the same reason: these reasons are about a rule rather than a subject.
+    """
+
+    statement: str
+    reason: str
+
+
+class AssumptionSynthesisReportResponse(BaseModel):
+    """What one assumption-synthesis run concluded, including what it separated."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    assumptions: list[SynthesizedAssumptionResponse]
+
+    scaffolding: list[AssumptionNoteResponse]
+    """Interpretation assumptions — about reading the conversation, not the project.
+
+    Sent rather than dropped: a silent filter is indistinguishable from an
+    extractor that never produced them, and doc 05's complaint is that nobody
+    can see which rows are which. **No evidence role is written for them**
+    (`D-136`); the role is applied through `PUT .../evidence-role` by a person.
+    """
+
+    resolved: list[AssumptionNoteResponse]
+    """Assumptions the project already establishes, each naming the statement that did."""
+
+    needing_validation: list[AssumptionNoteResponse]
+    """Each material assumption and what makes it material.
+
+    A projection of `needs_validation` above, and deliberately not the attention
+    queue: one interrupt per unvalidated assumption is the review queue
+    `ADR-0007` exists to remove, under a new name (`D-135`).
+    """
+
+    @classmethod
+    def of(cls, report: Any) -> "AssumptionSynthesisReportResponse":
+        def notes(pairs: Any) -> list[AssumptionNoteResponse]:
+            return [
+                AssumptionNoteResponse(statement=statement, reason=reason)
+                for statement, reason in pairs
+            ]
+
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            assumptions=[
+                SynthesizedAssumptionResponse(
+                    synthesized_object_id=str(assumption.object_id),
+                    statement=assumption.statement,
+                    consequence=assumption.consequence.value,
+                    settled=assumption.settled,
+                    needs_validation=assumption.needs_validation,
+                    basis=assumption.basis,
+                )
+                for assumption in report.assumptions
+            ],
+            scaffolding=notes(report.scaffolding),
+            resolved=notes(report.resolved),
+            needing_validation=notes(report.needing_validation),
+        )
+
+
 class StoredConstraintEffectResponse(BaseModel):
     """One stored consequence an accepted boundary imposes on one open item.
 

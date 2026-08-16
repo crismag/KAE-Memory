@@ -3,7 +3,7 @@
 
 # HTTP API
 
-86 paths, 100 operations — 47 GET, 52 POST.
+87 paths, 101 operations — 47 GET, 53 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -75,7 +75,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (52)
+## Writes (53)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -108,6 +108,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). |
 | `POST /v1/projects/{project_id}/model` | Create or update a working-model object, idempotent by identity |
 | `POST /v1/projects/{project_id}/model/actors/runs` | Turn actor evidence into the project's role and responsibility model |
+| `POST /v1/projects/{project_id}/model/assumptions/runs` | Turn assumption evidence into project beliefs and what each costs if wrong |
 | `POST /v1/projects/{project_id}/model/constraints/runs` | Turn constraint evidence into boundaries and the effects they impose |
 | `POST /v1/projects/{project_id}/model/decisions/runs` | Turn decision evidence into the project's proposals and settled choices |
 | `POST /v1/projects/{project_id}/model/goals/runs` | Cluster goal evidence into the project's goal model |

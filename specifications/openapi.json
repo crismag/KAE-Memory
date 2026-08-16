@@ -416,6 +416,25 @@
         "title": "AssumptionListResponse",
         "type": "object"
       },
+      "AssumptionNoteResponse": {
+        "description": "One row the run has something to say about, and what it says.\n\nThe statement travels with the reason, as `DecisionNoteResponse` does and\nfor the same reason: these reasons are about a rule rather than a subject.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "reason"
+        ],
+        "title": "AssumptionNoteResponse",
+        "type": "object"
+      },
       "AssumptionResponse": {
         "description": "One interpretation used in place of missing information.\n\n`material` and `consequence` travel together because \"we assumed\nPostgreSQL\" and \"we assumed single-tenant\" are not the same risk, and a\nlist that rendered them alike would bury the second among the first.",
         "properties": {
@@ -502,6 +521,62 @@
           "accepted_by"
         ],
         "title": "AssumptionResponse",
+        "type": "object"
+      },
+      "AssumptionSynthesisReportResponse": {
+        "description": "What one assumption-synthesis run concluded, including what it separated.",
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedAssumptionResponse"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "needing_validation": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionNoteResponse"
+            },
+            "title": "Needing Validation",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "resolved": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionNoteResponse"
+            },
+            "title": "Resolved",
+            "type": "array"
+          },
+          "scaffolding": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionNoteResponse"
+            },
+            "title": "Scaffolding",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "assumptions",
+          "scaffolding",
+          "resolved",
+          "needing_validation"
+        ],
+        "title": "AssumptionSynthesisReportResponse",
         "type": "object"
       },
       "AttentionItemResponse": {
@@ -4580,6 +4655,24 @@
         "title": "RunActorSynthesisRequest",
         "type": "object"
       },
+      "RunAssumptionSynthesisRequest": {
+        "description": "Optional idempotency key for an assumption-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunAssumptionSynthesisRequest",
+        "type": "object"
+      },
       "RunConstraintSynthesisRequest": {
         "description": "Optional idempotency key for a constraint-synthesis pass.",
         "properties": {
@@ -5541,6 +5634,45 @@
           "replacement_id"
         ],
         "title": "SupersedeDeliverableRequest",
+        "type": "object"
+      },
+      "SynthesizedAssumptionResponse": {
+        "description": "One project assumption, and what the project loses if it is wrong.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "consequence": {
+            "title": "Consequence",
+            "type": "string"
+          },
+          "needs_validation": {
+            "title": "Needs Validation",
+            "type": "boolean"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "consequence",
+          "settled",
+          "needs_validation",
+          "basis"
+        ],
+        "title": "SynthesizedAssumptionResponse",
         "type": "object"
       },
       "SynthesizedConstraintResponse": {
@@ -8654,6 +8786,59 @@
           }
         },
         "summary": "Run Actor Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/assumptions/runs": {
+      "post": {
+        "description": "Turn assumption evidence into project beliefs and what each costs if wrong.\n\nThe assumptions themselves are read back through `GET /model?domain=assumption`,\nbecause there is no assumption table: doc 05's lifecycle is the object's own\n`(lifecycle, authority)` pair, and the consequence domain is a pure function\nof the statement (`D-136`).\n\nWhat this response adds is the reading behind that state, and everything the\nrun **separated**. `scaffolding` is the rows about reading the conversation\nrather than about the project \u2014 doc 05's own complaint \u2014 and they are sent\nby name because a silent filter is indistinguishable from an extractor that\nnever produced them. **No evidence role is written for them**: the role store\nrecords no author and `noise` is sticky against reconciliation, so a run\ncould never correct its own write.\n\n`needing_validation` is a state a reader sorts by and is deliberately not the\nattention queue. A run raises no attention items at all \u2014 one interrupt per\nunvalidated assumption is the review queue `ADR-0007` exists to remove.\n\nRerunning unchanged evidence writes nothing new: identity is the normalised\nstatement.",
+        "operationId": "run_assumption_synthesis_v1_projects__project_id__model_assumptions_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunAssumptionSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssumptionSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Assumption Synthesis",
         "tags": [
           "synthesis"
         ]

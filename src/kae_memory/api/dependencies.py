@@ -20,6 +20,7 @@ from kae_memory.agents.goal_judge import default_goal_judge
 from kae_memory.application.actor_synthesis_service import ActorSynthesisService
 from kae_memory.application.assembly_service import AssemblyService
 from kae_memory.application.assumption_service import AssumptionService
+from kae_memory.application.assumption_synthesis_service import AssumptionSynthesisService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
@@ -285,6 +286,20 @@ def get_decision_synthesis(request: Request) -> DecisionSynthesisService:
     return DecisionSynthesisService(factory)
 
 
+def get_assumption_synthesis(request: Request) -> AssumptionSynthesisService:
+    """Return the assumption synthesizer, which also takes no embedder.
+
+    An assumption is read one statement at a time: whether it is about the
+    project, and what would change if it were false. Doc 05's consolidation —
+    four collaboration rows becoming one area — is `SYN-3a`'s neighbourhood
+    applied before candidates arrive here, and deliberately not a word-overlap
+    grouper in this module, which would return four singletons (`D-135`).
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return AssumptionSynthesisService(factory)
+
+
 def get_constraint_synthesis(request: Request) -> ConstraintSynthesisService:
     """Return the constraint synthesizer, which also takes no embedder.
 
@@ -416,5 +431,6 @@ UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthe
 ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]
 DecisionSynthesis = Annotated[DecisionSynthesisService, Depends(get_decision_synthesis)]
 ConstraintSynthesis = Annotated[ConstraintSynthesisService, Depends(get_constraint_synthesis)]
+AssumptionSynthesis = Annotated[AssumptionSynthesisService, Depends(get_assumption_synthesis)]
 RequirementSynthesis = Annotated[RequirementSynthesisService, Depends(get_requirement_synthesis)]
 RuleSynthesis = Annotated[RuleSynthesisService, Depends(get_rule_synthesis)]

@@ -747,6 +747,13 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.assumptions.run",
+        summary="Turn assumption evidence into project beliefs and what each costs if wrong",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/assumptions/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.unknowns.run",
         summary="Turn current unknowns into themes and raise the material few",
         exposure=Exposure.PRODUCT_ONLY,

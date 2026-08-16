@@ -217,6 +217,79 @@ class TestDecisionsAreProducedOverHttpAndInterruptNobody:
         assert response.status_code == 404
 
 
+class TestAssumptionsAreProducedOverHttpAndSeparateRatherThanFilter:
+    """`SYN-5d`. The run route is the only new surface: the beliefs are read
+    through `GET /model?domain=assumption`, because there is no assumption table
+    (`D-136`)."""
+
+    _SCAFFOLDING = "KAE is the name of the system under discussion."
+    _BELIEF = "Local disk is an acceptable source of repositories."
+
+    def _seed(self, factory: sessionmaker[Session], project_id: str) -> None:
+        memory = MemoryService(factory)
+        run = memory.start_run(ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-assumptions")
+        memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(kind="assumption", content=statement, source="interview")
+                for statement in (self._BELIEF, self._SCAFFOLDING)
+            ],
+        )
+
+    def test_the_scaffolding_row_crosses_the_wire_named_rather_than_dropped(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """A silent filter is indistinguishable from an extractor that never
+        produced the row, which is doc 05's complaint."""
+
+        project = str(client.post("/v1/projects", json={"name": "Assumptions"}).json()["id"])
+        self._seed(factory, project)
+
+        response = client.post(
+            f"/v1/projects/{project}/model/assumptions/runs", json={"idempotency_key": "first"}
+        )
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["considered"] == 2
+        assert [note["statement"] for note in report["scaffolding"]] == [self._SCAFFOLDING]
+        assert [item["statement"] for item in report["assumptions"]] == [self._BELIEF]
+        assert report["assumptions"][0]["consequence"] == "architecture"
+        assert report["assumptions"][0]["needs_validation"] is True
+
+    def test_a_material_assumption_is_reported_and_interrupts_nobody(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Assumptions queue"}).json()["id"])
+        self._seed(factory, project)
+
+        report = client.post(f"/v1/projects/{project}/model/assumptions/runs", json={}).json()
+
+        assert [note["statement"] for note in report["needing_validation"]] == [self._BELIEF]
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+
+    def test_the_beliefs_are_read_as_the_model_they_are_stored_as(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Assumptions read"}).json()["id"])
+        self._seed(factory, project)
+
+        client.post(f"/v1/projects/{project}/model/assumptions/runs", json={})
+
+        listed = client.get(f"/v1/projects/{project}/model", params={"domain": "assumption"})
+        assert listed.status_code == 200
+        assert [obj["statement"] for obj in listed.json()] == [self._BELIEF]
+        assert {obj["lifecycle"] for obj in listed.json()} == {"working"}
+
+    def test_an_unknown_project_is_not_found(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/projects/00000000-0000-0000-0000-000000000000/model/assumptions/runs",
+            json={},
+        )
+
+        assert response.status_code == 404
+
+
 class TestConstraintsAreProducedOverHttpAndOnlyAcceptanceWrites:
     """`SYN-5e`. The run route is the only new surface: the boundaries are read
     through `GET /model?domain=constraint`, and the effects an accepted one
