@@ -7,6 +7,7 @@ from typing import Any, cast
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session as DbSession
 
+from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.execution import (
     DEFAULT_LEASE_SECONDS,
     AgentRole,
@@ -22,7 +23,13 @@ from kae_memory.domain.identifiers import (
     ProvenanceLinkId,
     SessionId,
 )
-from kae_memory.domain.models import Project, ProvenanceLink, ProvenanceLinkType
+from kae_memory.domain.models import (
+    PRODUCING_LINK_TYPES,
+    KnowledgeSourceType,
+    Project,
+    ProvenanceLink,
+    ProvenanceLinkType,
+)
 from kae_memory.domain.workspace import (
     ActorType,
     Message,
@@ -474,8 +481,20 @@ class ProvenanceLinkRepository:
         self._session = session
 
     def add(self, link: ProvenanceLink) -> None:
-        """Persist a provenance link."""
+        """Persist a provenance link.
 
+        A link recording how a statement came to exist must name the kind of
+        source it came from: ADR-0008 makes readiness derive from that, and the
+        column sat `NULL` for 4,136 rows because nothing refused to write one
+        without it (`D-105`).
+
+        Enforced here rather than in the domain invariant on purpose. Databases
+        written before this rule hold `NULL`, and a read-side invariant would
+        turn an unfed column into a failure to open a knowledge item.
+        """
+
+        if link.link_type in PRODUCING_LINK_TYPES and link.source_type is None:
+            raise DomainInvariantError(f"a {link.link_type.value} link must name its source type")
         self._session.add(
             ProvenanceLinkRow(
                 provenance_link_id=str(link.id),
@@ -485,7 +504,7 @@ class ProvenanceLinkRepository:
                 agent_run_id=str(link.agent_run_id) if link.agent_run_id else None,
                 message_id=str(link.message_id) if link.message_id else None,
                 link_type=link.link_type.value,
-                source_type=link.source_type,
+                source_type=link.source_type.value if link.source_type else None,
                 source_reference=link.source_reference,
                 created_at=link.created_at,
             )
@@ -662,7 +681,7 @@ def _link_to_domain(row: ProvenanceLinkRow) -> ProvenanceLink:
         knowledge_version_number=row.knowledge_version_number,
         agent_run_id=AgentRunId(row.agent_run_id) if row.agent_run_id else None,
         message_id=MessageId(row.message_id) if row.message_id else None,
-        source_type=row.source_type,
+        source_type=KnowledgeSourceType(row.source_type) if row.source_type else None,
         source_reference=row.source_reference,
     )
 

@@ -18,7 +18,7 @@ from kae_memory.application import MemoryService, ReadinessService, WriteKnowled
 from kae_memory.application.review_service import classify_offline
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
-from kae_memory.domain.models import KnowledgeItem
+from kae_memory.domain.models import KnowledgeItem, KnowledgeSourceType
 from kae_memory.domain.readiness import KnowledgeAreaLink
 from tests.synthesis.compute_lab import OBSERVATIONS, ExtractedObservation
 
@@ -50,7 +50,18 @@ def load_compute_lab_corpus(
     is a person starting a queue of hundreds and stopping.
     """
 
-    run = memory.start_run(project_id, AgentRole.REQUIREMENTS, "aws-compute-lab-ingest")
+    run = memory.start_run(
+        project_id,
+        AgentRole.REQUIREMENTS,
+        "aws-compute-lab-ingest",
+        # The live case is a repository read, and ADR-0008 makes what its areas
+        # may reach depend on saying so. A fixture that declared a paste would
+        # reproduce the counts and not the epistemics.
+        input_context={
+            "document": "aws-compute-lab",
+            "source_type": KnowledgeSourceType.REPOSITORY.value,
+        },
+    )
     items = memory.write_knowledge(
         run.id,
         [

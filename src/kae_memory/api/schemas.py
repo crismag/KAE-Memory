@@ -20,7 +20,7 @@ from kae_memory.application.readiness_service import ClassificationReport, Extra
 from kae_memory.application.review_service import Finding
 from kae_memory.domain.dispositions import Disposition, settles
 from kae_memory.domain.execution import AgentRun
-from kae_memory.domain.models import KnowledgeItem, Project
+from kae_memory.domain.models import KnowledgeItem, KnowledgeSourceType, Project
 from kae_memory.domain.readiness import (
     SOFTWARE_TEMPLATE,
     AreaResult,
@@ -880,10 +880,19 @@ class SearchResponse(BaseModel):
 
 
 class IngestDocumentRequest(BaseModel):
+    """A document to read, and what kind of source it is.
+
+    ``source_type`` defaults to an imported document because that is what a bare
+    paste is. A caller reading a connected repository must say so: ADR-0008
+    makes what an area may reach depend on it, and nothing downstream can tell a
+    file from a paste once the text has been chunked.
+    """
+
     document: str = Field(min_length=1)
     text: str = Field(min_length=1)
     max_chunks: int | None = Field(default=None, ge=1)
     actor_id: str | None = None
+    source_type: KnowledgeSourceType = KnowledgeSourceType.IMPORTED_DOCUMENT
 
 
 class IngestionResponse(BaseModel):

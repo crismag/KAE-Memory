@@ -48,6 +48,7 @@ from kae_memory.domain.lifecycle import LifecycleState
 from kae_memory.domain.models import (
     KnowledgeItem,
     KnowledgeKind,
+    KnowledgeSourceType,
     KnowledgeVersion,
     Project,
     Provenance,
@@ -163,6 +164,37 @@ correction has no agent run behind it. A named sentinel keeps that visible;
 borrowing a real run identifier would make a person's edit indistinguishable
 from a model's output in the audit trail.
 """
+
+
+SOURCE_TYPE_CONTEXT_KEY = "source_type"
+"""Where an acquisition path declares the kind of source it is submitting.
+
+Read from ``AgentRun.input_context`` rather than inferred, because only the
+path that acquired the text knows whether it came from a repository. Everything
+else about a repository file and a pasted document looks identical by the time
+a run reads it.
+"""
+
+
+def source_type_for_run(run: AgentRun) -> KnowledgeSourceType:
+    """Return the kind of source the knowledge this run writes came from.
+
+    One rule, applied once, rather than a guess at each call site — `D-106`.
+    The architecture role derives from knowledge the project already holds and
+    reaches nothing outside KAE, so it is inference and cannot ground an area
+    (ADR-0008). A run that names a document was given one. Anything else read a
+    message in a session, which is a person's own statement.
+    """
+
+    if run.role is AgentRole.ARCHITECTURE:
+        return KnowledgeSourceType.KAE_INFERENCE
+    context = run.input_context or {}
+    declared = context.get(SOURCE_TYPE_CONTEXT_KEY)
+    if declared:
+        return KnowledgeSourceType(str(declared))
+    if context.get("document"):
+        return KnowledgeSourceType.IMPORTED_DOCUMENT
+    return KnowledgeSourceType.USER_STATEMENT
 
 
 @dataclass(frozen=True, slots=True)
@@ -706,6 +738,8 @@ class MemoryService:
 
             knowledge = SqlAlchemyKnowledgeRepository(db_session)
             links = ProvenanceLinkRepository(db_session)
+            source_type = source_type_for_run(run)
+            source_reference = (run.input_context or {}).get("document")
             chunks = ChunkRepository(db_session)
             project = ProjectRepository(db_session).get(run.project_id)
             project_name = project.name if project else ""
@@ -738,6 +772,8 @@ class MemoryService:
                             created_at=moment,
                             knowledge_version_number=twin.current_version.number,
                             agent_run_id=run.id,
+                            source_type=source_type,
+                            source_reference=source_reference,
                         )
                     )
                     if request.from_message_id is not None:
@@ -750,6 +786,8 @@ class MemoryService:
                                 created_at=moment,
                                 knowledge_version_number=twin.current_version.number,
                                 message_id=request.from_message_id,
+                                source_type=source_type,
+                                source_reference=source_reference,
                             )
                         )
                     collapsed.append(twin.id)
@@ -786,6 +824,8 @@ class MemoryService:
                         created_at=moment,
                         knowledge_version_number=1,
                         agent_run_id=run.id,
+                        source_type=source_type,
+                        source_reference=source_reference,
                     )
                 )
                 if request.from_message_id is not None:
@@ -798,6 +838,8 @@ class MemoryService:
                             created_at=moment,
                             knowledge_version_number=1,
                             message_id=request.from_message_id,
+                            source_type=source_type,
+                            source_reference=source_reference,
                         )
                     )
                 written.append(item)
@@ -1332,6 +1374,9 @@ class MemoryService:
                         created_at=moment,
                         knowledge_version_number=corrected.current_version.number,
                         message_id=from_message_id,
+                        # A correction is a person's own wording, whatever the
+                        # original statement was extracted from.
+                        source_type=KnowledgeSourceType.USER_STATEMENT,
                     )
                 )
             bump_knowledge_revision(db_session, item.project_id)

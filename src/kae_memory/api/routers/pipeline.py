@@ -182,6 +182,7 @@ def ingest_document(
         body.text,
         policy=policy,
         actor_id=body.actor_id,
+        source_type=body.source_type,
     )
     return IngestionResponse.of(result)
 

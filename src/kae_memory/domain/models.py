@@ -214,6 +214,36 @@ class ProvenanceLinkType(StrEnum):
     DERIVED_FROM_MESSAGE = "derived_from_message"
 
 
+class KnowledgeSourceType(StrEnum):
+    """What kind of source a statement came from.
+
+    One member per row of ADR-0008's provenance table, because the field exists
+    to answer *may this reach ``evidenced``* and a member that does not answer
+    it is a member the area ladder has to interpret.
+
+    The ADR's fifth row — a KAE-generated candidate — is deliberately not a
+    fifth member. A candidate extracted from a document is grounded in that
+    document; only a statement KAE derived from knowledge it already held is
+    ``KAE_INFERENCE``. Collapsing the two would make every extraction a proposal
+    and leave ``evidenced`` unreachable.
+    """
+
+    REPOSITORY = "repository"
+    USER_STATEMENT = "user_statement"
+    IMPORTED_DOCUMENT = "imported_document"
+    KAE_INFERENCE = "kae_inference"
+
+
+PRODUCING_LINK_TYPES = frozenset(
+    {ProvenanceLinkType.PRODUCED_BY, ProvenanceLinkType.DERIVED_FROM_MESSAGE}
+)
+"""The link kinds that record how a statement came to exist.
+
+``USED_BY`` records that a run consumed knowledge, which is not an origin, so it
+carries no source type by construction.
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class ProvenanceLink:
     """Relational link from knowledge to the run or message it came from.
@@ -231,7 +261,7 @@ class ProvenanceLink:
     knowledge_version_number: int | None = None
     agent_run_id: AgentRunId | None = None
     message_id: MessageId | None = None
-    source_type: str | None = None
+    source_type: KnowledgeSourceType | None = None
     source_reference: str | None = None
 
     def __post_init__(self) -> None:

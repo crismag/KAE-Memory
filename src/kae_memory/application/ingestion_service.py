@@ -27,6 +27,7 @@ from sqlalchemy.orm import sessionmaker
 from kae_memory.domain.chunks import MAX_TOKENS, TARGET_TOKENS, estimate_tokens, split_text
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import AgentRunId, MessageId, ProjectId, SessionId
+from kae_memory.domain.models import KnowledgeSourceType
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.persistence.transactions import RetryPolicy
 
@@ -133,6 +134,7 @@ class IngestionService:
         policy: IngestionPolicy | None = None,
         session_id: SessionId | None = None,
         actor_id: str | None = None,
+        source_type: KnowledgeSourceType = KnowledgeSourceType.IMPORTED_DOCUMENT,
     ) -> IngestionResult:
         """Split ``text``, record each span verbatim, and enqueue a run per span.
 
@@ -140,6 +142,11 @@ class IngestionService:
         stored message is the verbatim evidence a statement traces back to, and
         extraction from a copy passed through an API would break the provenance
         chain this product exists to show.
+
+        ``source_type`` is carried on every run this creates, because the caller
+        is the last place that knows whether the text is a repository file or a
+        specification somebody pasted. By the time a run reads it the two are
+        indistinguishable, and ADR-0008 makes readiness depend on the difference.
 
         Idempotent per ``(document, chunk index, content)``. Re-submitting the
         same document re-uses the messages and runs it already created instead
@@ -191,6 +198,7 @@ class IngestionService:
                 input_context={
                     "message_id": str(record.message.id),
                     "document": document,
+                    "source_type": source_type.value,
                     "chunk_index": index,
                     "chunk_count": len(kept),
                     "max_items": settings.max_items_per_chunk,

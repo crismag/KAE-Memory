@@ -228,3 +228,149 @@ class TestTheMigrationsBuildTheSchemaTheModelDeclares:
             "reads that row by primary key, which can be years after the migration "
             "that caused it."
         )
+
+
+class TestRevision0027BackfillsTheSourceTypeNothingEverWrote:
+    """`EPI-5a`, `D-105`. Data only — no column is added, altered or dropped.
+
+    The column has been in the schema since revision 0002 and every producing
+    link in every deployment carries `NULL`, because nothing wrote one. The
+    backfill applies the same rule `source_type_for_run` applies to new writes,
+    so a backfilled row and a freshly written one agree.
+    """
+
+    PROJECT = "aaaaaaaa-0000-0000-0000-000000000001"
+    MOMENT = "'2026-08-16 00:00:00+00'"
+
+    def _seed(self, connection: object) -> None:
+        """Four rows at 0026: three producing links and one consumption."""
+
+        run = "bbbbbbbb-0000-0000-0000-00000000000"
+        connection.execute(  # type: ignore[attr-defined]
+            text(
+                "INSERT INTO projects (project_id, project_key, name, status, created_at, "
+                f"updated_at) VALUES ('{self.PROJECT}', 'epi5a', 'Legacy', 'active', "
+                f"{self.MOMENT}, {self.MOMENT})"
+            )
+        )
+        runs = [
+            (f"{run}1", "requirements", '{"document": "src/api.py", "source_type": "repository"}'),
+            (f"{run}2", "requirements", '{"document": "spec.md"}'),
+            (f"{run}3", "requirements", '{"message_id": "m1"}'),
+            (f"{run}4", "architecture", "{}"),
+        ]
+        for index, (run_id, role, context) in enumerate(runs):
+            connection.execute(  # type: ignore[attr-defined]
+                text(
+                    "INSERT INTO agent_runs (agent_run_id, project_id, agent_role, status, "
+                    "idempotency_key, attempt_number, input_context, output_summary, "
+                    "continuation_state, lease_token, next_attempt_at, created_at, "
+                    f"updated_at) VALUES ('{run_id}', '{self.PROJECT}', '{role}', "
+                    f"'succeeded', 'legacy-{index}', 1, '{context}', '{{}}', '{{}}', "
+                    f"0, {self.MOMENT}, {self.MOMENT}, {self.MOMENT})"
+                )
+            )
+            item = f"item-{index}"
+            connection.execute(  # type: ignore[attr-defined]
+                text(
+                    "INSERT INTO knowledge_items (id, project_id, kind, lifecycle) VALUES "
+                    f"('{item}', '{self.PROJECT}', 'requirement', 'proposed')"
+                )
+            )
+            links = (
+                ("produced_by", f"'{run_id}'"),
+                ("used_by", f"'{run_id}'"),
+                # A correction carries no run, which is why the migration needs
+                # a second pass at all.
+                ("derived_from_message", "NULL"),
+            )
+            for slot, (link_type, run_column) in enumerate(links):
+                link_id = f"cccccccc-0000-0000-000{index}-00000000000{slot}"
+                connection.execute(  # type: ignore[attr-defined]
+                    text(
+                        "INSERT INTO knowledge_provenance_links (provenance_link_id, "
+                        "project_id, knowledge_item_id, link_type, agent_run_id, "
+                        f"source_type, created_at) VALUES ('{link_id}', "
+                        f"'{self.PROJECT}', '{item}', '{link_type}', {run_column}, NULL, "
+                        f"{self.MOMENT})"
+                    )
+                )
+
+    def _backfilled(self, alembic_config: tuple[Config, str]) -> dict[tuple[str, str], str | None]:
+        config, url = alembic_config
+        command.upgrade(config, "0026")
+
+        engine = create_engine(url)
+        try:
+            with engine.begin() as connection:
+                self._seed(connection)
+
+            command.upgrade(config, "0027")
+
+            with engine.connect() as connection:
+                rows = connection.execute(
+                    text(
+                        "SELECT knowledge_item_id, link_type, source_type "
+                        "FROM knowledge_provenance_links ORDER BY knowledge_item_id, link_type"
+                    )
+                ).all()
+        finally:
+            engine.dispose()
+
+        return {(row[0], row[1]): row[2] for row in rows}
+
+    def test_every_producing_link_names_a_source_and_used_by_stays_empty(
+        self, alembic_config: tuple[Config, str]
+    ) -> None:
+        backfilled = self._backfilled(alembic_config)
+
+        assert backfilled[("item-0", "produced_by")] == "repository", (
+            "a run that declared its source is believed"
+        )
+        assert backfilled[("item-1", "produced_by")] == "imported_document", (
+            "a run carrying a document was given one"
+        )
+        assert backfilled[("item-2", "produced_by")] == "user_statement", (
+            "anything else read a message in a session"
+        )
+        assert backfilled[("item-3", "produced_by")] == "kae_inference", (
+            "architecture derives from what the project already holds"
+        )
+        assert all(backfilled[(f"item-{index}", "used_by")] is None for index in range(4)), (
+            "consumption is not an origin and is left alone"
+        )
+
+    def test_a_message_link_with_no_run_inherits_from_its_sibling(
+        self, alembic_config: tuple[Config, str]
+    ) -> None:
+        """Corrections carry no `agent_run_id`, so the rule cannot reach a run."""
+
+        backfilled = self._backfilled(alembic_config)
+
+        assert backfilled[("item-0", "derived_from_message")] == "repository"
+        assert backfilled[("item-3", "derived_from_message")] == "kae_inference"
+
+    def test_downgrade_returns_the_column_to_the_state_it_was_in(
+        self, alembic_config: tuple[Config, str]
+    ) -> None:
+        config, url = alembic_config
+        command.upgrade(config, "0026")
+
+        engine = create_engine(url)
+        try:
+            with engine.begin() as connection:
+                self._seed(connection)
+            command.upgrade(config, "0027")
+            command.downgrade(config, "0026")
+
+            with engine.connect() as connection:
+                remaining = connection.execute(
+                    text(
+                        "SELECT count(*) FROM knowledge_provenance_links "
+                        "WHERE source_type IS NOT NULL"
+                    )
+                ).scalar_one()
+        finally:
+            engine.dispose()
+
+        assert remaining == 0, "the backfill is data, and data can be put back"
