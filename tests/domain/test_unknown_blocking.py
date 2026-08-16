@@ -13,6 +13,7 @@ from kae_memory.domain.identifiers import KnowledgeItemId
 from kae_memory.domain.synthesizers.unknowns import (
     UnknownPlan,
     UnknownTheme,
+    area_labels,
     blocked_areas,
     explain,
     plan_unknowns,
@@ -113,8 +114,37 @@ class TestTheSentenceFollowsTheFlag:
 
         sentence = explain(theme, ranked_by_blocking=True)
 
-        assert "acceptance_criteria" in sentence
+        assert "Acceptance criteria" in sentence
         assert "not by what it blocks" not in sentence
+
+    def test_it_names_an_area_the_way_a_person_says_it_and_not_by_its_key(self) -> None:
+        """`D-151`. This sentence is read on a card, so a key in it is a defect."""
+
+        theme = UnknownTheme(
+            (_item("a"),), _item("a"), ACCEPTANCE, "critical", ("acceptance_criteria",)
+        )
+
+        sentence = explain(theme, ranked_by_blocking=True)
+
+        assert "acceptance_criteria" not in sentence
+        assert "_" not in sentence
+
+    def test_a_label_is_not_case_folded_on_its_way_to_the_reader(self) -> None:
+        """The whole basis used to be `str.capitalize()`d, which lower-cases the
+        rest of the string — a label the function was handed, not composed."""
+
+        theme = UnknownTheme(
+            (_item("a"),),
+            _item("a"),
+            ACCEPTANCE,
+            "critical",
+            ("acceptance_criteria", "domain_model_and_data"),
+        )
+
+        sentence = explain(theme, ranked_by_blocking=True)
+
+        for label in area_labels(theme.blocks):
+            assert label in sentence
 
     def test_it_refuses_the_claim_without_a_snapshot(self) -> None:
         theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical")

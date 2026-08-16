@@ -62,6 +62,7 @@ from dataclasses import dataclass
 from ..area_classification import areas_named_by
 from ..clustering import cluster_by_complete_linkage
 from ..identifiers import KnowledgeItemId
+from ..readiness import SOFTWARE_TEMPLATE, ReadinessTemplate
 from .goals import CLUSTER_RADIUS, medoid
 
 #: How many themes may reach a person from one project.
@@ -239,6 +240,10 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
     readiness snapshot the sentence names the areas standing behind the question,
     and without one it says how the item was chosen instead — the smaller claim,
     and the true one there.
+
+    An area is named by the template's word for it and never by its key
+    (`D-151`): this string is read on an attention card, and `acceptance_criteria`
+    is a column value wearing a sentence's clothes.
     """
 
     times = "asked once" if theme.asked == 1 else f"asked {theme.asked} times"
@@ -248,7 +253,7 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
             "KAE cannot yet say which areas depend on an open question"
         )
     elif theme.blocks:
-        areas = ", ".join(theme.blocks)
+        areas = ", ".join(area_labels(theme.blocks))
         basis = f"ranked by what it blocks: {areas} {_are(theme.blocks)} not yet covered"
     else:
         basis = (
@@ -256,7 +261,20 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
             "no area it names is still short of coverage"
         )
     asked = f"This is still unresolved and was {times} across the project's evidence."
-    return f"{asked} {basis.capitalize()}."
+    # Upper-cases the first character and nothing else. `str.capitalize()` would
+    # lower-case the rest, silently rewriting a label this function was handed
+    # rather than composed — harmless while every label is sentence-case, wrong
+    # the first time one is not.
+    return f"{asked} {basis[0].upper()}{basis[1:]}."
+
+
+def area_labels(
+    keys: Sequence[str], template: ReadinessTemplate = SOFTWARE_TEMPLATE
+) -> tuple[str, ...]:
+    """The template's human name for each area key, in the order given."""
+
+    names = {area.key: area.name for area in template.areas}
+    return tuple(names[key] for key in keys)
 
 
 def _are(areas: tuple[str, ...]) -> str:
