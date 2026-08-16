@@ -2504,6 +2504,126 @@ class DecisionSynthesisReportResponse(BaseModel):
         )
 
 
+class StoredConstraintEffectResponse(BaseModel):
+    """One stored consequence an accepted boundary imposes on one open item.
+
+    This is the read side of the relation doc 07 says a constraint is worth
+    having for: what bounds *this* question, without recomputing the whole
+    constraint-by-item cross product.
+    """
+
+    constraint_statement: str
+    knowledge_item_id: str
+    kind: str
+    basis: str
+
+
+class RunConstraintSynthesisRequest(BaseModel):
+    """Optional idempotency key for a constraint-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedConstraintResponse(BaseModel):
+    """One boundary, and the reading behind what it was allowed to do."""
+
+    synthesized_object_id: str
+    statement: str
+    family: str
+    """One of doc 07's eight families, read from the wording and not stored."""
+
+    restricts: bool
+    """Whether this sentence bounds anything. A non-boundary imposes nothing."""
+
+    accepted: bool
+    """Whether a person accepted it. Only an accepted boundary propagates."""
+
+
+class ConstraintEffectResponse(BaseModel):
+    """One consequence an accepted boundary imposes on one open item.
+
+    Carries no status: doc 07 offers *Add exception* and *Change scope* beside
+    *Accept*, so an effect is an argument about an item, not a verdict on it.
+    """
+
+    constraint_object_id: str
+    knowledge_item_id: str
+    statement: str
+    item_statement: str
+    kind: str
+    """`resolves` or `narrows` — containment versus shared subject."""
+
+    basis: str
+
+
+class ProposedConstraintEffectResponse(BaseModel):
+    """What would follow if an unaccepted boundary were accepted.
+
+    Reported and stored nowhere (`D-126`). The item travels with the constraint
+    because *"it would narrow something"* names nothing a person could act on.
+    """
+
+    statement: str
+    item_statement: str
+    basis: str
+
+
+class ConstraintSynthesisReportResponse(BaseModel):
+    """What one constraint-synthesis run concluded, and what it did not apply."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    open_items: int
+    constraints: list[SynthesizedConstraintResponse]
+
+    effects: list[ConstraintEffectResponse]
+    """What accepted boundaries bear on, and the only thing the run wrote."""
+
+    proposed_effects: list[ProposedConstraintEffectResponse]
+    """What unaccepted boundaries would bear on. Computed, never applied.
+
+    Being wrong about a boundary silently closes a question the project still
+    has, so an unaccepted one changes nothing and says what it would change.
+    """
+
+    @classmethod
+    def of(cls, report: Any) -> "ConstraintSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            open_items=report.open_items,
+            constraints=[
+                SynthesizedConstraintResponse(
+                    synthesized_object_id=str(constraint.object_id),
+                    statement=constraint.statement,
+                    family=constraint.family.value,
+                    restricts=constraint.restricts,
+                    accepted=constraint.accepted,
+                )
+                for constraint in report.constraints
+            ],
+            effects=[
+                ConstraintEffectResponse(
+                    constraint_object_id=str(effect.constraint_object_id),
+                    knowledge_item_id=str(effect.knowledge_item_id),
+                    statement=effect.statement,
+                    item_statement=effect.item_statement,
+                    kind=effect.kind,
+                    basis=effect.basis,
+                )
+                for effect in report.effects
+            ],
+            proposed_effects=[
+                ProposedConstraintEffectResponse(
+                    statement=statement, item_statement=item_statement, basis=basis
+                )
+                for statement, item_statement, basis in report.proposed_effects
+            ],
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

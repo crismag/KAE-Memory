@@ -20,6 +20,7 @@ from enum import StrEnum
 from .errors import DomainInvariantError, InvalidLifecycleTransitionError
 from .identifiers import (
     AttentionItemId,
+    ConstraintEffectId,
     EvidenceBindingId,
     KnowledgeItemId,
     ProjectId,
@@ -286,6 +287,33 @@ class ResponsibilityAssignmentRecord:
             raise DomainInvariantError("responsibility assignment subject_key must not be empty")
         if not self.basis.strip():
             raise DomainInvariantError("responsibility assignment basis must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class ConstraintEffectRecord:
+    """One accepted constraint bearing on one open item (doc 07, `SYN-5e`).
+
+    The constraint is a synthesized object; the item is the extracted unknown or
+    assumption it narrows or answers. Only *accepted* boundaries are written
+    here, so a row's existence is the acceptance — `D-126`. There is no status
+    column, because doc 07 offers *Add exception* and *Change scope* beside
+    *Accept*: an effect is an argument about an item, never a verdict on it.
+    """
+
+    id: ConstraintEffectId
+    project_id: ProjectId
+    constraint_object_id: SynthesizedObjectId
+    knowledge_item_id: KnowledgeItemId
+    kind: str
+    basis: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.kind.strip():
+            raise DomainInvariantError("constraint effect kind must not be empty")
+        if not self.basis.strip():
+            raise DomainInvariantError("constraint effect basis must not be empty")
 
 
 @dataclass(frozen=True, slots=True)

@@ -217,6 +217,76 @@ class TestDecisionsAreProducedOverHttpAndInterruptNobody:
         assert response.status_code == 404
 
 
+class TestConstraintsAreProducedOverHttpAndOnlyAcceptanceWrites:
+    """`SYN-5e`. The run route is the only new surface: the boundaries are read
+    through `GET /model?domain=constraint`, and the effects an accepted one
+    imposes are the run's own output (`D-126`)."""
+
+    def _seed(self, factory: sessionmaker[Session], project_id: str, *, accept: bool) -> None:
+        memory = MemoryService(factory)
+        run = memory.start_run(ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-constraints")
+        written = memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(
+                    kind="constraint", content="Team collaboration is outside MVP.", source="i"
+                ),
+                WriteKnowledgeRequest(
+                    kind="unknown", content="Is team collaboration in MVP?", source="i"
+                ),
+            ],
+        )
+        if accept:
+            memory.confirm_knowledge(written[0].id)
+
+    def test_an_unaccepted_boundary_sends_what_it_would_do_and_applies_none_of_it(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Constraints"}).json()["id"])
+        self._seed(factory, project, accept=False)
+
+        response = client.post(
+            f"/v1/projects/{project}/model/constraints/runs", json={"idempotency_key": "first"}
+        )
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["considered"] == 1
+        assert report["open_items"] == 1
+        assert report["effects"] == []
+        # The item travels with the constraint across the wire: a reason alone
+        # would not name the question that would have been closed.
+        assert [effect["item_statement"] for effect in report["proposed_effects"]] == [
+            "Is team collaboration in MVP?"
+        ]
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+
+    def test_an_accepted_boundary_applies_its_effect(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Accepted"}).json()["id"])
+        self._seed(factory, project, accept=True)
+
+        response = client.post(f"/v1/projects/{project}/model/constraints/runs", json={})
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["proposed_effects"] == []
+        assert [effect["kind"] for effect in report["effects"]] == ["resolves"]
+
+        listed = client.get(f"/v1/projects/{project}/model", params={"domain": "constraint"})
+        assert listed.status_code == 200
+        assert len(listed.json()) == 1
+
+    def test_an_unknown_project_is_not_found(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/projects/00000000-0000-0000-0000-000000000000/model/constraints/runs",
+            json={},
+        )
+
+        assert response.status_code == 404
+
+
 class TestChangeEventsReplay:
     def test_the_same_key_returns_the_same_event(self, client: TestClient, project: str) -> None:
         body = {

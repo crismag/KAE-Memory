@@ -118,3 +118,8 @@ class EvidenceBindingId(Identifier):
 @dataclass(frozen=True, slots=True)
 class ResponsibilityAssignmentId(Identifier):
     """Stable identifier for one cell of the role × subject responsibility matrix."""
+
+
+@dataclass(frozen=True, slots=True)
+class ConstraintEffectId(Identifier):
+    """Stable identifier for one accepted constraint bearing on one open item."""

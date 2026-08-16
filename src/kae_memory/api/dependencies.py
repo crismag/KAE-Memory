@@ -23,6 +23,7 @@ from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.constraint_synthesis_service import ConstraintSynthesisService
 from kae_memory.application.decision_synthesis_service import DecisionSynthesisService
 from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.goal_synthesis_service import GoalSynthesisService
@@ -282,6 +283,20 @@ def get_decision_synthesis(request: Request) -> DecisionSynthesisService:
     return DecisionSynthesisService(factory)
 
 
+def get_constraint_synthesis(request: Request) -> ConstraintSynthesisService:
+    """Return the constraint synthesizer, which also takes no embedder.
+
+    A boundary's reach is containment and shared terms between two statements
+    (`D-124`), which is a lexical read rather than a distance. Where that read
+    misses — an item answered by a constraint sharing none of its words — the
+    gap is `SYN-3a`'s neighbourhood and is recorded as one, not papered over
+    with a wider word list here.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return ConstraintSynthesisService(factory)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -373,3 +388,4 @@ GoalSynthesis = Annotated[GoalSynthesisService, Depends(get_goal_synthesis)]
 UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthesis)]
 ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]
 DecisionSynthesis = Annotated[DecisionSynthesisService, Depends(get_decision_synthesis)]
+ConstraintSynthesis = Annotated[ConstraintSynthesisService, Depends(get_constraint_synthesis)]

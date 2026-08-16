@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-70 capabilities: 27 on both, 38 HTTP only, 4 MCP only, 1 on neither.
+72 capabilities: 27 on both, 40 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -56,7 +56,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (38)
+## HTTP only, by decision (40)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -88,6 +88,8 @@ carries the reason it is not there.
 | `synthesis.attention.list` | Read the human-attention queue (not unconfirmed extraction) | — | `GET /v1/projects/{project_id}/attention` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.attention.put` | Create an attention item; extraction must not call this | — | `POST /v1/projects/{project_id}/attention` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.attention.resolve` | Close an attention item so it leaves the live queue | — | `POST /v1/projects/{project_id}/attention/{item_id}/resolve` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.constraints.effects` | Read what the project's accepted boundaries bear on | — | `GET /v1/projects/{project_id}/model/constraints/effects` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.constraints.run` | Turn constraint evidence into boundaries and the effects they impose | — | `POST /v1/projects/{project_id}/model/constraints/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.decisions.run` | Turn decision evidence into the project's proposals and settled choices | — | `POST /v1/projects/{project_id}/model/decisions/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.evidence.role` | Set how an extracted row participates in reasoning | — | `POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.goals.run` | Cluster goal evidence into the project's goal model | — | `POST /v1/projects/{project_id}/model/goals/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |

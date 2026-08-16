@@ -30,6 +30,7 @@ from kae_memory.domain.synthesis import (
 
 from ..dependencies import (
     ActorSynthesis,
+    ConstraintSynthesis,
     DecisionSynthesis,
     GoalSynthesis,
     Memory,
@@ -42,6 +43,7 @@ from ..schemas import (
     ActorSynthesisReportResponse,
     AttentionItemResponse,
     BindEvidenceRequest,
+    ConstraintSynthesisReportResponse,
     CorrectSynthesizedObjectRequest,
     DecisionSynthesisReportResponse,
     EvidenceBindingResponse,
@@ -56,11 +58,13 @@ from ..schemas import (
     ResolveAttentionRequest,
     ResponsibilityAssignmentResponse,
     RunActorSynthesisRequest,
+    RunConstraintSynthesisRequest,
     RunDecisionSynthesisRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
     RunUnknownSynthesisRequest,
     SetEvidenceRoleRequest,
+    StoredConstraintEffectResponse,
     SynthesizedObjectResponse,
     UnknownSynthesisReportResponse,
 )
@@ -359,6 +363,40 @@ def run_actor_synthesis(
     )
 
 
+@router.post("/model/constraints/runs", response_model=ConstraintSynthesisReportResponse)
+def run_constraint_synthesis(
+    project_id: str,
+    body: RunConstraintSynthesisRequest,
+    memory: Memory,
+    constraints: ConstraintSynthesis,
+) -> ConstraintSynthesisReportResponse:
+    """Turn constraint evidence into the project's boundaries and their effects.
+
+    The boundaries themselves are read back through
+    `GET /model?domain=constraint`. What the run adds beyond them is the
+    relation doc 07 says a constraint is worth having for: `effects` are the
+    open unknowns and assumptions an **accepted** boundary bears on, stored as
+    rows a later reader can query.
+
+    `proposed_effects` are what would follow from the boundaries nobody has
+    accepted. They are computed, reported, and written nowhere (`D-126`) —
+    applying them would silently close questions the project still has on the
+    strength of a sentence somebody merely said.
+
+    Nothing here raises attention. Doc 07 offers *Add exception* and *Change
+    scope* beside *Accept*, so an effect is an argument about an item rather
+    than a task, and an unaccepted boundary is not an interruption.
+
+    Rerunning unchanged evidence writes nothing new — identity is the normalised
+    statement for a boundary and the pair for an effect.
+    """
+
+    resolved = _project(project_id, memory)
+    return ConstraintSynthesisReportResponse.of(
+        constraints.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
 @router.post("/model/decisions/runs", response_model=DecisionSynthesisReportResponse)
 def run_decision_synthesis(
     project_id: str,
@@ -417,6 +455,37 @@ def list_responsibilities(
             letter=record.letter,
         )
         for record in synthesis.list_assignments(resolved, subject_key)
+    ]
+
+
+@router.get(
+    "/model/constraints/effects",
+    response_model=list[StoredConstraintEffectResponse],
+)
+def list_constraint_effects(
+    project_id: str,
+    memory: Memory,
+    synthesis: Synthesis,
+    knowledge_item_id: str | None = Query(default=None),
+) -> list[StoredConstraintEffectResponse]:
+    """What the project's accepted boundaries bear on, optionally for one item.
+
+    Empty is a real answer: doc 07 calls a constraint nothing depends on an
+    isolated duplicate sentence, and a project whose boundaries nobody has
+    accepted yet imposes nothing (`D-126`).
+    """
+
+    resolved = _project(project_id, memory)
+    item = None if knowledge_item_id is None else KnowledgeItemId(knowledge_item_id)
+    statement_of = {obj.id: obj.statement for obj in synthesis.list_objects(resolved)}
+    return [
+        StoredConstraintEffectResponse(
+            constraint_statement=statement_of[record.constraint_object_id],
+            knowledge_item_id=str(record.knowledge_item_id),
+            kind=record.kind,
+            basis=record.basis,
+        )
+        for record in synthesis.list_constraint_effects(resolved, item)
     ]
 
 

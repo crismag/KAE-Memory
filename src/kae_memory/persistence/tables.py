@@ -1121,6 +1121,38 @@ class ResponsibilityAssignmentRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ConstraintEffectRow(Base):
+    """One accepted constraint bearing on one open item (doc 07, `SYN-5e`).
+
+    Identity is ``(constraint_object_id, knowledge_item_id)``: a boundary bears
+    on an item one way, so a rerun updates the reading rather than stacking a
+    second. Only accepted constraints have rows here — an unaccepted boundary's
+    effects are reported by the run and written nowhere, which is why there is
+    no status column for a reader to forget to filter on (`D-126`).
+    """
+
+    __tablename__ = "constraint_effects"
+    __table_args__ = (
+        UniqueConstraint(
+            "constraint_object_id", "knowledge_item_id", name="uq_constraint_effects_pair"
+        ),
+        Index("ix_constraint_effects_item", "project_id", "knowledge_item_id"),
+    )
+
+    effect_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    constraint_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    knowledge_item_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_items.id", ondelete="NO ACTION"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    basis: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttentionItemRow(Base):
     """A human-attention item. Unconfirmed extraction is not one of these."""
 

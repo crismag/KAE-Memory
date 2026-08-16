@@ -34,6 +34,7 @@ from kae_memory.domain.errors import (
 )
 from kae_memory.domain.identifiers import (
     AttentionItemId,
+    ConstraintEffectId,
     EvidenceBindingId,
     KnowledgeItemId,
     ProjectId,
@@ -48,6 +49,7 @@ from kae_memory.domain.synthesis import (
     AttentionStatus,
     Authority,
     ChangeTrigger,
+    ConstraintEffectRecord,
     EvidenceBinding,
     EvidenceBindingKind,
     EvidenceRole,
@@ -351,6 +353,70 @@ class SynthesisService:
             repo.save_assignment(record)
             bump_knowledge_revision(session, project_id)
             return record
+
+        return run_transaction(self._session_factory, operation)
+
+    def record_constraint_effect(
+        self,
+        project_id: ProjectId,
+        constraint_object_id: SynthesizedObjectId,
+        knowledge_item_id: KnowledgeItemId,
+        kind: str,
+        basis: str,
+    ) -> ConstraintEffectRecord:
+        """Record that an accepted constraint bears on one open item.
+
+        Idempotent by ``(constraint, item)``: a rerun over unchanged evidence
+        reads the same effect and returns the stored row, and a changed reading
+        updates it, because a boundary bears on an item one way. Callers pass
+        only *accepted* constraints — the table holds no unapplied effects, so
+        nothing reading it has to remember to filter (`D-126`).
+        """
+
+        kind = kind.strip()
+        basis = basis.strip()
+
+        def operation(session: DbSession) -> ConstraintEffectRecord:
+            repo = SynthesisRepository(session)
+            constraint = repo.get_object(constraint_object_id)
+            if constraint is None or constraint.project_id != project_id:
+                raise KnowledgeNotFoundError(f"unknown synthesized object: {constraint_object_id}")
+            now = _now()
+            existing = repo.get_effect(constraint_object_id, knowledge_item_id)
+            if existing is not None:
+                if existing.kind == kind and existing.basis == basis:
+                    return existing
+                updated = replace(existing, kind=kind, basis=basis, updated_at=now)
+                repo.save_effect(updated)
+                bump_knowledge_revision(session, project_id)
+                return updated
+            record = ConstraintEffectRecord(
+                id=ConstraintEffectId(_new_id()),
+                project_id=project_id,
+                constraint_object_id=constraint_object_id,
+                knowledge_item_id=knowledge_item_id,
+                kind=kind,
+                basis=basis,
+                created_at=now,
+                updated_at=now,
+            )
+            repo.save_effect(record)
+            bump_knowledge_revision(session, project_id)
+            return record
+
+        return run_transaction(self._session_factory, operation)
+
+    def list_constraint_effects(
+        self, project_id: ProjectId, knowledge_item_id: KnowledgeItemId | None = None
+    ) -> tuple[ConstraintEffectRecord, ...]:
+        """What the project's accepted boundaries bear on, optionally for one item.
+
+        Empty is a legitimate reading: doc 07 calls a constraint nothing depends
+        on an isolated duplicate sentence, and saying so is the finding.
+        """
+
+        def operation(session: DbSession) -> tuple[ConstraintEffectRecord, ...]:
+            return SynthesisRepository(session).list_effects(project_id, knowledge_item_id)
 
         return run_transaction(self._session_factory, operation)
 

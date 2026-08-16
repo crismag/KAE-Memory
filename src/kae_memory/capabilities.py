@@ -670,6 +670,20 @@ REGISTRY: tuple[Capability, ...] = (
         reason=_SYNTHESIS_HTTP_ONLY,
     ),
     Capability(
+        key="synthesis.constraints.run",
+        summary="Turn constraint evidence into boundaries and the effects they impose",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("POST /v1/projects/{project_id}/model/constraints/runs",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
+        key="synthesis.constraints.effects",
+        summary="Read what the project's accepted boundaries bear on",
+        exposure=Exposure.PRODUCT_ONLY,
+        http=("GET /v1/projects/{project_id}/model/constraints/effects",),
+        reason=_SYNTHESIS_HTTP_ONLY,
+    ),
+    Capability(
         key="synthesis.decisions.run",
         summary="Turn decision evidence into the project's proposals and settled choices",
         exposure=Exposure.PRODUCT_ONLY,

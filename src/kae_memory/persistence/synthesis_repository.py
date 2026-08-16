@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import (
     AttentionItemId,
+    ConstraintEffectId,
     EvidenceBindingId,
     KnowledgeItemId,
     ProjectId,
@@ -23,6 +24,7 @@ from kae_memory.domain.synthesis import (
     AttentionStatus,
     Authority,
     ChangeTrigger,
+    ConstraintEffectRecord,
     EvidenceBinding,
     EvidenceBindingKind,
     EvidenceRole,
@@ -34,6 +36,7 @@ from kae_memory.domain.synthesis import (
 )
 from kae_memory.persistence.tables import (
     AttentionItemRow,
+    ConstraintEffectRow,
     KnowledgeEvidenceRoleRow,
     ReconciliationEventRow,
     ResponsibilityAssignmentRow,
@@ -240,6 +243,52 @@ class SynthesisRepository:
         row.basis = record.basis
         row.updated_at = _stamp(record.updated_at)
 
+    def get_effect(
+        self, constraint_object_id: SynthesizedObjectId, knowledge_item_id: KnowledgeItemId
+    ) -> ConstraintEffectRecord | None:
+        """Return how this constraint already bears on this item, if at all."""
+
+        row = self._session.scalars(
+            select(ConstraintEffectRow).where(
+                ConstraintEffectRow.constraint_object_id == str(constraint_object_id),
+                ConstraintEffectRow.knowledge_item_id == str(knowledge_item_id),
+            )
+        ).first()
+        return None if row is None else _effect_from_row(row)
+
+    def list_effects(
+        self, project_id: ProjectId, knowledge_item_id: KnowledgeItemId | None = None
+    ) -> tuple[ConstraintEffectRecord, ...]:
+        """Return the project's applied effects, optionally those on one item."""
+
+        stmt = select(ConstraintEffectRow).where(ConstraintEffectRow.project_id == str(project_id))
+        if knowledge_item_id is not None:
+            stmt = stmt.where(ConstraintEffectRow.knowledge_item_id == str(knowledge_item_id))
+        stmt = stmt.order_by(ConstraintEffectRow.knowledge_item_id, ConstraintEffectRow.kind)
+        return tuple(_effect_from_row(row) for row in self._session.scalars(stmt))
+
+    def save_effect(self, record: ConstraintEffectRecord) -> None:
+        """Insert or update one constraint-to-item effect."""
+
+        row = self._session.get(ConstraintEffectRow, str(record.id))
+        if row is None:
+            self._session.add(
+                ConstraintEffectRow(
+                    effect_id=str(record.id),
+                    project_id=str(record.project_id),
+                    constraint_object_id=str(record.constraint_object_id),
+                    knowledge_item_id=str(record.knowledge_item_id),
+                    kind=record.kind,
+                    basis=record.basis,
+                    created_at=_stamp(record.created_at),
+                    updated_at=_stamp(record.updated_at),
+                )
+            )
+            return
+        row.kind = record.kind
+        row.basis = record.basis
+        row.updated_at = _stamp(record.updated_at)
+
     def get_attention(self, item_id: AttentionItemId) -> AttentionItem | None:
         """Return one attention item, or ``None``."""
 
@@ -387,6 +436,19 @@ def _assignment_from_row(row: ResponsibilityAssignmentRow) -> ResponsibilityAssi
         role_object_id=SynthesizedObjectId(row.role_object_id),
         subject_key=row.subject_key,
         letter=row.letter,
+        basis=row.basis,
+        created_at=as_aware(row.created_at),
+        updated_at=as_aware(row.updated_at),
+    )
+
+
+def _effect_from_row(row: ConstraintEffectRow) -> ConstraintEffectRecord:
+    return ConstraintEffectRecord(
+        id=ConstraintEffectId(row.effect_id),
+        project_id=ProjectId(row.project_id),
+        constraint_object_id=SynthesizedObjectId(row.constraint_object_id),
+        knowledge_item_id=KnowledgeItemId(row.knowledge_item_id),
+        kind=row.kind,
         basis=row.basis,
         created_at=as_aware(row.created_at),
         updated_at=as_aware(row.updated_at),

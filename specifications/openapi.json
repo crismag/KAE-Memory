@@ -1117,6 +1117,98 @@
         "title": "ConfirmKnowledgeSetRequest",
         "type": "object"
       },
+      "ConstraintEffectResponse": {
+        "description": "One consequence an accepted boundary imposes on one open item.\n\nCarries no status: doc 07 offers *Add exception* and *Change scope* beside\n*Accept*, so an effect is an argument about an item, not a verdict on it.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "constraint_object_id": {
+            "title": "Constraint Object Id",
+            "type": "string"
+          },
+          "item_statement": {
+            "title": "Item Statement",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "constraint_object_id",
+          "knowledge_item_id",
+          "statement",
+          "item_statement",
+          "kind",
+          "basis"
+        ],
+        "title": "ConstraintEffectResponse",
+        "type": "object"
+      },
+      "ConstraintSynthesisReportResponse": {
+        "description": "What one constraint-synthesis run concluded, and what it did not apply.",
+        "properties": {
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "constraints": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedConstraintResponse"
+            },
+            "title": "Constraints",
+            "type": "array"
+          },
+          "effects": {
+            "items": {
+              "$ref": "#/components/schemas/ConstraintEffectResponse"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "open_items": {
+            "title": "Open Items",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "proposed_effects": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedConstraintEffectResponse"
+            },
+            "title": "Proposed Effects",
+            "type": "array"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "open_items",
+          "constraints",
+          "effects",
+          "proposed_effects"
+        ],
+        "title": "ConstraintSynthesisReportResponse",
+        "type": "object"
+      },
       "ContradictionResponse": {
         "properties": {
           "id": {
@@ -2918,6 +3010,30 @@
         "title": "ProjectResponse",
         "type": "object"
       },
+      "ProposedConstraintEffectResponse": {
+        "description": "What would follow if an unaccepted boundary were accepted.\n\nReported and stored nowhere (`D-126`). The item travels with the constraint\nbecause *\"it would narrow something\"* names nothing a person could act on.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "item_statement": {
+            "title": "Item Statement",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "item_statement",
+          "basis"
+        ],
+        "title": "ProposedConstraintEffectResponse",
+        "type": "object"
+      },
       "ProviderConnectionListResponse": {
         "properties": {
           "project_id": {
@@ -4169,6 +4285,24 @@
         "title": "RunActorSynthesisRequest",
         "type": "object"
       },
+      "RunConstraintSynthesisRequest": {
+        "description": "Optional idempotency key for a constraint-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunConstraintSynthesisRequest",
+        "type": "object"
+      },
       "RunDecisionSynthesisRequest": {
         "description": "Optional idempotency key for a decision-synthesis pass.",
         "properties": {
@@ -5035,6 +5169,35 @@
         "title": "StatementResponse",
         "type": "object"
       },
+      "StoredConstraintEffectResponse": {
+        "description": "One stored consequence an accepted boundary imposes on one open item.\n\nThis is the read side of the relation doc 07 says a constraint is worth\nhaving for: what bounds *this* question, without recomputing the whole\nconstraint-by-item cross product.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "constraint_statement": {
+            "title": "Constraint Statement",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "knowledge_item_id": {
+            "title": "Knowledge Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "constraint_statement",
+          "knowledge_item_id",
+          "kind",
+          "basis"
+        ],
+        "title": "StoredConstraintEffectResponse",
+        "type": "object"
+      },
       "SupersedeDeliverableRequest": {
         "properties": {
           "replacement_id": {
@@ -5047,6 +5210,40 @@
           "replacement_id"
         ],
         "title": "SupersedeDeliverableRequest",
+        "type": "object"
+      },
+      "SynthesizedConstraintResponse": {
+        "description": "One boundary, and the reading behind what it was allowed to do.",
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "restricts": {
+            "title": "Restricts",
+            "type": "boolean"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "family",
+          "restricts",
+          "accepted"
+        ],
+        "title": "SynthesizedConstraintResponse",
         "type": "object"
       },
       "SynthesizedDecisionResponse": {
@@ -8016,6 +8213,122 @@
           }
         },
         "summary": "Run Actor Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/constraints/effects": {
+      "get": {
+        "description": "What the project's accepted boundaries bear on, optionally for one item.\n\nEmpty is a real answer: doc 07 calls a constraint nothing depends on an\nisolated duplicate sentence, and a project whose boundaries nobody has\naccepted yet imposes nothing (`D-126`).",
+        "operationId": "list_constraint_effects_v1_projects__project_id__model_constraints_effects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "knowledge_item_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Knowledge Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StoredConstraintEffectResponse"
+                  },
+                  "title": "Response List Constraint Effects V1 Projects  Project Id  Model Constraints Effects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Constraint Effects",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/constraints/runs": {
+      "post": {
+        "description": "Turn constraint evidence into the project's boundaries and their effects.\n\nThe boundaries themselves are read back through\n`GET /model?domain=constraint`. What the run adds beyond them is the\nrelation doc 07 says a constraint is worth having for: `effects` are the\nopen unknowns and assumptions an **accepted** boundary bears on, stored as\nrows a later reader can query.\n\n`proposed_effects` are what would follow from the boundaries nobody has\naccepted. They are computed, reported, and written nowhere (`D-126`) \u2014\napplying them would silently close questions the project still has on the\nstrength of a sentence somebody merely said.\n\nNothing here raises attention. Doc 07 offers *Add exception* and *Change\nscope* beside *Accept*, so an effect is an argument about an item rather\nthan a task, and an unaccepted boundary is not an interruption.\n\nRerunning unchanged evidence writes nothing new \u2014 identity is the normalised\nstatement for a boundary and the pair for an effect.",
+        "operationId": "run_constraint_synthesis_v1_projects__project_id__model_constraints_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunConstraintSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConstraintSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Constraint Synthesis",
         "tags": [
           "synthesis"
         ]
