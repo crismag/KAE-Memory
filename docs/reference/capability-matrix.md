@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-66 capabilities: 27 on both, 34 HTTP only, 4 MCP only, 1 on neither.
+67 capabilities: 27 on both, 35 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -56,7 +56,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (34)
+## HTTP only, by decision (35)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -97,6 +97,7 @@ carries the reason it is not there.
 | `synthesis.reconciliation.neighborhood` | Read bounded related evidence for later LLM context | — | `GET /v1/projects/{project_id}/reconciliation/neighborhoods/{item_id}` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.reconciliation.record` | Record an idempotent reconciliation or human-act change event | — | `POST /v1/projects/{project_id}/reconciliation/events` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.reconciliation.run` | Run deterministic evidence-graph reconciliation without minting a model | — | `POST /v1/projects/{project_id}/reconciliation/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.unknowns.run` | Turn current unknowns into themes and raise the material few | — | `POST /v1/projects/{project_id}/model/unknowns/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 
 ---
 

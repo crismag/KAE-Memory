@@ -3,7 +3,7 @@
 
 # HTTP API
 
-72 paths, 86 operations — 42 GET, 43 POST.
+73 paths, 87 operations — 42 GET, 44 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -70,7 +70,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (43)
+## Writes (44)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -103,6 +103,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). |
 | `POST /v1/projects/{project_id}/model` | Create or update a working-model object, idempotent by identity |
 | `POST /v1/projects/{project_id}/model/goals/runs` | Cluster goal evidence into the project's goal model |
+| `POST /v1/projects/{project_id}/model/unknowns/runs` | Turn current unknowns into themes and raise the material few |
 | `POST /v1/projects/{project_id}/model/{object_id}/correct` | Record a person's wording as the authoritative synthesized object |
 | `POST /v1/projects/{project_id}/model/{object_id}/evidence` | Map a synthesized object onto an extracted row without deleting it |
 | `POST /v1/projects/{project_id}/operational-state/{record_id}/settle` | Relay a person's decision about a reported operational record |

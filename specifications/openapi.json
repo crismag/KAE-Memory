@@ -3218,6 +3218,25 @@
         "title": "RaiseBlockerRequest",
         "type": "object"
       },
+      "RaisedAttentionResponse": {
+        "description": "An attention item this run put in front of a person.",
+        "properties": {
+          "attention_item_id": {
+            "title": "Attention Item Id",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attention_item_id",
+          "question"
+        ],
+        "title": "RaisedAttentionResponse",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "description": "Everything needed to interrogate the number, never the number alone.\n\n``is_stale`` is computed against the project's current revision at read time,\nwhich is why it is not a stored status.\n\n**Two revisions, deliberately.** ``knowledge_revision`` is the revision this\nsnapshot was *calculated at*; ``current_knowledge_revision`` is where the\nproject is *now*. Reporting only the first is what let Studio display a\nrevision that stopped moving whenever readiness was last recalculated \u2014 a\nnumber that looks live and is not. Reporting only the second would make\n``is_stale`` unexplainable: a reader could see that readiness is stale\nwithout being able to say how far behind it is.",
         "properties": {
@@ -4134,6 +4153,24 @@
           "error_message"
         ],
         "title": "RunResponse",
+        "type": "object"
+      },
+      "RunUnknownSynthesisRequest": {
+        "description": "Optional idempotency key for an unknown-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunUnknownSynthesisRequest",
         "type": "object"
       },
       "SearchResponse": {
@@ -5067,6 +5104,61 @@
           "disposition"
         ],
         "title": "UnknownEntryResponse",
+        "type": "object"
+      },
+      "UnknownSynthesisReportResponse": {
+        "description": "What one unknown-synthesis run concluded, including what it withheld.",
+        "properties": {
+          "clustered": {
+            "title": "Clustered",
+            "type": "boolean"
+          },
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "raised": {
+            "items": {
+              "$ref": "#/components/schemas/RaisedAttentionResponse"
+            },
+            "title": "Raised",
+            "type": "array"
+          },
+          "ranked_by_blocking": {
+            "title": "Ranked By Blocking",
+            "type": "boolean"
+          },
+          "resolved": {
+            "title": "Resolved",
+            "type": "integer"
+          },
+          "themes": {
+            "title": "Themes",
+            "type": "integer"
+          },
+          "withheld": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Withheld",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "considered",
+          "resolved",
+          "themes",
+          "raised",
+          "withheld",
+          "clustered",
+          "ranked_by_blocking"
+        ],
+        "title": "UnknownSynthesisReportResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -7602,6 +7694,59 @@
           }
         },
         "summary": "Run Goal Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/unknowns/runs": {
+      "post": {
+        "description": "Turn current unknowns into themes, and the material few into attention.\n\nThe only route that *produces* the attention queue. `GET /attention` reads\nit and `POST /attention` writes one item by hand; until this existed the\nqueue could be filled only by calling the service in-process.\n\nRerunning unchanged unknowns writes nothing new \u2014 themes carry the same\nidentity keys, so `put_object` and `put_attention` return what is there.",
+        "operationId": "run_unknown_synthesis_v1_projects__project_id__model_unknowns_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunUnknownSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnknownSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Unknown Synthesis",
         "tags": [
           "synthesis"
         ]

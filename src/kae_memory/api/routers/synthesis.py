@@ -28,7 +28,7 @@ from kae_memory.domain.synthesis import (
     EvidenceRole,
 )
 
-from ..dependencies import GoalSynthesis, Memory, Reconciliation, Synthesis
+from ..dependencies import GoalSynthesis, Memory, Reconciliation, Synthesis, UnknownSynthesis
 from ..errors import ApiError, not_found
 from ..schemas import (
     AttentionItemResponse,
@@ -46,8 +46,10 @@ from ..schemas import (
     ResolveAttentionRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
+    RunUnknownSynthesisRequest,
     SetEvidenceRoleRequest,
     SynthesizedObjectResponse,
+    UnknownSynthesisReportResponse,
 )
 
 router = APIRouter(prefix="/v1/projects/{project_id}", tags=["synthesis"])
@@ -288,6 +290,29 @@ def run_goal_synthesis(
     resolved = _project(project_id, memory)
     return GoalSynthesisReportResponse.of(
         goals.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
+@router.post("/model/unknowns/runs", response_model=UnknownSynthesisReportResponse)
+def run_unknown_synthesis(
+    project_id: str,
+    body: RunUnknownSynthesisRequest,
+    memory: Memory,
+    unknowns: UnknownSynthesis,
+) -> UnknownSynthesisReportResponse:
+    """Turn current unknowns into themes, and the material few into attention.
+
+    The only route that *produces* the attention queue. `GET /attention` reads
+    it and `POST /attention` writes one item by hand; until this existed the
+    queue could be filled only by calling the service in-process.
+
+    Rerunning unchanged unknowns writes nothing new — themes carry the same
+    identity keys, so `put_object` and `put_attention` return what is there.
+    """
+
+    resolved = _project(project_id, memory)
+    return UnknownSynthesisReportResponse.of(
+        unknowns.synthesize(resolved, idempotency_key=body.idempotency_key)
     )
 
 

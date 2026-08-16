@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
 from kae_memory.api.security import AuthPolicy
+from kae_memory.application import MemoryService, WriteKnowledgeRequest
+from kae_memory.domain.execution import AgentRole
+from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.synthesizers.unknowns import ATTENTION_BOUND
 
 
 @pytest.fixture
@@ -74,6 +78,80 @@ class TestWorkingModelThenHumanCorrection:
         )
         assert refused.status_code == 409
         assert refused.json()["error"]["code"] == "authoritative_override_refused"
+
+
+def _seed_unknowns(factory: sessionmaker[Session], project_id: str, count: int) -> None:
+    """Write `count` distinct unresolved questions as extracted evidence."""
+
+    memory = MemoryService(factory)
+    run = memory.start_run(ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-unknowns")
+    memory.write_knowledge(
+        run.id,
+        [
+            WriteKnowledgeRequest(
+                kind="unknown",
+                content=f"Question {index}: who owns subsystem {index}?",
+                source="interview",
+            )
+            for index in range(count)
+        ],
+    )
+
+
+class TestTheAttentionQueueIsProducedOverHttp:
+    """`SYN-3d` filled the live queue by calling the service in-process (`D-115`).
+
+    These assert the same thing is reachable over HTTP, because a queue that
+    only a script can fill is not a surface anybody can be given.
+    """
+
+    def test_a_run_fills_the_queue_and_bounds_it(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Unknowns"}).json()["id"])
+        over_bound = ATTENTION_BOUND + 2
+        _seed_unknowns(factory, project, over_bound)
+
+        response = client.post(
+            f"/v1/projects/{project}/model/unknowns/runs", json={"idempotency_key": "first"}
+        )
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["considered"] == over_bound
+        assert report["themes"] == over_bound
+        assert len(report["raised"]) == ATTENTION_BOUND
+        # The exclusions cross the wire. A response naming only what it raised
+        # would make its own withholding unauditable from outside the process.
+        assert len(report["withheld"]) == over_bound - ATTENTION_BOUND
+        assert report["ranked_by_blocking"] is False
+
+        queue = client.get(f"/v1/projects/{project}/attention")
+        assert queue.status_code == 200
+        assert len(queue.json()) == ATTENTION_BOUND
+
+    def test_rerunning_raises_nothing_further(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Unknowns twice"}).json()["id"])
+        _seed_unknowns(factory, project, 3)
+        body = {"idempotency_key": "same"}
+
+        first = client.post(f"/v1/projects/{project}/model/unknowns/runs", json=body)
+        second = client.post(f"/v1/projects/{project}/model/unknowns/runs", json=body)
+
+        assert first.status_code == 200, first.text
+        assert second.status_code == 200, second.text
+        assert second.json()["raised"] == first.json()["raised"]
+        assert len(client.get(f"/v1/projects/{project}/attention").json()) == 3
+
+    def test_an_unknown_project_is_not_found(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/projects/00000000-0000-0000-0000-000000000000/model/unknowns/runs",
+            json={},
+        )
+
+        assert response.status_code == 404
 
 
 class TestChangeEventsReplay:

@@ -2273,6 +2273,64 @@ class GoalSynthesisReportResponse(BaseModel):
         )
 
 
+class RunUnknownSynthesisRequest(BaseModel):
+    """Optional idempotency key for an unknown-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class RaisedAttentionResponse(BaseModel):
+    """An attention item this run put in front of a person."""
+
+    attention_item_id: str
+    question: str
+
+
+class UnknownSynthesisReportResponse(BaseModel):
+    """What one unknown-synthesis run concluded, including what it withheld."""
+
+    project_id: str
+    considered: int
+    resolved: int
+    """Extracted unknowns another source already answered. Kept, not raised."""
+
+    themes: int
+    raised: list[RaisedAttentionResponse]
+    withheld: list[str]
+    """Current themes below the attention bound. Real, and deliberately unraised.
+
+    Reported for the same reason `GoalSynthesisReportResponse.withheld` is: a
+    queue of 8 drawn from 36 themes makes its own 28 exclusions the first thing
+    anybody asks about, and a response naming only the 8 would leave that
+    question unanswerable from the wire.
+    """
+
+    clustered: bool
+    """False when no statement-space vectors were available (`D-102`).
+
+    Every unknown then stands alone, so a reader can tell a set of themes that
+    was compacted from one that merely was not compared.
+    """
+
+    ranked_by_blocking: bool
+
+    @classmethod
+    def of(cls, report: Any) -> "UnknownSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            considered=report.considered,
+            resolved=report.resolved,
+            themes=report.themes,
+            raised=[
+                RaisedAttentionResponse(attention_item_id=str(item_id), question=question)
+                for item_id, question in report.attention
+            ],
+            withheld=list(report.withheld),
+            clustered=report.clustered,
+            ranked_by_blocking=report.ranked_by_blocking,
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

@@ -36,6 +36,7 @@ from kae_memory.application.review_service import ReviewService
 from kae_memory.application.setup_service import SetupService
 from kae_memory.application.source_service import SourceService
 from kae_memory.application.synthesis_service import SynthesisService
+from kae_memory.application.unknown_synthesis_service import UnknownSynthesisService
 from kae_memory.persistence import providers
 
 from .errors import not_found
@@ -242,6 +243,17 @@ def get_goal_synthesis(request: Request) -> GoalSynthesisService:
     )
 
 
+def get_unknown_synthesis(request: Request) -> UnknownSynthesisService:
+    """Return the unknown synthesizer, sharing the goal synthesizer's embedder.
+
+    Both compare statements. Handing them different vector spaces would let the
+    same project be compacted one way for goals and another for unknowns.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return UnknownSynthesisService(factory, embedder=request.app.state.embedder)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -330,3 +342,4 @@ Sources = Annotated[SourceService, Depends(get_sources)]
 Synthesis = Annotated[SynthesisService, Depends(get_synthesis)]
 Reconciliation = Annotated[ReconciliationService, Depends(get_reconciliation)]
 GoalSynthesis = Annotated[GoalSynthesisService, Depends(get_goal_synthesis)]
+UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthesis)]
