@@ -25,12 +25,13 @@ makes this safe to call after every extraction rather than by hand.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory.agents.embedding import EmbeddingError, EmbeddingPort
 from kae_memory.application.synthesis_service import SynthesisService, payload_fingerprint
 from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId, SynthesizedObjectId
 from kae_memory.domain.lifecycle import RETRIEVABLE
@@ -94,11 +95,15 @@ class GoalSynthesisService:
     """Turn goal evidence into the project's goal model."""
 
     def __init__(
-        self, session_factory: sessionmaker[DbSession], judge: GoalJudge | None = None
+        self,
+        session_factory: sessionmaker[DbSession],
+        judge: GoalJudge | None = None,
+        embedder: EmbeddingPort | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._synthesis = SynthesisService(session_factory)
         self._judge = judge
+        self._embedder = embedder
 
     def synthesize(
         self, project_id: ProjectId, *, idempotency_key: str | None = None
@@ -155,6 +160,45 @@ class GoalSynthesisService:
             withheld=tuple((candidate.statement, reason) for candidate, reason in plan.withheld),
         )
 
+    def _statement_vectors(
+        self,
+        session: DbSession,
+        project_id: ProjectId,
+        item_ids: Sequence[KnowledgeItemId],
+        content: Mapping[KnowledgeItemId, str],
+    ) -> dict[KnowledgeItemId, tuple[float, ...]]:
+        """Vectors of the statements themselves, however this deployment can.
+
+        Stored vectors are used **only** where the chunk body carries no
+        envelope, which is the rare case. Otherwise the statements are embedded
+        for this run. Not persisted: the schema keys a chunk by
+        `(knowledge_id, chunk_index, embedding_version)`, so a second space
+        needs a version reserved for it, and reserving one is a storage decision
+        rather than something to slip in beside a synthesizer.
+
+        Empty is a real answer — no embedder and no statement-space index means
+        nothing here can compare two sentences, and the caller reports that
+        rather than clustering on numbers that mean something else.
+        """
+
+        chunks = ChunkRepository(session)
+        if chunks.statement_space(project_id, item_ids):
+            stored = chunks.embeddings_for(project_id, item_ids)
+            if stored:
+                return stored
+        if self._embedder is None:
+            return {}
+        ordered = [item_id for item_id in item_ids if content.get(item_id, "").strip()]
+        if not ordered:
+            return {}
+        try:
+            embedded = self._embedder.embed([content[item_id] for item_id in ordered])
+        except EmbeddingError:
+            # A model that is down is not a project with no duplicate ideas. The
+            # run continues uncompared and says so.
+            return {}
+        return dict(zip(ordered, embedded.vectors, strict=True))
+
     def _read(
         self, project_id: ProjectId
     ) -> tuple[tuple[GoalCandidate, ...], tuple[str, ...], tuple[KnowledgeItemId, ...], bool]:
@@ -175,24 +219,26 @@ class GoalSynthesisService:
             item_ids = [item.id for item in goals]
             content = {item.id: item.current_version.content for item in goals}
 
-            chunks = ChunkRepository(session)
-            # **Refuse to cluster on envelope vectors** (`D-102`). Every stored
-            # chunk begins with `Type:`/`Project:`/`Status:`, identical for every
-            # item of one kind in one project, so those vectors measure the
-            # template: mean pair distance 0.144 as stored against 0.510 as
-            # statements. `D-100`'s radius was measured on statements and puts
-            # all 47 corpus goals in **one cluster** when read from enveloped
-            # ones — the whole model as a single object.
+            # **The measurement is taken in the space the radius was measured
+            # in** (`D-102`, `CHUNK-ENVELOPE`).
             #
-            # Lowering the radius does not rescue it; at every radius tried the
-            # prefixed space mixes regression cases. So the honest answer is that
-            # these vectors cannot say how far apart two sentences are, and every
-            # candidate stands alone until `CHUNK-ENVELOPE` provides ones that
-            # can.
-            comparable = chunks.statement_space(project_id, item_ids)
-            vectors = chunks.embeddings_for(project_id, item_ids) if comparable else {}
+            # Every stored chunk begins with `Type:`/`Project:`/`Status:`,
+            # identical for every item of one kind in one project, so those
+            # vectors measure the template: mean pair distance 0.144 as stored
+            # against 0.510 as statements. `D-100`'s radius was measured on
+            # statements and puts all 47 corpus goals in **one cluster** when
+            # read from enveloped ones — the whole model as a single object, and
+            # no lower radius rescues it.
+            #
+            # The prefix earns its place in retrieval, where it tells the model
+            # that "monthly" is a rule inside a reporting project. Synthesis asks
+            # a different question — *how far apart are these two sentences* —
+            # so it pays for its own measurement rather than reusing an answer
+            # to another one.
+            vectors = self._statement_vectors(session, project_id, item_ids, content)
             distance = distance_over(vectors)
             clusters = cluster_by_complete_linkage(item_ids, distance)
+            comparable = bool(vectors)
 
             candidates = tuple(
                 GoalCandidate(

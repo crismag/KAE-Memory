@@ -237,7 +237,9 @@ def get_goal_synthesis(request: Request) -> GoalSynthesisService:
     """
 
     factory: sessionmaker[DbSession] = request.app.state.session_factory
-    return GoalSynthesisService(factory, judge=default_goal_judge())
+    return GoalSynthesisService(
+        factory, judge=default_goal_judge(), embedder=request.app.state.embedder
+    )
 
 
 def get_reconciliation(request: Request) -> ReconciliationService:
