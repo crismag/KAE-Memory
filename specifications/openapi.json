@@ -1250,6 +1250,81 @@
         "title": "CreateProjectRequest",
         "type": "object"
       },
+      "DecisionNoteResponse": {
+        "description": "One decision the run has something to say about, and what it says.\n\nThe statement travels with the reason because these reasons are about a\nrule rather than about a subject: *\"nobody has accepted it\"* reads the same\nfor every row, so a list of reasons alone would name nothing.",
+        "properties": {
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement",
+          "reason"
+        ],
+        "title": "DecisionNoteResponse",
+        "type": "object"
+      },
+      "DecisionSynthesisReportResponse": {
+        "description": "What one decision-synthesis run concluded, including what it refused.",
+        "properties": {
+          "awaiting": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionNoteResponse"
+            },
+            "title": "Awaiting",
+            "type": "array"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionNoteResponse"
+            },
+            "title": "Conflicts",
+            "type": "array"
+          },
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedDecisionResponse"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "session_scoped": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionNoteResponse"
+            },
+            "title": "Session Scoped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "decisions",
+          "awaiting",
+          "conflicts",
+          "session_scoped"
+        ],
+        "title": "DecisionSynthesisReportResponse",
+        "type": "object"
+      },
       "DeletionPlanResponse": {
         "description": "What deleting a project would remove, before anything is removed.\n\n`rows` is per table rather than a total so a reviewer can sanity-check\nscale. A project reporting zero messages where hundreds were expected is\nhow a wrong identifier is caught before it is acted on.",
         "properties": {
@@ -4094,6 +4169,24 @@
         "title": "RunActorSynthesisRequest",
         "type": "object"
       },
+      "RunDecisionSynthesisRequest": {
+        "description": "Optional idempotency key for a decision-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunDecisionSynthesisRequest",
+        "type": "object"
+      },
       "RunGoalSynthesisRequest": {
         "description": "Optional idempotency key for a goal-synthesis pass.",
         "properties": {
@@ -4954,6 +5047,45 @@
           "replacement_id"
         ],
         "title": "SupersedeDeliverableRequest",
+        "type": "object"
+      },
+      "SynthesizedDecisionResponse": {
+        "description": "One decision, and the reading behind the state it was stored in.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "decision_class": {
+            "title": "Decision Class",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "settled": {
+            "title": "Settled",
+            "type": "boolean"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "decision_class",
+          "scope",
+          "settled",
+          "basis"
+        ],
+        "title": "SynthesizedDecisionResponse",
         "type": "object"
       },
       "SynthesizedObjectResponse": {
@@ -7884,6 +8016,59 @@
           }
         },
         "summary": "Run Actor Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/decisions/runs": {
+      "post": {
+        "description": "Turn decision evidence into the project's proposals and settled choices.\n\nThe decisions themselves are read back through `GET /model?domain=decision`,\nbecause a decision is stored as the synthesized object it is: its lifecycle\nand authority *are* its state, and a second collection holding the same\nanswer is the pathology doc 08 names (`D-125`).\n\nWhat this response adds is the reading behind that state \u2014 the class, the\neffective scope and the basis, all derived from the wording rather than\nstored \u2014 together with what the run **refused**. `awaiting` is every\ndecision nobody accepted and is deliberately not the attention queue: one\ninterrupt per unaccepted decision would be the extracted-review queue under\na new name. `session_scoped` is what was refused permanence, and `conflicts`\nis the one thing here that does raise attention.\n\nRerunning unchanged evidence writes nothing new \u2014 identity is the normalised\nstatement, so `put_object` returns what is there and a settled decision is\nalready authoritative.",
+        "operationId": "run_decision_synthesis_v1_projects__project_id__model_decisions_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunDecisionSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Decision Synthesis",
         "tags": [
           "synthesis"
         ]

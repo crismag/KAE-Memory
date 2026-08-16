@@ -30,6 +30,7 @@ from kae_memory.domain.synthesis import (
 
 from ..dependencies import (
     ActorSynthesis,
+    DecisionSynthesis,
     GoalSynthesis,
     Memory,
     Reconciliation,
@@ -42,6 +43,7 @@ from ..schemas import (
     AttentionItemResponse,
     BindEvidenceRequest,
     CorrectSynthesizedObjectRequest,
+    DecisionSynthesisReportResponse,
     EvidenceBindingResponse,
     EvidenceRoleResponse,
     GoalSynthesisReportResponse,
@@ -54,6 +56,7 @@ from ..schemas import (
     ResolveAttentionRequest,
     ResponsibilityAssignmentResponse,
     RunActorSynthesisRequest,
+    RunDecisionSynthesisRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
     RunUnknownSynthesisRequest,
@@ -353,6 +356,39 @@ def run_actor_synthesis(
     resolved = _project(project_id, memory)
     return ActorSynthesisReportResponse.of(
         actors.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
+@router.post("/model/decisions/runs", response_model=DecisionSynthesisReportResponse)
+def run_decision_synthesis(
+    project_id: str,
+    body: RunDecisionSynthesisRequest,
+    memory: Memory,
+    decisions: DecisionSynthesis,
+) -> DecisionSynthesisReportResponse:
+    """Turn decision evidence into the project's proposals and settled choices.
+
+    The decisions themselves are read back through `GET /model?domain=decision`,
+    because a decision is stored as the synthesized object it is: its lifecycle
+    and authority *are* its state, and a second collection holding the same
+    answer is the pathology doc 08 names (`D-125`).
+
+    What this response adds is the reading behind that state — the class, the
+    effective scope and the basis, all derived from the wording rather than
+    stored — together with what the run **refused**. `awaiting` is every
+    decision nobody accepted and is deliberately not the attention queue: one
+    interrupt per unaccepted decision would be the extracted-review queue under
+    a new name. `session_scoped` is what was refused permanence, and `conflicts`
+    is the one thing here that does raise attention.
+
+    Rerunning unchanged evidence writes nothing new — identity is the normalised
+    statement, so `put_object` returns what is there and a settled decision is
+    already authoritative.
+    """
+
+    resolved = _project(project_id, memory)
+    return DecisionSynthesisReportResponse.of(
+        decisions.synthesize(resolved, idempotency_key=body.idempotency_key)
     )
 
 

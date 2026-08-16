@@ -2410,6 +2410,100 @@ class ActorSynthesisReportResponse(BaseModel):
         )
 
 
+class RunDecisionSynthesisRequest(BaseModel):
+    """Optional idempotency key for a decision-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedDecisionResponse(BaseModel):
+    """One decision, and the reading behind the state it was stored in."""
+
+    synthesized_object_id: str
+    statement: str
+    decision_class: str
+    """`product_scope`, `architecture`, `governance`, `planning`, `workflow` or
+    `unclassified` — derived from the wording rather than stored (`D-125`)."""
+
+    scope: str
+    """`project` or `session`. Orthogonal to the class, so *"in this session,
+    skip architecture"* stays a workflow decision that binds nothing."""
+
+    settled: bool
+    """Whether a person accepted this. Wording never promotes (`D-123`)."""
+
+    basis: str
+
+
+class DecisionNoteResponse(BaseModel):
+    """One decision the run has something to say about, and what it says.
+
+    The statement travels with the reason because these reasons are about a
+    rule rather than about a subject: *"nobody has accepted it"* reads the same
+    for every row, so a list of reasons alone would name nothing.
+    """
+
+    statement: str
+    reason: str
+
+
+class DecisionSynthesisReportResponse(BaseModel):
+    """What one decision-synthesis run concluded, including what it refused."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    decisions: list[SynthesizedDecisionResponse]
+
+    awaiting: list[DecisionNoteResponse]
+    """Decisions nobody has accepted. Sent, and deliberately not attention.
+
+    One queue item per unaccepted decision would be the extracted-review queue
+    under a new name, which is what `ADR-0007` exists to remove (`D-125`).
+    """
+
+    conflicts: list[DecisionNoteResponse]
+    """Accepted decisions the project's own state contradicts.
+
+    These are also attention items — doc 08 asks for conflict analysis rather
+    than a second contradictory record.
+    """
+
+    session_scoped: list[DecisionNoteResponse]
+    """Decisions refused permanence, with the reason each was refused."""
+
+    @classmethod
+    def of(cls, report: Any) -> "DecisionSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            decisions=[
+                SynthesizedDecisionResponse(
+                    synthesized_object_id=str(decision.object_id),
+                    statement=decision.statement,
+                    decision_class=decision.decision_class.value,
+                    scope=decision.scope.value,
+                    settled=decision.settled,
+                    basis=decision.basis,
+                )
+                for decision in report.decisions
+            ],
+            awaiting=[
+                DecisionNoteResponse(statement=statement, reason=reason)
+                for statement, reason in report.awaiting
+            ],
+            conflicts=[
+                DecisionNoteResponse(statement=statement, reason=reason)
+                for statement, reason in report.conflicts
+            ],
+            session_scoped=[
+                DecisionNoteResponse(statement=statement, reason=reason)
+                for statement, reason in report.session_scoped
+            ],
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

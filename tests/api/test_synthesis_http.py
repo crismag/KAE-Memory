@@ -154,6 +154,69 @@ class TestTheAttentionQueueIsProducedOverHttp:
         assert response.status_code == 404
 
 
+class TestDecisionsAreProducedOverHttpAndInterruptNobody:
+    """`SYN-5f`. The run route is the only new surface: the decisions
+    themselves are read through `GET /model?domain=decision`, because the
+    object's own lifecycle is the decision's state (`D-125`)."""
+
+    def _seed(self, factory: sessionmaker[Session], project_id: str) -> None:
+        memory = MemoryService(factory)
+        run = memory.start_run(ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-decisions")
+        memory.write_knowledge(
+            run.id,
+            [
+                WriteKnowledgeRequest(kind="decision", content=statement, source="interview")
+                for statement in (
+                    "Local-first execution is the canonical environment.",
+                    "In this session, skip architecture and stay on requirements.",
+                )
+            ],
+        )
+
+    def test_a_run_reports_what_is_unsettled_and_raises_nothing(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Decisions"}).json()["id"])
+        self._seed(factory, project)
+
+        response = client.post(
+            f"/v1/projects/{project}/model/decisions/runs", json={"idempotency_key": "first"}
+        )
+
+        assert response.status_code == 200, response.text
+        report = response.json()
+        assert report["considered"] == 2
+        assert [decision["settled"] for decision in report["decisions"]] == [False, False]
+        # The statement travels with the reason: "nobody accepted it" reads the
+        # same for every row, so reasons alone would name nothing.
+        assert [note["statement"] for note in report["awaiting"]] == [
+            "Local-first execution is the canonical environment."
+        ]
+        assert len(report["session_scoped"]) == 1
+        assert client.get(f"/v1/projects/{project}/attention").json() == []
+
+    def test_the_decisions_are_read_as_the_model_they_are_stored_as(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project = str(client.post("/v1/projects", json={"name": "Decisions read"}).json()["id"])
+        self._seed(factory, project)
+
+        client.post(f"/v1/projects/{project}/model/decisions/runs", json={})
+
+        listed = client.get(f"/v1/projects/{project}/model", params={"domain": "decision"})
+        assert listed.status_code == 200
+        assert len(listed.json()) == 2
+        assert {obj["lifecycle"] for obj in listed.json()} == {"working"}
+
+    def test_an_unknown_project_is_not_found(self, client: TestClient) -> None:
+        response = client.post(
+            "/v1/projects/00000000-0000-0000-0000-000000000000/model/decisions/runs",
+            json={},
+        )
+
+        assert response.status_code == 404
+
+
 class TestChangeEventsReplay:
     def test_the_same_key_returns_the_same_event(self, client: TestClient, project: str) -> None:
         body = {

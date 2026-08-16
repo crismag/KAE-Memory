@@ -23,6 +23,7 @@ from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.blueprint_service import BlueprintService
 from kae_memory.application.clarification_service import ClarificationService
 from kae_memory.application.classification_service import ClassificationService
+from kae_memory.application.decision_synthesis_service import DecisionSynthesisService
 from kae_memory.application.deliverable_service import DeliverableService
 from kae_memory.application.goal_synthesis_service import GoalSynthesisService
 from kae_memory.application.ingestion_service import IngestionService
@@ -268,6 +269,19 @@ def get_actor_synthesis(request: Request) -> ActorSynthesisService:
     return ActorSynthesisService(factory)
 
 
+def get_decision_synthesis(request: Request) -> DecisionSynthesisService:
+    """Return the decision synthesizer, which also takes no embedder.
+
+    A decision is read one statement at a time: its class is the verb it uses,
+    its scope is whether it binds beyond this conversation, and its state is
+    whether a person accepted it (`D-123`). Nothing here compares two decisions,
+    so there is no vector space to share.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return DecisionSynthesisService(factory)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -358,3 +372,4 @@ Reconciliation = Annotated[ReconciliationService, Depends(get_reconciliation)]
 GoalSynthesis = Annotated[GoalSynthesisService, Depends(get_goal_synthesis)]
 UnknownSynthesis = Annotated[UnknownSynthesisService, Depends(get_unknown_synthesis)]
 ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]
+DecisionSynthesis = Annotated[DecisionSynthesisService, Depends(get_decision_synthesis)]
