@@ -63,9 +63,17 @@ materiality and never displaces it. Its limit is that `blocks` holds only areas
 below `sufficient`, so a *covered* area that is contradicted is not seen here at
 all — conflict as its own attention source is still owed.
 
+**Information gain** — `SYN-11`/`D-157` — is the fourth from the same rows and the
+last one they can answer: each area records how many confirmed statements it
+holds and how many its minimum asks for, and `evaluate_area` closes an undivided
+area at exactly that comparison. A blocked area one statement short of its own
+minimum is *one answer away*, and the question in front of it leads one whose
+areas would still be short afterwards. A contradicted area is never one answer
+away, whatever its shortfall.
+
 The remaining dimensions of `SYN-11` — urgency, confidence, authority,
-reversibility, information gain, novelty — are not built. `OD-NAV-2` is the same
-blocking question one layer up.
+reversibility, novelty — are not built. `OD-NAV-2` is the same blocking question
+one layer up.
 """
 
 from __future__ import annotations
@@ -121,6 +129,28 @@ class UncoveredArea:
     because short of coverage and internally inconsistent are two facts, and an
     area is routinely both.
     """
+
+    shortfall: int | None = None
+    """How many more confirmed statements this area's own minimum asks for
+    (`D-157`) — ``minimum_confirmed - confirmed_count``, floored at zero, from the
+    same snapshot row.
+
+    ``None`` means the counts were not read, which is not ``0``: zero means the
+    count threshold is already met and the area is short for another reason, as
+    a divided area is when only one of its claims is established.
+    """
+
+    @property
+    def one_answer_away(self) -> bool:
+        """Whether one more confirmed statement would meet this area's minimum.
+
+        False for a contradicted area whatever the shortfall (`D-157`): an area
+        whose statements already disagree is not closed by adding one more, which
+        is `D-154`'s claim, and the two must not assert opposite things about the
+        same area on the same line.
+        """
+
+        return self.shortfall == 1 and not self.contradicted
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,14 +225,21 @@ def blocked_areas(
     of an empty area would be ranking by wording.
 
     Ordered by consequence — required before optional, heavier before lighter,
-    contested before quiet, key last so the order is stable — because this order
-    is both what ranks the theme and what the reader is shown.
+    contested before quiet, one answer away before further off, key last so the
+    order is stable — because this order is both what ranks the theme and what the
+    reader is shown.
     """
 
     named = set(areas_named_by(question))
     blocked = [area for area in uncovered_areas if area.key in named]
     blocked.sort(
-        key=lambda area: (not area.required, -area.weight, not area.contradicted, area.key)
+        key=lambda area: (
+            not area.required,
+            -area.weight,
+            not area.contradicted,
+            not area.one_answer_away,
+            area.key,
+        )
     )
     return tuple(blocked)
 
@@ -226,10 +263,22 @@ CORROBORATION_CEILING = 9_999
 #: assumed.
 MATERIALITY_CEILING = 9_999
 
-#: The bands, low to high. Each is wider than everything below it can reach.
-CONFLICT_BAND = 100_000
-MATERIALITY_BAND = 1_000_000
-REQUIRED_BAND = 10_000_000_000
+#: The most the corroboration term can reach: the capped count, plus severity.
+_CORROBORATION_MAX = CORROBORATION_CEILING * 10 + 3
+
+#: The bands, low to high, each computed from the most everything below it can
+#: reach rather than chosen (`D-157`).
+#:
+#: `D-154` predicted that inserting a term underneath materiality would repeat
+#: `D-152`'s escape one level up, and it did: there is no room between
+#: corroboration's 99,993 and a `CONFLICT_BAND` of 100,000. Deriving each band
+#: makes the separation a property of the arithmetic instead of a claim about
+#: four literals, so the next dimension moves one line rather than silently
+#: overlapping the one beneath it.
+GAIN_BAND = _CORROBORATION_MAX + 1
+CONFLICT_BAND = GAIN_BAND * 2
+MATERIALITY_BAND = CONFLICT_BAND * 2
+REQUIRED_BAND = MATERIALITY_BAND * (MATERIALITY_CEILING + 1)
 
 
 def theme_priority(theme: UnknownTheme) -> int:
@@ -253,6 +302,13 @@ def theme_priority(theme: UnknownTheme) -> int:
     than beside it: the weight is what the template records about consequence,
     and contradiction is a condition on what is blocked.
 
+    **Information gain sits directly below conflict** (`D-157`). A blocked area one
+    confirmed statement short of its own minimum is one answer away, and asking
+    now buys more than asking in front of areas that stay short afterwards. It
+    ranks below conflict because what is there being wrong is a stronger claim
+    than what is missing being small — and a contradicted area is excluded from
+    the term rather than merely outranked by it.
+
     Corroboration stays the last tie-break: a question the conversation returned
     to six times is more likely to matter than one asked once. It is a weaker
     claim than blocking impact, and the emitted item says which claim it is
@@ -261,6 +317,7 @@ def theme_priority(theme: UnknownTheme) -> int:
 
     severity = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
     corroboration = min(theme.asked, CORROBORATION_CEILING) * 10 + severity
+    gain = GAIN_BAND if any(area.one_answer_away for area in theme.blocks) else 0
     conflict = CONFLICT_BAND if any(area.contradicted for area in theme.blocks) else 0
     # Hundredths of a weight unit, so a template expressing weights more finely
     # than the software template's halves still orders correctly.
@@ -270,6 +327,7 @@ def theme_priority(theme: UnknownTheme) -> int:
         (REQUIRED_BAND if blocks_required else 0)
         + materiality * MATERIALITY_BAND
         + conflict
+        + gain
         + corroboration
     )
 
@@ -381,9 +439,14 @@ def area_phrase(area: UncoveredArea) -> str:
     """How one blocked area is said in a sentence somebody reads.
 
     A qualifier appears only where it changes what the reader should conclude: an
-    area readiness does not require (`D-152`), and one whose statements already
-    disagree (`D-154`) — the second because it says why the area is not closed by
-    one more answer, which is the reason it ranked where it did.
+    area readiness does not require (`D-152`), one whose statements already
+    disagree (`D-154`) — because it says why the area is not closed by one more
+    answer — and one that is a single confirmed statement short of what it asks
+    for (`D-157`), which is the opposite condition and never appears beside it.
+
+    The shortfall is said as a distance to the area's own minimum and never as a
+    promise about this question: KAE cannot know that an answer here would be
+    filed as a statement counting toward that area.
     """
 
     qualifiers = []
@@ -391,6 +454,8 @@ def area_phrase(area: UncoveredArea) -> str:
         qualifiers.append("not required for readiness")
     if area.contradicted:
         qualifiers.append("statements there already contradict each other")
+    if area.one_answer_away:
+        qualifiers.append("one confirmed statement short of what it asks for")
     if not qualifiers:
         return area.name
     return f"{area.name} ({', and '.join(qualifiers)})"

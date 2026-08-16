@@ -1,11 +1,12 @@
 """What an unknown blocks, how much that weighs, and what the plan refuses to claim.
 
-`SYN-11a`/`D-149` and `SYN-11`/`D-152`. The relation is derived from two things
-the estate already holds — the areas a question's wording names, and the areas
-the last readiness snapshot leaves short of coverage, with the weights that
-snapshot recorded — so these tests pin the derivation and, more importantly, pin
-the two ways it must decline: a question standing in front of a covered area, and
-a project with no snapshot at all.
+`SYN-11a`/`D-149`, `SYN-11`/`D-152`, `D-154` and `D-157`. The relation is derived
+from two things the estate already holds — the areas a question's wording names,
+and the areas the last readiness snapshot leaves short of coverage, with the
+weights, contradiction flags and counts that snapshot recorded — so these tests
+pin the derivation and, more importantly, pin the ways it must decline: a
+question standing in front of a covered area, a project with no snapshot at all,
+and a shortfall the counts cannot explain.
 """
 
 from __future__ import annotations
@@ -183,6 +184,78 @@ class TestConflictBreaksTheTiesMaterialityLeaves:
         quiet = UncoveredArea(CRITERIA.key, CRITERIA.name, MODEL.weight, True)
 
         assert blocked_areas(BOTH, (quiet, self.CONTESTED)) == (self.CONTESTED, quiet)
+
+
+class TestInformationGainIsTheDistanceToTheAreaOwnMinimum:
+    """`D-157`. The shortfall is the arithmetic `evaluate_area` performs, read
+    back off the snapshot row — not a heuristic about the question."""
+
+    NEAR = UncoveredArea(CRITERIA.key, CRITERIA.name, CRITERIA.weight, True, shortfall=1)
+    FAR = UncoveredArea(MODEL.key, MODEL.name, CRITERIA.weight, True, shortfall=3)
+
+    def _theme(self, name: str, *blocks: UncoveredArea, asked: int = 1) -> UnknownTheme:
+        members = tuple(_item(f"{name}{n}") for n in range(asked))
+        return UnknownTheme(members, members[0], ACCEPTANCE, "minor", blocks)
+
+    def test_one_answer_away_outranks_an_area_that_stays_short_afterwards(self) -> None:
+        assert theme_priority(self._theme("a", self.NEAR)) > theme_priority(
+            self._theme("b", self.FAR)
+        )
+
+    def test_a_shortfall_of_zero_is_not_maximal_gain(self) -> None:
+        """Zero means the count threshold is met and the area is short for
+        another reason — the divided area, whose claims the counts cannot see.
+        Reading it as *closed* would put it at the top of the queue."""
+
+        met = UncoveredArea(MODEL.key, MODEL.name, CRITERIA.weight, True, shortfall=0)
+
+        assert not met.one_answer_away
+        assert theme_priority(self._theme("a", self.NEAR)) > theme_priority(self._theme("b", met))
+
+    def test_an_unread_shortfall_claims_nothing(self) -> None:
+        assert not CRITERIA.one_answer_away
+
+    def test_a_contested_area_is_never_one_answer_away(self) -> None:
+        """`D-154` says a contested area is not closed by adding one more, so the
+        two dimensions cannot assert opposite things about the same area."""
+
+        contested = UncoveredArea(
+            CRITERIA.key, CRITERIA.name, CRITERIA.weight, True, contradicted=True, shortfall=1
+        )
+
+        assert not contested.one_answer_away
+
+    def test_gain_never_outranks_conflict(self) -> None:
+        contested = UncoveredArea(
+            MODEL.key, MODEL.name, CRITERIA.weight, True, contradicted=True, shortfall=3
+        )
+
+        assert theme_priority(self._theme("a", contested)) > theme_priority(
+            self._theme("b", self.NEAR)
+        )
+
+    def test_gain_outranks_any_amount_of_repetition(self) -> None:
+        assert theme_priority(self._theme("a", self.NEAR)) > theme_priority(
+            self._theme("b", self.FAR, asked=20_000)
+        )
+
+    def test_the_nearer_area_leads_the_areas_the_reader_is_shown(self) -> None:
+        near = UncoveredArea(MODEL.key, MODEL.name, CRITERIA.weight, True, shortfall=1)
+        far = UncoveredArea(CRITERIA.key, CRITERIA.name, CRITERIA.weight, True, shortfall=4)
+
+        assert blocked_areas(BOTH, (far, near)) == (near, far)
+
+    def test_the_card_says_the_shortfall_without_promising_it_closes(self) -> None:
+        theme = self._theme("a", self.NEAR)
+        sentence = explain(theme, ranked_by_blocking=True)
+
+        assert "one confirmed statement short of what it asks for" in sentence
+        assert "answering" not in sentence.lower()
+
+    def test_a_far_area_is_not_described_as_nearly_covered(self) -> None:
+        assert "one confirmed statement short" not in explain(
+            self._theme("a", self.FAR), ranked_by_blocking=True
+        )
 
 
 class TestThePlanNeverClaimsARankingItDidNotPerform:

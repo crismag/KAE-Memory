@@ -197,7 +197,9 @@ class UnknownSynthesisService:
         earlier template version is ranked under the semantics its coverage was
         measured with. `D-154` adds `contradicted` for the same reason and from
         the same row — it is a fact about the calculation that measured the area,
-        not about the contradictions standing today.
+        not about the contradictions standing today. `D-157` adds the shortfall
+        from the two counts beside them, which is the comparison `evaluate_area`
+        itself makes when it decides an undivided area is sufficient.
         """
 
         snapshot = ReadinessSnapshotRepository(session).latest(project_id)
@@ -210,6 +212,7 @@ class UnknownSynthesisService:
                 weight=area.weight,
                 required=area.mandatory,
                 contradicted=area.contradicted,
+                shortfall=max(area.minimum_confirmed - area.confirmed_count, 0),
             )
             for area in snapshot.areas
             if area.state not in {AreaState.SUFFICIENT, AreaState.NOT_APPLICABLE}
