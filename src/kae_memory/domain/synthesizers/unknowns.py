@@ -72,8 +72,14 @@ areas would still be short afterwards. A contradicted area is never one answer
 away, whatever its shortfall.
 
 The remaining dimensions of `SYN-11` — urgency, confidence, authority,
-reversibility, novelty — are not built. `OD-NAV-2` is the same blocking question
-one layer up.
+reversibility, novelty — are not built, and none of them can read this snapshot.
+**Authority is not merely unbuilt, it does not discriminate** (`D-159`): a
+question makes no claim, so :func:`~kae_memory.domain.authority.scope_of` returns
+``None`` for it, and every scope a `KnowledgeKind` *can* reach is authoritative
+for `USER_STATEMENT` alone — so *does this need a person* is uniformly yes for
+anything an unknown stands in front of. ``tests/domain/test_authority.py`` pins
+that, and it is what will fail on the day it stops being true. `OD-NAV-2` is the
+same blocking question one layer up.
 """
 
 from __future__ import annotations

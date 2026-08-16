@@ -82,6 +82,46 @@ class TestTwoScopesAreUnreachableAndThatIsTheFinding:
             assert SourceStanding.AUTHORITATIVE in standings
 
 
+class TestEveryReachableScopeIsSettledByThePersonAlone:
+    """Why `SYN-11` has no authority dimension, asserted rather than re-surveyed.
+
+    Doc 11 defines authority as *whether human approval is required*, and the
+    attention engine would use it to rank one question above another. It cannot:
+    every scope a `KnowledgeKind` can reach names `USER_STATEMENT` as its only
+    authoritative source, so the answer is the same for everything an unknown
+    could stand in front of, and a ranking term with one value orders nothing
+    (`D-159`).
+
+    This is a property of two tables and not a permanent truth. The day a kind
+    claims `current_implementation` a repository becomes authoritative for
+    something an area can require, authority starts to discriminate, and this
+    test says so by failing.
+    """
+
+    def test_a_person_is_the_only_authority_for_every_reachable_scope(self) -> None:
+        reached = {scope for kind in KnowledgeKind if (scope := scope_of(kind.value))}
+        assert reached, "no kind claims anything, which would be a different finding"
+        for scope in reached:
+            authoritative = {
+                source
+                for source in KnowledgeSourceType
+                if standing(source, scope) is SourceStanding.AUTHORITATIVE
+            }
+            assert authoritative == {KnowledgeSourceType.USER_STATEMENT}, (
+                f"{scope} is now settled by {authoritative}, so authority has become a "
+                "dimension the attention engine can rank by — see `SYN-11`, `D-159`"
+            )
+
+    def test_a_question_claims_nothing_so_authority_does_not_attach_to_it(self) -> None:
+        """The first reason authority is not available, before the uniformity.
+
+        An unknown is the thing `SYN-11` ranks, and it makes no claim — so there
+        is no scope to look its authority up under, whatever the table says.
+        """
+
+        assert scope_of(KnowledgeKind.UNKNOWN.value) is None
+
+
 class TestWhatEachSourceCanEstablish:
     def test_a_repository_settles_what_is_deployed_and_not_what_is_intended(self) -> None:
         """Doc 17's headline example, both halves."""
