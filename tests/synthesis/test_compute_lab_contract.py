@@ -46,6 +46,7 @@ from tests.synthesis.compute_lab import (
     CHUNK_LOCAL_QUESTION,
     DEAD_LETTER_QUEUE,
     DEFERRED_LAYER_TEXT,
+    EXPECTED_AREAS,
     HARNESS_NOISE,
     IDEMPOTENT_CONSUMER,
     IMPLEMENTATION_DETAIL,
@@ -64,7 +65,8 @@ pytestmark = pytest.mark.synthesis_gate
 _CLASSIFICATION_IS_THE_USERS = (
     "strict=True xfail: `EPI-3` is not built. `classify_offline` assigns the two "
     "kinds exactly one area accepts and leaves the other six to a person, so "
-    "unclassified is still a user queue rather than KAE's processing backlog."
+    "unclassified is still a user queue rather than KAE's processing backlog. "
+    "Since `D-110` this class grades placements as well as counting them."
 )
 
 _NO_REPOSITORY_SYNTHESIS = (
@@ -197,6 +199,42 @@ class TestUnclassifiedIsKaesBacklogNotTheUsers:
 
     def test_classification_reaches_more_than_two_discovery_areas(self, ingested: Ingested) -> None:
         assert len({link.area_key for link in ingested.corpus.area_links}) > 2
+
+    def test_placed_statements_land_in_the_area_they_belong_in(self, ingested: Ingested) -> None:
+        """`D-110`. The three gates above count placements; this one grades
+        them.
+
+        Without it, `EPI-3b` is satisfiable by a classifier that places enough
+        rows anywhere — and `EPI-5b` does not cover that. `EPI-5b` stopped
+        auto-placement inflating readiness; it says nothing about a quality
+        attribute filed under functional requirements, which is still coverage
+        somebody has to unpick.
+
+        `EXPECTED_AREAS` is written from the statements alone and deliberately
+        holds only the rows that *have* an answer — the ones the template
+        forbids and the ones the sentence leaves open are excluded by name, so
+        this cannot fail for a reason the classifier could not have fixed.
+        """
+
+        by_content = {item.id: item.current_version.content for item in ingested.corpus.items}
+        placed = {
+            by_content[link.knowledge_item_id]: link.area_key
+            for link in ingested.corpus.area_links
+            if link.knowledge_item_id in by_content
+        }
+
+        missing = [content for content in EXPECTED_AREAS if content not in placed]
+        wrong = {
+            content: (placed[content], expected)
+            for content, expected in EXPECTED_AREAS.items()
+            if content in placed and placed[content] != expected
+        }
+
+        # Both halves, because either alone is passable by doing nothing: a
+        # classifier that places none of these scores no wrong answers, and one
+        # that places all of them anywhere scores full coverage.
+        assert not missing, f"never placed: {missing}"
+        assert not wrong, f"placed in the wrong area: {wrong}"
 
 
 @pytest.mark.xfail(strict=True, reason=_NO_REPOSITORY_SYNTHESIS)

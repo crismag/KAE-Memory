@@ -14,15 +14,19 @@ from __future__ import annotations
 
 from kae_memory.application.review_service import unambiguous_area_for
 from kae_memory.domain.models import KnowledgeKind
+from kae_memory.domain.readiness import SOFTWARE_TEMPLATE
 from tests.synthesis.compute_lab import (
     ADMIN_PROFILE_DECISION_TEXT,
     ADMIN_PROFILE_RULE_TEXT,
+    AMBIGUOUS_DESPITE_THE_TAG,
+    AREA_UNREACHABLE_FOR_KIND,
     ATTENTION_BOUND,
     AWS_PROFILE,
     CHUNK_LOCAL_QUESTION,
     CONFIRMATION_ABANDONED,
     DEAD_LETTER_QUEUE,
     DEFERRED_DECISION,
+    EXPECTED_AREAS,
     HARNESS_NOISE,
     HEADLINE_COUNTS,
     IMPLEMENTATION_DETAIL,
@@ -42,6 +46,8 @@ from tests.synthesis.compute_lab import (
     count_by_kind,
     observations_for,
 )
+
+_TRIAGED = set(EXPECTED_AREAS) | set(AREA_UNREACHABLE_FOR_KIND) | set(AMBIGUOUS_DESPITE_THE_TAG)
 
 
 def _would_classify(kind: KnowledgeKind) -> bool:
@@ -221,3 +227,74 @@ class TestFixtureHygiene:
     def test_attention_bound_is_a_handful_not_a_target_count(self) -> None:
         assert 1 <= ATTENTION_BOUND <= 8
         assert len(OBSERVATIONS) > ATTENTION_BOUND * 20
+
+
+class TestGroundTruthIsUsable:
+    """`EPI-3b`'s ground truth is answerable before `EPI-3b` is scored on it.
+
+    `D-110`. These run today and stay green: they check the labels, not the
+    classifier. A label naming an area that does not exist, or one the row's
+    kind cannot reach, would make the correctness gate unsatisfiable — and an
+    unsatisfiable gate reads exactly like a hard problem.
+    """
+
+    def test_every_labelled_statement_is_one_the_tag_claims_is_plain(self) -> None:
+        """The tag's own words are *"the area is plain from the statement"*.
+        Labelling anything else would be inventing an answer rather than
+        reading one."""
+
+        mechanical = {item.content for item in observations_for(MECHANICALLY_CLASSIFIABLE)}
+
+        assert mechanical >= _TRIAGED
+
+    def test_the_three_tables_are_disjoint_and_account_for_every_tagged_row(self) -> None:
+        """Disjoint because the three states are different — gradeable,
+        ungradeable because the template forbids the answer, and ungradeable
+        because the sentence has two. Complete because a row falling out of all
+        three would be a row nobody decided about, which is how the fixture
+        would quietly get easier."""
+
+        sizes = (
+            len(EXPECTED_AREAS),
+            len(AREA_UNREACHABLE_FOR_KIND),
+            len(AMBIGUOUS_DESPITE_THE_TAG),
+        )
+        assert len(_TRIAGED) == sum(sizes)
+
+        mechanical = {item.content for item in observations_for(MECHANICALLY_CLASSIFIABLE)}
+        assert mechanical == _TRIAGED
+
+    def test_most_of_the_tagged_rows_are_gradeable(self) -> None:
+        """If the ungradeable tables grew to swallow the tag, the correctness
+        gate would pass by having almost nothing to check."""
+
+        assert len(EXPECTED_AREAS) / len(_TRIAGED) >= 0.6
+
+    def test_every_expected_area_exists_in_the_template(self) -> None:
+        keys = {area.key for area in SOFTWARE_TEMPLATE.areas}
+
+        assert set(EXPECTED_AREAS.values()) <= keys
+
+    def test_every_expected_area_accepts_the_statement_s_kind(self) -> None:
+        """A classifier may only choose among the areas a kind already reaches
+        (`RUN-C1`). A label outside that set could never be earned."""
+
+        kinds = {item.content: item.kind for item in OBSERVATIONS}
+        for content, area_key in EXPECTED_AREAS.items():
+            area = next(area for area in SOFTWARE_TEMPLATE.areas if area.key == area_key)
+            assert kinds[content] in area.kinds, f"{area_key} does not accept {kinds[content]}"
+
+    def test_the_unreachable_rows_name_a_real_area_their_kind_cannot_reach(self) -> None:
+        """The claim that makes `AREA-UNREACHABLE` a finding rather than an
+        excuse, asserted rather than asserted-in-prose: each row names the area
+        it belongs in, that area exists, and its kind cannot reach it. No
+        classifier can be scored on these, because the right answer is not
+        among its options."""
+
+        kinds = {item.content: item.kind for item in OBSERVATIONS}
+        keys = {area.key for area in SOFTWARE_TEMPLATE.areas}
+
+        for content, area_key in AREA_UNREACHABLE_FOR_KIND.items():
+            assert area_key in keys
+            area = next(area for area in SOFTWARE_TEMPLATE.areas if area.key == area_key)
+            assert kinds[content] not in area.kinds, f"{area_key} does accept {kinds[content]}"

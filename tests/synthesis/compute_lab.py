@@ -1256,6 +1256,141 @@ def observations_for(*cases: str) -> tuple[ExtractedObservation, ...]:
     return tuple(item for item in OBSERVATIONS if item.cases & wanted)
 
 
+# --- Ground truth for `EPI-3b` ----------------------------------------------
+#
+# `D-110`. The gates above assert a *fraction placed*, and
+# `test_statements_that_name_their_own_area_are_placed` asserts these rows are
+# placed **somewhere**. Neither asserts *where*, and until this table existed
+# neither could: nothing in the fixture recorded an expected area. A classifier
+# that placed enough rows wrongly would have scored as a pass.
+#
+# That is the half of `ADR-0015`'s objection `EPI-5b` did not retire. `EPI-5b`
+# stopped auto-placement inflating readiness — a placed link reaches `evidenced`,
+# never `sufficient`. It says nothing about a quality attribute filed under
+# functional requirements, which is still coverage a person has to unpick.
+#
+# Written **before** the classifier, deliberately. Labels written by somebody who
+# had already seen what the classifier does would drift toward agreeing with it,
+# and ground truth that cannot fail is not ground truth.
+
+EXPECTED_AREAS: Final[Mapping[str, str]] = {
+    # Rules. Structure and content of the model, versus a condition to verify.
+    "Workers are stateless: they may poll, process, report, and exit.": ("domain_model_and_data"),
+    "transactionUuid correlates multiple messages across one workflow.": ("domain_model_and_data"),
+    "Aggregators are responsible for deciding how to combine outputs.": ("domain_model_and_data"),
+    "Binary payloads must not be sent through SQS; large data goes to S3 with a "
+    "pointer in the message.": "domain_model_and_data",
+    "Deletion of the old access key must occur only after the new key is confirmed "
+    "working.": "acceptance_criteria",
+    "Use mocks for boto3 calls in tests.": "acceptance_criteria",
+    "Targeted verification passes or fails explicitly; silence does not count as "
+    "success.": "acceptance_criteria",
+    # Requirements.
+    "Consumers must parse and validate the message body.": "functional_requirements",
+    "The web console must inspect the DLQ in real mode through its local /api/dlq "
+    "endpoint without consuming messages.": "functional_requirements",
+    "A status or result queue must exist for workers to publish back to a local "
+    "monitor or dashboard.": "functional_requirements",
+    "Status consumers must be able to update dashboards, notify operators, or "
+    "trigger aggregation jobs.": "functional_requirements",
+    "Local tracking must answer whether a message was sent by this host, whether a "
+    "received message was tracked before delete, and what the receive history was.": (
+        "functional_requirements"
+    ),
+    "Job, status, heartbeat, log, output, and manifest contracts must be backed by "
+    "S3.": "domain_model_and_data",
+    "Application logs must include messageUuid, transactionUuid, serviceName, "
+    "operation, queue name, processing duration, and success/failure "
+    "classification.": "domain_model_and_data",
+    "Producers should send only small control messages: job name, input/output S3 "
+    "paths, configuration references, correlation IDs, and retry metadata.": (
+        "domain_model_and_data"
+    ),
+    "CloudWatch must be used for metrics, logs, dashboards, and alarms.": (
+        "interfaces_and_integrations"
+    ),
+    "The worker must not need to know who initiated the request.": "quality_attributes",
+    "The SQS and IAM subsystems must remain usable outside the MVP.": "quality_attributes",
+    "Separate queues per workflow must prevent one backed-up workflow from blocking "
+    "all other workflows.": "quality_attributes",
+    # Constraints.
+    "The tooling is explicitly not intended to replace a full identity platform.": (
+        "scope_and_boundaries"
+    ),
+    "Reusable SQS and IAM tooling must remain a distinct architectural track under "
+    "bin/ and lib/python/.": "scope_and_boundaries",
+    "The solution must work from normal developer networks without special firewall "
+    "or VPN configuration.": "constraints_and_assumptions",
+    # Decisions.
+    "Service configuration is externalised to examples/client/sqs_services.yaml "
+    "rather than inlined in code.": "delivery_and_operations",
+    "Worker outputs are stored in S3 and later combined by an aggregator.": (
+        "interfaces_and_integrations"
+    ),
+}
+"""The area each mechanically-classifiable statement belongs in.
+
+Not all 37 of them. The rows left out are left out for a reason worth reading,
+and it is `AREA-UNREACHABLE` on the checklist rather than an omission.
+"""
+
+AREA_UNREACHABLE_FOR_KIND: Final[Mapping[str, str]] = {
+    "Monitoring observes without blocking the workflow.": "quality_attributes",
+    "Alert when visible backlog grows while consumers appear healthy.": ("delivery_and_operations"),
+    "If the backlog grows, the response is to add workers or fix the slow stage.": (
+        "delivery_and_operations"
+    ),
+    "Worker scaling should be driven by queue pressure signals: visible messages, "
+    "not-visible messages, oldest message age, and DLQ growth.": "quality_attributes",
+    "On result upload failure, retry the task or publish a partial failure.": (
+        "quality_attributes"
+    ),
+    "Known partials are documented in the MVP README and web README instead of "
+    "being hidden as future work.": "delivery_and_operations",
+    "Deployment scripts must cover API Gateway, Lambda, workers, DLQ, and "
+    "schedules.": "delivery_and_operations",
+}
+"""Statements whose area *is* plain, and is one their kind cannot reach.
+
+Found by trying to label them (`D-110`). Every one is a `rule` or a `requirement`
+about monitoring, scaling, resilience, documentation or deployment — so it
+belongs in `quality_attributes` or `delivery_and_operations`, and
+`SOFTWARE_TEMPLATE` lets neither area accept a `rule`, nor
+`delivery_and_operations` accept a `requirement`.
+
+**No classifier can place these correctly**, because the correct answer is not
+among its options. Whatever `EPI-3b` does with them will be wrong, and the fix
+is a question about the template's kind-to-area mapping, which `RUN-C1` rules
+may not be widened casually. Recorded here rather than mislabelled, so the
+classifier is never scored on an answer that does not exist.
+"""
+
+AMBIGUOUS_DESPITE_THE_TAG: Final[tuple[str, ...]] = (
+    "A cloud worker must be able to receive from the resolved queue using the same "
+    "message contract as a local worker.",
+    "Dashboards must be created for visible messages, messages not visible, age of "
+    "oldest message, sent/received/deleted counts, empty receives, and DLQ depth.",
+    "Separation must be maintained because the repository contains both privileged "
+    "provisioning tools and a runnable MVP application.",
+    "The MVP must own its own shared package, client, Lambda handlers, worker code, "
+    "web console, config, packaging, and local docs.",
+    "The stuck-job reconciler must run as a scheduled Lambda.",
+)
+"""Rows the `MECHANICALLY_CLASSIFIABLE` tag over-claims.
+
+Also found by trying to label them (`D-110`). Each has two defensible areas and
+no way to choose between them from the sentence: a dashboard requirement is
+functional or a quality attribute depending on why it exists; a scheduled
+Lambda is a function of the product or a deployment fact.
+
+They are left unlabelled **on purpose**. Labelling them would put a coin flip
+into the ground truth and score a classifier as wrong for agreeing with the
+other reasonable reading. The tag stays on them, because
+`test_statements_that_name_their_own_area_are_placed` asking that they be
+placed *somewhere* is still right — it is only *where* that cannot be graded.
+"""
+
+
 def collapse_key(observation: ExtractedObservation) -> tuple[str, str]:
     """Match Memory's identical-statement identity (kind + normalised text)."""
 
