@@ -894,6 +894,11 @@ class IngestDocumentRequest(BaseModel):
     paste is. A caller reading a connected repository must say so: ADR-0008
     makes what an area may reach depend on it, and nothing downstream can tell a
     file from a paste once the text has been chunked.
+
+    ``source_id`` names the registered source the text was read out of, when
+    there is one. Optional, because a paste arrives before any source has been
+    registered for it, and **checked** wherever it is given: an identifier
+    naming no source of this project is refused rather than stored (`D-164`).
     """
 
     document: str = Field(min_length=1)
@@ -901,6 +906,7 @@ class IngestDocumentRequest(BaseModel):
     max_chunks: int | None = Field(default=None, ge=1)
     actor_id: str | None = None
     source_type: KnowledgeSourceType = KnowledgeSourceType.IMPORTED_DOCUMENT
+    source_id: str | None = None
 
 
 class IngestionResponse(BaseModel):

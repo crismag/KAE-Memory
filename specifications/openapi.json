@@ -2227,7 +2227,7 @@
         "type": "object"
       },
       "IngestDocumentRequest": {
-        "description": "A document to read, and what kind of source it is.\n\n``source_type`` defaults to an imported document because that is what a bare\npaste is. A caller reading a connected repository must say so: ADR-0008\nmakes what an area may reach depend on it, and nothing downstream can tell a\nfile from a paste once the text has been chunked.",
+        "description": "A document to read, and what kind of source it is.\n\n``source_type`` defaults to an imported document because that is what a bare\npaste is. A caller reading a connected repository must say so: ADR-0008\nmakes what an area may reach depend on it, and nothing downstream can tell a\nfile from a paste once the text has been chunked.\n\n``source_id`` names the registered source the text was read out of, when\nthere is one. Optional, because a paste arrives before any source has been\nregistered for it, and **checked** wherever it is given: an identifier\nnaming no source of this project is refused rather than stored (`D-164`).",
         "properties": {
           "actor_id": {
             "anyOf": [
@@ -2256,6 +2256,17 @@
               }
             ],
             "title": "Max Chunks"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
           },
           "source_type": {
             "$ref": "#/components/schemas/KnowledgeSourceType",

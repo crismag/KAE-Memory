@@ -33,6 +33,7 @@ from kae_memory.application.setup_service import (
     SetupNotFoundError,
     SetupService,
 )
+from kae_memory.application.source_service import SourceNotFoundError
 from kae_memory.domain.assumptions import (
     AssumptionOrigin,
     Consequence,
@@ -176,14 +177,18 @@ def ingest_document(
 
     resolved = _project(project_id, memory)
     policy = IngestionPolicy(max_chunks=body.max_chunks) if body.max_chunks else IngestionPolicy()
-    result = ingestion.ingest_document(
-        resolved,
-        body.document,
-        body.text,
-        policy=policy,
-        actor_id=body.actor_id,
-        source_type=body.source_type,
-    )
+    try:
+        result = ingestion.ingest_document(
+            resolved,
+            body.document,
+            body.text,
+            policy=policy,
+            actor_id=body.actor_id,
+            source_type=body.source_type,
+            source_id=body.source_id,
+        )
+    except SourceNotFoundError as error:
+        raise not_found("source", str(body.source_id)) from error
     return IngestionResponse.of(result)
 
 

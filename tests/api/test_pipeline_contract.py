@@ -214,6 +214,24 @@ class TestIngestion:
         assert second["idempotent_replay"] is True
         assert second["extraction_runs_queued"] == first["extraction_runs_queued"]
 
+    def test_a_source_this_project_does_not_have_is_404_not_202(
+        self, client: TestClient, project_id: str
+    ) -> None:
+        """The refusal reaches the caller as a missing source, not as an accepted
+        ingestion (`D-164`). 202 with a dangling link would leave Studio believing
+        the material is attributed to the repository it named."""
+
+        response = client.post(
+            f"/v1/projects/{project_id}/documents",
+            json={
+                "document": DOCUMENT,
+                "text": TEXT,
+                "source_id": "99999999-9999-9999-9999-999999999999",
+            },
+        )
+
+        assert response.status_code == 404
+
 
 class TestClarifications:
     def test_listing_is_a_post_because_it_materialises(

@@ -176,6 +176,30 @@ a run reads it.
 """
 
 
+SOURCE_ID_CONTEXT_KEY = "source_id"
+"""Which registered source the text this run reads was acquired from.
+
+Present only where an ingestion named one. A run started from a conversation has
+no source and must not be given a default one: `project_sources` is where a
+disposition lives, and a run pointed at the wrong source would be a retention
+decision taken about somebody else's material.
+"""
+
+
+def source_id_for_run(run: AgentRun) -> str | None:
+    """Return the source this run's text came from, or ``None`` if it named none.
+
+    The link `ADR-0004` step 3 reads back (`D-164`). Absent is the common case
+    and stays distinguishable from a source that was named: a run with no source
+    has no disposition to consult, which is not the same as one whose source
+    nobody has classified — `SourceService` keeps ``NULL`` meaning *undecided*
+    for exactly that reason.
+    """
+
+    declared = (run.input_context or {}).get(SOURCE_ID_CONTEXT_KEY)
+    return str(declared) if declared else None
+
+
 def source_type_for_run(run: AgentRun) -> KnowledgeSourceType:
     """Return the kind of source the knowledge this run writes came from.
 

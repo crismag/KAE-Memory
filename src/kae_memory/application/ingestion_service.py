@@ -31,7 +31,8 @@ from kae_memory.domain.models import KnowledgeSourceType
 from kae_memory.domain.workspace import ActorType, MessageType, SessionType
 from kae_memory.persistence.transactions import RetryPolicy
 
-from .memory_service import MemoryService
+from .memory_service import SOURCE_ID_CONTEXT_KEY, SOURCE_TYPE_CONTEXT_KEY, MemoryService
+from .source_service import SourceService
 
 DEFAULT_MAX_CHUNKS = 50
 """How many chunks one document may become.
@@ -121,10 +122,12 @@ class IngestionService:
         memory: MemoryService | None = None,
         policy: RetryPolicy | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+        sources: SourceService | None = None,
     ) -> None:
         self._session_factory = session_factory
         self._memory = memory or MemoryService(session_factory, policy)
         self._clock = clock
+        self._sources = sources or SourceService(session_factory)
 
     def ingest_document(
         self,
@@ -135,6 +138,7 @@ class IngestionService:
         session_id: SessionId | None = None,
         actor_id: str | None = None,
         source_type: KnowledgeSourceType = KnowledgeSourceType.IMPORTED_DOCUMENT,
+        source_id: str | None = None,
     ) -> IngestionResult:
         """Split ``text``, record each span verbatim, and enqueue a run per span.
 
@@ -148,6 +152,14 @@ class IngestionService:
         specification somebody pasted. By the time a run reads it the two are
         indistinguishable, and ADR-0008 makes readiness depend on the difference.
 
+        ``source_id`` names the registered source the text was read out of, and
+        is **resolved before anything is written**: an identifier belonging to
+        no source, or to another project's source, refuses here rather than
+        being carried into a run's context for a later reader to find dangling.
+        It is the link `ADR-0004` step 3 needs — nothing else connects a stored
+        chunk to the ``project_sources.disposition`` that decides whether the
+        body may be kept once extraction has read it (`D-164`).
+
         Idempotent per ``(document, chunk index, content)``. Re-submitting the
         same document re-uses the messages and runs it already created instead
         of reading it twice.
@@ -158,6 +170,8 @@ class IngestionService:
             raise ValueError("document name is required")
         if not text.strip():
             raise ValueError("document text is required")
+        if source_id is not None:
+            self._sources.get(project_id, source_id)
 
         bodies = split_text(text, settings.target_tokens, settings.max_tokens)
         available = len(bodies)
@@ -198,7 +212,8 @@ class IngestionService:
                 input_context={
                     "message_id": str(record.message.id),
                     "document": document,
-                    "source_type": source_type.value,
+                    SOURCE_TYPE_CONTEXT_KEY: source_type.value,
+                    **({SOURCE_ID_CONTEXT_KEY: source_id} if source_id else {}),
                     "chunk_index": index,
                     "chunk_count": len(kept),
                     "max_items": settings.max_items_per_chunk,
