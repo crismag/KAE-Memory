@@ -227,6 +227,34 @@ def areas_accepting(kind: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) 
     )
 
 
+def areas_named_by(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -> tuple[str, ...]:
+    """The areas ``text`` names most strongly, scored over the whole template.
+
+    A different question from `classify_by_content`, which asks *where does this
+    sentence file* and therefore only ever offers the areas the statement's kind
+    is already accepted by. `SYN-5a` asks *what does this role own*, and exactly
+    one area accepts an ``actor`` — so restricting the candidates would make
+    every project role responsible for ``users_and_stakeholders``, which is the
+    flattening doc 03 exists to remove.
+
+    Returns every area tied at the top score, and empty where nothing fired. No
+    default is applied: a caller asking what somebody owns must be able to tell
+    *this names nothing* from *this names one thing*, and
+    `DEFAULT_AREA_FOR_KIND` would answer the first as if it were the second.
+    """
+
+    lowered = text.casefold()
+    scores = dict.fromkeys((area.key for area in template.areas), 0)
+    for area, weight, pattern, _ in _SIGNALS:
+        if area in scores and re.search(pattern, lowered):
+            scores[area] += weight
+
+    best = max(scores.values())
+    if best == 0:
+        return ()
+    return tuple(sorted(area for area, score in scores.items() if score == best))
+
+
 def classify_by_content(
     kind: str, text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE
 ) -> Placement | None:
