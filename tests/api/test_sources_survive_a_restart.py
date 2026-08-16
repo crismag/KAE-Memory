@@ -236,6 +236,59 @@ class TestWhatItRefuses:
 
         assert response.status_code == 404
 
+    def test_a_disposition_outside_the_five_is_refused(
+        self, client: TestClient, project: str
+    ) -> None:
+        """`D-162`. A misspelt `ephemeral` is not a classification.
+
+        Nothing reads the column yet, which is why the set closes now: the first
+        reader of a free-text column inherits every value ever written to it.
+        """
+
+        source = register(client, project)
+
+        response = client.post(
+            f"/v1/projects/{project}/sources/{source['source_id']}/disposition",
+            json={"disposition": "ephemral"},
+        )
+
+        assert response.status_code == 422
+        # The five are named, not merely refused: a caller who mistyped one
+        # needs the list, and a caller who invented one needs to know there is
+        # a list.
+        assert "ephemeral" in str(response.json())
+
+    def test_registering_cannot_name_what_classifying_refuses(
+        self, client: TestClient, project: str
+    ) -> None:
+        """The same set at both doors, or the column is free text by the other."""
+
+        response = client.post(
+            f"/v1/projects/{project}/sources",
+            json={**REPOSITORY, "disposition": "keep-it-all"},
+        )
+
+        assert response.status_code == 422
+
+    def test_the_same_decision_in_either_case_is_one_value(
+        self, client: TestClient, project: str
+    ) -> None:
+        """`MEMORY` and `memory` are the same decision, stored one way.
+
+        Two spellings of one disposition read back as two values to whatever
+        eventually acts on them, which is the free-text failure with extra
+        steps.
+        """
+
+        source = register(client, project)
+
+        stored = client.post(
+            f"/v1/projects/{project}/sources/{source['source_id']}/disposition",
+            json={"disposition": " EPHEMERAL "},
+        ).json()
+
+        assert stored["disposition"] == "ephemeral"
+
     def test_it_stores_no_content(self, client: TestClient, project: str) -> None:
         """A source names material and never holds it.
 

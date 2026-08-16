@@ -32,6 +32,7 @@ from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.source_dispositions import ensure_source_disposition
 from kae_memory.persistence.tables import ProjectSourceRow
 from kae_memory.persistence.transactions import run_transaction
 
@@ -112,6 +113,10 @@ class SourceService:
             raise DomainInvariantError("a source needs a location")
         if not state.strip():
             raise DomainInvariantError("a source needs a state")
+        # The same set as `classify`. A registration that could name a
+        # disposition the classify path refuses would be the free-text column
+        # again, reachable by the other door.
+        recorded = None if disposition is None else ensure_source_disposition(disposition).value
 
         def operation(session: DbSession) -> ProjectSource:
             existing = session.scalars(
@@ -128,8 +133,8 @@ class SourceService:
                 existing.scope = dict(scope or existing.scope or {})
                 existing.connection_id = connection_id or existing.connection_id
                 existing.state = state.strip()
-                if disposition is not None:
-                    existing.disposition = disposition
+                if recorded is not None:
+                    existing.disposition = recorded
                 existing.updated_at = now
                 session.flush()
                 return _as_source(existing)
@@ -144,7 +149,7 @@ class SourceService:
                 state=state.strip(),
                 pinned_revision=None,
                 digest=None,
-                disposition=disposition,
+                disposition=recorded,
                 detail="",
                 created_at=now,
                 updated_at=now,
@@ -238,14 +243,17 @@ class SourceService:
         behaviour this does not implement. Recording the decision is worth doing
         first — reclassifying real data afterwards is the expensive order — but
         it must not be mistaken for the rule being enforced.
+
+        `D-162`: the set is closed even though nothing reads it. A free-text
+        column hands its first reader every value ever written to it, and the
+        cheap moment to refuse a misspelt `EPHEMERAL` is before one exists.
         """
 
-        if not disposition.strip():
-            raise DomainInvariantError("a disposition cannot be blank")
+        recorded = ensure_source_disposition(disposition)
 
         def operation(session: DbSession) -> ProjectSource:
             row = _require(session, project_id, source_id)
-            row.disposition = disposition.strip()
+            row.disposition = recorded.value
             row.updated_at = datetime.now(UTC)
             session.flush()
             return _as_source(row)
