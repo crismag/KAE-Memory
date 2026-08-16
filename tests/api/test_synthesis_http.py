@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory.api import create_app
 from kae_memory.api.security import AuthPolicy
-from kae_memory.application import MemoryService, WriteKnowledgeRequest
+from kae_memory.application import MemoryService, ReadinessService, WriteKnowledgeRequest
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.synthesizers.unknowns import ATTENTION_BOUND
@@ -78,6 +78,16 @@ class TestWorkingModelThenHumanCorrection:
         )
         assert refused.status_code == 409
         assert refused.json()["error"]["code"] == "authoritative_override_refused"
+
+
+def _write_unknown(factory: sessionmaker[Session], project_id: str, question: str) -> None:
+    """Write one unresolved question, as a later extraction run would."""
+
+    memory = MemoryService(factory)
+    run = memory.start_run(ProjectId(project_id), AgentRole.REQUIREMENTS, "extract-later-unknown")
+    memory.write_knowledge(
+        run.id, [WriteKnowledgeRequest(kind="unknown", content=question, source="interview")]
+    )
 
 
 def _seed_unknowns(factory: sessionmaker[Session], project_id: str, count: int) -> None:
@@ -152,6 +162,40 @@ class TestTheAttentionQueueIsProducedOverHttp:
         )
 
         assert response.status_code == 404
+
+    def test_only_the_question_asked_after_the_measurement_is_called_new(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """`D-160` end to end: the timestamps reach the ranking, and they are the
+        rows' own.
+
+        Two questions and a coverage measurement between them. The queue is one
+        object either way — what changes is which card says the last measurement
+        never saw it, and this is the only test in the estate where a snapshot
+        stands *between* two writes, which is the arrangement neither regression
+        fixture can produce.
+        """
+
+        project = str(client.post("/v1/projects", json={"name": "Novelty"}).json()["id"])
+        _seed_unknowns(factory, project, 1)
+        readiness = ReadinessService(factory)
+        readiness.install_template()
+        readiness.calculate(ProjectId(project))
+        _write_unknown(factory, project, "What does the payload contain, and which schemas apply?")
+
+        report = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+
+        assert report.status_code == 200, report.text
+        assert report.json()["ranked_by_blocking"] is True
+        queue = {
+            item["title"]: item["explanation"]
+            for item in client.get(f"/v1/projects/{project}/attention").json()
+        }
+        assert len(queue) == 2
+        new_question = "What does the payload contain, and which schemas apply?"
+        assert "first asked after coverage was last measured" in queue[new_question]
+        older = next(title for title in queue if title != new_question)
+        assert "coverage was last measured" not in queue[older]
 
 
 class TestDeferIsAGestureTheApiActuallyHas:

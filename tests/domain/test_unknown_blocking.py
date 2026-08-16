@@ -11,6 +11,8 @@ and a shortfall the counts cannot explain.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from kae_memory.domain.identifiers import KnowledgeItemId
 from kae_memory.domain.synthesizers.unknowns import (
     UncoveredArea,
@@ -35,6 +37,8 @@ DELIVERY = UncoveredArea(
 )
 
 NO_VECTORS = lambda _left, _right: None  # noqa: E731
+#: Two rows a vector space would put on top of each other, so one theme holds both.
+SAME_QUESTION_TWICE = lambda _left, _right: 0.0  # noqa: E731
 
 
 def _item(name: str) -> KnowledgeItemId:
@@ -370,3 +374,107 @@ class TestTheSentenceFollowsTheFlag:
         theme = UnknownTheme((_item("a"),), _item("a"), ACCEPTANCE, "critical")
 
         assert "blocks nothing measured" in explain(theme, ranked_by_blocking=True)
+
+
+class TestNoveltyIsMeasuredAgainstTheLastMeasurement:
+    """`D-160`. A question first asked after coverage was last measured is one
+    that measurement never saw. Not a clock reading, and not a diff against KAE's
+    own earlier output — both of those reorder the queue without the project
+    changing."""
+
+    MEASURED = datetime(2026, 8, 10, tzinfo=UTC)
+    BEFORE = datetime(2026, 8, 9, tzinfo=UTC)
+    AFTER = datetime(2026, 8, 11, tzinfo=UTC)
+
+    def _theme(
+        self, name: str, *blocks: UncoveredArea, asked: int = 1, novel: bool
+    ) -> UnknownTheme:
+        members = tuple(_item(f"{name}{n}") for n in range(asked))
+        return UnknownTheme(members, members[0], ACCEPTANCE, "minor", blocks, novel=novel)
+
+    def _plan(
+        self,
+        times: dict[KnowledgeItemId, datetime],
+        measured: datetime | None,
+        distance: object = NO_VECTORS,
+    ) -> UnknownPlan:
+        ids = list(times)
+        return plan_unknowns(
+            ids,
+            dict.fromkeys(ids, ACCEPTANCE),
+            dict.fromkeys(ids, "critical"),
+            dict.fromkeys(ids, None),
+            distance,  # type: ignore[arg-type]
+            uncovered_areas=(CRITERIA,),
+            first_asked=times,
+            measured_at=measured,
+        )
+
+    def test_a_newer_question_outranks_an_older_one_blocking_the_same_area(self) -> None:
+        assert theme_priority(self._theme("a", CRITERIA, novel=True)) > theme_priority(
+            self._theme("b", CRITERIA, novel=False)
+        )
+
+    def test_novelty_never_outranks_information_gain(self) -> None:
+        """*Not yet accounted for* says nothing about consequence."""
+
+        near = UncoveredArea(CRITERIA.key, CRITERIA.name, CRITERIA.weight, True, shortfall=1)
+
+        assert theme_priority(self._theme("a", near, novel=False)) > theme_priority(
+            self._theme("b", CRITERIA, novel=True)
+        )
+
+    def test_novelty_outranks_any_amount_of_repetition(self) -> None:
+        assert theme_priority(self._theme("a", CRITERIA, novel=True)) > theme_priority(
+            self._theme("b", CRITERIA, asked=20_000, novel=False)
+        )
+
+    def test_every_wording_must_postdate_the_measurement(self) -> None:
+        """A question asked again is not a new question, however recent its
+        newest wording is."""
+
+        older, newer = _item("older"), _item("newer")
+        plan = self._plan(
+            {older: self.BEFORE, newer: self.AFTER}, self.MEASURED, SAME_QUESTION_TWICE
+        )
+
+        assert len(plan.themes) == 1
+        assert plan.themes[0].asked == 2
+        assert not plan.themes[0].novel
+
+    def test_a_question_asked_after_the_measurement_is_novel(self) -> None:
+        plan = self._plan({_item("a"): self.AFTER}, self.MEASURED)
+
+        assert plan.themes[0].novel
+
+    def test_a_missing_timestamp_is_not_evidence_of_novelty(self) -> None:
+        plan = plan_unknowns(
+            [_item("a")],
+            {_item("a"): ACCEPTANCE},
+            {_item("a"): "critical"},
+            {_item("a"): None},
+            NO_VECTORS,
+            uncovered_areas=(CRITERIA,),
+            first_asked={},
+            measured_at=self.MEASURED,
+        )
+
+        assert not plan.themes[0].novel
+
+    def test_a_project_with_no_snapshot_claims_no_novelty(self) -> None:
+        """One path, not two: with no measurement there is nothing to be newer
+        than, exactly as there is nothing to be blocked by."""
+
+        plan = self._plan({_item("a"): self.AFTER}, None)
+
+        assert not plan.themes[0].novel
+
+    def test_the_card_says_the_question_is_newer_than_the_measurement(self) -> None:
+        sentence = explain(self._theme("a", CRITERIA, novel=True), ranked_by_blocking=True)
+
+        assert "first asked after coverage was last measured" in sentence
+
+    def test_an_older_question_is_not_described_as_new(self) -> None:
+        sentence = explain(self._theme("a", CRITERIA, novel=False), ranked_by_blocking=True)
+
+        assert "coverage was last measured" not in sentence

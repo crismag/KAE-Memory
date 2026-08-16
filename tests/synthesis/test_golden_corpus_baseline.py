@@ -90,6 +90,26 @@ class TestTodayTheProductTreatsExtractionAsTheModel:
 
         assert all(item.current_version.provenance.source.strip() for item in loaded.items)
 
+    def test_the_fixture_has_no_timeline_to_read(
+        self, project: tuple[MemoryService, Project]
+    ) -> None:
+        """`D-160`, stated here rather than left to be rediscovered.
+
+        The corpus is one conversation written in one `write_knowledge` call, so
+        every observation carries the same instant and novelty — *was this asked
+        after coverage was last measured* — is uniformly false on it whatever the
+        rule says. That is a property of the fixture, not of the rule: the rule is
+        exercised on constructed themes in `tests/domain/test_unknown_blocking.py`
+        and against a real write order in `tests/api/test_synthesis_http.py`. A
+        later fixture that spread the corpus over sessions would fail here, which
+        is the day this pin stops being needed.
+        """
+
+        memory, proj = project
+        loaded = load_golden_corpus(memory, proj.id)
+
+        assert len({item.versions[0].created_at for item in loaded.items}) == 1
+
 
 class TestTheSynthesizedLayerStartsEmpty:
     def test_extraction_creates_no_synthesized_objects_and_no_attention(

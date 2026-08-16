@@ -71,8 +71,14 @@ minimum is *one answer away*, and the question in front of it leads one whose
 areas would still be short afterwards. A contradicted area is never one answer
 away, whatever its shortfall.
 
+**Novelty** — `SYN-11`/`D-160` — is the fifth, and it reads the snapshot's own
+instant rather than its rows: a theme first asked *after* coverage was last
+measured is one that measurement does not account for. Neither the wall clock nor
+KAE's own prior output decides it — the first would reorder the queue while
+nothing happened, the second would rank by how many times synthesis had been run.
+
 The remaining dimensions of `SYN-11` — urgency, confidence, authority,
-reversibility, novelty — are not built, and none of them can read this snapshot.
+reversibility — are not built, and none of them can read this snapshot.
 **Authority is not merely unbuilt, it does not discriminate** (`D-159`): a
 question makes no claim, so :func:`~kae_memory.domain.authority.scope_of` returns
 ``None`` for it, and every scope a `KnowledgeKind` *can* reach is authoritative
@@ -86,6 +92,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from ..area_classification import areas_named_by
 from ..clustering import cluster_by_complete_linkage
@@ -179,6 +186,17 @@ class UnknownTheme:
     snapshot to intersect against. `UnknownPlan.ranked_by_blocking` is what tells
     those apart, which is why it travels with the themes rather than with a
     theme.
+    """
+
+    novel: bool = False
+    """Whether this question was first asked after coverage was last measured.
+
+    `D-160`. The comparison is against the readiness snapshot's `calculated_at`
+    and against nothing else: the snapshot is the understanding every other
+    dimension here is computed against, so a question older than it was already
+    standing when that picture was drawn, and a question newer than it is not
+    accounted for by it at all. False where the project has no snapshot, and
+    false where any member predates it — a question asked again is not new.
     """
 
     @property
@@ -281,7 +299,8 @@ _CORROBORATION_MAX = CORROBORATION_CEILING * 10 + 3
 #: makes the separation a property of the arithmetic instead of a claim about
 #: four literals, so the next dimension moves one line rather than silently
 #: overlapping the one beneath it.
-GAIN_BAND = _CORROBORATION_MAX + 1
+NOVELTY_BAND = _CORROBORATION_MAX + 1
+GAIN_BAND = NOVELTY_BAND * 2
 CONFLICT_BAND = GAIN_BAND * 2
 MATERIALITY_BAND = CONFLICT_BAND * 2
 REQUIRED_BAND = MATERIALITY_BAND * (MATERIALITY_CEILING + 1)
@@ -315,6 +334,13 @@ def theme_priority(theme: UnknownTheme) -> int:
     than what is missing being small — and a contradicted area is excluded from
     the term rather than merely outranked by it.
 
+    **Novelty sits directly below information gain** (`D-160`). A question first
+    asked after coverage was last measured is one the measurement above it never
+    saw. It is the weakest of the five because *not yet accounted for* says
+    nothing about consequence, and it still leads repetition, because it is a
+    fact about the project's own timeline rather than a count of how many times
+    an extractor wrote the same sentence down.
+
     Corroboration stays the last tie-break: a question the conversation returned
     to six times is more likely to matter than one asked once. It is a weaker
     claim than blocking impact, and the emitted item says which claim it is
@@ -323,6 +349,7 @@ def theme_priority(theme: UnknownTheme) -> int:
 
     severity = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
     corroboration = min(theme.asked, CORROBORATION_CEILING) * 10 + severity
+    novelty = NOVELTY_BAND if theme.novel else 0
     gain = GAIN_BAND if any(area.one_answer_away for area in theme.blocks) else 0
     conflict = CONFLICT_BAND if any(area.contradicted for area in theme.blocks) else 0
     # Hundredths of a weight unit, so a template expressing weights more finely
@@ -334,6 +361,7 @@ def theme_priority(theme: UnknownTheme) -> int:
         + materiality * MATERIALITY_BAND
         + conflict
         + gain
+        + novelty
         + corroboration
     )
 
@@ -347,6 +375,8 @@ def plan_unknowns(
     *,
     bound: int = ATTENTION_BOUND,
     uncovered_areas: Sequence[UncoveredArea] | None = None,
+    first_asked: Mapping[KnowledgeItemId, datetime] | None = None,
+    measured_at: datetime | None = None,
 ) -> UnknownPlan:
     """Reconcile extracted unknowns into current themes and a bounded queue.
 
@@ -357,6 +387,12 @@ def plan_unknowns(
     ``None`` means *no snapshot*, which is not the same as *every area covered*:
     the first cannot rank by blocking impact at all, the second ranks by it and
     finds nothing blocked.
+
+    ``first_asked`` and ``measured_at`` come from that same read — when each
+    observation was written, and when the snapshot was calculated. They decide
+    novelty (`D-160`) and are optional together: without the instant there is
+    nothing to compare against, and claiming novelty from a clock reading taken
+    now would reorder the queue between two runs over identical evidence.
     """
 
     resolved = tuple(item for item in item_ids if not is_current(roles.get(item)))
@@ -380,6 +416,7 @@ def plan_unknowns(
                 blocks=(
                     () if uncovered_areas is None else blocked_areas(question, uncovered_areas)
                 ),
+                novel=_is_novel(members, first_asked, measured_at),
             )
         )
 
@@ -393,6 +430,26 @@ def plan_unknowns(
         # against, so the flag cannot drift from what the sort actually did.
         ranked_by_blocking=uncovered_areas is not None,
     )
+
+
+def _is_novel(
+    members: Sequence[KnowledgeItemId],
+    first_asked: Mapping[KnowledgeItemId, datetime] | None,
+    measured_at: datetime | None,
+) -> bool:
+    """Whether every wording of this question was written after ``measured_at``.
+
+    `D-160`. A member with no recorded time makes the theme not novel rather than
+    novel: the claim is that the measurement never saw this question, and a
+    missing timestamp is not evidence for it.
+    """
+
+    if measured_at is None or not first_asked:
+        return False
+    times = [first_asked.get(member) for member in members]
+    if any(time is None for time in times):
+        return False
+    return min(time for time in times if time is not None) > measured_at
 
 
 def _strongest(severities: set[str]) -> str:
@@ -416,7 +473,9 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
     is a column value wearing a sentence's clothes. An area readiness does not
     require says so (`D-152`), because *"Delivery and operational context is not
     yet covered"* otherwise reads as something the project cannot proceed
-    without, which the template denies.
+    without, which the template denies. A question newer than that measurement
+    says so too (`D-160`), because it changes what the rest of the sentence is
+    worth: the areas were weighed by a picture drawn before it was asked.
     """
 
     times = "asked once" if theme.asked == 1 else f"asked {theme.asked} times"
@@ -433,6 +492,11 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
             "ranked by what it blocks, and it blocks nothing measured — "
             "no area it names is still short of coverage"
         )
+    # `D-160`. Said only where it is true, and said as what it is: the last
+    # coverage measurement predates the question, so the areas named above were
+    # weighed by a picture drawn before anybody asked this.
+    if theme.novel:
+        basis += ", and it was first asked after coverage was last measured"
     asked = f"This is still unresolved and was {times} across the project's evidence."
     # Upper-cases the first character and nothing else. `str.capitalize()` would
     # lower-case the rest, silently rewriting a label this function was handed

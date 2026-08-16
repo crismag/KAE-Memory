@@ -28,7 +28,7 @@ from kae_memory.domain.identifiers import (
 )
 from kae_memory.domain.lifecycle import RETRIEVABLE
 from kae_memory.domain.models import KnowledgeKind
-from kae_memory.domain.readiness import AreaState
+from kae_memory.domain.readiness import AreaState, ReadinessSnapshot
 from kae_memory.domain.synthesis import AttentionKind, ChangeTrigger, EvidenceBindingKind
 from kae_memory.domain.synthesizers.goals import distance_over
 from kae_memory.domain.synthesizers.unknowns import (
@@ -169,6 +169,12 @@ class UnknownSynthesisService:
                 for record in SynthesisRepository(session).list_roles(project_id)
             }
 
+            # When each question was first written down, against when coverage
+            # was last measured — `D-160`'s two halves, read here rather than
+            # from a clock, so two runs over the same evidence rank identically.
+            first_asked = {item.id: item.versions[0].created_at for item in unknowns}
+            snapshot = ReadinessSnapshotRepository(session).latest(project_id)
+
             vectors = self._statement_vectors(session, project_id, item_ids, questions)
             plan = plan_unknowns(
                 item_ids,
@@ -176,14 +182,16 @@ class UnknownSynthesisService:
                 severities,
                 {item_id: roles.get(item_id) for item_id in item_ids},
                 distance_over(vectors),
-                uncovered_areas=self._uncovered_areas(session, project_id),
+                uncovered_areas=self._uncovered_areas(snapshot),
+                first_asked=first_asked,
+                measured_at=None if snapshot is None else snapshot.calculated_at,
             )
             return plan, bool(vectors), len(item_ids)
 
         return run_transaction(self._session_factory, operation)
 
     def _uncovered_areas(
-        self, session: DbSession, project_id: ProjectId
+        self, snapshot: ReadinessSnapshot | None
     ) -> tuple[UncoveredArea, ...] | None:
         """The areas the last readiness snapshot leaves short of coverage.
 
@@ -199,10 +207,12 @@ class UnknownSynthesisService:
         the same row — it is a fact about the calculation that measured the area,
         not about the contradictions standing today. `D-157` adds the shortfall
         from the two counts beside them, which is the comparison `evaluate_area`
-        itself makes when it decides an undivided area is sufficient.
+        itself makes when it decides an undivided area is sufficient. `D-160`
+        takes the instant beside them, which is why the snapshot is read by the
+        caller and passed in — one read, so the areas and the moment they were
+        measured cannot come from two different calculations.
         """
 
-        snapshot = ReadinessSnapshotRepository(session).latest(project_id)
         if snapshot is None:
             return None
         return tuple(
