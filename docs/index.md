@@ -18,6 +18,7 @@ HTTP, no interface of its own.
 |---|---|
 | [Glossary](glossary.md) | The vocabulary, meaning what the code means |
 | [Knowledge lifecycle](concepts/knowledge-lifecycle.md) | How something becomes known, and why most things stop short |
+| [Epistemic knowledge model](concepts/epistemic-knowledge-model.md) | Evidence, formation, authority, synthesis, currency, and human attention |
 
 ### Building against it
 
@@ -45,6 +46,12 @@ confirms. Only confirmed knowledge reaches assembled context. Readiness counts
 candidates too, at half credit — an area with candidates and no confirmations is
 *partial*, not *missing*. If you expect submitted observations to become project
 truth, the system will look broken when it is working.
+
+That paragraph describes the current legacy extraction lifecycle. KAE-Memory now also
+stores a synthesized project model and a separate human-attention queue. The target
+[epistemic model](concepts/epistemic-knowledge-model.md) keeps formation, authority,
+evidence role, and currency separate; confirmation-based readiness and context assembly
+have not completed that migration.
 
 **Extraction is asynchronous.** A message is durable immediately; what is
 derived from it appears when the run completes. An empty result a moment after
