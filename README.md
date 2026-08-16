@@ -76,6 +76,7 @@ the registry that enforces it — 48 capabilities across two adapters.
 |---|---|
 | Learn the vocabulary | [Glossary](docs/glossary.md) |
 | Understand how knowledge forms | [Knowledge lifecycle](docs/concepts/knowledge-lifecycle.md) |
+| Understand evidence, synthesis and authority | [Epistemic knowledge model](docs/concepts/epistemic-knowledge-model.md) |
 | Call it from an agent | [MCP tools](docs/reference/mcp-tools.md) |
 | Build against HTTP | [HTTP API](docs/reference/http-api.md) |
 | Know which adapter has what | [Capability matrix](docs/reference/capability-matrix.md) |

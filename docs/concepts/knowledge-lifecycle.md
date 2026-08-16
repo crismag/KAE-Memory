@@ -8,6 +8,11 @@ Evidence is stored as given, candidates are derived from it, and a person decide
 which candidates the project stands behind. Every stage below exists to keep
 those three apart.
 
+> **Scope.** This page documents the current `KnowledgeItem.lifecycle` and legacy
+> Confirm/Reject behavior. It is one transitional axis, not the whole epistemic model.
+> Synthesized-object lifecycle, evidence role, formation, authority, currency, and human
+> attention are separate; see [Epistemic knowledge model](epistemic-knowledge-model.md).
+
 ---
 
 ## The states
@@ -150,6 +155,8 @@ them and is separate. Deleting neither affects the other.
 
 ## Next
 
+- [Epistemic knowledge model](epistemic-knowledge-model.md) — how formation, authority,
+  evidence role, currency, synthesis, and attention stay separate
 - [Provenance and evidence](provenance-and-evidence.md) — tracing an item back
 - [Reviewing knowledge](../workflows/review-knowledge.md) — doing the deciding
 - [Clarifications and unknowns](clarifications-and-unknowns.md) — what gaps become

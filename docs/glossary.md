@@ -13,6 +13,11 @@ assumption can be proposed or confirmed. `unknown` is a kind, not a status.
 confirms it, or it stays a candidate. Nothing an agent submits changes what the
 project holds as agreed.
 
+**Formation, authority, evidence role, and currency are independent.** An observed
+repository fact can later be human-accepted, supporting another object, and historical.
+No one status should erase those distinctions. See the
+[epistemic knowledge model](concepts/epistemic-knowledge-model.md).
+
 ---
 
 ## Project and conversation
@@ -96,6 +101,23 @@ before anything is derived from it. Without model access, extraction falls back
 to a deterministic fixture and run summaries say so.
 
 **Classification** — assigning an item to a discovery area.
+
+**Formation** — how a proposition came to exist: observed from a source, derived by KAE,
+assumed to permit progress, or proposed as a change. Acceptance changes authority, not
+formation.
+
+**Evidence role** — how an extracted item participates in current reasoning, such as
+active, supporting, conflicting, resolved, or noise.
+
+**Synthesized object** — a compact domain-aware project concept maintained over one or
+more evidence items. It points to evidence rather than replacing it.
+
+**Attention item** — a material issue that needs a person now. An unconfirmed or
+unclassified evidence row is not sufficient reason for one.
+
+**Authority** — the actor or contextual source policy that may settle a claim for a named
+scope. The current implementation distinguishes working-model and human authority; scoped
+source-policy authority and attested human identity remain target work.
 
 ---
 
