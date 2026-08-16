@@ -17,6 +17,8 @@ from kae_memory.domain.identifiers import (
     ProjectId,
     ReconciliationEventId,
     ResponsibilityAssignmentId,
+    RuleAttributionId,
+    RuleEnforcementMechanismId,
     SynthesizedObjectId,
 )
 from kae_memory.domain.synthesis import (
@@ -33,6 +35,8 @@ from kae_memory.domain.synthesis import (
     EvidenceRoleRecord,
     ReconciliationEvent,
     ResponsibilityAssignmentRecord,
+    RuleAttributionRecord,
+    RuleEnforcementMechanismRecord,
     SynthesizedLifecycle,
     SynthesizedObject,
 )
@@ -43,6 +47,8 @@ from kae_memory.persistence.tables import (
     KnowledgeEvidenceRoleRow,
     ReconciliationEventRow,
     ResponsibilityAssignmentRow,
+    RuleAttributionRow,
+    RuleEnforcementMechanismRow,
     SynthesizedEvidenceLinkRow,
     SynthesizedObjectRow,
 )
@@ -342,6 +348,100 @@ class SynthesisRepository:
         row.statement = record.statement
         row.updated_at = _stamp(record.updated_at)
 
+    def get_attribution(self, rule_object_id: SynthesizedObjectId) -> RuleAttributionRecord | None:
+        """Return where this rule was said to come from, if anybody said."""
+
+        row = self._session.scalars(
+            select(RuleAttributionRow).where(
+                RuleAttributionRow.rule_object_id == str(rule_object_id)
+            )
+        ).first()
+        return None if row is None else _attribution_from_row(row)
+
+    def list_attributions(
+        self, project_id: ProjectId, rule_object_id: SynthesizedObjectId | None = None
+    ) -> tuple[RuleAttributionRecord, ...]:
+        """Return the project's rule attributions, optionally for one rule."""
+
+        stmt = select(RuleAttributionRow).where(RuleAttributionRow.project_id == str(project_id))
+        if rule_object_id is not None:
+            stmt = stmt.where(RuleAttributionRow.rule_object_id == str(rule_object_id))
+        stmt = stmt.order_by(RuleAttributionRow.rule_object_id)
+        return tuple(_attribution_from_row(row) for row in self._session.scalars(stmt))
+
+    def save_attribution(self, record: RuleAttributionRecord) -> None:
+        """Insert or update where one rule came from."""
+
+        row = self._session.get(RuleAttributionRow, str(record.id))
+        if row is None:
+            self._session.add(
+                RuleAttributionRow(
+                    attribution_id=str(record.id),
+                    project_id=str(record.project_id),
+                    rule_object_id=str(record.rule_object_id),
+                    origin=record.origin,
+                    source_object_id=(
+                        None if record.source_object_id is None else str(record.source_object_id)
+                    ),
+                    created_at=_stamp(record.created_at),
+                    updated_at=_stamp(record.updated_at),
+                )
+            )
+            return
+        row.origin = record.origin
+        row.source_object_id = (
+            None if record.source_object_id is None else str(record.source_object_id)
+        )
+        row.updated_at = _stamp(record.updated_at)
+
+    def get_mechanism(
+        self, rule_object_id: SynthesizedObjectId, identity_key: str
+    ) -> RuleEnforcementMechanismRecord | None:
+        """Return this rule's mechanism with this name, if it has one."""
+
+        row = self._session.scalars(
+            select(RuleEnforcementMechanismRow).where(
+                RuleEnforcementMechanismRow.rule_object_id == str(rule_object_id),
+                RuleEnforcementMechanismRow.identity_key == identity_key,
+            )
+        ).first()
+        return None if row is None else _mechanism_from_row(row)
+
+    def list_mechanisms(
+        self, project_id: ProjectId, rule_object_id: SynthesizedObjectId | None = None
+    ) -> tuple[RuleEnforcementMechanismRecord, ...]:
+        """Return the mechanisms named in this project, optionally for one rule."""
+
+        stmt = select(RuleEnforcementMechanismRow).where(
+            RuleEnforcementMechanismRow.project_id == str(project_id)
+        )
+        if rule_object_id is not None:
+            stmt = stmt.where(RuleEnforcementMechanismRow.rule_object_id == str(rule_object_id))
+        stmt = stmt.order_by(
+            RuleEnforcementMechanismRow.rule_object_id, RuleEnforcementMechanismRow.identity_key
+        )
+        return tuple(_mechanism_from_row(row) for row in self._session.scalars(stmt))
+
+    def save_mechanism(self, record: RuleEnforcementMechanismRecord) -> None:
+        """Insert or update one mechanism named as enforcing a rule."""
+
+        row = self._session.get(RuleEnforcementMechanismRow, str(record.id))
+        if row is None:
+            self._session.add(
+                RuleEnforcementMechanismRow(
+                    mechanism_id=str(record.id),
+                    project_id=str(record.project_id),
+                    rule_object_id=str(record.rule_object_id),
+                    identity_key=record.identity_key,
+                    name=record.name,
+                    created_at=_stamp(record.created_at),
+                    updated_at=_stamp(record.updated_at),
+                )
+            )
+            return
+        row.name = record.name
+        row.updated_at = _stamp(record.updated_at)
+
     def get_attention(self, item_id: AttentionItemId) -> AttentionItem | None:
         """Return one attention item, or ``None``."""
 
@@ -515,6 +615,31 @@ def _criterion_from_row(row: AcceptanceCriterionRow) -> AcceptanceCriterionRecor
         requirement_object_id=SynthesizedObjectId(row.requirement_object_id),
         identity_key=row.identity_key,
         statement=row.statement,
+        created_at=as_aware(row.created_at),
+        updated_at=as_aware(row.updated_at),
+    )
+
+
+def _attribution_from_row(row: RuleAttributionRow) -> RuleAttributionRecord:
+    source = row.source_object_id
+    return RuleAttributionRecord(
+        id=RuleAttributionId(row.attribution_id),
+        project_id=ProjectId(row.project_id),
+        rule_object_id=SynthesizedObjectId(row.rule_object_id),
+        origin=row.origin,
+        source_object_id=None if source is None else SynthesizedObjectId(source),
+        created_at=as_aware(row.created_at),
+        updated_at=as_aware(row.updated_at),
+    )
+
+
+def _mechanism_from_row(row: RuleEnforcementMechanismRow) -> RuleEnforcementMechanismRecord:
+    return RuleEnforcementMechanismRecord(
+        id=RuleEnforcementMechanismId(row.mechanism_id),
+        project_id=ProjectId(row.project_id),
+        rule_object_id=SynthesizedObjectId(row.rule_object_id),
+        identity_key=row.identity_key,
+        name=row.name,
         created_at=as_aware(row.created_at),
         updated_at=as_aware(row.updated_at),
     )

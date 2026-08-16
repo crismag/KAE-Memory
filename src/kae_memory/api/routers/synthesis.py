@@ -27,6 +27,7 @@ from kae_memory.domain.synthesis import (
     EvidenceBindingKind,
     EvidenceRole,
 )
+from kae_memory.domain.synthesizers.rules import RuleOrigin
 
 from ..dependencies import (
     ActorSynthesis,
@@ -36,6 +37,7 @@ from ..dependencies import (
     Memory,
     Reconciliation,
     RequirementSynthesis,
+    RuleSynthesis,
     Synthesis,
     UnknownSynthesis,
 )
@@ -45,6 +47,7 @@ from ..schemas import (
     ActorSynthesisReportResponse,
     AddAcceptanceCriterionRequest,
     AttentionItemResponse,
+    AttributeRuleRequest,
     BindEvidenceRequest,
     ConstraintSynthesisReportResponse,
     CorrectSynthesizedObjectRequest,
@@ -52,6 +55,7 @@ from ..schemas import (
     EvidenceBindingResponse,
     EvidenceRoleResponse,
     GoalSynthesisReportResponse,
+    NameRuleMechanismRequest,
     NeighborhoodResponse,
     PutAttentionRequest,
     PutSynthesizedObjectRequest,
@@ -61,12 +65,16 @@ from ..schemas import (
     RequirementSynthesisReportResponse,
     ResolveAttentionRequest,
     ResponsibilityAssignmentResponse,
+    RuleAttributionResponse,
+    RuleEnforcementMechanismResponse,
+    RuleSynthesisReportResponse,
     RunActorSynthesisRequest,
     RunConstraintSynthesisRequest,
     RunDecisionSynthesisRequest,
     RunGoalSynthesisRequest,
     RunReconciliationRequest,
     RunRequirementSynthesisRequest,
+    RunRuleSynthesisRequest,
     RunUnknownSynthesisRequest,
     SetEvidenceRoleRequest,
     StoredConstraintEffectResponse,
@@ -439,6 +447,167 @@ def run_requirement_synthesis(
     return RequirementSynthesisReportResponse.of(
         requirements.synthesize(resolved, idempotency_key=body.idempotency_key)
     )
+
+
+@router.post("/model/rules/runs", response_model=RuleSynthesisReportResponse)
+def run_rule_synthesis(
+    project_id: str,
+    body: RunRuleSynthesisRequest,
+    memory: Memory,
+    rules: RuleSynthesis,
+) -> RuleSynthesisReportResponse:
+    """Turn rule evidence into a rule model that says what each rule weighs.
+
+    The rules themselves are read back through `GET /model?domain=rule`. What
+    the run adds is the reading doc 04 asks for: the `family` a rule belongs to,
+    the `authority` it carries, whether it is `active`, and whether a mechanism
+    makes it a control.
+
+    **`authority` comes from the origin and never from the wording.** *Must
+    never* is the grammar of the sentence somebody wrote down, so a preference
+    worded as an absolute stays a preference (`D-132`). The origin is attributed
+    through `POST /model/rules/{id}/attribution`, by a person.
+
+    **`unattributed` is usually every rule, and that is doc 04's complaint
+    measured** — rules recorded without where they came from are interchangeable
+    rows. Nothing here raises attention: one interrupt per unattributed rule is
+    the review queue `ADR-0007` exists to remove, under a new name.
+
+    Rerunning unchanged evidence writes nothing new — identity is the normalised
+    statement.
+    """
+
+    resolved = _project(project_id, memory)
+    return RuleSynthesisReportResponse.of(
+        rules.synthesize(resolved, idempotency_key=body.idempotency_key)
+    )
+
+
+@router.post(
+    "/model/rules/{object_id}/attribution",
+    response_model=RuleAttributionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def attribute_rule(
+    project_id: str,
+    object_id: str,
+    body: AttributeRuleRequest,
+    memory: Memory,
+    rules: RuleSynthesis,
+) -> RuleAttributionResponse:
+    """Record where one rule came from.
+
+    This is the **only** way an attribution is created. No synthesis path writes
+    one, because an origin KAE attributed would make the rule active by the act
+    of synthesising it (`D-132`).
+
+    Naming `source_object_id` defers acceptance to that object: the rule governs
+    only while the source is authoritative, because deriving a control from a
+    proposal launders a proposal into a control (`D-126`). Omitting it makes
+    this a direct assertion, which is active on the strength of the assertion.
+
+    Idempotent by rule — a rule has one origin, so re-attributing replaces it.
+    `404` if the object is not this project's, or is not a rule.
+    """
+
+    resolved = _project(project_id, memory)
+    record = rules.record_attribution(
+        resolved,
+        SynthesizedObjectId(object_id),
+        RuleOrigin(body.origin),
+        None if body.source_object_id is None else SynthesizedObjectId(body.source_object_id),
+    )
+    return RuleAttributionResponse(
+        attribution_id=str(record.id),
+        rule_object_id=str(record.rule_object_id),
+        origin=record.origin,
+        source_object_id=(
+            None if record.source_object_id is None else str(record.source_object_id)
+        ),
+    )
+
+
+@router.get("/model/rules/attributions", response_model=list[RuleAttributionResponse])
+def list_rule_attributions(
+    project_id: str,
+    memory: Memory,
+    rules: RuleSynthesis,
+    object_id: str | None = Query(default=None),
+) -> list[RuleAttributionResponse]:
+    """The project's rule attributions, optionally for one rule.
+
+    Empty is the ordinary answer and doc 04's opening complaint: a project that
+    never recorded where its rules came from cannot tell a law from a habit.
+    """
+
+    resolved = _project(project_id, memory)
+    rule = None if object_id is None else SynthesizedObjectId(object_id)
+    return [
+        RuleAttributionResponse(
+            attribution_id=str(record.id),
+            rule_object_id=str(record.rule_object_id),
+            origin=record.origin,
+            source_object_id=(
+                None if record.source_object_id is None else str(record.source_object_id)
+            ),
+        )
+        for record in rules.list_attributions(resolved, rule)
+    ]
+
+
+@router.post(
+    "/model/rules/{object_id}/mechanisms",
+    response_model=RuleEnforcementMechanismResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def name_rule_mechanism(
+    project_id: str,
+    object_id: str,
+    body: NameRuleMechanismRequest,
+    memory: Memory,
+    rules: RuleSynthesis,
+) -> RuleEnforcementMechanismResponse:
+    """Record what enforces one rule.
+
+    The **only** way a mechanism is named. A mechanism KAE named would make
+    every rule an enforceable control by the act of synthesising it (`D-132`),
+    so a rule is a control exactly when a person said what enforces it.
+
+    Idempotent by wording. `404` if the object is not this project's rule.
+    """
+
+    resolved = _project(project_id, memory)
+    record = rules.record_mechanism(resolved, SynthesizedObjectId(object_id), body.name)
+    return RuleEnforcementMechanismResponse(
+        mechanism_id=str(record.id),
+        rule_object_id=str(record.rule_object_id),
+        name=record.name,
+    )
+
+
+@router.get("/model/rules/mechanisms", response_model=list[RuleEnforcementMechanismResponse])
+def list_rule_mechanisms(
+    project_id: str,
+    memory: Memory,
+    rules: RuleSynthesis,
+    object_id: str | None = Query(default=None),
+) -> list[RuleEnforcementMechanismResponse]:
+    """The mechanisms named in this project, optionally for one rule.
+
+    Empty means the project has no enforceable controls — a finding about the
+    project rather than about its rules.
+    """
+
+    resolved = _project(project_id, memory)
+    rule = None if object_id is None else SynthesizedObjectId(object_id)
+    return [
+        RuleEnforcementMechanismResponse(
+            mechanism_id=str(record.id),
+            rule_object_id=str(record.rule_object_id),
+            name=record.name,
+        )
+        for record in rules.list_mechanisms(resolved, rule)
+    ]
 
 
 @router.post("/model/decisions/runs", response_model=DecisionSynthesisReportResponse)

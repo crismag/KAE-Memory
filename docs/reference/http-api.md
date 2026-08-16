@@ -3,7 +3,7 @@
 
 # HTTP API
 
-81 paths, 95 operations — 45 GET, 49 POST.
+86 paths, 100 operations — 47 GET, 52 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (45)
+## Reads (47)
 
 | Route | Purpose |
 |---|---|
@@ -48,6 +48,8 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/model/actors/responsibilities` | Read who is Responsible or Accountable for each subject |
 | `GET /v1/projects/{project_id}/model/constraints/effects` | Read what the project's accepted boundaries bear on |
 | `GET /v1/projects/{project_id}/model/requirements/criteria` | Read the acceptance criteria the project's requirements carry |
+| `GET /v1/projects/{project_id}/model/rules/attributions` | Read where the project's rules were said to come from |
+| `GET /v1/projects/{project_id}/model/rules/mechanisms` | Read the mechanisms the project's rules are enforced by |
 | `GET /v1/projects/{project_id}/model/{object_id}` | Read one synthesized object and the evidence it is mapped to |
 | `GET /v1/projects/{project_id}/modules` | Every module, every edge, and the order they can be built in |
 | `GET /v1/projects/{project_id}/modules/graph` | Every module, every edge, and the order they can be built in |
@@ -73,7 +75,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (49)
+## Writes (52)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -111,6 +113,9 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/model/goals/runs` | Cluster goal evidence into the project's goal model |
 | `POST /v1/projects/{project_id}/model/requirements/runs` | Turn requirement-like evidence into a model, separating what is not a requirement |
 | `POST /v1/projects/{project_id}/model/requirements/{object_id}/criteria` | Record what a person says done looks like for one requirement |
+| `POST /v1/projects/{project_id}/model/rules/runs` | Turn rule evidence into a model that says what each rule weighs |
+| `POST /v1/projects/{project_id}/model/rules/{object_id}/attribution` | Record where one rule came from, which is what gives it authority |
+| `POST /v1/projects/{project_id}/model/rules/{object_id}/mechanisms` | Name what enforces one rule, which is what makes it a control |
 | `POST /v1/projects/{project_id}/model/unknowns/runs` | Turn current unknowns into themes and raise the material few |
 | `POST /v1/projects/{project_id}/model/{object_id}/correct` | Record a person's wording as the authoritative synthesized object |
 | `POST /v1/projects/{project_id}/model/{object_id}/evidence` | Map a synthesized object onto an extracted row without deleting it |

@@ -37,6 +37,7 @@ from kae_memory.application.reconciliation_service import ReconciliationService
 from kae_memory.application.requirement_synthesis_service import RequirementSynthesisService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
+from kae_memory.application.rule_synthesis_service import RuleSynthesisService
 from kae_memory.application.setup_service import SetupService
 from kae_memory.application.source_service import SourceService
 from kae_memory.application.synthesis_service import SynthesisService
@@ -311,6 +312,18 @@ def get_requirement_synthesis(request: Request) -> RequirementSynthesisService:
     return RequirementSynthesisService(factory)
 
 
+def get_rule_synthesis(request: Request) -> RuleSynthesisService:
+    """Return the rule synthesizer, which takes no embedder either.
+
+    A rule's weight comes from where it came from (`D-132`), which is a stored
+    attribution rather than a distance, and its family is one ordered lexical
+    read of its own wording. Nothing here compares two rules.
+    """
+
+    factory: sessionmaker[DbSession] = request.app.state.session_factory
+    return RuleSynthesisService(factory)
+
+
 def get_reconciliation(request: Request) -> ReconciliationService:
     """Return the request's reconciliation service."""
 
@@ -404,3 +417,4 @@ ActorSynthesis = Annotated[ActorSynthesisService, Depends(get_actor_synthesis)]
 DecisionSynthesis = Annotated[DecisionSynthesisService, Depends(get_decision_synthesis)]
 ConstraintSynthesis = Annotated[ConstraintSynthesisService, Depends(get_constraint_synthesis)]
 RequirementSynthesis = Annotated[RequirementSynthesisService, Depends(get_requirement_synthesis)]
+RuleSynthesis = Annotated[RuleSynthesisService, Depends(get_rule_synthesis)]

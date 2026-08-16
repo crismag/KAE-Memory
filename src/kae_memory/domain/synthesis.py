@@ -27,6 +27,8 @@ from .identifiers import (
     ProjectId,
     ReconciliationEventId,
     ResponsibilityAssignmentId,
+    RuleAttributionId,
+    RuleEnforcementMechanismId,
     SynthesizedObjectId,
 )
 from .models import KnowledgeKind
@@ -340,6 +342,57 @@ class AcceptanceCriterionRecord:
             raise DomainInvariantError("acceptance criterion identity key must not be empty")
         if not self.statement.strip():
             raise DomainInvariantError("acceptance criterion statement must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class RuleAttributionRecord:
+    """Where one rule came from (doc 04, `SYN-5c`).
+
+    The origin is the whole of the authority model, and nothing derives it —
+    *must never* is the grammar of the sentence somebody wrote down (`D-132`).
+    So a row here exists because a person said where the rule came from.
+
+    ``source_object_id`` is the synthesized object the rule leans on, when there
+    is one. Whether that source was accepted is read from it and never stored:
+    a flag beside it would be a second copy of the source's own state (`D-133`).
+    """
+
+    id: RuleAttributionId
+    project_id: ProjectId
+    rule_object_id: SynthesizedObjectId
+    origin: str
+    source_object_id: SynthesizedObjectId | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.origin.strip():
+            raise DomainInvariantError("rule attribution origin must not be empty")
+
+
+@dataclass(frozen=True, slots=True)
+class RuleEnforcementMechanismRecord:
+    """One mechanism named as enforcing one rule (doc 04, `SYN-5c`).
+
+    A CI check, a permission, a gate. Mechanisms arrive as evidence and KAE
+    writes none: one it named would make every rule an enforceable control by
+    the act of synthesising it (`D-132`). Identity is the rule and the
+    normalised name, so re-naming the same mechanism updates rather than stacks.
+    """
+
+    id: RuleEnforcementMechanismId
+    project_id: ProjectId
+    rule_object_id: SynthesizedObjectId
+    identity_key: str
+    name: str
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if not self.identity_key.strip():
+            raise DomainInvariantError("rule enforcement mechanism identity key must not be empty")
+        if not self.name.strip():
+            raise DomainInvariantError("rule enforcement mechanism name must not be empty")
 
 
 @dataclass(frozen=True, slots=True)

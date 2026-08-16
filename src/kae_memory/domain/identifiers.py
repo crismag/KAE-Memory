@@ -128,3 +128,13 @@ class ConstraintEffectId(Identifier):
 @dataclass(frozen=True, slots=True)
 class AcceptanceCriterionId(Identifier):
     """Stable identifier for one criterion a person wrote against a requirement."""
+
+
+@dataclass(frozen=True, slots=True)
+class RuleAttributionId(Identifier):
+    """Stable identifier for one statement of where a rule came from."""
+
+
+@dataclass(frozen=True, slots=True)
+class RuleEnforcementMechanismId(Identifier):
+    """Stable identifier for one mechanism named as enforcing a rule."""

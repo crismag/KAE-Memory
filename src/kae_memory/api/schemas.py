@@ -2740,6 +2740,124 @@ class RequirementSynthesisReportResponse(BaseModel):
         )
 
 
+class AttributeRuleRequest(BaseModel):
+    """Where one rule came from, as a person states it.
+
+    This is the only way a row reaches ``rule_attributions``: no synthesis path
+    writes one, because an origin KAE attributed would make the rule active by
+    the act of synthesising it (`D-132`).
+
+    ``source_object_id`` is the synthesized object the rule leans on, when there
+    is one. Naming it defers the question of acceptance to that object; omitting
+    it makes this a direct assertion of provenance (`D-133`).
+    """
+
+    origin: str
+    source_object_id: str | None = None
+
+
+class RuleAttributionResponse(BaseModel):
+    """One stored attribution, and the rule it says the origin of."""
+
+    attribution_id: str
+    rule_object_id: str
+    origin: str
+    source_object_id: str | None = None
+
+
+class NameRuleMechanismRequest(BaseModel):
+    """What enforces one rule — a check, a permission, a gate.
+
+    The only way a row reaches ``rule_enforcement_mechanisms``: a mechanism KAE
+    named would make every rule an enforceable control by the act of
+    synthesising it (`D-132`).
+    """
+
+    name: str
+
+
+class RuleEnforcementMechanismResponse(BaseModel):
+    """One stored mechanism, and the rule it enforces."""
+
+    mechanism_id: str
+    rule_object_id: str
+    name: str
+
+
+class RunRuleSynthesisRequest(BaseModel):
+    """Optional idempotency key for a rule-synthesis pass."""
+
+    idempotency_key: str | None = None
+
+
+class SynthesizedRuleResponse(BaseModel):
+    """One rule, and everything that decides what it weighs."""
+
+    synthesized_object_id: str
+    statement: str
+    family: str
+    """What the rule is about. Read from the wording, and carries no weight."""
+
+    origin: str
+    """Where it came from. `unattributed` until a person says (`D-132`)."""
+
+    authority: str
+    """What it can overrule. Derived from the origin and never from the wording."""
+
+    active: bool
+    """Whether it governs anything — the source's acceptance, not its grammar."""
+
+    enforceable: bool
+    """A control rather than descriptive policy: a mechanism was named for it."""
+
+    mechanisms: list[str]
+    capability_areas: list[str]
+
+
+class RuleSynthesisReportResponse(BaseModel):
+    """What one rule-synthesis run concluded, and what it could not weigh."""
+
+    project_id: str
+    replayed: bool
+    considered: int
+    rules: list[SynthesizedRuleResponse]
+
+    active: int
+    controls: int
+
+    unattributed: list[str]
+    """The rules nobody said the origin of. Usually all of them, and that is doc 04's complaint."""
+
+    families: list[str]
+    """The families present among active rules. Empty while nothing is active."""
+
+    @classmethod
+    def of(cls, report: Any) -> "RuleSynthesisReportResponse":
+        return cls(
+            project_id=str(report.project_id),
+            replayed=report.replayed,
+            considered=report.considered,
+            rules=[
+                SynthesizedRuleResponse(
+                    synthesized_object_id=str(rule.object_id),
+                    statement=rule.statement,
+                    family=rule.family.value,
+                    origin=rule.origin.value,
+                    authority=rule.authority.value,
+                    active=rule.active,
+                    enforceable=rule.enforceable,
+                    mechanisms=list(rule.mechanisms),
+                    capability_areas=list(rule.capability_areas),
+                )
+                for rule in report.rules
+            ],
+            active=report.active,
+            controls=report.controls,
+            unattributed=list(report.unattributed),
+            families=[family.value for family in report.families],
+        )
+
+
 class AffectedSectionResponse(BaseModel):
     domain: str
     item_ids: list[str]

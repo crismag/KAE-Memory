@@ -1185,6 +1185,69 @@ class AcceptanceCriterionRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RuleAttributionRow(Base):
+    """Where one rule came from (doc 04, `SYN-5c`).
+
+    One row per rule, which is why it is its own table rather than columns
+    shared with the mechanisms: a rule has exactly one origin and zero or more
+    mechanisms, and one table for both would repeat the origin on every
+    mechanism row (`D-133`).
+
+    **No synthesis run writes here** (`D-132`). An origin KAE attributed would
+    make the rule active by the act of synthesising it, so a row exists because
+    a person said where the rule came from. ``source_object_id`` is what the
+    rule leans on when there is one; whether that source was accepted is read
+    from the source and deliberately not stored here.
+    """
+
+    __tablename__ = "rule_attributions"
+    __table_args__ = (
+        UniqueConstraint("rule_object_id", name="uq_rule_attributions_rule"),
+        Index("ix_rule_attributions_project", "project_id", "rule_object_id"),
+    )
+
+    attribution_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    rule_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    origin: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_object_id: Mapped[str | None] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class RuleEnforcementMechanismRow(Base):
+    """One mechanism named as enforcing one rule (doc 04, `SYN-5c`).
+
+    Identity is ``(rule_object_id, identity_key)``: the same mechanism named
+    twice is one mechanism. **No synthesis run writes here** — a mechanism KAE
+    named would make every rule an enforceable control by the act of
+    synthesising it (`D-132`), so a rule is a control exactly when a person
+    named what enforces it.
+    """
+
+    __tablename__ = "rule_enforcement_mechanisms"
+    __table_args__ = (
+        UniqueConstraint(
+            "rule_object_id", "identity_key", name="uq_rule_enforcement_mechanisms_name"
+        ),
+        Index("ix_rule_enforcement_mechanisms_rule", "project_id", "rule_object_id"),
+    )
+
+    mechanism_id: Mapped[str] = mapped_column(UUID_STR, primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    rule_object_id: Mapped[str] = mapped_column(
+        ForeignKey("synthesized_objects.object_id", ondelete="NO ACTION"), nullable=False
+    )
+    identity_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class AttentionItemRow(Base):
     """A human-attention item. Unconfirmed extraction is not one of these."""
 

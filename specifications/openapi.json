@@ -618,6 +618,31 @@
         "title": "AttentionItemResponse",
         "type": "object"
       },
+      "AttributeRuleRequest": {
+        "description": "Where one rule came from, as a person states it.\n\nThis is the only way a row reaches ``rule_attributions``: no synthesis path\nwrites one, because an origin KAE attributed would make the rule active by\nthe act of synthesising it (`D-132`).\n\n``source_object_id`` is the synthesized object the rule leans on, when there\nis one. Naming it defers the question of acceptance to that object; omitting\nit makes this a direct assertion of provenance (`D-133`).",
+        "properties": {
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "source_object_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Object Id"
+          }
+        },
+        "required": [
+          "origin"
+        ],
+        "title": "AttributeRuleRequest",
+        "type": "object"
+      },
       "AuthorizeConnectionRequest": {
         "description": "Move a connection's authorisation state after checking it.",
         "properties": {
@@ -2569,6 +2594,20 @@
         "title": "ModuleResponse",
         "type": "object"
       },
+      "NameRuleMechanismRequest": {
+        "description": "What enforces one rule \u2014 a check, a permission, a gate.\n\nThe only way a row reaches ``rule_enforcement_mechanisms``: a mechanism KAE\nnamed would make every rule an enforceable control by the act of\nsynthesising it (`D-132`).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "NameRuleMechanismRequest",
+        "type": "object"
+      },
       "NeighborhoodNeighborResponse": {
         "properties": {
           "knowledge_item_id": {
@@ -4406,6 +4445,123 @@
         "title": "ReviewResponse",
         "type": "object"
       },
+      "RuleAttributionResponse": {
+        "description": "One stored attribution, and the rule it says the origin of.",
+        "properties": {
+          "attribution_id": {
+            "title": "Attribution Id",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "rule_object_id": {
+            "title": "Rule Object Id",
+            "type": "string"
+          },
+          "source_object_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Object Id"
+          }
+        },
+        "required": [
+          "attribution_id",
+          "rule_object_id",
+          "origin"
+        ],
+        "title": "RuleAttributionResponse",
+        "type": "object"
+      },
+      "RuleEnforcementMechanismResponse": {
+        "description": "One stored mechanism, and the rule it enforces.",
+        "properties": {
+          "mechanism_id": {
+            "title": "Mechanism Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rule_object_id": {
+            "title": "Rule Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mechanism_id",
+          "rule_object_id",
+          "name"
+        ],
+        "title": "RuleEnforcementMechanismResponse",
+        "type": "object"
+      },
+      "RuleSynthesisReportResponse": {
+        "description": "What one rule-synthesis run concluded, and what it could not weigh.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "integer"
+          },
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "controls": {
+            "title": "Controls",
+            "type": "integer"
+          },
+          "families": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Families",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/SynthesizedRuleResponse"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "unattributed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unattributed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "replayed",
+          "considered",
+          "rules",
+          "active",
+          "controls",
+          "unattributed",
+          "families"
+        ],
+        "title": "RuleSynthesisReportResponse",
+        "type": "object"
+      },
       "RunActorSynthesisRequest": {
         "description": "Optional idempotency key for an actor-synthesis pass.",
         "properties": {
@@ -4640,6 +4796,24 @@
           "error_message"
         ],
         "title": "RunResponse",
+        "type": "object"
+      },
+      "RunRuleSynthesisRequest": {
+        "description": "Optional idempotency key for a rule-synthesis pass.",
+        "properties": {
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "title": "RunRuleSynthesisRequest",
         "type": "object"
       },
       "RunUnknownSynthesisRequest": {
@@ -5601,6 +5775,66 @@
           "kind"
         ],
         "title": "SynthesizedRoleResponse",
+        "type": "object"
+      },
+      "SynthesizedRuleResponse": {
+        "description": "One rule, and everything that decides what it weighs.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "authority": {
+            "title": "Authority",
+            "type": "string"
+          },
+          "capability_areas": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capability Areas",
+            "type": "array"
+          },
+          "enforceable": {
+            "title": "Enforceable",
+            "type": "boolean"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "mechanisms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Mechanisms",
+            "type": "array"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "statement": {
+            "title": "Statement",
+            "type": "string"
+          },
+          "synthesized_object_id": {
+            "title": "Synthesized Object Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synthesized_object_id",
+          "statement",
+          "family",
+          "origin",
+          "authority",
+          "active",
+          "enforceable",
+          "mechanisms",
+          "capability_areas"
+        ],
+        "title": "SynthesizedRuleResponse",
         "type": "object"
       },
       "TraceResponse": {
@@ -8820,6 +9054,309 @@
           }
         },
         "summary": "Add Acceptance Criterion",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/rules/attributions": {
+      "get": {
+        "description": "The project's rule attributions, optionally for one rule.\n\nEmpty is the ordinary answer and doc 04's opening complaint: a project that\nnever recorded where its rules came from cannot tell a law from a habit.",
+        "operationId": "list_rule_attributions_v1_projects__project_id__model_rules_attributions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "object_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleAttributionResponse"
+                  },
+                  "title": "Response List Rule Attributions V1 Projects  Project Id  Model Rules Attributions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Rule Attributions",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/rules/mechanisms": {
+      "get": {
+        "description": "The mechanisms named in this project, optionally for one rule.\n\nEmpty means the project has no enforceable controls \u2014 a finding about the\nproject rather than about its rules.",
+        "operationId": "list_rule_mechanisms_v1_projects__project_id__model_rules_mechanisms_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "object_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RuleEnforcementMechanismResponse"
+                  },
+                  "title": "Response List Rule Mechanisms V1 Projects  Project Id  Model Rules Mechanisms Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Rule Mechanisms",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/rules/runs": {
+      "post": {
+        "description": "Turn rule evidence into a rule model that says what each rule weighs.\n\nThe rules themselves are read back through `GET /model?domain=rule`. What\nthe run adds is the reading doc 04 asks for: the `family` a rule belongs to,\nthe `authority` it carries, whether it is `active`, and whether a mechanism\nmakes it a control.\n\n**`authority` comes from the origin and never from the wording.** *Must\nnever* is the grammar of the sentence somebody wrote down, so a preference\nworded as an absolute stays a preference (`D-132`). The origin is attributed\nthrough `POST /model/rules/{id}/attribution`, by a person.\n\n**`unattributed` is usually every rule, and that is doc 04's complaint\nmeasured** \u2014 rules recorded without where they came from are interchangeable\nrows. Nothing here raises attention: one interrupt per unattributed rule is\nthe review queue `ADR-0007` exists to remove, under a new name.\n\nRerunning unchanged evidence writes nothing new \u2014 identity is the normalised\nstatement.",
+        "operationId": "run_rule_synthesis_v1_projects__project_id__model_rules_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRuleSynthesisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleSynthesisReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Rule Synthesis",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/rules/{object_id}/attribution": {
+      "post": {
+        "description": "Record where one rule came from.\n\nThis is the **only** way an attribution is created. No synthesis path writes\none, because an origin KAE attributed would make the rule active by the act\nof synthesising it (`D-132`).\n\nNaming `source_object_id` defers acceptance to that object: the rule governs\nonly while the source is authoritative, because deriving a control from a\nproposal launders a proposal into a control (`D-126`). Omitting it makes\nthis a direct assertion, which is active on the strength of the assertion.\n\nIdempotent by rule \u2014 a rule has one origin, so re-attributing replaces it.\n`404` if the object is not this project's, or is not a rule.",
+        "operationId": "attribute_rule_v1_projects__project_id__model_rules__object_id__attribution_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributeRuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleAttributionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attribute Rule",
+        "tags": [
+          "synthesis"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/model/rules/{object_id}/mechanisms": {
+      "post": {
+        "description": "Record what enforces one rule.\n\nThe **only** way a mechanism is named. A mechanism KAE named would make\nevery rule an enforceable control by the act of synthesising it (`D-132`),\nso a rule is a control exactly when a person said what enforces it.\n\nIdempotent by wording. `404` if the object is not this project's rule.",
+        "operationId": "name_rule_mechanism_v1_projects__project_id__model_rules__object_id__mechanisms_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "object_id",
+            "required": true,
+            "schema": {
+              "title": "Object Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NameRuleMechanismRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleEnforcementMechanismResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Name Rule Mechanism",
         "tags": [
           "synthesis"
         ]

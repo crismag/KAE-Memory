@@ -10,7 +10,7 @@ application services, and where they differ, the difference is declared and
 carries a reason. Parity means the registry decides what belongs where — not
 that every operation appears twice.
 
-75 capabilities: 27 on both, 43 HTTP only, 4 MCP only, 1 on neither.
+80 capabilities: 27 on both, 48 HTTP only, 4 MCP only, 1 on neither.
 
 This page is generated from `src/kae_memory/capabilities.py`, which
 `tests/api/test_adapter_parity.py` checks in both directions: a declared
@@ -56,7 +56,7 @@ either is missing one of these — absence is a defect, not a decision.
 
 ---
 
-## HTTP only, by decision (43)
+## HTTP only, by decision (48)
 
 The product surface. Present on MCP would be the defect, and each row
 carries the reason it is not there.
@@ -105,6 +105,11 @@ carries the reason it is not there.
 | `synthesis.requirements.criteria.add` | Record what a person says done looks like for one requirement | — | `POST /v1/projects/{project_id}/model/requirements/{object_id}/criteria` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.requirements.criteria.read` | Read the acceptance criteria the project's requirements carry | — | `GET /v1/projects/{project_id}/model/requirements/criteria` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.requirements.run` | Turn requirement-like evidence into a model, separating what is not a requirement | — | `POST /v1/projects/{project_id}/model/requirements/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.rules.attribution.add` | Record where one rule came from, which is what gives it authority | — | `POST /v1/projects/{project_id}/model/rules/{object_id}/attribution` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.rules.attribution.read` | Read where the project's rules were said to come from | — | `GET /v1/projects/{project_id}/model/rules/attributions` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.rules.mechanisms.add` | Name what enforces one rule, which is what makes it a control | — | `POST /v1/projects/{project_id}/model/rules/{object_id}/mechanisms` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.rules.mechanisms.read` | Read the mechanisms the project's rules are enforced by | — | `GET /v1/projects/{project_id}/model/rules/mechanisms` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
+| `synthesis.rules.run` | Turn rule evidence into a model that says what each rule weighs | — | `POST /v1/projects/{project_id}/model/rules/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 | `synthesis.unknowns.run` | Turn current unknowns into themes and raise the material few | — | `POST /v1/projects/{project_id}/model/unknowns/runs` | Studio is the current consumer of the synthesized model and attention queue. CIE continues to write extracted evidence through existing knowledge tools until Phase 3 produces a model worth interviewing. Exposing empty synthesis collections on MCP would present a second knowledge surface agents would treat as authoritative. |
 
 ---
