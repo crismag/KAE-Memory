@@ -478,3 +478,85 @@ class TestNoveltyIsMeasuredAgainstTheLastMeasurement:
         sentence = explain(self._theme("a", CRITERIA, novel=False), ranked_by_blocking=True)
 
         assert "coverage was last measured" not in sentence
+
+
+class TestConfidenceIsHowFirmlyTheQuestionNamedItsAreas:
+    """`D-163`. The score behind the area match was computed and discarded, so
+    every dimension above it was applied to well-founded and faint claims alike.
+    The grade promotes and never penalises, and it is the last term before
+    repetition because it is the only one that is not a fact about the project."""
+
+    #: Two clear signals — names testing, names verification.
+    FIRMLY = ACCEPTANCE
+    #: One weak signal, and the same area.
+    FAINTLY = "What acceptance are we aiming for?"
+
+    def _theme(self, name: str, strength: str | None, *, asked: int = 1) -> UnknownTheme:
+        members = tuple(_item(f"{name}{n}") for n in range(asked))
+        return UnknownTheme(
+            members, members[0], ACCEPTANCE, "minor", (CRITERIA,), named_strength=strength
+        )
+
+    def _plan(self, question: str, uncovered: tuple[UncoveredArea, ...] | None) -> UnknownPlan:
+        item = _item("a")
+        return plan_unknowns(
+            [item],
+            {item: question},
+            {item: "critical"},
+            {item: None},
+            NO_VECTORS,
+            uncovered_areas=uncovered,
+        )
+
+    def test_a_firmly_named_claim_outranks_a_faint_one_blocking_the_same_area(self) -> None:
+        assert theme_priority(self._theme("a", "high")) > theme_priority(self._theme("b", "low"))
+
+    def test_a_faint_claim_is_promoted_by_nothing_rather_than_penalised(self) -> None:
+        """Every term here is non-negative, so a weak match cannot push a
+        question below one the ranking is silent about."""
+
+        assert theme_priority(self._theme("a", "low")) == theme_priority(self._theme("b", None))
+
+    def test_confidence_never_outranks_novelty(self) -> None:
+        """How well KAE read a sentence must not displace a fact about the
+        project."""
+
+        novel = UnknownTheme(
+            (_item("n"),),
+            _item("n"),
+            ACCEPTANCE,
+            "minor",
+            (CRITERIA,),
+            named_strength="low",
+            novel=True,
+        )
+
+        assert theme_priority(novel) > theme_priority(self._theme("b", "high"))
+
+    def test_confidence_outranks_any_amount_of_repetition(self) -> None:
+        assert theme_priority(self._theme("a", "medium")) > theme_priority(
+            self._theme("b", "low", asked=20_000)
+        )
+
+    def test_the_plan_grades_the_wording_that_chose_the_areas(self) -> None:
+        assert self._plan(self.FIRMLY, (CRITERIA,)).themes[0].named_strength == "high"
+        assert self._plan(self.FAINTLY, (CRITERIA,)).themes[0].named_strength == "low"
+
+    def test_a_question_that_blocks_nothing_has_no_match_to_grade(self) -> None:
+        """Not a weak match: the question names an area the project has already
+        covered, so no blocking claim was made at all."""
+
+        assert self._plan(self.FIRMLY, (MODEL,)).themes[0].named_strength is None
+
+    def test_a_project_with_no_snapshot_grades_nothing(self) -> None:
+        assert self._plan(self.FIRMLY, None).themes[0].named_strength is None
+
+    def test_the_card_says_a_faint_match_is_faint(self) -> None:
+        sentence = explain(self._theme("a", "low"), ranked_by_blocking=True)
+
+        assert "matches it only faintly" in sentence
+
+    def test_the_card_does_not_congratulate_itself_on_a_firm_match(self) -> None:
+        sentence = explain(self._theme("a", "high"), ranked_by_blocking=True)
+
+        assert "faintly" not in sentence

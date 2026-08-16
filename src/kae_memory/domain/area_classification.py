@@ -53,6 +53,22 @@ class Placement:
     rationale: str
 
 
+@dataclass(frozen=True, slots=True)
+class Naming:
+    """Which areas a piece of text names, and how firmly it named them.
+
+    `D-163`. The score behind `areas_named_by` was computed and discarded, so a
+    question that fired one weak signal and one that fired three arrived at a
+    caller indistinguishable — and `SYN-11` ranks by a claim built on top of that
+    match, so how well founded the match is is a fact worth carrying.
+    """
+
+    areas: tuple[str, ...]
+    strength: str | None
+    """`HIGH`, `MEDIUM` or `LOW`, and ``None`` when nothing fired — which is not
+    ``LOW``: no area was named at all, so there is no match to be unsure of."""
+
+
 HIGH: Final = "high"
 MEDIUM: Final = "medium"
 LOW: Final = "low"
@@ -227,8 +243,8 @@ def areas_accepting(kind: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) 
     )
 
 
-def areas_named_by(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -> tuple[str, ...]:
-    """The areas ``text`` names most strongly, scored over the whole template.
+def naming_of(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -> Naming:
+    """The areas ``text`` names most strongly, and how strongly it named them.
 
     A different question from `classify_by_content`, which asks *where does this
     sentence file* and therefore only ever offers the areas the statement's kind
@@ -241,6 +257,12 @@ def areas_named_by(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -
     default is applied: a caller asking what somebody owns must be able to tell
     *this names nothing* from *this names one thing*, and
     `DEFAULT_AREA_FOR_KIND` would answer the first as if it were the second.
+
+    The strength grades the winning score against `_STRONG` and `_CLEAR`, the
+    same two weights the signal table is written in, so no threshold is chosen
+    here that the table has not already chosen (`D-16`). Two weak signals
+    agreeing reach the same grade as one strong one, which is the claim the
+    weights make.
     """
 
     lowered = text.casefold()
@@ -251,8 +273,24 @@ def areas_named_by(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -
 
     best = max(scores.values())
     if best == 0:
-        return ()
-    return tuple(sorted(area for area, score in scores.items() if score == best))
+        return Naming((), None)
+    if best >= _STRONG:
+        strength = HIGH
+    elif best >= _CLEAR:
+        strength = MEDIUM
+    else:
+        strength = LOW
+    return Naming(tuple(sorted(area for area, score in scores.items() if score == best)), strength)
+
+
+def areas_named_by(text: str, template: ReadinessTemplate = SOFTWARE_TEMPLATE) -> tuple[str, ...]:
+    """The areas ``text`` names most strongly. See `naming_of`.
+
+    Kept as the name three synthesizers already ask by: they want the areas and
+    have no use for how firmly the wording chose them.
+    """
+
+    return naming_of(text, template).areas
 
 
 def classify_by_content(
@@ -311,8 +349,11 @@ __all__ = [
     "HIGH",
     "LOW",
     "MEDIUM",
+    "Naming",
     "Placement",
     "areas_accepting",
+    "areas_named_by",
     "classify_by_content",
     "classify_corpus",
+    "naming_of",
 ]

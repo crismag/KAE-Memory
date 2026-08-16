@@ -77,8 +77,20 @@ measured is one that measurement does not account for. Neither the wall clock no
 KAE's own prior output decides it — the first would reorder the queue while
 nothing happened, the second would rank by how many times synthesis had been run.
 
-The remaining dimensions of `SYN-11` — urgency, confidence, authority,
-reversibility — are not built, and none of them can read this snapshot.
+**Confidence** — `SYN-11`/`D-163` — is the sixth and the only one that reads
+nothing about the project: `areas_named_by` scores the wording against the whole
+template and discards the score, so a question that named its areas from one weak
+signal and one that named them plainly arrived here identical, and every
+dimension above is computed on top of that match. The grade is the score read
+against the signal table's own weights, it promotes rather than penalises, and it
+ranks last before repetition because how well KAE read a sentence must not
+displace a fact about the project. The extractor's own `Confidence` is refused as
+the source: no deployment sets `KAE_EXTRACTION`, so the offline adapter writes one
+literal grade on every item, and it is confidence in a transcription rather than
+in the claim being ranked.
+
+The remaining dimensions of `SYN-11` — urgency, authority, reversibility — are
+not built, and none of them can read this snapshot.
 **Authority is not merely unbuilt, it does not discriminate** (`D-159`): a
 question makes no claim, so :func:`~kae_memory.domain.authority.scope_of` returns
 ``None`` for it, and every scope a `KnowledgeKind` *can* reach is authoritative
@@ -94,7 +106,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from ..area_classification import areas_named_by
+from ..area_classification import HIGH, LOW, MEDIUM, naming_of
 from ..clustering import cluster_by_complete_linkage
 from ..identifiers import KnowledgeItemId
 from .goals import CLUSTER_RADIUS, medoid
@@ -188,6 +200,15 @@ class UnknownTheme:
     theme.
     """
 
+    named_strength: str | None = None
+    """How firmly the wording chose the areas in `blocks` — `D-163`.
+
+    ``None`` where there is nothing to be confident about: the question named no
+    area, every area it named is already covered, or the project has no snapshot
+    to intersect against. All three mean the same thing here, which is that no
+    blocking claim was made, so there is none to grade.
+    """
+
     novel: bool = False
     """Whether this question was first asked after coverage was last measured.
 
@@ -243,6 +264,10 @@ def blocked_areas(
 ) -> tuple[UncoveredArea, ...]:
     """The areas ``question`` names that measured coverage has not yet reached.
 
+    See `naming_strength` for how firmly the question named them, which
+    `theme_priority` weighs and this function deliberately does not — the set of
+    blocked areas is the same whether the wording chose them faintly or plainly.
+
     Naming is not blocking: a question about acceptance criteria in a project
     whose acceptance criteria are already ``sufficient`` is a question the
     project answered somewhere else, and ranking it above one standing in front
@@ -254,7 +279,7 @@ def blocked_areas(
     reader is shown.
     """
 
-    named = set(areas_named_by(question))
+    named = set(naming_of(question).areas)
     blocked = [area for area in uncovered_areas if area.key in named]
     blocked.sort(
         key=lambda area: (
@@ -299,7 +324,10 @@ _CORROBORATION_MAX = CORROBORATION_CEILING * 10 + 3
 #: makes the separation a property of the arithmetic instead of a claim about
 #: four literals, so the next dimension moves one line rather than silently
 #: overlapping the one beneath it.
-NOVELTY_BAND = _CORROBORATION_MAX + 1
+CONFIDENCE_BAND = _CORROBORATION_MAX + 1
+#: How many grades the confidence term has above `LOW`, which scores nothing.
+CONFIDENCE_CEILING = 2
+NOVELTY_BAND = CONFIDENCE_BAND * (CONFIDENCE_CEILING + 1)
 GAIN_BAND = NOVELTY_BAND * 2
 CONFLICT_BAND = GAIN_BAND * 2
 MATERIALITY_BAND = CONFLICT_BAND * 2
@@ -341,6 +369,13 @@ def theme_priority(theme: UnknownTheme) -> int:
     fact about the project's own timeline rather than a count of how many times
     an extractor wrote the same sentence down.
 
+    **Confidence sits directly below novelty** (`D-163`), and it is the only term
+    here that is not a fact about the project: it says how firmly the question's
+    wording chose the areas every term above was computed from. That is why it is
+    last before repetition — a statement about how well KAE read a sentence must
+    not displace a statement about the project's state, so it orders only the
+    questions everything above it is silent between.
+
     Corroboration stays the last tie-break: a question the conversation returned
     to six times is more likely to matter than one asked once. It is a weaker
     claim than blocking impact, and the emitted item says which claim it is
@@ -349,6 +384,7 @@ def theme_priority(theme: UnknownTheme) -> int:
 
     severity = {"critical": 3, "major": 2, "minor": 1}.get(theme.severity, 1)
     corroboration = min(theme.asked, CORROBORATION_CEILING) * 10 + severity
+    confidence = CONFIDENCE_BAND * _CONFIDENCE_GRADES.get(theme.named_strength or "", 0)
     novelty = NOVELTY_BAND if theme.novel else 0
     gain = GAIN_BAND if any(area.one_answer_away for area in theme.blocks) else 0
     conflict = CONFLICT_BAND if any(area.contradicted for area in theme.blocks) else 0
@@ -362,8 +398,17 @@ def theme_priority(theme: UnknownTheme) -> int:
         + conflict
         + gain
         + novelty
+        + confidence
         + corroboration
     )
+
+
+#: What each naming grade is worth, `LOW` worth nothing.
+#:
+#: A promotion and never a penalty (`D-163`): a faintly named claim scores what a
+#: theme with no claim at all scores, so a weak match cannot push a question
+#: below one the ranking knows nothing about.
+_CONFIDENCE_GRADES = {LOW: 0, MEDIUM: 1, HIGH: CONFIDENCE_CEILING}
 
 
 def plan_unknowns(
@@ -407,15 +452,15 @@ def plan_unknowns(
         # dilute a real one.
         severity = _strongest({severities.get(member, "minor") for member in members})
         question = questions[canonical]
+        blocks = () if uncovered_areas is None else blocked_areas(question, uncovered_areas)
         themes.append(
             UnknownTheme(
                 members=members,
                 canonical_id=canonical,
                 question=question,
                 severity=severity,
-                blocks=(
-                    () if uncovered_areas is None else blocked_areas(question, uncovered_areas)
-                ),
+                blocks=blocks,
+                named_strength=naming_strength(question) if blocks else None,
                 novel=_is_novel(members, first_asked, measured_at),
             )
         )
@@ -430,6 +475,17 @@ def plan_unknowns(
         # against, so the flag cannot drift from what the sort actually did.
         ranked_by_blocking=uncovered_areas is not None,
     )
+
+
+def naming_strength(question: str) -> str | None:
+    """How firmly ``question``'s wording chose the areas it names (`D-163`).
+
+    The grade the area classifier already computed and threw away. ``None`` where
+    the question names no area at all, which is not a weak match but the absence
+    of one.
+    """
+
+    return naming_of(question).strength
 
 
 def _is_novel(
@@ -487,6 +543,11 @@ def explain(theme: UnknownTheme, ranked_by_blocking: bool) -> str:
     elif theme.blocks:
         areas = ", ".join(area_phrase(area) for area in theme.blocks)
         basis = f"ranked by what it blocks: {areas} {_are(theme.blocks)} not yet covered"
+        # `D-163`. Said only where the match was faint, because that is where it
+        # changes what the reader should conclude: the areas above were matched
+        # from a single weak signal in the wording, so the list may be wrong.
+        if theme.named_strength == LOW:
+            basis += f", though the question's wording matches {_them(theme.blocks)} only faintly"
     else:
         basis = (
             "ranked by what it blocks, and it blocks nothing measured — "
@@ -533,3 +594,7 @@ def area_phrase(area: UncoveredArea) -> str:
 
 def _are(areas: tuple[UncoveredArea, ...]) -> str:
     return "is" if len(areas) == 1 else "are"
+
+
+def _them(areas: tuple[UncoveredArea, ...]) -> str:
+    return "it" if len(areas) == 1 else "them"
