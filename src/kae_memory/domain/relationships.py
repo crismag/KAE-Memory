@@ -65,9 +65,17 @@ class ModuleRelation(StrEnum):
     translated inconsistently.
 
     Declared before the model that stores it (N17) because names are the part
-    that cannot be changed afterwards. Nothing persists these yet, and a term
-    added here without a writer repeats the mistake :class:`KnowledgeRelation`
-    was just trimmed for.
+    that cannot be changed afterwards. That was the state when this was written
+    and it stopped being true: every member is writable through
+    :meth:`ModuleService.relate`, stored in ``module_relationships``, and
+    reachable from outside the process by the ``kae_relate_modules`` MCP tool.
+    ``GET /modules/graph`` returns them.
+
+    The rule the old sentence carried still holds and is now about consumers
+    rather than writers: a term added here arrives at KAE-Studio through that
+    route, where the architecture diagram draws one member and accounts for the
+    rest in ``drawnRelations.ts``. A seventh added without placing it there is a
+    relation somebody records and no picture shows (`D-219`).
     """
 
     DEPENDS_ON = "depends_on"
