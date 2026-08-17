@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from kae_memory import runtime_profile
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
+from kae_memory.agents.provider import ProviderConfigurationError
 from kae_memory.application import MemoryService, ReadinessService
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
 from kae_memory.domain.lifecycle import LifecycleState
@@ -248,6 +249,41 @@ def test_the_default_extractor_needs_no_credentials(monkeypatch: pytest.MonkeyPa
     """The demonstrable path must not depend on a provider being reachable."""
 
     monkeypatch.delenv("KAE_EXTRACTION", raising=False)
+
+    assert isinstance(default_extractor(), DeterministicExtractionAdapter)
+
+
+def test_a_misspelled_extractor_refuses_instead_of_giving_the_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D-173`: the whitelist `KAE_REVIEW` already had.
+
+    The slip is cheap to make and expensive to notice — the run succeeds,
+    knowledge is written, and nothing says the model an operator configured was
+    never called.
+    """
+
+    monkeypatch.delenv(runtime_profile.VARIABLE, raising=False)
+    monkeypatch.setenv("KAE_EXTRACTION", "bedrok")
+
+    with pytest.raises(ProviderConfigurationError) as error:
+        default_extractor()
+
+    assert "bedrok" in str(error.value)
+
+
+def test_a_blank_extractor_setting_still_means_the_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unlike `KAE_REVIEW=`, which means `off`.
+
+    Extraction is not optional, so an exported-but-empty variable — the ordinary
+    result of a shell script setting one conditionally — must not fail a worker
+    that would otherwise run the documented default.
+    """
+
+    monkeypatch.delenv(runtime_profile.VARIABLE, raising=False)
+    monkeypatch.setenv("KAE_EXTRACTION", "  ")
 
     assert isinstance(default_extractor(), DeterministicExtractionAdapter)
 

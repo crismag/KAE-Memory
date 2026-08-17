@@ -563,8 +563,10 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
         # nothing said so.
         #
         # `build_embedder` and `build_classifier` have always raised on an
-        # unknown name. Only the reviewer fell through, and it is the one whose
-        # silent fallback changes a number a person reads (AUD-006).
+        # unknown name, and the reviewer is the one whose silent fallback
+        # changes a number a person reads (AUD-006). This comment used to say
+        # the reviewer was the only one that fell through; `default_extractor`
+        # did too, fifty lines below, until `D-173`.
         raise ProviderConfigurationError(
             f"unknown KAE_REVIEW={setting!r}. Valid: bedrock, deterministic, off"
         )
@@ -612,10 +614,15 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
     provider being reachable, on credentials, or on a bill — and a fixture
     adapter makes the workflow reproducible for anyone who clones the repository.
     Set ``KAE_EXTRACTION=ollama`` for a model on this machine, or ``bedrock``
-    for the hosted one.
+    for the hosted one. A name that is none of the three raises rather than
+    quietly giving the fixture (`D-173`).
     """
 
-    chosen = os.environ.get("KAE_EXTRACTION", "deterministic").lower()
+    # Blank reads as unset rather than joining the whitelist below (`D-173`). A
+    # reviewer is optional and `KAE_REVIEW=` means `off`; extraction is not, and
+    # failing a worker over a variable a shell script exported conditionally
+    # would refuse a deployment that wanted the documented default.
+    chosen = os.environ.get("KAE_EXTRACTION", "").strip().lower() or "deterministic"
 
     # A model on this machine (`ADR-0006`). Named explicitly rather than made
     # the default: the fixture adapter is what keeps `python -m kae_memory.worker`
@@ -638,11 +645,22 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
         model = os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
         return OllamaExtractionAdapter(model=model) if model else OllamaExtractionAdapter()
 
-    if chosen != "bedrock":
+    if chosen == "deterministic":
         runtime_profile.require(
             runtime_profile.Reach.IN_PROCESS, variable="KAE_EXTRACTION", value=chosen
         )
         return DeterministicExtractionAdapter()
+
+    if chosen != "bedrock":
+        # **The whitelist `default_reviewer` has, for the same reason** (`D-173`).
+        # This read `if chosen != "bedrock": return DeterministicExtractionAdapter()`,
+        # so `KAE_EXTRACTION=bedrok` or `ollam` selected the fixture, the run
+        # succeeded, knowledge was written, and nothing said the model an
+        # operator configured had never been called. The reviewer's comment
+        # below claims only the reviewer fell through; it did not.
+        raise ProviderConfigurationError(
+            f"unknown KAE_EXTRACTION={chosen!r}. Valid: bedrock, ollama, deterministic"
+        )
 
     runtime_profile.require(runtime_profile.Reach.HOSTED, variable="KAE_EXTRACTION", value=chosen)
 
