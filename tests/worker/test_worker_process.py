@@ -7,6 +7,7 @@ run stayed `pending` because nothing claimed it.
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
+from kae_memory import runtime_profile
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
 from kae_memory.application import MemoryService, ReadinessService
 from kae_memory.domain.execution import AgentRole, AgentRun, RunStatus
@@ -20,6 +21,7 @@ from kae_memory.worker.execution import (
     MissingRunInputError,
     UnsupportedRoleError,
     default_extractor,
+    default_reviewer,
 )
 from kae_memory.worker.runner import Worker, WorkerConfig
 
@@ -248,6 +250,50 @@ def test_the_default_extractor_needs_no_credentials(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("KAE_EXTRACTION", raising=False)
 
     assert isinstance(default_extractor(), DeterministicExtractionAdapter)
+
+
+def test_the_runtime_profile_refuses_the_worker_providers_it_does_not_permit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D-172`: the profile is worth having only where a provider is built.
+
+    Both worker choice points, and both directions — `offline` refuses the
+    hosted adapter, `production` refuses the fixture that ranks at chance.
+    """
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.OFFLINE)
+    monkeypatch.setenv("KAE_EXTRACTION", "bedrock")
+    monkeypatch.setenv("KAE_REVIEW", "bedrock")
+
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_extractor()
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_reviewer()
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.PRODUCTION)
+    monkeypatch.setenv("KAE_EXTRACTION", "deterministic")
+    monkeypatch.setenv("KAE_REVIEW", "deterministic")
+
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_extractor()
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_reviewer()
+
+
+def test_a_disabled_reviewer_is_not_a_reach_the_profile_rules_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`KAE_REVIEW=off` survives `production`.
+
+    Refusing it would be the runtime profile ruling on product scope rather than
+    on what this deployment may reach — a capability nobody built reaches
+    nothing.
+    """
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.PRODUCTION)
+    monkeypatch.setenv("KAE_REVIEW", "off")
+
+    assert default_reviewer() is None
 
 
 def test_extraction_asks_for_the_review_that_makes_readiness_mean_anything(

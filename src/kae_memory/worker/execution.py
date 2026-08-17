@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
+from kae_memory import runtime_profile
 from kae_memory.agents.deterministic import DeterministicExtractionAdapter
 from kae_memory.agents.extraction import ExtractionError, ExtractionPort, ExtractionRequest
 from kae_memory.agents.provider import ProviderConfigurationError, resolve_region
@@ -542,8 +543,14 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
 
     setting = os.environ.get("KAE_REVIEW", "deterministic").strip().lower()
     if setting in {"off", "none", ""}:
+        # No profile check. A disabled capability reaches nothing, and refusing
+        # `off` would be the runtime profile ruling on product scope rather than
+        # on what this deployment may reach (`D-172`).
         return None
     if setting == "deterministic":
+        runtime_profile.require(
+            runtime_profile.Reach.IN_PROCESS, variable="KAE_REVIEW", value=setting
+        )
         return DeterministicReviewAdapter()
     if setting != "bedrock":
         # **A whitelist, because the fallback was silent and expensive.**
@@ -561,6 +568,8 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
         raise ProviderConfigurationError(
             f"unknown KAE_REVIEW={setting!r}. Valid: bedrock, deterministic, off"
         )
+
+    runtime_profile.require(runtime_profile.Reach.HOSTED, variable="KAE_REVIEW", value=setting)
 
     if build_bedrock is not None:  # pragma: no cover - injected only by tests
         return build_bedrock()
@@ -614,13 +623,28 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
     # for a provider that may not be running would trade one surprise for
     # another.
     if chosen == "ollama":
-        from kae_memory.agents.ollama_extraction import OllamaExtractionAdapter
+        from kae_memory.agents.ollama_extraction import OLLAMA_URL, OllamaExtractionAdapter
 
+        # The reach is read from the URL this adapter will actually use rather
+        # than assumed to be loopback, so the two cannot drift apart. Today it is
+        # the module's own literal: `default_extractor` passes no `base_url`, and
+        # `KAE_OLLAMA_URL` — which moves the embedder, the classifier and the
+        # goal judge — does not reach extraction (`D-172`).
+        runtime_profile.require(
+            runtime_profile.reach_of_url(OLLAMA_URL),
+            variable="KAE_EXTRACTION",
+            value=chosen,
+        )
         model = os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
         return OllamaExtractionAdapter(model=model) if model else OllamaExtractionAdapter()
 
     if chosen != "bedrock":
+        runtime_profile.require(
+            runtime_profile.Reach.IN_PROCESS, variable="KAE_EXTRACTION", value=chosen
+        )
         return DeterministicExtractionAdapter()
+
+    runtime_profile.require(runtime_profile.Reach.HOSTED, variable="KAE_EXTRACTION", value=chosen)
 
     if build_bedrock is not None:  # pragma: no cover - injected only by tests
         return build_bedrock()

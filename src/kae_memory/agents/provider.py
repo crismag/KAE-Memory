@@ -23,6 +23,8 @@ the whole workflow with no account, no credentials, and no bill.
 import os
 from collections.abc import Mapping
 
+from kae_memory import runtime_profile
+
 from .embedding import DeterministicEmbeddingAdapter, EmbeddingPort
 from .observation_classifier import DeterministicObservationClassifier, ObservationClassifier
 from .ollama import OLLAMA_URL, OllamaEmbeddingAdapter
@@ -112,9 +114,21 @@ def build_embedder(environ: Mapping[str, str] | None = None) -> tuple[EmbeddingP
     name = embedder_name(environ)
 
     if name == DETERMINISTIC:
+        runtime_profile.require(
+            runtime_profile.Reach.IN_PROCESS,
+            variable="KAE_EMBEDDING",
+            value=name,
+            environ=environ,
+        )
         return DeterministicEmbeddingAdapter(), name
 
     if name == TITAN:
+        runtime_profile.require(
+            runtime_profile.Reach.HOSTED,
+            variable="KAE_EMBEDDING",
+            value=name,
+            environ=environ,
+        )
         region = resolve_region(environ)
         if not region:
             raise ProviderConfigurationError(
@@ -124,12 +138,18 @@ def build_embedder(environ: Mapping[str, str] | None = None) -> tuple[EmbeddingP
         return TitanEmbeddingAdapter(region=region), name
 
     if name == OLLAMA:
-        # No credential to check and no region to resolve, so there is nothing
-        # to refuse at build time. An unreachable Ollama fails per call, with
-        # the adapter's own message naming the URL and the model.
-        return OllamaEmbeddingAdapter(
-            base_url=environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
-        ), name
+        # No credential to check and no region to resolve. An unreachable Ollama
+        # fails per call, with the adapter's own message naming the URL and the
+        # model. What is refused here is the *reach*: the same adapter pointed at
+        # another machine is a network call, and `offline` forbids one.
+        base_url = environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+        runtime_profile.require(
+            runtime_profile.reach_of_url(base_url),
+            variable="KAE_EMBEDDING",
+            value=name,
+            environ=environ,
+        )
+        return OllamaEmbeddingAdapter(base_url=base_url), name
 
     raise ProviderConfigurationError(
         f"unknown KAE_EMBEDDING={name!r}. Valid: {DETERMINISTIC}, {TITAN}, {OLLAMA}"
@@ -168,9 +188,21 @@ def build_classifier(
     name = classifier_name(environ)
 
     if name == CLASSIFIER_DETERMINISTIC:
+        runtime_profile.require(
+            runtime_profile.Reach.IN_PROCESS,
+            variable="KAE_OBSERVATION_CLASSIFIER",
+            value=name,
+            environ=environ,
+        )
         return DeterministicObservationClassifier(), name
 
     if name == CLASSIFIER_SEMANTIC:
+        runtime_profile.require(
+            runtime_profile.Reach.HOSTED,
+            variable="KAE_OBSERVATION_CLASSIFIER",
+            value=name,
+            environ=environ,
+        )
         region = resolve_region(environ)
         if not region:
             raise ProviderConfigurationError(
@@ -180,12 +212,17 @@ def build_classifier(
         return BedrockObservationClassifier(region=region), name
 
     if name == CLASSIFIER_OLLAMA:
-        # Nothing to refuse at build time, as with the Ollama embedder: no
-        # credential and no region. An unreachable Ollama degrades per call to
-        # the deterministic classifier, and `last_degraded` says that it did.
-        return OllamaObservationClassifier(
-            base_url=environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
-        ), name
+        # No credential and no region, as with the Ollama embedder: an
+        # unreachable Ollama degrades per call to the deterministic classifier,
+        # and `last_degraded` says that it did. The profile refuses the reach.
+        base_url = environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+        runtime_profile.require(
+            runtime_profile.reach_of_url(base_url),
+            variable="KAE_OBSERVATION_CLASSIFIER",
+            value=name,
+            environ=environ,
+        )
+        return OllamaObservationClassifier(base_url=base_url), name
 
     raise ProviderConfigurationError(
         f"unknown KAE_OBSERVATION_CLASSIFIER={name!r}. "

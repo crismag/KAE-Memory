@@ -36,6 +36,7 @@ from collections.abc import Sequence
 
 import httpx
 
+from kae_memory import runtime_profile
 from kae_memory.domain.synthesizers.goals import GoalJudgement
 
 from .extraction import ProviderUnavailableError
@@ -130,7 +131,11 @@ def default_goal_judge() -> OllamaGoalJudge | None:
 
     if os.environ.get("KAE_GOAL_JUDGE", "").strip().lower() != "ollama":
         return None
+    base_url = os.environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+    runtime_profile.require(
+        runtime_profile.reach_of_url(base_url), variable="KAE_GOAL_JUDGE", value="ollama"
+    )
     return OllamaGoalJudge(
-        base_url=os.environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL,
+        base_url=base_url,
         model=os.environ.get("KAE_GOAL_JUDGE_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
     )
