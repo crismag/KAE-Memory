@@ -2161,11 +2161,26 @@ class SynthesizedObjectResponse(BaseModel):
     authority: str
     revision: int
     evidence: list[BoundEvidenceResponse] = Field(default_factory=list)
+    supporting_evidence: int
+    """How many observations this object was drawn from — `D-167`.
+
+    Present on **every** read, including the ones that carry no statements.
+    `evidence` is empty on the list and populated on the detail, which without
+    this field leaves a reader unable to tell *not fetched* from *nothing
+    supports this* — the ambiguity `BoundEvidenceResponse` exists to prevent,
+    one level up from where it was prevented.
+
+    Doc 01's aggregation asks for one item with 73 expandable instances. This is
+    the 73; the instances are the read below it.
+    """
+
     created_at: datetime | None
     updated_at: datetime | None
 
     @classmethod
-    def of(cls, obj: Any, evidence: Sequence[Any] = ()) -> "SynthesizedObjectResponse":
+    def of(
+        cls, obj: Any, evidence: Sequence[Any] = (), *, supporting_evidence: int
+    ) -> "SynthesizedObjectResponse":
         return cls(
             id=str(obj.id),
             project_id=str(obj.project_id),
@@ -2177,6 +2192,7 @@ class SynthesizedObjectResponse(BaseModel):
             authority=obj.authority.value,
             revision=obj.revision,
             evidence=[BoundEvidenceResponse.of(bound) for bound in evidence],
+            supporting_evidence=supporting_evidence,
             created_at=obj.created_at,
             updated_at=obj.updated_at,
         )

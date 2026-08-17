@@ -5865,6 +5865,10 @@
             "title": "Statement",
             "type": "string"
           },
+          "supporting_evidence": {
+            "title": "Supporting Evidence",
+            "type": "integer"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -5892,6 +5896,7 @@
           "lifecycle",
           "authority",
           "revision",
+          "supporting_evidence",
           "created_at",
           "updated_at"
         ],

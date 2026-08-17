@@ -26,6 +26,7 @@ from kae_memory.domain.synthesis import (
     ChangeTrigger,
     EvidenceBindingKind,
     EvidenceRole,
+    SynthesizedObject,
 )
 from kae_memory.domain.synthesizers.rules import RuleOrigin
 
@@ -95,6 +96,17 @@ def _project(project_id: str, memory: Memory) -> ProjectId:
     return project.id
 
 
+def _supporting(synthesis: Synthesis, obj: SynthesizedObject) -> int:
+    """How many observations one object rests on (`D-167`).
+
+    A write answers it too, and answers it by reading: an update carries the
+    bindings the object already had, so a response that assumed zero would tell
+    a caller its object rests on nothing every time somebody corrected one.
+    """
+
+    return synthesis.supporting_counts([obj.id]).get(str(obj.id), 0)
+
+
 def _parse[EnumT: StrEnum](enum_type: type[EnumT], value: str, field: str) -> EnumT:
     try:
         return enum_type(value)
@@ -117,7 +129,13 @@ def list_model(
     """Return the synthesized project model. Empty until a synthesizer runs."""
 
     resolved = _project(project_id, memory)
-    return [SynthesizedObjectResponse.of(obj) for obj in synthesis.list_objects(resolved, domain)]
+    objects = synthesis.list_objects(resolved, domain)
+    # One grouped count for the list, not one read per object (`D-167`).
+    counts = synthesis.supporting_counts([obj.id for obj in objects])
+    return [
+        SynthesizedObjectResponse.of(obj, supporting_evidence=counts.get(str(obj.id), 0))
+        for obj in objects
+    ]
 
 
 @router.post(
@@ -140,7 +158,7 @@ def put_model(
         raise ApiError(
             status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_argument", str(error)
         ) from error
-    return SynthesizedObjectResponse.of(obj)
+    return SynthesizedObjectResponse.of(obj, supporting_evidence=_supporting(synthesis, obj))
 
 
 @router.get("/model/{object_id}", response_model=SynthesizedObjectResponse)
@@ -158,7 +176,11 @@ def get_model_object(
     view = synthesis.get_object(resolved, SynthesizedObjectId(object_id))
     if view is None:
         raise not_found("synthesized_object", object_id)
-    return SynthesizedObjectResponse.of(view.object, view.evidence)
+    # Counted from the list this response carries, so the number and the
+    # statements beneath it are the same read and cannot disagree.
+    return SynthesizedObjectResponse.of(
+        view.object, view.evidence, supporting_evidence=len(view.evidence)
+    )
 
 
 @router.post("/model/{object_id}/correct", response_model=SynthesizedObjectResponse)
@@ -175,7 +197,7 @@ def correct_model_object(
     obj = synthesis.correct_object(
         resolved, SynthesizedObjectId(object_id), body.title, body.statement
     )
-    return SynthesizedObjectResponse.of(obj)
+    return SynthesizedObjectResponse.of(obj, supporting_evidence=_supporting(synthesis, obj))
 
 
 @router.post("/model/{object_id}/evidence", response_model=EvidenceBindingResponse)

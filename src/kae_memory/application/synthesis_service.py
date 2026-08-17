@@ -19,6 +19,7 @@ object onto existing rows. It never deletes them.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -241,6 +242,20 @@ class SynthesisService:
 
         def operation(session: DbSession) -> tuple[SynthesizedObject, ...]:
             return SynthesisRepository(session).list_objects(project_id, domain)
+
+        return run_transaction(self._session_factory, operation)
+
+    def supporting_counts(self, object_ids: Sequence[SynthesizedObjectId]) -> Mapping[str, int]:
+        """How many evidence rows stand behind each of these objects.
+
+        The list read's answer to *what does this rest on*, where the full
+        statements are a per-object read nobody has asked for yet. Zero is
+        expressed by absence from the mapping and the caller decides what an
+        absent object means, which for every current caller is `0`.
+        """
+
+        def operation(session: DbSession) -> Mapping[str, int]:
+            return SynthesisRepository(session).count_bindings(object_ids)
 
         return run_transaction(self._session_factory, operation)
 

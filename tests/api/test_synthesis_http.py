@@ -316,6 +316,99 @@ class TestEvidenceReachesAReaderAsSentences:
         assert "statement" not in rebound.json()
 
 
+class TestTheModelSaysHowMuchStandsBehindEachObject:
+    """`SYN-4b`, `D-167`. Doc 01's aggregation asks for one item with 73
+    expandable evidence instances. The detail read carries the instances
+    (`D-145`); the list read carries the 73, because an object drawn from 47
+    observations was otherwise drawn exactly like one drawn from 1.
+
+    It also settles what `evidence: []` means on a list read, which until now
+    was indistinguishable from *nothing supports this*.
+    """
+
+    def _model_with_one_object_supported_three_times(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> tuple[str, str]:
+        project = str(client.post("/v1/projects", json={"name": "Aggregation"}).json()["id"])
+        _seed_unknowns(factory, project, 3)
+        run = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+        assert run.status_code == 200, run.text
+        objects = client.get(f"/v1/projects/{project}/model").json()
+        assert len(objects) == 3
+        # Every theme holds one member here, so the difference between objects
+        # is made deliberately: two of the other rows are bound to the first.
+        first = objects[0]["id"]
+        for other in objects[1:]:
+            detail = client.get(f"/v1/projects/{project}/model/{other['id']}").json()
+            bound = client.post(
+                f"/v1/projects/{project}/model/{first}/evidence",
+                json={
+                    "knowledge_item_id": detail["evidence"][0]["knowledge_item_id"],
+                    "kind": "supports",
+                },
+            )
+            assert bound.status_code == 200, bound.text
+        return project, first
+
+    def test_the_list_counts_the_evidence_it_does_not_carry(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, supported = self._model_with_one_object_supported_three_times(client, factory)
+
+        listed = client.get(f"/v1/projects/{project}/model")
+
+        assert listed.status_code == 200, listed.text
+        rows = listed.json()
+        assert all(row["evidence"] == [] for row in rows), "the list read carries no statements"
+        counts = {row["id"]: row["supporting_evidence"] for row in rows}
+        assert counts[supported] == 3
+        assert sorted(counts.values()) == [1, 1, 3], (
+            "an object standing on three observations must not read like one standing on one"
+        )
+
+    def test_the_detail_count_is_the_length_of_the_list_it_describes(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        project, supported = self._model_with_one_object_supported_three_times(client, factory)
+
+        detail = client.get(f"/v1/projects/{project}/model/{supported}").json()
+
+        assert detail["supporting_evidence"] == len(detail["evidence"]) == 3
+
+    def test_an_object_nothing_supports_says_zero_rather_than_nothing(
+        self, client: TestClient, project: str
+    ) -> None:
+        created = client.post(
+            f"/v1/projects/{project}/model",
+            json={
+                "domain": "goal",
+                "identity_key": "unsupported",
+                "title": "A guess nobody wrote down twice",
+                "statement": "Nothing is bound to this.",
+            },
+        )
+
+        assert created.status_code == 201, created.text
+        assert created.json()["supporting_evidence"] == 0
+        listed = client.get(f"/v1/projects/{project}/model").json()
+        assert [row["supporting_evidence"] for row in listed] == [0]
+
+    def test_a_correction_still_reports_the_evidence_the_object_already_had(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """A write reads the count rather than assuming a new object's zero."""
+
+        project, supported = self._model_with_one_object_supported_three_times(client, factory)
+
+        corrected = client.post(
+            f"/v1/projects/{project}/model/{supported}/correct",
+            json={"title": "Who owns the subsystems", "statement": "A person's wording."},
+        )
+
+        assert corrected.status_code == 200, corrected.text
+        assert corrected.json()["supporting_evidence"] == 3
+
+
 class TestDecisionsAreProducedOverHttpAndInterruptNobody:
     """`SYN-5f`. The run route is the only new surface: the decisions
     themselves are read through `GET /model?domain=decision`, because the

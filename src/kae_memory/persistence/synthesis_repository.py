@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from kae_memory.domain.errors import DomainInvariantError
@@ -168,6 +169,33 @@ class SynthesisRepository:
             .order_by(SynthesizedEvidenceLinkRow.created_at)
         )
         return tuple(_binding_from_row(row) for row in rows)
+
+    def count_bindings(
+        self, synthesized_object_ids: Sequence[SynthesizedObjectId]
+    ) -> dict[str, int]:
+        """Return how many evidence links each of these objects holds.
+
+        One grouped query for the whole list. A count read per object is the
+        N+1 `D-145` refused for the attention queue, and the model list is the
+        larger list of the two.
+
+        Objects with no links are absent from the mapping rather than present
+        with a zero, so a caller says what an unlisted object means once at its
+        own boundary instead of this method deciding it here.
+        """
+
+        keys = [str(object_id) for object_id in synthesized_object_ids]
+        if not keys:
+            return {}
+        rows = self._session.execute(
+            select(
+                SynthesizedEvidenceLinkRow.synthesized_object_id,
+                func.count(),
+            )
+            .where(SynthesizedEvidenceLinkRow.synthesized_object_id.in_(keys))
+            .group_by(SynthesizedEvidenceLinkRow.synthesized_object_id)
+        )
+        return {object_id: count for object_id, count in rows}
 
     def get_role(self, knowledge_item_id: KnowledgeItemId) -> EvidenceRoleRecord | None:
         """Return an explicit evidence role, or ``None`` for implicit active."""
