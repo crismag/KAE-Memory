@@ -170,10 +170,16 @@ class SynthesisRepository:
         )
         return tuple(_binding_from_row(row) for row in rows)
 
-    def count_bindings(
+    def count_supporting_bindings(
         self, synthesized_object_ids: Sequence[SynthesizedObjectId]
     ) -> dict[str, int]:
-        """Return how many evidence links each of these objects holds.
+        """Return how many **supporting** evidence links each object holds.
+
+        `supports` only, and the filter is the whole point (`D-187`). A link may
+        also be `contradicts`, `superseded_by` or `resolved_by`, and this count
+        is read by a field named `supporting_evidence` under a sentence reading
+        *drawn from N observations* — an observation bound to deny the object is
+        not one of them.
 
         One grouped query for the whole list. A count read per object is the
         N+1 `D-145` refused for the attention queue, and the model list is the
@@ -192,7 +198,10 @@ class SynthesisRepository:
                 SynthesizedEvidenceLinkRow.synthesized_object_id,
                 func.count(),
             )
-            .where(SynthesizedEvidenceLinkRow.synthesized_object_id.in_(keys))
+            .where(
+                SynthesizedEvidenceLinkRow.synthesized_object_id.in_(keys),
+                SynthesizedEvidenceLinkRow.kind == EvidenceBindingKind.SUPPORTS.value,
+            )
             .group_by(SynthesizedEvidenceLinkRow.synthesized_object_id)
         )
         return {object_id: count for object_id, count in rows}

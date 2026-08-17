@@ -366,14 +366,52 @@ class TestTheModelSaysHowMuchStandsBehindEachObject:
             "an object standing on three observations must not read like one standing on one"
         )
 
-    def test_the_detail_count_is_the_length_of_the_list_it_describes(
+    def test_the_detail_count_is_the_supporting_rows_of_the_list_it_describes(
         self, client: TestClient, factory: sessionmaker[Session]
     ) -> None:
         project, supported = self._model_with_one_object_supported_three_times(client, factory)
 
         detail = client.get(f"/v1/projects/{project}/model/{supported}").json()
 
-        assert detail["supporting_evidence"] == len(detail["evidence"]) == 3
+        supporting = [row for row in detail["evidence"] if row["kind"] == "supports"]
+        assert detail["supporting_evidence"] == len(supporting) == len(detail["evidence"]) == 3
+
+    def test_an_observation_bound_to_contradict_is_listed_and_not_counted(
+        self, client: TestClient, factory: sessionmaker[Session]
+    ) -> None:
+        """`D-187`. `supporting_evidence` reads *drawn from N observations* on
+        the page, and a row bound to deny the object is not one of them — but it
+        is still evidence about it, so it is listed with its own `kind` rather
+        than dropped along with the count.
+
+        Both reads are asserted together: the list's grouped query and the
+        detail's count over the rows it carries are different code and were
+        wrong in the same way.
+        """
+
+        project = str(client.post("/v1/projects", json={"name": "Contradicted"}).json()["id"])
+        # Four themes, so the fourth observation is bound to deny rather than
+        # rebound — `bind_evidence` refuses a second kind on a pair it holds.
+        _seed_unknowns(factory, project, 4)
+        run = client.post(f"/v1/projects/{project}/model/unknowns/runs", json={})
+        assert run.status_code == 200, run.text
+        objects = client.get(f"/v1/projects/{project}/model").json()
+        supported = objects[0]["id"]
+        kinds = ["supports", "supports", "contradicts"]
+        for other, kind in zip(objects[1:], kinds, strict=True):
+            member = client.get(f"/v1/projects/{project}/model/{other['id']}").json()["evidence"][0]
+            bound = client.post(
+                f"/v1/projects/{project}/model/{supported}/evidence",
+                json={"knowledge_item_id": member["knowledge_item_id"], "kind": kind},
+            )
+            assert bound.status_code == 200, bound.text
+        detail = client.get(f"/v1/projects/{project}/model/{supported}").json()
+        assert len(detail["evidence"]) == 4, "the contradicting row is still listed"
+        assert {row["kind"] for row in detail["evidence"]} == {"supports", "contradicts"}
+        assert detail["supporting_evidence"] == 3
+        listed = client.get(f"/v1/projects/{project}/model").json()
+        counts = {row["id"]: row["supporting_evidence"] for row in listed}
+        assert counts[supported] == 3, "the grouped count excludes it too"
 
     def test_an_object_nothing_supports_says_zero_rather_than_nothing(
         self, client: TestClient, project: str

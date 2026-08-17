@@ -177,10 +177,14 @@ def get_model_object(
     if view is None:
         raise not_found("synthesized_object", object_id)
     # Counted from the list this response carries, so the number and the
-    # statements beneath it are the same read and cannot disagree.
-    return SynthesizedObjectResponse.of(
-        view.object, view.evidence, supporting_evidence=len(view.evidence)
+    # statements beneath it are the same read and cannot disagree. The
+    # supporting rows only (`D-187`): a binding that contradicts the object is
+    # listed here, named by its own `kind`, and is not something the object was
+    # drawn from.
+    supporting = sum(
+        1 for bound in view.evidence if bound.binding.kind is EvidenceBindingKind.SUPPORTS
     )
+    return SynthesizedObjectResponse.of(view.object, view.evidence, supporting_evidence=supporting)
 
 
 @router.post("/model/{object_id}/correct", response_model=SynthesizedObjectResponse)

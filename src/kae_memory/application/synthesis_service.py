@@ -246,16 +246,20 @@ class SynthesisService:
         return run_transaction(self._session_factory, operation)
 
     def supporting_counts(self, object_ids: Sequence[SynthesizedObjectId]) -> Mapping[str, int]:
-        """How many evidence rows stand behind each of these objects.
+        """How many evidence rows **support** each of these objects.
 
         The list read's answer to *what does this rest on*, where the full
         statements are a per-object read nobody has asked for yet. Zero is
         expressed by absence from the mapping and the caller decides what an
         absent object means, which for every current caller is `0`.
+
+        A binding recorded as `contradicts`, `superseded_by` or `resolved_by` is
+        not counted here (`D-187`). It is still listed on the detail read, where
+        it is named rather than dropped.
         """
 
         def operation(session: DbSession) -> Mapping[str, int]:
-            return SynthesisRepository(session).count_bindings(object_ids)
+            return SynthesisRepository(session).count_supporting_bindings(object_ids)
 
         return run_transaction(self._session_factory, operation)
 

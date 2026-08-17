@@ -2214,6 +2214,11 @@ class SynthesizedObjectResponse(BaseModel):
     supporting_evidence: int
     """How many observations this object was drawn from — `D-167`.
 
+    Bindings recorded as `supports` only (`D-187`). `evidence` below may be
+    longer: a row bound as `contradicts`, `superseded_by` or `resolved_by` is
+    evidence about this object, listed with its own `kind`, and is not something
+    the object was drawn from — which is the sentence this number is read under.
+
     Present on **every** read, including the ones that carry no statements.
     `evidence` is empty on the list and populated on the detail, which without
     this field leaves a reader unable to tell *not fetched* from *nothing
