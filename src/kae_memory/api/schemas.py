@@ -16,6 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
+from kae_memory.application.clarification_service import REASON_UNSTATED
 from kae_memory.application.readiness_service import ClassificationReport, ExtractionCoverage
 from kae_memory.application.review_service import Finding
 from kae_memory.domain.dispositions import Disposition, settles
@@ -1028,6 +1029,11 @@ class ClarificationQuestionResponse(BaseModel):
     finding_kind: str
     severity: str
     area_key: str | None = None
+    #: Why it is worth asking, as the finding said it. The grade shipped here
+    #: alone until `D-246`, so a caller read `critical` and nothing saying what
+    #: was critical. A finding that offered no sentence says that, rather than
+    #: sending an empty one for a surface to render as a gap.
+    reason: str = REASON_UNSTATED
 
 
 class ClarificationListResponse(BaseModel):
@@ -1053,6 +1059,7 @@ class ClarificationListResponse(BaseModel):
                     finding_kind=question.finding_kind,
                     severity=question.severity,
                     area_key=question.area_key,
+                    reason=question.reason or REASON_UNSTATED,
                 )
                 for question in shown
             ],
@@ -1084,6 +1091,8 @@ class QuestionCandidateResponse(BaseModel):
     asked_id: str | None = None
     asked_at: datetime | None = None
     disposition: str = "open"
+    #: Why the findings justify asking it, as the finding said it (`D-246`).
+    reason: str = REASON_UNSTATED
 
 
 class QuestionCandidateListResponse(BaseModel):
@@ -1106,6 +1115,7 @@ class QuestionCandidateListResponse(BaseModel):
                     asked_id=str(candidate.asked_id) if candidate.asked_id else None,
                     asked_at=candidate.asked_at,
                     disposition=candidate.disposition.value,
+                    reason=candidate.reason or REASON_UNSTATED,
                 )
                 for candidate in shown
             ],

@@ -1052,6 +1052,11 @@
             "title": "Question",
             "type": "string"
           },
+          "reason": {
+            "default": "The finding behind this question gave no reason.",
+            "title": "Reason",
+            "type": "string"
+          },
           "severity": {
             "title": "Severity",
             "type": "string"
@@ -3655,6 +3660,11 @@
           },
           "question": {
             "title": "Question",
+            "type": "string"
+          },
+          "reason": {
+            "default": "The finding behind this question gave no reason.",
+            "title": "Reason",
             "type": "string"
           },
           "severity": {

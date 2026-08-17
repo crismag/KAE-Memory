@@ -45,6 +45,15 @@ from .review_service import Finding, ReviewService, Severity
 ASKS_ABOUT = "asks_about"
 """Metadata key naming what a question concerns."""
 
+REASON_UNSTATED = "The finding behind this question gave no reason."
+"""What every surface prints where a question has no reason (`D-246`).
+
+One string rather than one per renderer. `WHY-1` asks for a reason beside the
+grade *or a stated absence of one*, and three renderers each inventing their own
+absence is how one concept becomes three (`G8`). A blank field is not an
+absence: it reads as a value nobody filled in, which is the defect one step on.
+"""
+
 ANSWERS = "answers_message_id"
 DISPOSITION = "disposition"
 ASSUMPTION = "assumption_id"
@@ -62,6 +71,20 @@ class Clarification:
     knowledge_ids: tuple[str, ...] = ()
     subject_key: str = ""
     """A scope discriminator, where the area alone does not identify the ask."""
+    reason: str = ""
+    """Why this is worth asking, as `Finding.summary` said it — verbatim.
+
+    The grade crossed this boundary alone until `D-246`: `severity` was carried
+    and the sentence explaining it was dropped one field away, so a caller was
+    handed a `critical` question and nothing saying what was critical about it.
+
+    Carried, never authored. Empty means the finding offered none, and the
+    surfaces say so rather than printing a blank.
+
+    Deliberately absent from :attr:`subject`. That is what `_question_key`
+    hashes, and a key that moved when somebody rephrased a summary would re-ask
+    a question already answered.
+    """
 
     @property
     def subject(self) -> dict[str, object]:
@@ -110,6 +133,8 @@ class QuestionCandidate:
     asked_id: MessageId | None = None
     asked_at: datetime | None = None
     disposition: Disposition = Disposition.OPEN
+    reason: str = ""
+    """Why the findings justify asking, from `Finding.summary` (`D-246`)."""
 
     @property
     def is_asked(self) -> bool:
@@ -180,6 +205,13 @@ class OpenQuestion:
 
     A question can carry a non-settling disposition and still be unanswered:
     "I don't know yet" is a response, not a decision (N36).
+    """
+    reason: str = ""
+    """Why it was asked, from `Finding.summary` (`D-246`).
+
+    Re-derived on every read, like the finding it came from. The question's text
+    is durable and its reason is not: a finding disappears when the condition
+    producing it does (`ADR-0015`), and a stored copy would outlive it.
     """
 
 
@@ -302,6 +334,7 @@ class ClarificationService:
                     asked_id=asked.id if asked else None,
                     asked_at=asked.created_at if asked else None,
                     disposition=disposition,
+                    reason=clarification.reason,
                 )
             )
         return tuple(found[:limit] if limit is not None else found)
@@ -375,6 +408,7 @@ class ClarificationService:
                     knowledge_ids=clarification.knowledge_ids,
                     newly_asked=created,
                     disposition=disposition,
+                    reason=clarification.reason,
                 )
             )
         return tuple(found[:limit] if limit is not None else found)
@@ -698,6 +732,7 @@ def _as_clarification(finding: Finding) -> Clarification:
         area_key=finding.area_key,
         knowledge_ids=tuple(str(item) for item in finding.knowledge_item_ids),
         subject_key=finding.subject_key,
+        reason=finding.summary,
     )
 
 
@@ -821,6 +856,7 @@ def questions_for(findings: Sequence[Finding]) -> tuple[Clarification, ...]:
 __all__ = [
     "ANSWERS",
     "ASKS_ABOUT",
+    "REASON_UNSTATED",
     "AnsweredClarification",
     "Clarification",
     "ClarificationProgress",

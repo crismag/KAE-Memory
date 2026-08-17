@@ -27,7 +27,11 @@ from kae_memory.application.assembly_service import (
 )
 from kae_memory.application.assumption_service import AssumptionNotFoundError, AssumptionService
 from kae_memory.application.blueprint_service import Blueprint, BlueprintService
-from kae_memory.application.clarification_service import ClarificationService, OpenQuestion
+from kae_memory.application.clarification_service import (
+    REASON_UNSTATED,
+    ClarificationService,
+    OpenQuestion,
+)
 from kae_memory.application.classification_service import (
     ClassificationService,
     OperationalRecordNotFoundError,
@@ -2284,6 +2288,10 @@ def _render_question(question: OpenQuestion) -> dict[str, Any]:
         "clarification_id": str(question.id),
         "question": question.question,
         "severity": question.severity,
+        # Beside the grade, never instead of it. An agent told a question is
+        # `critical` and given no sentence saying what is critical about it
+        # cannot report the blocker this tool's own note tells it to report.
+        "reason": question.reason or REASON_UNSTATED,
         "finding_kind": question.finding_kind,
         "area_key": question.area_key,
         "knowledge_ids": list(question.knowledge_ids),
