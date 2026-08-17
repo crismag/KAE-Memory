@@ -429,6 +429,7 @@ REGISTRY: tuple[Capability, ...] = (
             "POST /v1/projects/{project_id}/sources/{source_id}/state",
             "POST /v1/projects/{project_id}/sources/{source_id}/pin",
             "POST /v1/projects/{project_id}/sources/{source_id}/disposition",
+            "GET /v1/projects/{project_id}/source-material",
         ),
         reason=(
             "Acquisition is Studio's (ADR-0005) and this is the durable half of it: "

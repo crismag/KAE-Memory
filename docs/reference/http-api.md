@@ -3,7 +3,7 @@
 
 # HTTP API
 
-89 paths, 103 operations — 47 GET, 55 POST.
+90 paths, 104 operations — 48 GET, 55 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -21,7 +21,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Reads (47)
+## Reads (48)
 
 | Route | Purpose |
 |---|---|
@@ -66,6 +66,7 @@ Request and response schemas are in that document. This page is the map.
 | `GET /v1/projects/{project_id}/sessions` | Open, close, and read conversation sessions |
 | `GET /v1/projects/{project_id}/setup` | Report what a project is configured to do, apart from what it knows |
 | `GET /v1/projects/{project_id}/setup/questions` | List unsettled questions about configuration, not about the product |
+| `GET /v1/projects/{project_id}/source-material` | Where a project's material comes from, and what revision was pinned |
 | `GET /v1/projects/{project_id}/sources` | Where a project's material comes from, and what revision was pinned |
 | `GET /v1/projects/{project_id}/sources/{source_id}` | Where a project's material comes from, and what revision was pinned |
 | `GET /v1/runs/{run_id}` | Enqueue agent work and follow its progress |

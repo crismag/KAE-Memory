@@ -24,6 +24,7 @@ from ..dependencies import Memory, Sources
 from ..errors import ApiError, not_found
 from ..schemas import (
     ClassifySourceRequest,
+    MaterialReportResponse,
     PinSourceRequest,
     RecordSourceStateRequest,
     RegisterSourceRequest,
@@ -87,6 +88,29 @@ def list_sources(project_id: str, memory: Memory, sources: Sources) -> list[Sour
 
     resolved = _project(project_id, memory)
     return [SourceResponse.of(source) for source in sources.sources(resolved)]
+
+
+@router.get("/source-material", response_model=MaterialReportResponse)
+def source_material(project_id: str, memory: Memory, sources: Sources) -> MaterialReportResponse:
+    """What material a retention decision would apply to (`ADR-0004`, `D-170`).
+
+    A run records which source its text was read out of and `project_sources`
+    records what somebody decided about that source; until this, nothing joined
+    them, so *what would a decision about this repository reach* had no answer.
+
+    **Reports, and enforces nothing.** Material under a source classified
+    `ephemeral` is counted exactly like material under one classified `memory`,
+    because no disposition is acted on anywhere in this system. Whether and how
+    a body is ever discarded is an open ruling, not an omission from this route.
+
+    Hyphenated rather than `/sources/material` so no declaration order decides
+    which handler answers — `deletion-plan`'s precedent, and the same concern:
+    a read whose purpose is to be checked before something irreversible should
+    not be reachable by accident from a neighbouring path.
+    """
+
+    resolved = _project(project_id, memory)
+    return MaterialReportResponse.of(sources.material(resolved))
 
 
 @router.get("/sources/{source_id}", response_model=SourceResponse)

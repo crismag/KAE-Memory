@@ -2055,6 +2055,56 @@ class SourceResponse(BaseModel):
         )
 
 
+class SourceMaterialResponse(BaseModel):
+    """One source and the stored text a decision about it would reach."""
+
+    source_id: str
+    kind: str
+    location: str
+    disposition: str | None
+    #: Distinct documents ingested naming this source — what a person chose.
+    documents: int
+    #: Copies of text those choices produced, one per ingestion run. The number
+    #: `ADR-0004` step 3 is about: a long file is one document and many bodies.
+    stored_bodies: int
+
+    @classmethod
+    def of(cls, material: Any) -> "SourceMaterialResponse":
+        return cls(
+            source_id=material.source_id,
+            kind=material.kind,
+            location=material.location,
+            disposition=material.disposition,
+            documents=material.documents,
+            stored_bodies=material.stored_bodies,
+        )
+
+
+class MaterialReportResponse(BaseModel):
+    """What material a retention decision would apply to, before any is removed.
+
+    Reports; enforces nothing. A source classified `ephemeral` is counted
+    exactly like one classified `memory`, because no disposition is acted on
+    anywhere in this system yet.
+    """
+
+    sources: list[SourceMaterialResponse]
+    #: Material naming no source, which therefore no disposition can govern —
+    #: every pasted document, and everything ingested before the link existed.
+    #: Its own number rather than a share of a total, since the answer *nothing
+    #: you decide reaches this* is the one a person most needs.
+    unattributed_documents: int
+    unattributed_bodies: int
+
+    @classmethod
+    def of(cls, report: Any) -> "MaterialReportResponse":
+        return cls(
+            sources=[SourceMaterialResponse.of(material) for material in report.sources],
+            unattributed_documents=report.unattributed_documents,
+            unattributed_bodies=report.unattributed_bodies,
+        )
+
+
 class PutSynthesizedObjectRequest(BaseModel):
     """Create or update a working-model object. Idempotent by identity_key."""
 

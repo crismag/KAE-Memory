@@ -2490,6 +2490,33 @@
         "title": "KnowledgeVersionResponse",
         "type": "object"
       },
+      "MaterialReportResponse": {
+        "description": "What material a retention decision would apply to, before any is removed.\n\nReports; enforces nothing. A source classified `ephemeral` is counted\nexactly like one classified `memory`, because no disposition is acted on\nanywhere in this system yet.",
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceMaterialResponse"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "unattributed_bodies": {
+            "title": "Unattributed Bodies",
+            "type": "integer"
+          },
+          "unattributed_documents": {
+            "title": "Unattributed Documents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sources",
+          "unattributed_documents",
+          "unattributed_bodies"
+        ],
+        "title": "MaterialReportResponse",
+        "type": "object"
+      },
       "MessageResponse": {
         "properties": {
           "actor_type": {
@@ -5438,6 +5465,52 @@
           "targets"
         ],
         "title": "SetupStateResponse",
+        "type": "object"
+      },
+      "SourceMaterialResponse": {
+        "description": "One source and the stored text a decision about it would reach.",
+        "properties": {
+          "disposition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disposition"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "stored_bodies": {
+            "title": "Stored Bodies",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "kind",
+          "location",
+          "disposition",
+          "documents",
+          "stored_bodies"
+        ],
+        "title": "SourceMaterialResponse",
         "type": "object"
       },
       "SourceResponse": {
@@ -11339,6 +11412,49 @@
         "summary": "Setup Questions",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/source-material": {
+      "get": {
+        "description": "What material a retention decision would apply to (`ADR-0004`, `D-170`).\n\nA run records which source its text was read out of and `project_sources`\nrecords what somebody decided about that source; until this, nothing joined\nthem, so *what would a decision about this repository reach* had no answer.\n\n**Reports, and enforces nothing.** Material under a source classified\n`ephemeral` is counted exactly like material under one classified `memory`,\nbecause no disposition is acted on anywhere in this system. Whether and how\na body is ever discarded is an open ruling, not an omission from this route.\n\nHyphenated rather than `/sources/material` so no declaration order decides\nwhich handler answers \u2014 `deletion-plan`'s precedent, and the same concern:\na read whose purpose is to be checked before something irreversible should\nnot be reachable by accident from a neighbouring path.",
+        "operationId": "source_material_v1_projects__project_id__source_material_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Material",
+        "tags": [
+          "sources"
         ]
       }
     },

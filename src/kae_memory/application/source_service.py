@@ -26,14 +26,14 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm import sessionmaker
 
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.source_dispositions import ensure_source_disposition
-from kae_memory.persistence.tables import ProjectSourceRow
+from kae_memory.persistence.tables import AgentRunRow, ProjectSourceRow
 from kae_memory.persistence.transactions import run_transaction
 
 
@@ -74,6 +74,46 @@ class ProjectSource:
         """
 
         return bool(self.pinned_revision)
+
+
+@dataclass(frozen=True, slots=True)
+class SourceMaterial:
+    """One source, its disposition, and how much stored text stands under it."""
+
+    source_id: str
+    kind: str
+    location: str
+    disposition: str | None
+    documents: int
+    """Distinct documents ingested naming this source — what a person chose."""
+    stored_bodies: int
+    """Copies of text those choices produced, one per ingestion run.
+
+    The number `ADR-0004` step 3 is about. A report giving only `documents`
+    would understate a large file by however many chunks it split into, and the
+    chunk is the unit a body is stored in.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class MaterialReport:
+    """What material a retention decision would apply to, before any is removed.
+
+    Shaped after `ProjectDeletionService.plan` and for its reason: the counts
+    exist so somebody can sanity-check the scale of a decision rather than trust
+    that it lands where they meant it to.
+    """
+
+    sources: tuple[SourceMaterial, ...]
+    unattributed_documents: int
+    """Documents ingested naming no source, and therefore governed by nothing.
+
+    Every document ingested before the link existed (`D-164`) is here, as is
+    every pasted one — which correctly has no source. Kept as its own number
+    rather than folded into a total or dropped, because material no disposition
+    can reach is the part a person most needs told.
+    """
+    unattributed_bodies: int
 
 
 class SourceService:
@@ -176,6 +216,74 @@ class SourceService:
     def get(self, project_id: ProjectId, source_id: str) -> ProjectSource:
         def operation(session: DbSession) -> ProjectSource:
             return _as_source(_require(session, project_id, source_id))
+
+        return run_transaction(self._session_factory, operation)
+
+    def material(self, project_id: ProjectId) -> MaterialReport:
+        """How much stored text stands behind each source, and what it was classified as.
+
+        The one lookup `ADR-0004` step 3 needs and nothing provided: a run named
+        its source in `input_context` (`D-164`) and the disposition lives on
+        `project_sources`, with no code joining the two — so no reader could
+        answer *what would a decision about this repository apply to*.
+
+        **This reports and does nothing.** No body is discarded, no disposition
+        is enforced, and a source classified `ephemeral` here is counted exactly
+        like one classified `memory`. What to do about the numbers is `D-169`,
+        which is the owner's.
+
+        Registered sources with no material are listed with zeroes rather than
+        omitted: a repository somebody connected and never ingested is a real
+        answer, and reads differently from one this query failed to see.
+        """
+
+        source_key = AgentRunRow.input_context["source_id"].astext
+        # The key `IngestionService.ingest_document` writes on every run it
+        # creates. Its presence is what distinguishes an ingestion run from a
+        # conversation one, which has no body to retain.
+        document_key = AgentRunRow.input_context["document"].astext
+
+        def operation(session: DbSession) -> MaterialReport:
+            counted = session.execute(
+                select(
+                    source_key.label("source_id"),
+                    func.count(func.distinct(document_key)).label("documents"),
+                    func.count().label("bodies"),
+                )
+                .where(
+                    AgentRunRow.project_id == str(project_id),
+                    document_key.isnot(None),
+                )
+                .group_by(source_key)
+            ).all()
+            # A run naming no source groups under NULL, which is the
+            # unattributed bucket rather than a row to drop.
+            by_source = {row.source_id: (row.documents, row.bodies) for row in counted}
+            unattributed = by_source.get(None, (0, 0))
+
+            rows = session.scalars(
+                select(ProjectSourceRow)
+                .where(ProjectSourceRow.project_id == str(project_id))
+                .order_by(ProjectSourceRow.created_at, ProjectSourceRow.source_id)
+            ).all()
+            materials = []
+            for row in rows:
+                documents, bodies = by_source.get(row.source_id, (0, 0))
+                materials.append(
+                    SourceMaterial(
+                        source_id=row.source_id,
+                        kind=row.kind,
+                        location=row.location,
+                        disposition=row.disposition,
+                        documents=documents,
+                        stored_bodies=bodies,
+                    )
+                )
+            return MaterialReport(
+                sources=tuple(materials),
+                unattributed_documents=unattributed[0],
+                unattributed_bodies=unattributed[1],
+            )
 
         return run_transaction(self._session_factory, operation)
 
