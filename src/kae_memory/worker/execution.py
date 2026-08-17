@@ -632,18 +632,21 @@ def default_extractor(build_bedrock: Callable[[], ExtractionPort] | None = None)
     if chosen == "ollama":
         from kae_memory.agents.ollama_extraction import OLLAMA_URL, OllamaExtractionAdapter
 
-        # The reach is read from the URL this adapter will actually use rather
-        # than assumed to be loopback, so the two cannot drift apart. Today it is
-        # the module's own literal: `default_extractor` passes no `base_url`, and
-        # `KAE_OLLAMA_URL` — which moves the embedder, the classifier and the
-        # goal judge — does not reach extraction (`D-172`).
+        # `KAE_OLLAMA_URL` says where Ollama is, for this door as for the
+        # embedder, the classifier and the goal judge — it reached three of the
+        # four until `D-183`. The reach is read from the URL this adapter is
+        # actually handed rather than assumed to be loopback, so the profile
+        # cannot permit a call the adapter then makes somewhere else (`D-172`).
+        base_url = os.environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
         runtime_profile.require(
-            runtime_profile.reach_of_url(OLLAMA_URL),
+            runtime_profile.reach_of_url(base_url),
             variable="KAE_EXTRACTION",
             value=chosen,
         )
         model = os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
-        return OllamaExtractionAdapter(model=model) if model else OllamaExtractionAdapter()
+        if model:
+            return OllamaExtractionAdapter(base_url=base_url, model=model)
+        return OllamaExtractionAdapter(base_url=base_url)
 
     if chosen == "deterministic":
         runtime_profile.require(

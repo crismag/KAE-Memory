@@ -316,6 +316,76 @@ def test_the_runtime_profile_refuses_the_worker_providers_it_does_not_permit(
         default_reviewer()
 
 
+def test_the_local_extractor_is_built_where_the_operator_said_ollama_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D-183`: `KAE_OLLAMA_URL` moved three of the four local-model doors.
+
+    The embedder, the classifier and the goal judge all read it; extraction
+    passed no `base_url` at all, so a deployment with Ollama on a GPU box got
+    three capabilities there and extraction on a loopback port with nothing
+    behind it.
+    """
+
+    from kae_memory.agents.ollama_extraction import OllamaExtractionAdapter
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.LOCAL)
+    monkeypatch.setenv("KAE_EXTRACTION", "ollama")
+    monkeypatch.setenv("KAE_OLLAMA_URL", "http://gpu-box:11434/")
+    monkeypatch.delenv("KAE_EXTRACTION_MODEL", raising=False)
+
+    extractor = default_extractor()
+
+    assert isinstance(extractor, OllamaExtractionAdapter)
+    assert extractor._base_url == "http://gpu-box:11434"
+
+    monkeypatch.setenv("KAE_EXTRACTION_MODEL", "qwen2.5:32b")
+
+    with_model = default_extractor()
+
+    assert isinstance(with_model, OllamaExtractionAdapter)
+    assert with_model._base_url == "http://gpu-box:11434"
+    assert with_model.model == "qwen2.5:32b"
+
+
+def test_a_blank_ollama_url_still_means_this_machine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reading the other three doors already have, for the same reason.
+
+    An exported-but-empty variable is what a shell script setting one
+    conditionally produces, and it must not point the extractor at ``""``.
+    """
+
+    from kae_memory.agents.ollama_extraction import OLLAMA_URL, OllamaExtractionAdapter
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.OFFLINE)
+    monkeypatch.setenv("KAE_EXTRACTION", "ollama")
+    monkeypatch.setenv("KAE_OLLAMA_URL", "  ")
+
+    extractor = default_extractor()
+
+    assert isinstance(extractor, OllamaExtractionAdapter)
+    assert extractor._base_url == OLLAMA_URL
+
+
+def test_offline_refuses_an_extractor_on_another_machine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The half that makes honouring the URL safe rather than merely correct.
+
+    The reach has to be read from the URL the adapter is actually handed, or
+    the profile permits a loopback call the adapter then makes elsewhere.
+    """
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.OFFLINE)
+    monkeypatch.setenv("KAE_EXTRACTION", "ollama")
+    monkeypatch.setenv("KAE_OLLAMA_URL", "http://gpu-box:11434")
+
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_extractor()
+
+
 def test_a_disabled_reviewer_is_not_a_reach_the_profile_rules_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
