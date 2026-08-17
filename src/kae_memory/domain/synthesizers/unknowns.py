@@ -89,15 +89,30 @@ the source: no deployment sets `KAE_EXTRACTION`, so the offline adapter writes o
 literal grade on every item, and it is confidence in a transcription rather than
 in the claim being ranked.
 
-The remaining dimensions of `SYN-11` — urgency, authority, reversibility — are
-not built, and none of them can read this snapshot.
-**Authority is not merely unbuilt, it does not discriminate** (`D-159`): a
-question makes no claim, so :func:`~kae_memory.domain.authority.scope_of` returns
-``None`` for it, and every scope a `KnowledgeKind` *can* reach is authoritative
-for `USER_STATEMENT` alone — so *does this need a person* is uniformly yes for
-anything an unknown stands in front of. ``tests/domain/test_authority.py`` pins
-that, and it is what will fail on the day it stops being true. `OD-NAV-2` is the
-same blocking question one layer up.
+Three of doc 11's nine dimensions are not here, and two of the three are refused
+rather than unbuilt. None of them can read this snapshot.
+
+**Authority does not discriminate** (`D-159`): a question makes no claim, so
+:func:`~kae_memory.domain.authority.scope_of` returns ``None`` for it, and every
+scope a `KnowledgeKind` *can* reach is authoritative for `USER_STATEMENT` alone —
+so *does this need a person* is uniformly yes for anything an unknown stands in
+front of. ``tests/domain/test_authority.py`` pins that, and it is what will fail
+on the day it stops being true.
+
+**Reversibility has no producer** (`D-165`). The one literal ``reversible`` in
+the estate is on `AssumptionRow`, which no service, worker or synthesis run
+writes — its only doors are an HTTP route and an MCP tool an external agent
+calls — and every row the live deployment holds is reversible. The model this
+package does produce carries no such field: a synthesized assumption's
+`ConsequenceDomain` answers doc 05's *what would change if this were false* and
+deliberately not doc 11's *can the provisional action be undone*.
+``tests/domain/test_assumption_synthesis.py`` pins it the same way.
+
+**Urgency is the one genuinely open dimension**, and it is a product decision
+before it is an implementation: nothing records a deadline, a due date or a
+stage relation, and ranking by how long a question has stood was already refused
+for novelty in `D-160` because it reorders the queue while the project stands
+still. `OD-NAV-2` is the same blocking question one layer up.
 """
 
 from __future__ import annotations

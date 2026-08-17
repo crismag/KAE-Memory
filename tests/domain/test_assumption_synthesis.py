@@ -226,6 +226,55 @@ class TestDoc05sLifecycleIsNotASeventhVocabulary:
         assert EvidenceRole.HISTORICAL and EvidenceRole.NOISE and EvidenceRole.RESOLVED
 
 
+class TestNothingHereSaysWhetherABeliefCanBeUnwound:
+    """Why `SYN-11` has no reversibility dimension, asserted rather than re-surveyed.
+
+    Doc 11 defines reversibility as *whether provisional action can be safely
+    undone*, and the attention engine would rank a question higher when the thing
+    the project is proceeding on cannot be taken back. There is nothing to read
+    (`D-165`). The one literal `reversible` in the estate is on `AssumptionRow`,
+    which **no service, worker or synthesis run writes** — the only two doors are
+    an HTTP route and an MCP tool an external agent calls — and every row the live
+    deployment holds is reversible, because the only writer is a person with
+    `curl`.
+
+    The model this layer produces has no such field either. `D-136` ruled there is
+    no assumption table: a synthesized assumption's state is its lifecycle and its
+    authority, with `ConsequenceDomain` beside it. Those six answer doc 05's *what
+    would change if this were false* and deliberately not doc 11's *can it be
+    undone* — reading `ARCHITECTURE` as irreversible would invent the dimension
+    out of a vocabulary that declines to express it, and expensive is what
+    materiality already ranks by from the readiness snapshot's own weights.
+
+    This is a property of the model and not a permanent truth. The day a planned
+    assumption says whether it can be unwound, reversibility becomes rankable and
+    these fail.
+    """
+
+    def test_a_planned_assumption_does_not_say_whether_it_can_be_unwound(self) -> None:
+        plan = plan_assumption_model([_candidate(SINGLE_USER)])
+        (planned,) = plan.assumptions
+
+        for field in ("reversible", "irreversible", "reversibility", "undoable"):
+            assert not hasattr(planned, field), (
+                f"a planned assumption now carries {field!r}, so reversibility has become "
+                "a dimension the attention engine can rank by — see `SYN-11`, `D-165`"
+            )
+
+    def test_no_consequence_domain_claims_a_belief_cannot_be_taken_back(self) -> None:
+        """Doc 05's six are about *what changes*, never about *whether it holds*."""
+
+        assert {domain.value for domain in ConsequenceDomain} == {
+            "scope",
+            "architecture",
+            "requirements",
+            "cost",
+            "workflow",
+            "outcome",
+            "undetermined",
+        }
+
+
 class TestTheGoldenCorpusPinsTheMeasurement:
     """The row's real content is what the corpus says, not what the rules say."""
 
