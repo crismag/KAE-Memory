@@ -1656,7 +1656,7 @@ def _queue_discovery_extraction(
 
     run = context.memory.enqueue_run(
         project.id,
-        # Discovery, not requirements (N46). `requirements.v1` is disciplined
+        # Discovery, not requirements (N46). The requirements prompt is disciplined
         # about not inventing requirements nobody expressed, which is correct
         # for a specification and reads an early description almost to nothing.
         AgentRole.DISCOVERY,

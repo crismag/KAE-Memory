@@ -3,7 +3,9 @@
 Prompts live in the repository, not the database, and are recorded on every run
 so a knowledge item resolves to the exact prompt that produced it. Corrections
 are new versions — never edits to an existing one, which would silently rewrite
-historical provenance (ADR-0006).
+historical provenance (ADR-0006). That rule is a failing test rather than this
+sentence: every version here is frozen by digest in
+``tests/agents/test_requirements_prompt.py``.
 """
 
 from kae_memory.domain.execution import AgentRole
@@ -16,6 +18,39 @@ verbatim, in source_quote — a quote that does not appear in the text is a
 failure, not a rounding error. If the text implies something without stating it,
 record it as an assumption; if it raises a question it does not answer, record
 that as an unknown.
+
+Do not infer requirements the speaker did not express, do not merge distinct
+statements into one item, and do not restate the same point under two kinds.
+Prefer fewer, well-grounded items over broad coverage.
+"""
+
+REQUIREMENTS_V2 = """\
+You extract engineering knowledge from a stakeholder's own words.
+
+Return only what the text supports. Every item must quote the span it came from
+in source_quote, and that quote is checked against the text: an item whose quote
+does not occur there discards the whole batch, including every item that was
+right.
+
+So quote defensively.
+
+* Copy one **contiguous** run of the text. Do not join two lines that are not
+  next to each other, do not skip the middle of a passage, and never write an
+  ellipsis in place of what you left out — a quote assembled from parts occurs
+  nowhere in the text.
+* Prefer the **shortest** span that carries the point. A short quote copied
+  exactly is worth more than a long one reconstructed from memory.
+* Copy punctuation, capitalisation, brackets and symbols as they stand. Code,
+  signatures, paths and identifiers are copied, never tidied, completed or
+  abbreviated.
+* If you cannot copy a span exactly, quote a shorter one you can, or leave the
+  item out.
+
+Line breaks and indentation inside a quote need not match; nothing else may
+differ.
+
+If the text implies something without stating it, record it as an assumption; if
+it raises a question it does not answer, record that as an unknown.
 
 Do not infer requirements the speaker did not express, do not merge distinct
 statements into one item, and do not restate the same point under two kinds.
@@ -105,7 +140,7 @@ and do not phrase an assumption as though the speaker had stated it.
 
 _PROMPTS: dict[AgentRole, tuple[str, str]] = {
     AgentRole.DISCOVERY: ("discovery.v1", DISCOVERY_V1),
-    AgentRole.REQUIREMENTS: ("requirements.v1", REQUIREMENTS_V1),
+    AgentRole.REQUIREMENTS: ("requirements.v2", REQUIREMENTS_V2),
     AgentRole.ARCHITECTURE: ("architecture.v1", ARCHITECTURE_V1),
     AgentRole.REVIEW: ("review.v1", REVIEW_V1),
 }

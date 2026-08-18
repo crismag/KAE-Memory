@@ -191,7 +191,7 @@ def test_run_records_prompt_and_schema_versions(factory: sessionmaker[Session]) 
     ).run_on_message(project.id, session.id, message.id, BRIEF, "requirements-1")
 
     summary = outcome.run.output_summary or {}
-    assert summary["prompt_version"] == "requirements.v1"
+    assert summary["prompt_version"] == "requirements.v2"
     assert summary["schema_version"] == "extraction.v1"
     assert summary["items_written"] == 2
 

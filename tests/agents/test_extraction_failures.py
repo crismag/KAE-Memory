@@ -128,7 +128,7 @@ class TestBedrockAdapter:
         result = adapter.extract(_request())
 
         assert len(result.items) == 1
-        assert result.prompt_version == "requirements.v1"
+        assert result.prompt_version == "requirements.v2"
         call = client.messages.calls[0]
         assert call["model"].startswith("anthropic."), "Bedrock IDs carry the anthropic. prefix"
         assert call["output_config"]["format"]["type"] == "json_schema"

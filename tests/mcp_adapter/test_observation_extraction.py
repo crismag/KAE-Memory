@@ -7,7 +7,7 @@ extraction. Extraction was reachable from documents and from clarification
 answers and from nowhere else.
 
 This is the edge. What it does *not* do is make the interpretation good: the run
-uses `requirements.v1`, which is tuned for requirement-bearing text and will
+uses the requirements prompt, which is tuned for requirement-bearing text and
 read a sparse product sentence thinly. That is correct behaviour for that prompt
 and is what N46's discovery role exists to change.
 

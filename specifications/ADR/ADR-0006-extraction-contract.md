@@ -118,9 +118,9 @@ entirely or not at all.
 
 ### 5. Prompt contract — versioned, cached, and recorded
 
-- Each role has a **versioned** system prompt: `requirements.v1`,
+- Each role has a **versioned** system prompt: `requirements.v2`,
   `architecture.v1`, `review.v1`. Prompts live in the repository, not in the
-  database.
+  database, and a shipped version is frozen by digest rather than edited.
 - The prompt version and schema version are recorded in `agent_runs.input_context`
   so any knowledge item can be traced to the exact prompt that produced it.
 - The system prompt and schema are stable across requests and carry a

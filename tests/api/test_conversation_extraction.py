@@ -95,7 +95,7 @@ class TestAPersonsMessageReachesExtraction:
         session_id: str,
         project_id: ProjectId,
     ) -> None:
-        """`requirements.v1` is disciplined about not inventing requirements
+        """The requirements prompt is disciplined about not inventing requirements
         nobody expressed, which is right for a specification and reads an early
         description almost to nothing (N46)."""
 
