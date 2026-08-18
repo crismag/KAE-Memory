@@ -5602,6 +5602,18 @@
             "title": "Project Id",
             "type": "string"
           },
+          "retired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired At"
+          },
           "scope": {
             "additionalProperties": true,
             "title": "Scope",
@@ -5641,6 +5653,7 @@
           "disposition",
           "detail",
           "pinned",
+          "retired_at",
           "created_at",
           "updated_at"
         ],
@@ -11736,6 +11749,108 @@
           }
         },
         "summary": "Pin Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}/retirement": {
+      "delete": {
+        "description": "Read this source again.\n\nRetirement is reversible on purpose (`D-254`): the alternative is not, and\nan irreversible control is how a mistake becomes permanent. The source comes\nback at the state it was left at \u2014 stopping reading a pinned repository\nnever unpinned it.",
+        "operationId": "restore_source_v1_projects__project_id__sources__source_id__retirement_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Source",
+        "tags": [
+          "sources"
+        ]
+      },
+      "post": {
+        "description": "Stop KAE reading this source. What it already taught KAE stays.\n\n`D-230` is the owner's ruling; `D-254` is why this is not `DELETE\n/sources/{id}`. The knowledge would survive a deletion \u2014 nothing cascades\nfrom here to `knowledge_items` or `messages` \u2014 but `material` groups every\ningested document by `source_id`, so the row's absence turns all of it into\nmaterial naming no source. The knowledge outlives the deletion and the\nanswer to *where did this come from* does not.\n\n`POST` rather than `DELETE` for the same reason: the verb a client reads is\nthe clearest statement of what happens, and nothing here is deleted.\n\nIdempotent. Retiring twice keeps the first timestamp, because *when did we\nstop reading this* has one true answer.",
+        "operationId": "retire_source_v1_projects__project_id__sources__source_id__retirement_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Source",
         "tags": [
           "sources"
         ]

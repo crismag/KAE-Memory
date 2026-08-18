@@ -191,3 +191,55 @@ def classify_source(
         raise not_found("source", source_id) from error
     except DomainInvariantError as error:
         raise _refuse(error) from error
+
+
+@router.post("/sources/{source_id}/retirement", response_model=SourceResponse)
+def retire_source(
+    project_id: str,
+    source_id: str,
+    memory: Memory,
+    sources: Sources,
+) -> SourceResponse:
+    """Stop KAE reading this source. What it already taught KAE stays.
+
+    `D-230` is the owner's ruling; `D-254` is why this is not `DELETE
+    /sources/{id}`. The knowledge would survive a deletion — nothing cascades
+    from here to `knowledge_items` or `messages` — but `material` groups every
+    ingested document by `source_id`, so the row's absence turns all of it into
+    material naming no source. The knowledge outlives the deletion and the
+    answer to *where did this come from* does not.
+
+    `POST` rather than `DELETE` for the same reason: the verb a client reads is
+    the clearest statement of what happens, and nothing here is deleted.
+
+    Idempotent. Retiring twice keeps the first timestamp, because *when did we
+    stop reading this* has one true answer.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        return SourceResponse.of(sources.stop_reading(resolved, source_id))
+    except SourceNotFoundError as error:
+        raise not_found("source", source_id) from error
+
+
+@router.delete("/sources/{source_id}/retirement", response_model=SourceResponse)
+def restore_source(
+    project_id: str,
+    source_id: str,
+    memory: Memory,
+    sources: Sources,
+) -> SourceResponse:
+    """Read this source again.
+
+    Retirement is reversible on purpose (`D-254`): the alternative is not, and
+    an irreversible control is how a mistake becomes permanent. The source comes
+    back at the state it was left at — stopping reading a pinned repository
+    never unpinned it.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        return SourceResponse.of(sources.resume_reading(resolved, source_id))
+    except SourceNotFoundError as error:
+        raise not_found("source", source_id) from error

@@ -936,6 +936,14 @@ class ProjectSourceRow(Base):
     #: Carried in the provider's words: a reason paraphrased on the way through
     #: is one nobody can act on.
     detail: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    #: When somebody stopped KAE reading this source. NULL means nobody has.
+    #:
+    #: `D-254`: not a `DELETE`, because `D-164` carries `source_id` on every
+    #: ingestion run and `material` groups documents by it — dropping the row
+    #: leaves the knowledge and destroys the answer to where it came from, which
+    #: is most of what `D-230` was protecting. Not a fifth `state` either: that
+    #: column is a progression and this is orthogonal to every point on it.
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

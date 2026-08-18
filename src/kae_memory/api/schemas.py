@@ -2042,6 +2042,10 @@ class SourceResponse(BaseModel):
     #: left to each caller, because "is this recheckable" is the question the
     #: record exists to answer.
     pinned: bool
+    #: When somebody stopped KAE reading this source; `null` means nobody has.
+    #: Served as the timestamp rather than a flag, so a reader can say *when*
+    #: without a second call (`D-254`).
+    retired_at: datetime | None
     created_at: datetime | None
     updated_at: datetime | None
 
@@ -2060,6 +2064,7 @@ class SourceResponse(BaseModel):
             disposition=source.disposition,
             detail=source.detail,
             pinned=source.is_pinned,
+            retired_at=source.retired_at,
             created_at=source.created_at,
             updated_at=source.updated_at,
         )

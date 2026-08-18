@@ -62,8 +62,21 @@ class ProjectSource:
     default.
     """
     detail: str = ""
+    retired_at: datetime | None = None
+    """When somebody stopped KAE reading this source. `None` means nobody has.
+
+    `D-254`: retirement is orthogonal to `state`, not further along it. A source
+    can be retired and pinned at once, and a reader that wants *what was this
+    fixed to* still gets an answer after somebody stopped reading it.
+    """
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @property
+    def is_retired(self) -> bool:
+        """Whether KAE has been told to stop reading this source."""
+
+        return self.retired_at is not None
 
     @property
     def is_pinned(self) -> bool:
@@ -175,6 +188,12 @@ class SourceService:
                 existing.state = state.strip()
                 if recorded is not None:
                     existing.disposition = recorded
+                # **Registering a retired source brings it back** (`D-254`).
+                # Identity is `(project, kind, location)`, so a retired row would
+                # otherwise make adding that repository again impossible — the
+                # unique constraint refuses a second row and the first is one
+                # nobody reads. Retiring a source must not permanently forbid it.
+                existing.retired_at = None
                 existing.updated_at = now
                 session.flush()
                 return _as_source(existing)
@@ -368,6 +387,60 @@ class SourceService:
 
         return run_transaction(self._session_factory, operation)
 
+    def stop_reading(self, project_id: ProjectId, source_id: str) -> ProjectSource:
+        """Stop KAE reading this source, without erasing what it taught KAE.
+
+        Named for what the control says rather than for the column it sets.
+        `retire` was the first name and collided: `test_no_unreachable_capability`
+        resolves reachability by bare method name, so a second `retire` anywhere
+        in the application layer made `AssumptionService.retire` — genuinely
+        unreachable — read as called. The collision is recorded as a finding; the
+        rename is not a workaround for it, since *stop reading* is the sentence
+        the surface shows and `retire` was the database's word, not a person's.
+
+        `D-230` is the owner's ruling and `D-254` is why this is not a row
+        deletion. What the source already produced stays, and stays attributed:
+        `D-164` carries `source_id` on every ingestion run and `material`
+        (`D-170`) groups documents by it, so deleting the row would leave the
+        knowledge and destroy the answer to where it came from.
+
+        **Idempotent, and the first retirement is the one that counts.** Retiring
+        an already-retired source keeps the original timestamp rather than
+        moving it — *when did we stop reading this* has one true answer, and a
+        repeated call is a caller that lost its response, not a second decision.
+        """
+
+        def operation(session: DbSession) -> ProjectSource:
+            row = _require(session, project_id, source_id)
+            if row.retired_at is None:
+                row.retired_at = datetime.now(UTC)
+                row.updated_at = datetime.now(UTC)
+                session.flush()
+            return _as_source(row)
+
+        return run_transaction(self._session_factory, operation)
+
+    def resume_reading(self, project_id: ProjectId, source_id: str) -> ProjectSource:
+        """Read this source again.
+
+        Retirement is reversible on purpose (`D-254`). The alternative is not,
+        and an irreversible control is how a mistake on a page becomes permanent.
+
+        Nothing about the source's progression is touched: it comes back at the
+        `state` it was left at, because stopping reading a pinned repository
+        never unpinned it.
+        """
+
+        def operation(session: DbSession) -> ProjectSource:
+            row = _require(session, project_id, source_id)
+            if row.retired_at is not None:
+                row.retired_at = None
+                row.updated_at = datetime.now(UTC)
+                session.flush()
+            return _as_source(row)
+
+        return run_transaction(self._session_factory, operation)
+
 
 def _require(session: DbSession, project_id: ProjectId, source_id: str) -> ProjectSourceRow:
     row = session.scalars(
@@ -397,6 +470,7 @@ def _as_source(row: ProjectSourceRow) -> ProjectSource:
         digest=row.digest,
         disposition=row.disposition,
         detail=row.detail,
+        retired_at=row.retired_at,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
