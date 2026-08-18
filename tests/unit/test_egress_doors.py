@@ -69,6 +69,7 @@ DOORS: Mapping[str, str] = {
     "agents/ollama.py": "KAE_EMBEDDING",
     "agents/ollama_classifier.py": "KAE_OBSERVATION_CLASSIFIER",
     "agents/ollama_extraction.py": "KAE_EXTRACTION",
+    "agents/ollama_review.py": "KAE_REVIEW",
     "agents/semantic_classifier.py": "KAE_OBSERVATION_CLASSIFIER",
     "agents/titan.py": "KAE_EMBEDDING",
 }

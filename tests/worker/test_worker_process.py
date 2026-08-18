@@ -386,6 +386,65 @@ def test_offline_refuses_an_extractor_on_another_machine(
         default_extractor()
 
 
+def test_the_local_reviewer_is_built_where_the_operator_said_ollama_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`REV-LOCAL`, `D-266`: the last hosted-only step in the loop.
+
+    Until this, `KAE_REVIEW` accepted `bedrock`, `deterministic` or `off`, so an
+    offline deployment classified with the fixture — two knowledge kinds of
+    eight, and nine discovery areas of ten left `missing` on a project whose
+    knowledge was read perfectly.
+
+    The URL is honoured for the reason `D-183` gives, and the model falls back
+    to the extraction model for the reason the bedrock branch does: a deployment
+    that named one named it because that is the model it has.
+    """
+
+    from kae_memory.agents.ollama_review import OllamaReviewAdapter
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.LOCAL)
+    monkeypatch.setenv("KAE_REVIEW", "ollama")
+    monkeypatch.setenv("KAE_OLLAMA_URL", "http://gpu-box:11434/")
+    monkeypatch.delenv("KAE_REVIEW_MODEL", raising=False)
+    monkeypatch.delenv("KAE_EXTRACTION_MODEL", raising=False)
+
+    reviewer = default_reviewer()
+
+    assert isinstance(reviewer, OllamaReviewAdapter)
+    assert reviewer._base_url == "http://gpu-box:11434"
+
+    monkeypatch.setenv("KAE_EXTRACTION_MODEL", "qwen2.5:32b")
+    inherited = default_reviewer()
+    assert isinstance(inherited, OllamaReviewAdapter)
+    assert inherited.model == "qwen2.5:32b"
+
+    monkeypatch.setenv("KAE_REVIEW_MODEL", "gemma3:27b")
+    named = default_reviewer()
+    assert isinstance(named, OllamaReviewAdapter)
+    assert named.model == "gemma3:27b"
+
+
+def test_offline_refuses_a_reviewer_on_another_machine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The half that makes honouring the URL safe rather than merely correct.
+
+    `KAE_OLLAMA_URL` pointed at a GPU box is a network call wearing the local
+    provider's name, and the reviewer is the fifth door to have to say so.
+    """
+
+    monkeypatch.setenv(runtime_profile.VARIABLE, runtime_profile.OFFLINE)
+    monkeypatch.setenv("KAE_REVIEW", "ollama")
+    monkeypatch.setenv("KAE_OLLAMA_URL", "http://gpu-box:11434")
+
+    with pytest.raises(runtime_profile.ProfileViolation):
+        default_reviewer()
+
+    monkeypatch.setenv("KAE_OLLAMA_URL", "http://127.0.0.1:11434")
+    assert default_reviewer() is not None
+
+
 def test_a_disabled_reviewer_is_not_a_reach_the_profile_rules_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

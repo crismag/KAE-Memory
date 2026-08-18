@@ -290,7 +290,9 @@ class TestConfiguration:
             monkeypatch.setenv("KAE_REVIEW", typo)
             with pytest.raises(ProviderConfigurationError) as raised:
                 default_reviewer()
-            assert "bedrock" in str(raised.value), "the message must name what is valid"
+            message = str(raised.value)
+            assert "bedrock" in message, "the message must name what is valid"
+            assert "ollama" in message, "including the local reviewer (`D-266`)"
 
     def test_review_is_on_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A cloned repository walks the whole chain with no configuration."""

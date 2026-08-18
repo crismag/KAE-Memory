@@ -1,9 +1,12 @@
 """`KAE_OLLAMA_URL` says where Ollama is, at every door that talks to it (`D-183`).
 
-Four places in ``src`` build an adapter that calls Ollama. Three read the
-variable; the fourth did not, and passed no ``base_url`` at all — so a
-deployment with Ollama on a GPU box got the embedder, the classifier and the
-goal judge there, and extraction on a loopback port with nothing behind it.
+Five places in ``src`` build an adapter that calls Ollama. When this was written
+there were four, three of which read the variable; the fourth did not, and passed
+no ``base_url`` at all — so a deployment with Ollama on a GPU box got the
+embedder, the classifier and the goal judge there, and extraction on a loopback
+port with nothing behind it. The fifth is the reviewer (`REV-LOCAL`, `D-266`),
+and it arrived correct because this file made the requirement a failing test
+rather than a convention.
 
 Nothing related the four, which is why one could drift from three without
 anybody noticing. This is the relation, in the shape `D-178` established for the
@@ -45,6 +48,7 @@ BUILDERS: Mapping[str, str] = {
     "agents/provider.py::build_classifier": "KAE_OBSERVATION_CLASSIFIER",
     "agents/provider.py::build_embedder": "KAE_EMBEDDING",
     "worker/execution.py::default_extractor": "KAE_EXTRACTION",
+    "worker/execution.py::default_reviewer": "KAE_REVIEW",
 }
 """Module and function that may construct an Ollama adapter → the variable it selects on.
 
@@ -173,12 +177,18 @@ class TestEveryDoorMovesWithTheVariable:
                     f"reach_of_url is called on {sorted(classified) or 'nothing'}"
                 )
 
-    def test_the_four_selecting_variables_are_the_ones_the_estate_documents(self) -> None:
-        """A fifth door is a real decision, not a line somebody added in passing."""
+    def test_the_selecting_variables_are_the_ones_the_estate_documents(self) -> None:
+        """A further door is a real decision, not a line somebody added in passing.
+
+        The fifth was `KAE_REVIEW` (`D-266`), and it was a decision: review was
+        the last step in the loop with no local option, so an offline deployment
+        classified with a rule that fires for two knowledge kinds of eight.
+        """
 
         assert set(BUILDERS.values()) == {
             "KAE_EMBEDDING",
             "KAE_EXTRACTION",
             "KAE_GOAL_JUDGE",
             "KAE_OBSERVATION_CLASSIFIER",
+            "KAE_REVIEW",
         }

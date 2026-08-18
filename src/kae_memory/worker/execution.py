@@ -536,9 +536,10 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
     ``KAE_REVIEW=deterministic`` gives the offline fixture, which classifies
     only where a kind leaves no choice — and therefore populates two discovery
     areas out of ten on a real project. ``KAE_REVIEW=off`` disables the engine
-    entirely. ``KAE_REVIEW=bedrock`` is the live adapter (EM-6b), which is what
-    a deployment wants if readiness is to describe more than a fifth of the
-    taxonomy.
+    entirely. ``KAE_REVIEW=bedrock`` is the live adapter (EM-6b), and
+    ``KAE_REVIEW=ollama`` is the same judgement from a model on this machine
+    (`D-266`) — either is what a deployment wants if readiness is to describe
+    more than a fifth of the taxonomy.
     """
 
     setting = os.environ.get("KAE_REVIEW", "deterministic").strip().lower()
@@ -552,6 +553,29 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
             runtime_profile.Reach.IN_PROCESS, variable="KAE_REVIEW", value=setting
         )
         return DeterministicReviewAdapter()
+    if setting == "ollama":
+        from kae_memory.agents.ollama_review import OLLAMA_URL, OllamaReviewAdapter
+
+        # The reach is read from the URL this adapter is actually handed rather
+        # than assumed to be loopback, so `KAE_OLLAMA_URL` pointed at another
+        # machine cannot pass under `offline` (`D-172`, `D-183`).
+        base_url = os.environ.get("KAE_OLLAMA_URL", OLLAMA_URL).strip() or OLLAMA_URL
+        runtime_profile.require(
+            runtime_profile.reach_of_url(base_url), variable="KAE_REVIEW", value=setting
+        )
+        # `KAE_REVIEW_MODEL`, then `KAE_EXTRACTION_MODEL`, then the default —
+        # the same precedence the bedrock branch uses, for the same reason one
+        # step nearer home: a deployment that named an extraction model named it
+        # because that is the model it has pulled, and defaulting review to a
+        # different one fails with *Ollama has no model* naming a model nobody
+        # chose.
+        model = (
+            os.environ.get("KAE_REVIEW_MODEL", "").strip()
+            or os.environ.get("KAE_EXTRACTION_MODEL", "").strip()
+        )
+        if model:
+            return OllamaReviewAdapter(base_url=base_url, model=model)
+        return OllamaReviewAdapter(base_url=base_url)
     if setting != "bedrock":
         # **A whitelist, because the fallback was silent and expensive.**
         #
@@ -568,7 +592,7 @@ def default_reviewer(build_bedrock: Callable[[], ReviewPort] | None = None) -> R
         # the reviewer was the only one that fell through; `default_extractor`
         # did too, fifty lines below, until `D-173`.
         raise ProviderConfigurationError(
-            f"unknown KAE_REVIEW={setting!r}. Valid: bedrock, deterministic, off"
+            f"unknown KAE_REVIEW={setting!r}. Valid: bedrock, ollama, deterministic, off"
         )
 
     runtime_profile.require(runtime_profile.Reach.HOSTED, variable="KAE_REVIEW", value=setting)
