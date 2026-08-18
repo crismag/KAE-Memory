@@ -280,6 +280,29 @@ class ClassificationReport:
         return self.engine in {"reviewed_by_fixture", "partially_reviewed_by_fixture"}
 
     @property
+    def claim(self) -> str | None:
+        """What the reviewer behind this classification claimed, or `None`.
+
+        The three words `configured_reviewer_claim` answers in, so the stored
+        engine and the deployment's current setting are comparable at all:
+        `model`, `fixture`, or `none` for a classification no reviewer produced
+        — the offline rule, including the run where every batch reached a
+        configured reviewer and failed.
+
+        Coarser than the engine word on purpose. `bedrock` and `ollama` both
+        record `reviewed_by_model`, so which of them ran is not in the data, and
+        a comparison pretending otherwise would report staleness it cannot see.
+        """
+
+        if self.engine is None:
+            return None
+        if self.engine.endswith("_by_model"):
+            return "model"
+        if self.engine.endswith("_by_fixture"):
+            return "fixture"
+        return "none"
+
+    @property
     def degraded(self) -> bool:
         """Whether any part of this number came from rules rather than a model.
 

@@ -15,6 +15,7 @@ model never sees or returns identifiers — it quotes, and the quote is resolved
 here — so a finding cannot reference a statement the reviewer never read.
 """
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -179,6 +180,44 @@ def judges(reviewer: object) -> bool:
     """
 
     return bool(getattr(reviewer, "judges", False))
+
+
+#: What each `KAE_REVIEW` setting's adapter claims about its own output, in the
+#: word `ReviewStep` records — `reviewed_by_{model|fixture}`. `none` is a
+#: reviewer switched off, which is a different fact from a reviewer that does not
+#: judge.
+#:
+#: Not a second definition of `judges`: a guard builds each named adapter and
+#: asserts the table agrees with what the adapter claims, so an adapter changing
+#: its mind fails here rather than being described by a stale literal.
+REVIEWER_CLAIMS: dict[str, str] = {
+    "bedrock": "model",
+    "ollama": "model",
+    "deterministic": "fixture",
+    "off": "none",
+    "none": "none",
+    "": "none",
+}
+
+#: A `KAE_REVIEW` this build does not recognise. Distinct from `none`, and it is
+#: why `configured_reviewer_claim` does not raise: `default_reviewer` already
+#: refuses the setting at the point where selecting the wrong reviewer costs
+#: something, and a readiness read is not that point. Reported so a caller can
+#: decline to compare rather than compare against a guess.
+UNKNOWN_REVIEWER_CLAIM = "unknown"
+
+
+def configured_reviewer_claim(environ: dict[str, str] | None = None) -> str:
+    """What this deployment's reviewer would claim about a classification now.
+
+    The environment, not the adapter: constructing one to ask would build a
+    Bedrock client and can raise about a missing region, and this is called on a
+    read path that must keep answering whatever the reviewer is.
+    """
+
+    env = os.environ if environ is None else environ
+    setting = env.get("KAE_REVIEW", "deterministic").strip().lower()
+    return REVIEWER_CLAIMS.get(setting, UNKNOWN_REVIEWER_CLAIM)
 
 
 def resolve(payload: Any, request: ReviewRequest) -> tuple[ReviewFinding, ...]:

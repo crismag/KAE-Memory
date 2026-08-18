@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from kae_memory.agents.review import UNKNOWN_REVIEWER_CLAIM, configured_reviewer_claim
 from kae_memory.application.blueprint_service import Blueprint, BlueprintStatement, KnowledgeTrace
 from kae_memory.application.clarification_service import REASON_UNSTATED
 from kae_memory.application.readiness_service import ClassificationReport, ExtractionCoverage
@@ -392,9 +393,30 @@ class ClassificationResponse(BaseModel):
     degraded: bool
     reviewed_at: datetime | None
     note: str
+    #: What this deployment's configured reviewer would claim about a
+    #: classification run now — `model`, `fixture`, `none` when review is
+    #: switched off, or `unknown` for a `KAE_REVIEW` this build does not
+    #: recognise.
+    current_reviewer: str
+    #: Whether the reviewer that produced this classification is the one this
+    #: deployment still uses.
+    #:
+    #: **A second staleness**, in the family of `is_behind_template`: `is_stale`
+    #: asks whether the project moved, that asks whether the meaning of the
+    #: number did, and this asks whether the judgement behind it did. A
+    #: deployment that gains a model reviewer would otherwise keep every
+    #: existing project on the fixture's answer for ever, because classifying
+    #: again is refused while the knowledge is unchanged (`REV-STALE`).
+    #:
+    #: `null` when nothing has been classified and when the setting is
+    #: unrecognised — unknown is not stale, and a typo must not make every
+    #: project permanently re-reviewable.
+    engine_is_current: bool | None
 
     @classmethod
-    def of(cls, report: ClassificationReport) -> "ClassificationResponse":
+    def of(
+        cls, report: ClassificationReport, current_reviewer: str | None = None
+    ) -> "ClassificationResponse":
         # Two different offline behaviours, so two different sentences. The
         # fixture reviewer still assigns only the kinds exactly one area
         # accepts; the offline rule reads the statement (`EPI-3b`). Saying
@@ -424,11 +446,27 @@ class ClassificationResponse(BaseModel):
             )
         else:
             note = "Classified by the configured review model."
+        reviewer = configured_reviewer_claim() if current_reviewer is None else current_reviewer
+        recorded = report.claim
+        is_current = (
+            None if recorded is None or reviewer == UNKNOWN_REVIEWER_CLAIM else recorded == reviewer
+        )
+        if is_current is False:
+            # Said in the note as well as in the flag, because this is the one
+            # state where the percentage is wrong for a reason the project
+            # cannot show: the knowledge is current and the judgement over it is
+            # not.
+            note = (
+                f"{note} It was produced by a reviewer this deployment no longer uses, "
+                "so classifying again will replace it."
+            )
         return cls(
             engine=report.engine,
             degraded=report.degraded,
             reviewed_at=report.reviewed_at,
             note=note,
+            current_reviewer=reviewer,
+            engine_is_current=is_current,
         )
 
 
