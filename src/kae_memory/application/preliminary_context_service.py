@@ -85,6 +85,14 @@ class AssumedEntry:
     material: bool
     """Architectural, unsafe, or irreversible. The ones worth a person's time."""
     accepted_by: str | None
+    revisit: str
+    """When this assumption is meant to be looked at again.
+
+    Carried because it is what makes an unchosen option safe to leave: the
+    recommendations route forces `before_build` for a `keep_open` disposition
+    precisely so the question comes back. Without it a reader is told what KAE
+    guessed and never told whether anything brings it back.
+    """
     disclosure: str
     """A line a reader can act on, including the consequence (see `disclosure`).
 
@@ -309,6 +317,7 @@ def _assumed(assumption: Assumption) -> AssumedEntry:
         reversible=assumption.reversible,
         material=assumption.material,
         accepted_by=assumption.accepted_by,
+        revisit=assumption.revisit.value,
         disclosure=disclosure(assumption),
     )
 

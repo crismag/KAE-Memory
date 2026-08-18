@@ -23,7 +23,7 @@ from kae_memory.api.security import AuthPolicy
 from kae_memory.application import MemoryService, WriteKnowledgeRequest
 from kae_memory.application.assumption_service import AssumptionService
 from kae_memory.application.readiness_service import ReadinessService
-from kae_memory.domain.assumptions import AssumptionOrigin, Consequence
+from kae_memory.domain.assumptions import AssumptionOrigin, Consequence, RevisitTrigger
 from kae_memory.domain.execution import AgentRole
 from kae_memory.domain.identifiers import ProjectId
 from kae_memory.domain.models import KnowledgeKind
@@ -115,6 +115,29 @@ class TestTheBoundariesSurviveTheAdapter:
 
         assert len(body["assumed"]) == 1
         assert Consequence.REWORK.value in body["assumed"][0]["disclosure"]
+
+    def test_an_assumption_says_what_brings_it_back(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """`revisit` is what makes an unchosen option safe to leave.
+
+        Recorded with a **non-default** trigger deliberately: a check reading
+        `on_request` would pass against a hop that dropped the field and
+        substituted the default, which is a check that cannot fail (`D-290`).
+        """
+
+        AssumptionService(factory).record(
+            ProjectId(project_id),
+            subject="storage",
+            assumed_value="markdown files on local disk",
+            reason="a prototype needs no database",
+            origin=AssumptionOrigin.KAE_INFERRED,
+            revisit=RevisitTrigger.BEFORE_BUILD,
+        )
+
+        body = client.get(f"/v1/projects/{project_id}/preliminary-context").json()
+
+        assert body["assumed"][0]["revisit"] == RevisitTrigger.BEFORE_BUILD.value
 
     def test_an_assumption_is_not_also_a_statement(
         self, client: TestClient, factory: sessionmaker[Session], project_id: str

@@ -231,6 +231,33 @@ class TestTheFourThingsNeverMerge:
         assert entry["reversible"] is True
         assert Consequence.REWORK.value in entry["disclosure"]
 
+    def test_an_assumption_says_what_brings_it_back(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """The same answer the HTTP reader gets, or the two paths describe
+        different projects.
+
+        A **non-default** trigger, so a hop that dropped the field and fell
+        back to `on_request` fails here rather than passing (`D-290`).
+        """
+
+        dispatch(
+            context,
+            "kae_record_assumption",
+            {
+                "project_id": project_id,
+                "subject": "storage",
+                "assumed_value": "markdown files on local disk",
+                "reason": "a prototype needs no database",
+                "origin": "inferred",
+                "revisit": "before_build",
+            },
+        )
+
+        payload = _compose(context, project_id)
+
+        assert payload["assumed"][0]["revisit"] == "before_build"
+
     def test_assumptions_are_not_in_known_or_proposed(
         self, context: tools.ToolContext, project_id: str
     ) -> None:

@@ -355,6 +355,10 @@
             "title": "Reversible",
             "type": "boolean"
           },
+          "revisit": {
+            "title": "Revisit",
+            "type": "string"
+          },
           "state": {
             "title": "State",
             "type": "string"
@@ -375,6 +379,7 @@
           "reversible",
           "material",
           "accepted_by",
+          "revisit",
           "disclosure"
         ],
         "title": "AssumedEntryResponse",

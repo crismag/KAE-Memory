@@ -1286,6 +1286,12 @@ class AssumedEntryResponse(BaseModel):
     reversible: bool
     material: bool
     accepted_by: str | None
+    revisit: str
+    """A `RevisitTrigger` word: when this is meant to be looked at again.
+
+    `keep_open` forces `before_build`, so this is the only field that says
+    whether an unchosen option comes back at all.
+    """
     disclosure: str
     """Carries the consequence in the sentence, so no renderer can drop it."""
 
@@ -1359,6 +1365,7 @@ class PreliminaryContextResponse(BaseModel):
                     reversible=entry.reversible,
                     material=entry.material,
                     accepted_by=entry.accepted_by,
+                    revisit=entry.revisit,
                     disclosure=entry.disclosure,
                 )
                 for entry in preliminary.assumed

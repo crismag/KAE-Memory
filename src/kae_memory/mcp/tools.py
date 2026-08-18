@@ -2873,6 +2873,11 @@ def _preliminary_payload(preliminary: PreliminaryContext) -> dict[str, Any]:
                 "reversible": entry.reversible,
                 "material": entry.material,
                 "accepted_by": entry.accepted_by,
+                # Whether anything brings this back. `keep_open` forces
+                # `before_build` for exactly this reason, and an agent reading
+                # the context over MCP needs the same answer the HTTP reader
+                # gets or the two paths describe different projects.
+                "revisit": entry.revisit,
                 # Carries the consequence in the sentence itself. "We assumed
                 # single-tenant" invites a nod; the same line with "multi-tenancy
                 # would be architectural rework" invites a decision.
