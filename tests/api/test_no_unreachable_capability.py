@@ -24,6 +24,26 @@ looks outward, which is the direction nothing else looks.
 **Transitively named**, starting from adapter source. An adapter names an entry
 point; that entry point calls deeper methods; those count too.
 
+**Named on a resolved receiver** (`D-261`). Reachability is keyed
+`Service.method`, not `method`. It used to be the bare name, which made this
+check service-blind in both directions: `SourceService.stop_reading` being called
+made `AssumptionService.stop_reading` read as reachable, and an attribute read on
+a *response object* — `record.material`, `module.summary` — counted as evidence
+that the service method of that name had a caller. Three capabilities were
+hiding in that gap and are exempted below.
+
+The receiver is resolved from source because this estate calls services through
+four shapes and no others: a dependency alias (`sources: Sources`), a container
+attribute (`context.memory`), a service attribute (`self._sources`), and a
+construction (`ReadinessService(factory).knowledge_revision(...)`). Each has a
+self-test at the bottom of this file, so losing one in a later rewrite fails a
+test that names the shape instead of surfacing as a gap somebody exempts.
+
+**An unresolved receiver names nothing.** Keeping the bare name as a fallback
+would preserve the defect at smaller scale, and this check reports gaps — so the
+conservative direction is the one that costs a missed capability, not the one
+that costs an argument.
+
 The transitivity is not optional. The reject route calls
 `MemoryService.review_reject`, which calls `reject_knowledge` internally — and a
 check that stopped at the adapter would report `reject_knowledge` as unreachable
@@ -89,6 +109,18 @@ EXEMPT: dict[str, str] = {
     "MemoryService.reject_knowledge": "superseded by review_reject, which records the reviewer",
     "MemoryService.correct_knowledge": "superseded by review_correct",
     "MemoryService.supersede_knowledge": "superseded by review_supersede",
+    # Same category, and it was invisible until the receiver was resolved
+    # (`D-261`): `SynthesisRepository.list_bindings` is called by the service
+    # method one layer above it, so a scan keyed on the bare name reported the
+    # service method as reached by its own callee's namesake.
+    #
+    # `GET /model/{object_id}` is the live read. It answers through
+    # `get_object`, whose view carries what each bound statement *says* —
+    # `D-144`, because *what supports this* cannot be answered with a list of
+    # identifiers, which is what this returns.
+    "SynthesisService.list_bindings": (
+        "superseded by get_object's evidence view, which carries the statements (D-144)"
+    ),
     #
     # -- operational, and genuinely uncalled ------------------------------
     #
@@ -143,9 +175,33 @@ EXEMPT: dict[str, str] = {
     # They are exempted rather than fixed here because each is somebody's
     # phase, and a test is the wrong place to smuggle in a feature.
     "ModuleService.confirm": "modules are MCP-only by decision — F-006, issue #85",
+    # Also F-006's neighbourhood, and also only visible once the receiver was
+    # resolved: `get` is the most collided method name in the codebase, so the
+    # bare-name scan reported it as reached by every unrelated `.get(` in the
+    # estate. The MCP surface exposes the listing and the graph; one module by
+    # key is reachable from nothing.
+    "ModuleService.get": "modules are MCP-only, and the tools expose the listing and the graph",
     "PublicationService.publish": (
         "live publication is behind the publication-ownership decision — DEP-D7/D9"
     ),
+    # Unreachable for the same reason `publish` is, and stated the same way: the
+    # fact a reader needs is *why*. Found by `D-261`, hidden until then by
+    # `ReadinessService.history`, which is served.
+    "PublicationService.history": (
+        "every attempt including the failures — unreachable only because publication is"
+    ),
+    # `SETUP-ASK-NODOOR`, and the sharpest evidence that the bare-name scan was
+    # worth fixing: `D-240` found these two by reading, while this file — the
+    # check that exists to find exactly this — stayed green, because
+    # `ClarificationService.ask` and `.answer` are both routed and the scan
+    # could not tell one service's method from another's.
+    #
+    # `setup.questions` ships at both exposures, `ask` writes the only rows it
+    # can return, and `answer` is the only thing that settles one. The route
+    # answers `[]` in every deployment that exists. Giving either a door is an
+    # exposure ruling and the owner's.
+    "SetupService.ask": "writes the only rows setup.questions returns; no door — SETUP-ASK-NODOOR",
+    "SetupService.answer": "settles a setup question, and nothing reaches it — SETUP-ASK-NODOOR",
     # Not a write, and not uncalled: `publication_service.publish` uses it. It
     # is unreachable only because *that* is, which is a different fact and the
     # one a reader needs — F-022 recorded it as unreached, and that was wrong.
@@ -227,64 +283,269 @@ REACHED_INDIRECTLY: dict[str, str] = {
 
 
 SRC = Path(__file__).resolve().parents[2] / "src"
+APPLICATION = SRC / "kae_memory" / "application"
+
+#: A call site, resolved: the class the receiver holds and the attribute named.
+Pair = tuple[str, str]
 
 
-def _attributes_in(tree: ast.AST) -> set[str]:
-    return {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+class _Types:
+    """What the source says each name holds.
+
+    Three tables, all of them read out of annotations and constructor calls
+    rather than guessed:
+
+    * `aliases` — a module-level name bound to a class, which is how the
+      dependency aliases work: `Sources = Annotated[SourceService, ...]`.
+    * `attributes` — `class -> {attribute: class}`, from annotated fields and
+      from `self.x = <constructed or annotated-parameter>` in any method.
+    * `returns` — a function name to the class it is annotated as returning,
+      so `context = build_context(url)` resolves.
+
+    Names, not qualified paths. Two classes in this codebase sharing a name
+    would collapse here, and none do — asserted below rather than assumed,
+    because that assumption failing is exactly the shape of defect this file
+    exists for.
+    """
+
+    def __init__(self) -> None:
+        self.classes: set[str] = set()
+        self.bases: dict[str, list[str]] = {}
+        self.aliases: dict[str, str] = {}
+        self.attributes: dict[str, dict[str, str]] = {}
+        self.returns: dict[str, str] = {}
+
+    def of_annotation(self, node: ast.expr | None) -> str | None:
+        """The class an annotation names, through aliases and string forms."""
+
+        if node is None:
+            return None
+        for sub in ast.walk(node):
+            if isinstance(sub, ast.Attribute) and sub.attr in self.classes:
+                return sub.attr
+            if isinstance(sub, ast.Name):
+                if sub.id in self.classes:
+                    return sub.id
+                if sub.id in self.aliases:
+                    return self.aliases[sub.id]
+            if isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                try:
+                    inner = ast.parse(sub.value, mode="eval").body
+                except SyntaxError:
+                    continue
+                found = self.of_annotation(inner)
+                if found is not None:
+                    return found
+        return None
+
+    def of_construction(self, node: ast.expr | None) -> str | None:
+        """The class an expression constructs, including `x or XService(f)`."""
+
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id in self.classes:
+                return func.id
+            if isinstance(func, ast.Attribute) and func.attr in self.classes:
+                return func.attr
+            called = func.id if isinstance(func, ast.Name) else getattr(func, "attr", None)
+            return self.returns.get(called) if called else None
+        if isinstance(node, ast.BoolOp):
+            for value in node.values:
+                found = self.of_construction(value)
+                if found is not None:
+                    return found
+        return None
+
+    def attribute_of(self, owner: str, attribute: str) -> str | None:
+        """An attribute's class, looked up through the owner's bases."""
+
+        pending = [owner]
+        while pending:
+            current = pending.pop(0)
+            found = self.attributes.get(current, {}).get(attribute)
+            if found is not None:
+                return found
+            pending.extend(self.bases.get(current, ()))
+        return None
 
 
-def _names_used_by_callers() -> set[str]:
-    """Every attribute name any caller source refers to.
+def _class_names(trees: list[ast.Module]) -> set[str]:
+    return {
+        node.name for tree in trees for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+    }
+
+
+def _learn(types: _Types, tree: ast.Module) -> None:
+    """Fill the three tables from one module."""
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                found = types.of_annotation(node.value)
+                if found is not None:
+                    types.aliases[target.id] = found
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            found = types.of_annotation(node.returns)
+            if found is not None:
+                types.returns[node.name] = found
+        if not isinstance(node, ast.ClassDef):
+            continue
+        types.bases[node.name] = [base.id for base in node.bases if isinstance(base, ast.Name)]
+        attributes = types.attributes.setdefault(node.name, {})
+        for item in node.body:
+            if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                found = types.of_annotation(item.annotation)
+                if found is not None:
+                    attributes[item.target.id] = found
+            if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            parameters = {
+                argument.arg: types.of_annotation(argument.annotation)
+                for argument in [*item.args.args, *item.args.kwonlyargs]
+            }
+            for sub in ast.walk(item):
+                if not isinstance(sub, ast.Assign) or len(sub.targets) != 1:
+                    continue
+                target = sub.targets[0]
+                if not (
+                    isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                ):
+                    continue
+                found = types.of_construction(sub.value)
+                if found is None and isinstance(sub.value, ast.Name):
+                    found = parameters.get(sub.value.id)
+                if found is not None:
+                    attributes[target.attr] = found
+
+
+def _resolve(
+    types: _Types, function: ast.FunctionDef | ast.AsyncFunctionDef, enclosing: str | None
+) -> set[Pair]:
+    """Every attribute this function names, on a receiver we could resolve."""
+
+    scope: dict[str, str] = {}
+    for argument in [*function.args.args, *function.args.kwonlyargs]:
+        found = types.of_annotation(argument.annotation)
+        if found is not None:
+            scope[argument.arg] = found
+
+    def receiver(node: ast.expr) -> str | None:
+        if isinstance(node, ast.Name):
+            return enclosing if node.id == "self" else scope.get(node.id)
+        if isinstance(node, ast.Call):
+            return types.of_construction(node)
+        if isinstance(node, ast.Attribute):
+            owner = receiver(node.value)
+            return types.attribute_of(owner, node.attr) if owner else None
+        return None
+
+    for sub in ast.walk(function):
+        if isinstance(sub, ast.Assign) and len(sub.targets) == 1:
+            target = sub.targets[0]
+            if isinstance(target, ast.Name):
+                found = types.of_construction(sub.value) or receiver(sub.value)
+                if found is not None:
+                    scope[target.id] = found
+
+    named: set[Pair] = set()
+    for sub in ast.walk(function):
+        if isinstance(sub, ast.Attribute):
+            owner = receiver(sub.value)
+            if owner is not None:
+                named.add((owner, sub.attr))
+    return named
+
+
+def _functions(tree: ast.Module) -> list[tuple[str | None, ast.FunctionDef | ast.AsyncFunctionDef]]:
+    """Top-level functions and methods, each with the class it is defined in."""
+
+    found: list[tuple[str | None, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            found.append((None, node))
+        elif isinstance(node, ast.ClassDef):
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                    found.append((node.name, item))
+    return found
+
+
+def _parsed(root: Path) -> dict[Path, ast.Module]:
+    return {
+        path: ast.parse(path.read_text(), filename=str(path)) for path in sorted(root.rglob("*.py"))
+    }
+
+
+def _types_for(trees: dict[Path, ast.Module]) -> _Types:
+    types = _Types()
+    types.classes = _class_names(list(trees.values()))
+    # Twice: aliases and return annotations are read in file order, and a router
+    # annotating `sources: Sources` is parsed before `dependencies.py` defines
+    # the alias. One pass would resolve whatever came first and silently drop
+    # the rest, which is the failure this file exists to refuse.
+    for _ in range(2):
+        for tree in trees.values():
+            _learn(types, tree)
+    return types
+
+
+def _named_by_callers(types: _Types, trees: dict[Path, ast.Module]) -> set[Pair]:
+    """Every resolved pair any caller source names.
 
     Parsed rather than grepped. A regex over source would count a method named
     in a comment or a docstring as reachable, and the comment explaining why
     something is *not* wired would make it look wired.
     """
 
-    used: set[str] = set()
-    for caller_root in CALLER_ROOTS:
-        for path in (SRC / caller_root).rglob("*.py"):
-            used |= _attributes_in(ast.parse(path.read_text(), filename=str(path)))
-    return used
+    named: set[Pair] = set()
+    for path, tree in trees.items():
+        if not any(str(path).startswith(str(SRC / root)) for root in CALLER_ROOTS):
+            continue
+        for enclosing, function in _functions(tree):
+            named |= _resolve(types, function, enclosing)
+    return named
 
 
-def _calls_within_application() -> dict[str, set[str]]:
-    """For each application method, the attribute names its body refers to.
+def _calls_within_application(
+    types: _Types, trees: dict[Path, ast.Module]
+) -> dict[Pair, set[Pair]]:
+    """For each application method, the resolved pairs its body names."""
 
-    Keyed by bare method name rather than `Service.method`. Two services sharing
-    a method name will over-approximate — one's callees will be attributed to
-    both — and that is the safe direction: this test reports gaps, so a false
-    *negative* costs a missed capability while a false positive costs an
-    argument.
-    """
-
-    calls: dict[str, set[str]] = {}
-    for path in (SRC / "kae_memory" / "application").rglob("*.py"):
-        tree = ast.parse(path.read_text(), filename=str(path))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for item in node.body:
-                    if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
-                        calls.setdefault(item.name, set()).update(_attributes_in(item))
+    calls: dict[Pair, set[Pair]] = {}
+    for path, tree in trees.items():
+        if not str(path).startswith(str(APPLICATION)):
+            continue
+        for enclosing, function in _functions(tree):
+            if enclosing is None:
+                continue
+            calls.setdefault((enclosing, function.name), set()).update(
+                _resolve(types, function, enclosing)
+            )
     return calls
 
 
 def _reachable() -> set[str]:
-    """Adapter-named methods, closed over what they call."""
+    """Adapter-named `Service.method` keys, closed over what they call."""
 
-    reachable = _names_used_by_callers()
-    calls = _calls_within_application()
+    trees = _parsed(SRC / "kae_memory")
+    types = _types_for(trees)
+
+    reachable = _named_by_callers(types, trees)
+    calls = _calls_within_application(types, trees)
 
     frontier = set(reachable)
     while frontier:
-        nxt: set[str] = set()
-        for name in frontier:
-            for callee in calls.get(name, ()):
+        nxt: set[Pair] = set()
+        for pair in frontier:
+            for callee in calls.get(pair, ()):
                 if callee not in reachable:
                     reachable.add(callee)
                     nxt.add(callee)
         frontier = nxt
-    return reachable
+    return {f"{owner}.{attribute}" for owner, attribute in reachable}
 
 
 SERVICES = _service_classes()
@@ -309,7 +570,8 @@ def test_every_service_method_is_reachable_or_exempt(service: type) -> None:
     unreachable = [
         f"{service.__name__}.{method}"
         for method in _public_methods(service)
-        if method not in reachable and f"{service.__name__}.{method}" not in EXEMPT
+        if f"{service.__name__}.{method}" not in reachable
+        and f"{service.__name__}.{method}" not in EXEMPT
     ]
 
     assert not unreachable, (
@@ -337,7 +599,7 @@ def test_no_exemption_is_obsolete() -> None:
     """
 
     reachable = _reachable()
-    obsolete = sorted(name for name in EXEMPT if name.split(".", 1)[1] in reachable)
+    obsolete = sorted(name for name in EXEMPT if name in reachable)
 
     assert not obsolete, (
         f"these are exempted as unreachable and something now calls them: {obsolete}. "
@@ -356,9 +618,7 @@ def test_a_method_listed_as_reached_indirectly_really_is() -> None:
     """
 
     reachable = _reachable()
-    unreached = sorted(
-        name for name in REACHED_INDIRECTLY if name.split(".", 1)[1] not in reachable
-    )
+    unreached = sorted(name for name in REACHED_INDIRECTLY if name not in reachable)
 
     assert not unreached, (
         f"listed as reached through another method, and nothing reaches them: {unreached}"
@@ -376,3 +636,151 @@ def test_every_exemption_names_something_that_exists() -> None:
     stale = sorted((set(EXEMPT) | set(REACHED_INDIRECTLY)) - real)
 
     assert not stale, f"EXEMPT names methods that no longer exist: {stale}"
+
+
+# -- the resolver, one test per call shape ---------------------------------
+#
+# `D-261` refuses a bare-name fallback for a receiver that will not resolve, so
+# a call shape this resolver stops understanding shows up as a capability
+# reported unreachable — and gets answered with an exemption that is not true.
+# These are what turn that into a failure naming the shape instead.
+#
+# Each synthetic module defines the classes it calls, so nothing here depends on
+# the real tree still having a service of any particular name.
+
+
+def _resolved_pairs(source: str) -> set[Pair]:
+    """Every `(class, attribute)` the resolver can see in one module."""
+
+    tree = ast.parse(source)
+    types = _types_for({Path("synthetic.py"): tree})
+    return {
+        pair
+        for enclosing, function in _functions(tree)
+        for pair in _resolve(types, function, enclosing)
+    }
+
+
+def test_a_dependency_alias_resolves() -> None:
+    """`Sources = Annotated[SourceService, ...]`, then `sources: Sources`."""
+
+    pairs = _resolved_pairs(
+        "class SourceService:\n"
+        "    def register(self): ...\n"
+        "Sources = Annotated[SourceService, Depends(get_sources)]\n"
+        "def route(sources: Sources):\n"
+        "    return sources.register()\n"
+    )
+
+    assert ("SourceService", "register") in pairs
+
+
+def test_a_container_attribute_resolves() -> None:
+    """`context.memory`, where the container's `__init__` annotates it."""
+
+    pairs = _resolved_pairs(
+        "class MemoryService:\n"
+        "    def list_projects(self): ...\n"
+        "class ToolContext:\n"
+        "    def __init__(self, memory: MemoryService) -> None:\n"
+        "        self.memory = memory\n"
+        "def tool(context: ToolContext):\n"
+        "    return context.memory.list_projects()\n"
+    )
+
+    assert ("MemoryService", "list_projects") in pairs
+
+
+def test_a_service_attribute_resolves() -> None:
+    """`self._sources`, from the one constructor shape every service uses."""
+
+    pairs = _resolved_pairs(
+        "class SourceService:\n"
+        "    def material(self): ...\n"
+        "class IngestionService:\n"
+        "    def __init__(self, factory, sources=None):\n"
+        "        self._sources = sources or SourceService(factory)\n"
+        "    def ingest(self):\n"
+        "        return self._sources.material()\n"
+    )
+
+    assert ("SourceService", "material") in pairs
+    # `self` resolving to the enclosing class is the transitive half: it is what
+    # closes a route's entry point over the deeper methods it calls.
+    assert ("IngestionService", "_sources") in pairs
+
+
+def test_a_construction_resolves_immediately_and_through_a_name() -> None:
+    """The worker's two shapes: assigned, and called on the constructor."""
+
+    pairs = _resolved_pairs(
+        "class ReadinessService:\n"
+        "    def knowledge_revision(self): ...\n"
+        "class MemoryService:\n"
+        "    def get_project(self): ...\n"
+        "def execute(self):\n"
+        "    memory = MemoryService(self.session_factory)\n"
+        "    memory.get_project()\n"
+        "    return ReadinessService(self.session_factory).knowledge_revision()\n"
+    )
+
+    assert ("MemoryService", "get_project") in pairs
+    assert ("ReadinessService", "knowledge_revision") in pairs
+
+
+def test_an_inherited_attribute_resolves() -> None:
+    """A subclass calling through a base class's attribute."""
+
+    pairs = _resolved_pairs(
+        "class MemoryService:\n"
+        "    def start_run(self): ...\n"
+        "class _Agent:\n"
+        "    def __init__(self, service: MemoryService) -> None:\n"
+        "        self._service = service\n"
+        "class ArchitectureAgent(_Agent):\n"
+        "    def run(self):\n"
+        "        return self._service.start_run()\n"
+    )
+
+    assert ("MemoryService", "start_run") in pairs
+
+
+def test_one_service_being_called_does_not_reach_its_namesake() -> None:
+    """The defect this resolver exists for, as a regression (`D-254`, `D-261`).
+
+    Two services hold a method of one name and one of them is called. Under the
+    bare-name scan both read as reachable, which is how `AssumptionService.retire`
+    passed while nothing could call it.
+    """
+
+    pairs = _resolved_pairs(
+        "class SourceService:\n"
+        "    def stop_reading(self): ...\n"
+        "class AssumptionService:\n"
+        "    def stop_reading(self): ...\n"
+        "Sources = Annotated[SourceService, Depends(get_sources)]\n"
+        "def route(sources: Sources):\n"
+        "    return sources.stop_reading()\n"
+    )
+
+    assert ("SourceService", "stop_reading") in pairs
+    assert ("AssumptionService", "stop_reading") not in pairs
+
+
+def test_an_unresolved_receiver_names_nothing() -> None:
+    """An attribute read on a response object is not a call on a service.
+
+    The other half of the same defect, and the more common one in this codebase:
+    `record.material` and `module.summary` are domain objects, and under the
+    bare-name scan they made `SourceService.material` and `ModuleService.summary`
+    look called.
+    """
+
+    pairs = _resolved_pairs(
+        "class SourceService:\n"
+        "    def material(self): ...\n"
+        "def route(record):\n"
+        "    return record.material\n"
+    )
+
+    assert ("SourceService", "material") not in pairs
