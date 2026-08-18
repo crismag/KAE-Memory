@@ -2120,6 +2120,56 @@ class MaterialReportResponse(BaseModel):
         )
 
 
+class IngestedDocumentResponse(BaseModel):
+    """One document read out of a source, and when it was last read."""
+
+    #: The coordinate the ingesting run named — for a repository, the path
+    #: within it. The ingester's own word, not a name reconstructed from the
+    #: source location and a guess about layout.
+    document: str
+    #: Ingestion runs that produced text for this document. More than one
+    #: because a long file is chunked, which is why a document count and a body
+    #: count are different numbers.
+    stored_bodies: int
+    last_read_at: datetime | None
+
+    @classmethod
+    def of(cls, document: Any) -> "IngestedDocumentResponse":
+        return cls(
+            document=document.document,
+            stored_bodies=document.stored_bodies,
+            last_read_at=document.last_read_at,
+        )
+
+
+class SourceDocumentsResponse(BaseModel):
+    """Which documents a source taught KAE, named rather than counted.
+
+    `/source-material` answers *how much*; this answers *which*. A person shown
+    only a total cannot tell whether the include paths caught what they meant.
+    """
+
+    source_id: str
+    documents: list[IngestedDocumentResponse]
+    #: Every distinct document under this source, not just the ones listed —
+    #: so a page can say *412, showing 200* rather than implying 200 is all
+    #: there is.
+    total_documents: int
+    #: Whether documents exist that this response does not name. Computed here
+    #: rather than left to a caller comparing two numbers, since a caller that
+    #: forgot to compare would present a partial list as complete.
+    truncated: bool
+
+    @classmethod
+    def of(cls, listing: Any) -> "SourceDocumentsResponse":
+        return cls(
+            source_id=listing.source_id,
+            documents=[IngestedDocumentResponse.of(entry) for entry in listing.documents],
+            total_documents=listing.total_documents,
+            truncated=listing.truncated,
+        )
+
+
 class PutSynthesizedObjectRequest(BaseModel):
     """Create or update a working-model object. Idempotent by identity_key."""
 

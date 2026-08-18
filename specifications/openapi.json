@@ -2290,6 +2290,38 @@
         "title": "IngestDocumentRequest",
         "type": "object"
       },
+      "IngestedDocumentResponse": {
+        "description": "One document read out of a source, and when it was last read.",
+        "properties": {
+          "document": {
+            "title": "Document",
+            "type": "string"
+          },
+          "last_read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Read At"
+          },
+          "stored_bodies": {
+            "title": "Stored Bodies",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document",
+          "stored_bodies",
+          "last_read_at"
+        ],
+        "title": "IngestedDocumentResponse",
+        "type": "object"
+      },
       "IngestionResponse": {
         "description": "What an ingestion recorded, and what it did not.\n\nThree facts stay separate and only one of them is yes: text recorded,\nextraction queued, knowledge unchanged. A caller reading \"recorded\" as\n\"known\" would plan against statements no run has produced and no person has\nconfirmed.",
         "properties": {
@@ -5475,6 +5507,38 @@
           "targets"
         ],
         "title": "SetupStateResponse",
+        "type": "object"
+      },
+      "SourceDocumentsResponse": {
+        "description": "Which documents a source taught KAE, named rather than counted.\n\n`/source-material` answers *how much*; this answers *which*. A person shown\nonly a total cannot tell whether the include paths caught what they meant.",
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/IngestedDocumentResponse"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "total_documents": {
+            "title": "Total Documents",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source_id",
+          "documents",
+          "total_documents",
+          "truncated"
+        ],
+        "title": "SourceDocumentsResponse",
         "type": "object"
       },
       "SourceMaterialResponse": {
@@ -11687,6 +11751,70 @@
           }
         },
         "summary": "Classify Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/sources/{source_id}/documents": {
+      "get": {
+        "description": "Which documents this source taught KAE, named rather than counted.\n\n`/source-material` says a repository produced 412 documents; this says which\n412. The difference matters to the person who has to decide whether the\ninclude paths caught what they meant, and a total cannot tell them.\n\n**The documents, not the statements they produced.** Following each one to\nits knowledge is another join and another route; folding it in here would\nmake every caller who only wanted the file list pay for it.\n\nTruncated rather than paginated. `total_documents` says how many exist and\n`truncated` says the list is short, which is what a page needs to avoid\npresenting a prefix as the whole set; cursors can be added when somebody\nactually needs to walk past the ceiling.",
+        "operationId": "source_documents_v1_projects__project_id__sources__source_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceDocumentsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source Documents",
         "tags": [
           "sources"
         ]

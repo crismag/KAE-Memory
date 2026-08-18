@@ -431,6 +431,7 @@ REGISTRY: tuple[Capability, ...] = (
             "POST /v1/projects/{project_id}/sources/{source_id}/disposition",
             "POST /v1/projects/{project_id}/sources/{source_id}/retirement",
             "DELETE /v1/projects/{project_id}/sources/{source_id}/retirement",
+            "GET /v1/projects/{project_id}/sources/{source_id}/documents",
             "GET /v1/projects/{project_id}/source-material",
         ),
         reason=(

@@ -36,6 +36,21 @@ from kae_memory.domain.source_dispositions import ensure_source_disposition
 from kae_memory.persistence.tables import AgentRunRow, ProjectSourceRow
 from kae_memory.persistence.transactions import run_transaction
 
+DEFAULT_DOCUMENT_LIMIT = 200
+"""Documents named in one listing unless the caller asks for fewer or more.
+
+Enough that a hand-picked set of files is shown whole, small enough that a
+repository ingested whole does not arrive as one response.
+"""
+
+MAX_DOCUMENT_LIMIT = 1000
+"""The largest listing this service will produce.
+
+Refused rather than silently clamped: a caller that asked for 5000 and was
+handed 1000 without being told would read `truncated` as *there are more* when
+what happened is *you may not have them all at once*.
+"""
+
 
 class SourceNotFoundError(LookupError):
     """No source with that identifier exists in this project."""
@@ -127,6 +142,50 @@ class MaterialReport:
     can reach is the part a person most needs told.
     """
     unattributed_bodies: int
+
+
+@dataclass(frozen=True, slots=True)
+class IngestedDocument:
+    """One document read out of a source, and when it was last read."""
+
+    document: str
+    """The coordinate a run named — for a repository, the path within it.
+
+    Written by `IngestionService.ingest_document` into `input_context`, so it is
+    the ingester's own word for what it read rather than a name reconstructed
+    here from a source location and a guess about layout.
+    """
+    stored_bodies: int
+    """Ingestion runs that produced text for this document.
+
+    More than one because a long file is chunked and re-ingested; the same
+    number `SourceMaterial.stored_bodies` totals across a source.
+    """
+    last_read_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceDocuments:
+    """What a source actually taught KAE, named rather than counted.
+
+    `material` answers *how much* and this answers *which*. A person shown
+    "412 documents" cannot tell whether the include paths caught what they
+    meant, and that is the question a retention or scope decision turns on.
+    """
+
+    source_id: str
+    documents: tuple[IngestedDocument, ...]
+    total_documents: int
+    """Every distinct document under this source, not just the ones listed.
+
+    Served beside a truncated list rather than left to be inferred from its
+    length, so a page can say *412, showing 200* instead of implying 200 is all
+    there is.
+    """
+
+    @property
+    def truncated(self) -> bool:
+        return len(self.documents) < self.total_documents
 
 
 class SourceService:
@@ -302,6 +361,84 @@ class SourceService:
                 sources=tuple(materials),
                 unattributed_documents=unattributed[0],
                 unattributed_bodies=unattributed[1],
+            )
+
+        return run_transaction(self._session_factory, operation)
+
+    def documents(
+        self, project_id: ProjectId, source_id: str, limit: int = DEFAULT_DOCUMENT_LIMIT
+    ) -> SourceDocuments:
+        """Which documents this source taught KAE, and when each was last read.
+
+        `material` counts; this names. The counts let somebody sanity-check the
+        scale of a retention decision, but a person deciding whether the include
+        paths caught what they meant needs the paths themselves, and until this
+        the run's own `input_context["document"]` was grouped on and then thrown
+        away by the only query that touched it.
+
+        **Documents, not the statements they produced.** The run id that links a
+        document to its knowledge is a further join and a further row; a list
+        that quietly became a knowledge query would be slower for every caller
+        that only wanted to know what was read.
+
+        The ceiling is on documents rather than runs deliberately. A repository
+        ingested whole is one document per file and many bodies per document, so
+        a limit on rows read would truncate unpredictably — a source with long
+        files showing fewer paths than one with short files. `total_documents`
+        is reported alongside so a truncated list says so instead of passing for
+        the whole set.
+
+        Ordered by coordinate, so the prefix a truncated list shows is the same
+        one every time. Ordering by recency would make the visible half change
+        under a re-ingestion without anything having been read that was not
+        read before.
+
+        Retired sources are answered exactly like read ones. Stopping a source
+        does not remove what it taught (`D-230`), so refusing to name its
+        documents would hide precisely the material somebody stopped it to
+        reason about.
+        """
+
+        if limit < 1:
+            raise DomainInvariantError("a document listing needs a limit of at least 1")
+        if limit > MAX_DOCUMENT_LIMIT:
+            raise DomainInvariantError(
+                f"a document listing is capped at {MAX_DOCUMENT_LIMIT} documents"
+            )
+
+        source_key = AgentRunRow.input_context["source_id"].astext
+        document_key = AgentRunRow.input_context["document"].astext
+
+        def operation(session: DbSession) -> SourceDocuments:
+            row = _require(session, project_id, source_id)
+            belongs = (
+                AgentRunRow.project_id == str(project_id),
+                source_key == row.source_id,
+                document_key.isnot(None),
+            )
+            total = session.scalar(select(func.count(func.distinct(document_key))).where(*belongs))
+            listed = session.execute(
+                select(
+                    document_key.label("document"),
+                    func.count().label("bodies"),
+                    func.max(AgentRunRow.created_at).label("last_read_at"),
+                )
+                .where(*belongs)
+                .group_by(document_key)
+                .order_by(document_key)
+                .limit(limit)
+            ).all()
+            return SourceDocuments(
+                source_id=row.source_id,
+                documents=tuple(
+                    IngestedDocument(
+                        document=entry.document,
+                        stored_bodies=entry.bodies,
+                        last_read_at=entry.last_read_at,
+                    )
+                    for entry in listed
+                ),
+                total_documents=total or 0,
             )
 
         return run_transaction(self._session_factory, operation)

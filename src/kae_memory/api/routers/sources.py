@@ -14,9 +14,13 @@ and discovers a refusal; these record what it was told. Memory verifying the
 same thing independently would give two systems an opinion about one lifecycle.
 """
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
-from kae_memory.application.source_service import SourceNotFoundError
+from kae_memory.application.source_service import (
+    DEFAULT_DOCUMENT_LIMIT,
+    MAX_DOCUMENT_LIMIT,
+    SourceNotFoundError,
+)
 from kae_memory.domain.errors import DomainInvariantError
 from kae_memory.domain.identifiers import ProjectId
 
@@ -28,6 +32,7 @@ from ..schemas import (
     PinSourceRequest,
     RecordSourceStateRequest,
     RegisterSourceRequest,
+    SourceDocumentsResponse,
     SourceResponse,
 )
 
@@ -120,6 +125,39 @@ def get_source(project_id: str, source_id: str, memory: Memory, sources: Sources
         return SourceResponse.of(sources.get(resolved, source_id))
     except SourceNotFoundError as error:
         raise not_found("source", source_id) from error
+
+
+@router.get("/sources/{source_id}/documents", response_model=SourceDocumentsResponse)
+def source_documents(
+    project_id: str,
+    source_id: str,
+    memory: Memory,
+    sources: Sources,
+    limit: int = Query(DEFAULT_DOCUMENT_LIMIT, ge=1, le=MAX_DOCUMENT_LIMIT),
+) -> SourceDocumentsResponse:
+    """Which documents this source taught KAE, named rather than counted.
+
+    `/source-material` says a repository produced 412 documents; this says which
+    412. The difference matters to the person who has to decide whether the
+    include paths caught what they meant, and a total cannot tell them.
+
+    **The documents, not the statements they produced.** Following each one to
+    its knowledge is another join and another route; folding it in here would
+    make every caller who only wanted the file list pay for it.
+
+    Truncated rather than paginated. `total_documents` says how many exist and
+    `truncated` says the list is short, which is what a page needs to avoid
+    presenting a prefix as the whole set; cursors can be added when somebody
+    actually needs to walk past the ceiling.
+    """
+
+    resolved = _project(project_id, memory)
+    try:
+        return SourceDocumentsResponse.of(sources.documents(resolved, source_id, limit))
+    except SourceNotFoundError as error:
+        raise not_found("source", source_id) from error
+    except DomainInvariantError as error:
+        raise _refuse(error) from error
 
 
 @router.post("/sources/{source_id}/state", response_model=SourceResponse)
