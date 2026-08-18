@@ -302,7 +302,13 @@ def clarification_candidates(
     """
 
     resolved = _project(project_id, memory)
-    found = clarifications.candidates(resolved, limit=limit, include_deferred=include_deferred)
+    # The service is asked for everything and the schema does the cut (`D-281`).
+    # Truncating twice made `omitted` zero on every call ever made — `of`
+    # subtracts what it was given from what it shows — so a project with more
+    # candidates than the ceiling was told none were left out, and `total`
+    # reported the page. `candidates` applies its own limit after iterating
+    # every pending clarification, so asking for all of them costs nothing.
+    found = clarifications.candidates(resolved, include_deferred=include_deferred)
     return QuestionCandidateListResponse.of(found, limit=limit)
 
 

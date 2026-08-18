@@ -173,6 +173,36 @@ def test_the_route_is_a_get_that_does_not_write(
     assert "did not ask anybody" in body["note"]
 
 
+def test_the_candidates_route_says_how_many_it_left_out(
+    factory: sessionmaker[Session], project: ProjectId
+) -> None:
+    """`D-281`. The route truncated twice, so `omitted` could never be non-zero.
+
+    `candidates(limit=…)` returns at most `limit`, and the schema then subtracts
+    what it was given from what it shows — zero, on every call ever made, while
+    the field's own docstring calls it *"work you have not seen"*. `total`
+    reported the size of the page rather than of the set, so neither number
+    could tell a caller it was holding a prefix.
+    """
+
+    from fastapi.testclient import TestClient
+
+    from kae_memory.api import create_app
+    from kae_memory.api.security import AuthPolicy
+
+    available = len(ClarificationService(factory).candidates(project))
+    assert available > 1, "this project must hold more than one candidate to prove anything"
+
+    with TestClient(create_app(factory, auth=AuthPolicy())) as client:
+        body = client.get(
+            f"/v1/projects/{project}/clarifications/candidates", params={"limit": 1}
+        ).json()
+
+    assert len(body["candidates"]) == 1
+    assert body["total"] == available, "total reported the page rather than the set"
+    assert body["omitted"] == available - 1, "the route claimed it had left nothing out"
+
+
 def test_a_limit_bounds_what_is_asked_not_only_what_is_returned(
     factory: sessionmaker[Session], project: ProjectId
 ) -> None:
