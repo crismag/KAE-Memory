@@ -79,6 +79,7 @@ from ..schemas import (
     ClarificationListResponse,
     ClarificationResponse,
     ConfigureFieldRequest,
+    ConfirmKnowledgeRequest,
     CorrectKnowledgeRequest,
     DeliverableListResponse,
     DeliverableResponse,
@@ -190,6 +191,42 @@ def ingest_document(
     except SourceNotFoundError as error:
         raise not_found("source", str(body.source_id)) from error
     return IngestionResponse.of(result)
+
+
+@router.post(
+    "/projects/{project_id}/knowledge/{item_id}/confirm", response_model=KnowledgeReviewResponse
+)
+def confirm_knowledge(
+    project_id: str, item_id: str, body: ConfirmKnowledgeRequest, memory: Memory
+) -> KnowledgeReviewResponse:
+    """Record a person's decision to accept a candidate as authoritative.
+
+    The reviewed counterpart to `POST /v1/knowledge/{item_id}/confirm`, which
+    takes no body and therefore records no reviewer and no version. HTTP review
+    was one-sided in a second way (`D-304`): reject and correct were added over
+    `review_*`, so every rejection names who made it and is refused against
+    wording that has moved, and confirmation — the decision that makes a
+    statement authoritative — did neither.
+
+    `reviewer` is required for the reason `kae_confirm_knowledge` states: an
+    audit trail must never say a person decided without naming which person.
+    That rule reached the agent surface and not the product's.
+
+    The older route stays. Callers holding an item and no version still have it,
+    and requiring a body there would break them without giving them one to send.
+    """
+
+    resolved = _project(project_id, memory)
+    return KnowledgeReviewResponse.of(
+        memory.review_confirm(
+            resolved,
+            KnowledgeItemId(item_id),
+            expected_version=body.expected_version,
+            actor_id=body.reviewer,
+            note=body.note,
+            idempotency_key=body.idempotency_key,
+        )
+    )
 
 
 @router.post(

@@ -3,7 +3,7 @@
 
 # HTTP API
 
-92 paths, 107 operations — 49 GET, 56 POST.
+93 paths, 108 operations — 49 GET, 57 POST.
 
 Recorded in [`specifications/openapi.json`](../../specifications/openapi.json),
 which `tests/api/test_recorded_contract.py` compares against the running
@@ -77,7 +77,7 @@ Request and response schemas are in that document. This page is the map.
 
 ---
 
-## Writes (56)
+## Writes (57)
 
 POST throughout, including some operations that read. Listing clarifications
 **materialises** the questions it returns, so it is a POST deliberately — a GET
@@ -107,6 +107,7 @@ that mutates is one a browser prefetch performs again
 | `POST /v1/projects/{project_id}/deliverables/{deliverable_id}/withdraw` | Supersede or withdraw a recorded deliverable |
 | `POST /v1/projects/{project_id}/documents` | Record a document as evidence and queue its extraction |
 | `POST /v1/projects/{project_id}/knowledge/confirm` | Transitional: relay a person's single decision to accept a named set of extracted candidate rows. Not the attention queue (ADR-0007). |
+| `POST /v1/projects/{project_id}/knowledge/{item_id}/confirm` | Transitional: relay a person's decision to accept an extracted candidate row. Not the attention queue (ADR-0007). |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` | Record corrected wording as a new version |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/evidence-role` | Set how an extracted row participates in reasoning |
 | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). |

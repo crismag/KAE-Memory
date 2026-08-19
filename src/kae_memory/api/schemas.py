@@ -986,6 +986,25 @@ class IngestionResponse(BaseModel):
         )
 
 
+class ConfirmKnowledgeRequest(BaseModel):
+    """A person's decision to accept one candidate, and who made it.
+
+    `reviewer` is required for the reason `kae_confirm_knowledge` gives on the
+    MCP side: confirmation is a human act, and a record that does not name the
+    person cannot be audited. The transitional `POST /v1/knowledge/{item_id}/confirm`
+    takes no body at all, so a confirmation made through it names nobody while
+    every rejection names somebody (`D-304`).
+
+    `expected_version` for the reason the rejection route gives: a decision must
+    not be applied to wording that changed after the reviewer read it.
+    """
+
+    expected_version: int = Field(ge=1)
+    reviewer: str = Field(min_length=1)
+    note: str | None = None
+    idempotency_key: str | None = None
+
+
 class RejectKnowledgeRequest(BaseModel):
     expected_version: int = Field(ge=1)
     reviewer: str = Field(min_length=1)

@@ -121,7 +121,14 @@ REGISTRY: tuple[Capability, ...] = (
         ),
         exposure=Exposure.BOTH,
         mcp=("kae_confirm_knowledge",),
-        http=("POST /v1/knowledge/{item_id}/confirm",),
+        # Two doors, one attributable and one not. The project-scoped route
+        # reaches `review_confirm` and records who decided and at which version;
+        # the older one is a bare lifecycle flip kept for callers that hold an
+        # item and no version (`D-304`).
+        http=(
+            "POST /v1/projects/{project_id}/knowledge/{item_id}/confirm",
+            "POST /v1/knowledge/{item_id}/confirm",
+        ),
     ),
     Capability(
         key="readiness.extraction_coverage",

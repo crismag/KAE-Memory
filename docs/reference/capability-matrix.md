@@ -37,7 +37,7 @@ either is missing one of these — absence is a defect, not a decision.
 | `deliverable.list` | Recorded deliverables, newest first, with derived staleness | `kae_list_deliverables` | `GET /v1/projects/{project_id}/deliverables` |
 | `deliverable.record` | Record an assembled output as a durable deliverable | `kae_record_deliverable` | `POST /v1/projects/{project_id}/deliverables` |
 | `document.ingest` | Record a document as evidence and queue its extraction | `kae_ingest_document` | `POST /v1/projects/{project_id}/documents` |
-| `knowledge.confirm` | Transitional: relay a person's decision to accept an extracted candidate row. Not the attention queue (ADR-0007). | `kae_confirm_knowledge` | `POST /v1/knowledge/{item_id}/confirm` |
+| `knowledge.confirm` | Transitional: relay a person's decision to accept an extracted candidate row. Not the attention queue (ADR-0007). | `kae_confirm_knowledge` | `POST /v1/projects/{project_id}/knowledge/{item_id}/confirm`, `POST /v1/knowledge/{item_id}/confirm` |
 | `knowledge.correct` | Record corrected wording as a new version | `kae_correct_knowledge` | `POST /v1/projects/{project_id}/knowledge/{item_id}/correct` |
 | `knowledge.reject` | Transitional: relay a person's decision to refuse an extracted candidate row. Not the attention queue (ADR-0007). | `kae_reject_knowledge` | `POST /v1/projects/{project_id}/knowledge/{item_id}/reject` |
 | `knowledge.search` | Search project knowledge without loading the project | `kae_search_knowledge` | `GET /v1/projects/{project_id}/knowledge/search` |

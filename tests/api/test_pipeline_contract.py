@@ -36,10 +36,11 @@ from kae_memory.application.readiness_service import ReadinessService
 from kae_memory.application.retrieval_service import RetrievalService
 from kae_memory.application.review_service import ReviewService
 from kae_memory.domain.execution import AgentRole
-from kae_memory.domain.identifiers import ProjectId
+from kae_memory.domain.identifiers import KnowledgeItemId, ProjectId
 from kae_memory.domain.models import KnowledgeKind
 from kae_memory.mcp import tools
 from kae_memory.mcp.server import dispatch
+from kae_memory.persistence.review_event_repository import ReviewEventRepository
 
 DOCUMENT = "docs/requirements.md"
 TEXT = "\n\n".join(
@@ -348,6 +349,91 @@ class TestReviewIsNoLongerOneSided:
         _seed_knowledge(factory, project_id)
         item = memory.retrieve_knowledge(ProjectId(project_id), lifecycle=None)[0]
         return str(item.id), item.current_version.number
+
+    def test_a_confirmation_names_the_person_who_made_it(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """`D-304`: rejecting was attributable over HTTP and confirming was not.
+
+        Read out of the event log rather than off the response, because the
+        response would say the same thing if nothing were written.
+        """
+
+        item_id, version = self._candidate(factory, project_id)
+
+        response = client.post(
+            f"/v1/projects/{project_id}/knowledge/{item_id}/confirm",
+            json={"expected_version": version, "reviewer": "cris"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["lifecycle"] == "validated"
+        with factory() as session:
+            events = ReviewEventRepository(session).history_for(KnowledgeItemId(item_id))
+        assert [(event.action.value, event.actor_id) for event in events] == [
+            ("knowledge_validated", "cris")
+        ]
+
+    def test_a_confirmation_of_wording_that_moved_is_refused(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """The rule rejection already applied, applied to the other button.
+
+        Confirming text nobody read is the worse of the two: a rejection of
+        moved wording loses a candidate, a confirmation of it makes something
+        authoritative that was never on anyone's screen.
+        """
+
+        item_id, version = self._candidate(factory, project_id)
+
+        response = client.post(
+            f"/v1/projects/{project_id}/knowledge/{item_id}/confirm",
+            json={"expected_version": version + 5, "reviewer": "cris"},
+        )
+
+        assert response.status_code in {409, 422}
+
+    def test_a_confirmation_names_a_reviewer_or_is_refused(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        item_id, version = self._candidate(factory, project_id)
+
+        response = client.post(
+            f"/v1/projects/{project_id}/knowledge/{item_id}/confirm",
+            json={"expected_version": version, "reviewer": ""},
+        )
+
+        assert response.status_code == 422
+
+    def test_the_key_and_the_note_reach_the_recorded_decision(
+        self, client: TestClient, factory: sessionmaker[Session], project_id: str
+    ) -> None:
+        """Read off the event, because a replay is honest without either of them.
+
+        The service already answers a second press of an already-confirmed item
+        as a replay whether or not a key was supplied, so asserting `replayed`
+        would pass over a route that dropped the body. What only this route can
+        get wrong is carrying what the caller sent.
+        """
+
+        item_id, version = self._candidate(factory, project_id)
+        body = {
+            "expected_version": version,
+            "reviewer": "cris",
+            "note": "Agreed in the review session.",
+            "idempotency_key": "press-1",
+        }
+
+        first = client.post(f"/v1/projects/{project_id}/knowledge/{item_id}/confirm", json=body)
+        second = client.post(f"/v1/projects/{project_id}/knowledge/{item_id}/confirm", json=body)
+
+        assert (first.status_code, second.status_code) == (200, 200)
+        assert second.json()["replayed"] is True
+        with factory() as session:
+            events = ReviewEventRepository(session).history_for(KnowledgeItemId(item_id))
+        assert len(events) == 1
+        assert events[0].idempotency_key == "press-1"
+        assert events[0].note == "Agreed in the review session."
 
     def test_a_candidate_can_be_rejected(
         self, client: TestClient, factory: sessionmaker[Session], project_id: str

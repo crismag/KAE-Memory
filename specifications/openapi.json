@@ -1315,6 +1315,49 @@
         "title": "ConfigureFieldRequest",
         "type": "object"
       },
+      "ConfirmKnowledgeRequest": {
+        "description": "A person's decision to accept one candidate, and who made it.\n\n`reviewer` is required for the reason `kae_confirm_knowledge` gives on the\nMCP side: confirmation is a human act, and a record that does not name the\nperson cannot be audited. The transitional `POST /v1/knowledge/{item_id}/confirm`\ntakes no body at all, so a confirmation made through it names nobody while\nevery rejection names somebody (`D-304`).\n\n`expected_version` for the reason the rejection route gives: a decision must\nnot be applied to wording that changed after the reviewer read it.",
+        "properties": {
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "reviewer": {
+            "minLength": 1,
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "reviewer"
+        ],
+        "title": "ConfirmKnowledgeRequest",
+        "type": "object"
+      },
       "ConfirmKnowledgeSetRequest": {
         "description": "The items a person's single \"yes\" applies to.\n\nNon-empty by constraint. An empty set is not a smaller confirmation; it is a\ncaller that lost track of what it was asking about, and answering 200 with\nan empty list would let it carry on believing something was confirmed.\n\nBounded because a confirmation set describes one synthesis. A request naming\nfive hundred items is a caller confirming a whole project by accident, which\nis exactly the \"silently becomes user-confirmed\" failure the directive\nforbids.",
         "properties": {
@@ -8734,6 +8777,68 @@
           }
         },
         "summary": "Search Knowledge",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/projects/{project_id}/knowledge/{item_id}/confirm": {
+      "post": {
+        "description": "Record a person's decision to accept a candidate as authoritative.\n\nThe reviewed counterpart to `POST /v1/knowledge/{item_id}/confirm`, which\ntakes no body and therefore records no reviewer and no version. HTTP review\nwas one-sided in a second way (`D-304`): reject and correct were added over\n`review_*`, so every rejection names who made it and is refused against\nwording that has moved, and confirmation \u2014 the decision that makes a\nstatement authoritative \u2014 did neither.\n\n`reviewer` is required for the reason `kae_confirm_knowledge` states: an\naudit trail must never say a person decided without naming which person.\nThat rule reached the agent surface and not the product's.\n\nThe older route stays. Callers holding an item and no version still have it,\nand requiring a body there would break them without giving them one to send.",
+        "operationId": "confirm_knowledge_v1_projects__project_id__knowledge__item_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmKnowledgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Knowledge",
         "tags": [
           "pipeline"
         ]
