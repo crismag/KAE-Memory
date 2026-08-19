@@ -303,6 +303,31 @@ class TestSix_GenerateNowWithImportantQuestionsOpen:
 
         assert recorded["provisional_context"]["question_pins"]
 
+    def test_the_agent_is_told_what_was_unresolved_in_the_same_words_the_person_is(
+        self, context: tools.ToolContext, factory: sessionmaker[Session]
+    ) -> None:
+        """`D-293`: the manifest reached the HTTP reader and not this one.
+
+        `provisional_context` counts the uncertainty; the manifest quotes it —
+        each gap's summary and the assembly's own warnings — and a record
+        written before provisional context existed has nothing else.
+        """
+
+        project_id = _project(context, "Impatient", "n41-now-4")
+        _confirm(factory, project_id, "Notes are markdown.", "n41-6d")
+
+        recorded = dispatch(
+            context, "kae_record_deliverable", {"project_id": project_id, "purpose": "discovery"}
+        )
+        manifest = recorded["manifest"]
+
+        assert (
+            manifest["confirmation_state"]["confirmed"]
+            == (recorded["provisional_context"]["confirmed"])
+        )
+        assert isinstance(manifest["unresolved_critical_gaps"], list)
+        assert isinstance(manifest["warnings"], list)
+
 
 class TestSeven_ReproducingAHistoricalProvisionalDeliverable:
     """The claim, not only the bytes."""

@@ -1015,6 +1015,13 @@ def _deliverable_payload(deliverable: Any, current_revision: int) -> dict[str, A
             for artifact in deliverable.artifacts
         ],
         "source_knowledge": list(deliverable.source_knowledge),
+        # What was unresolved when this was produced, in the words recorded at
+        # the time: the gap summaries and the assembly's own warnings, which
+        # `provisional_context` counts but does not quote. Carried verbatim
+        # because it is a frozen record, and served here because the HTTP reader
+        # has always had it — an agent and a person reading the same deliverable
+        # must not be told different things about it.
+        "manifest": dict(deliverable.manifest),
         "recorded_by": deliverable.recorded_by,
         "superseded_by": deliverable.superseded_by,
         "rendered": False,
