@@ -236,6 +236,40 @@ class TestBounding:
         assert result["omitted"] is not None
         assert result["omitted"]["available"] > 1
 
+    def test_settled_questions_are_not_counted_as_left_over(
+        self, context: tools.ToolContext, project_id: str
+    ) -> None:
+        """`available` counted every derived clarification, settled or not.
+
+        So answered questions still reported as a queue of work, under a key
+        whose whole purpose is telling a caller the list is not everything
+        (`D-325`).
+
+        All but one question is answered, and the bound is the one that
+        remains. Both halves of that are load-bearing: the report is only
+        produced when the page is full, so a settled project returns nothing
+        and is waved through before the count is ever consulted — the defect
+        is unreachable that way. What reaches it is a full page with settled
+        questions behind it.
+        """
+
+        from kae_memory.domain.identifiers import MessageId
+
+        assert context.clarification is not None
+        questions = _get(context, project_id=project_id, limit=50)["questions"]
+        assert len(questions) > 1, "the fixture must raise a queue worth settling"
+        for question in questions[1:]:
+            context.clarification.answer(
+                ProjectId(project_id),
+                MessageId(question["clarification_id"]),
+                "Roughly 25 ministries.",
+            )
+
+        result = _get(context, project_id=project_id, limit=1)
+
+        assert result["count"] == 1
+        assert result["omitted"] is None
+
     def test_an_unbounded_result_reports_no_truncation(
         self, context: tools.ToolContext, project_id: str
     ) -> None:

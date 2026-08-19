@@ -99,7 +99,11 @@ class TestTheReasonSurvivesEveryHop:
     def test_both_http_renderings_print_it(self, project: tuple[Any, ...]) -> None:
         clarify, _, project_id = project
 
-        questions = ClarificationListResponse.of(clarify.open_questions(project_id), limit=5)
+        questions = ClarificationListResponse.of(
+            clarify.open_questions(project_id),
+            limit=5,
+            total=clarify.unsettled_count(project_id),
+        )
         candidates = QuestionCandidateListResponse.of(clarify.candidates(project_id), limit=5)
 
         assert questions.questions
@@ -127,7 +131,7 @@ class TestAnAbsenceIsStated:
         silent = replace(question, reason="")
 
         assert _render_question(silent)["reason"] == REASON_UNSTATED
-        assert ClarificationListResponse.of([silent], limit=1).questions[0].reason == (
+        assert ClarificationListResponse.of([silent], limit=1, total=1).questions[0].reason == (
             REASON_UNSTATED
         )
 

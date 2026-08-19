@@ -308,7 +308,12 @@ def open_clarifications(
 
     resolved = _project(project_id, memory)
     questions = clarifications.open_questions(resolved, limit=limit)
-    return ClarificationListResponse.of(questions, limit=limit)
+    # Counted separately, and it writes nothing. `open_questions` breaks out of
+    # its loop at the limit, so it cannot say how much it did not reach without
+    # asking people questions in order to count them (`D-325`).
+    return ClarificationListResponse.of(
+        questions, limit=limit, total=clarifications.unsettled_count(resolved)
+    )
 
 
 @router.get(

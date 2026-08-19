@@ -2269,7 +2269,9 @@ def kae_get_clarifications(
         # uses it for fields a detail level dropped. Two different omissions
         # under one key would leave a caller unable to tell "questions you did
         # not see" from "fields we compacted away".
-        "omitted": _clarification_omitted(context, project.id, len(questions), bound),
+        "omitted": _clarification_omitted(
+            context, project.id, len(questions), bound, include_deferred
+        ),
         "note": (
             "Answer with kae_answer_clarification. An answer is recorded as "
             "evidence and extracted into proposed knowledge; a person still "
@@ -2313,7 +2315,11 @@ def _render_question(question: OpenQuestion) -> dict[str, Any]:
 
 
 def _clarification_omitted(
-    context: ToolContext, project_id: Any, returned: int, bound: int
+    context: ToolContext,
+    project_id: Any,
+    returned: int,
+    bound: int,
+    include_deferred: bool = False,
 ) -> dict[str, Any] | None:
     """Report the questions this bound left out.
 
@@ -2324,7 +2330,12 @@ def _clarification_omitted(
 
     if returned < bound or context.clarification is None:
         return None
-    total = len(context.clarification.pending(project_id))
+    # `pending()` is every derived clarification, unfiltered by disposition,
+    # while the list above drops settled questions and holds deferred ones
+    # back. Counting it reported a queue full of work on a project whose
+    # questions had all been answered — the same field wrong in the opposite
+    # direction to the HTTP route's zero (`D-325`).
+    total = context.clarification.unsettled_count(project_id, include_deferred=include_deferred)
     if total <= returned:
         return None
     return {

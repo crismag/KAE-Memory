@@ -339,6 +339,25 @@ class ClarificationService:
             )
         return tuple(found[:limit] if limit is not None else found)
 
+    def unsettled_count(self, project_id: ProjectId, include_deferred: bool = False) -> int:
+        """How many questions are owed, counted without asking any of them.
+
+        What :meth:`open_questions` cannot tell a caller. Its ``limit`` bounds
+        what is **materialised**, so it breaks out of the loop and never learns
+        how much it did not reach — and a caller reading a full page cannot
+        distinguish a queue that ended from one that was cut off.
+
+        Counting by materialising would ask people questions in order to count
+        them, which is the defect that break exists to prevent. So this
+        delegates to :meth:`candidates`, which walks the same clarifications,
+        writes nothing, and applies filtering that matches
+        :meth:`open_questions` exactly. Re-deriving that predicate here would
+        make two implementations of one rule, and their disagreement would be
+        silent because both return an integer.
+        """
+
+        return len(self.candidates(project_id, include_deferred=include_deferred))
+
     def open_questions(
         self,
         project_id: ProjectId,

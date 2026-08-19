@@ -1106,7 +1106,21 @@ class ClarificationListResponse(BaseModel):
     note: str
 
     @classmethod
-    def of(cls, questions: Sequence[Any], limit: int) -> "ClarificationListResponse":
+    def of(cls, questions: Sequence[Any], limit: int, total: int) -> "ClarificationListResponse":
+        """``total`` is the size of the set, and it is required for that reason.
+
+        This cannot be derived from ``questions`` the way the candidate
+        envelope derives it: the producer materialises what it returns, so it
+        is handed a page rather than the whole queue and every number computed
+        from that page is a statement about the page. `total=len(questions)`
+        was exactly that, and `omitted` was zero on every call ever made
+        (`D-281`, `ASK-OMITTED-POST`).
+
+        Defaulting it would leave the wrong answer reachable by omission, which
+        is the failure mode where a caller gets the old number for writing
+        nothing.
+        """
+
         shown = list(questions)[:limit]
         return cls(
             questions=[
@@ -1120,8 +1134,8 @@ class ClarificationListResponse(BaseModel):
                 )
                 for question in shown
             ],
-            total=len(questions),
-            omitted=max(0, len(questions) - len(shown)),
+            total=total,
+            omitted=max(0, total - len(shown)),
             note=(
                 "These are unresolved. Do not choose an answer on the project's "
                 "behalf; if one blocks the work, report it and stop."
