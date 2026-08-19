@@ -334,6 +334,19 @@ class BlueprintService:
             engine: str | None = None
             if produced_by is not None:
                 run = AgentRunRepository(session).get(produced_by)
+                # Which document the words were read out of (`D-315`). Written
+                # by `IngestionService.ingest_document` and read until now only
+                # by the per-source counts and the documents listing — so a
+                # statement extracted from a repository file led back to a
+                # discovery-session message and stopped, and nothing in its
+                # chain of custody said the file's name.
+                #
+                # Absent on a statement extracted from something somebody said,
+                # which has no document and must not be given one.
+                context = (run.input_context if run else None) or {}
+                document = context.get("document")
+                if isinstance(document, str) and document:
+                    steps.append(TraceStep("source_document", document))
                 summary = (run.output_summary if run else None) or {}
                 candidate = summary.get("model")
                 engine = candidate if isinstance(candidate, str) and candidate else None

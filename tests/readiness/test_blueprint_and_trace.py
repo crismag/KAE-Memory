@@ -244,6 +244,76 @@ def test_trace_resolves_a_statement_to_its_evidence(factory: sessionmaker[Sessio
     assert any(step.relation == "knowledge_version" for step in trace.steps)
 
 
+DOCUMENT = "/mnt/ai/workspaces/CRIS-GVIE@b0ae5bc:README.md"
+
+
+def _seed_from_a_document(
+    factory: sessionmaker[Session],
+) -> tuple[ProjectId, KnowledgeItemId]:
+    """The same statement, extracted from an ingested file rather than said."""
+
+    memory = MemoryService(factory)
+    project = memory.create_project("Reference")
+    session = memory.open_session(project.id, SessionType.DISCOVERY)
+    message = memory.record_message(project.id, session.id, IDEA).message
+    run = memory.start_run(
+        project.id,
+        AgentRole.REQUIREMENTS,
+        "extract-from-document",
+        session_id=session.id,
+        input_context={"message_id": str(message.id), "document": DOCUMENT},
+    )
+    item = memory.write_knowledge(
+        run.id,
+        [
+            WriteKnowledgeRequest(
+                kind="requirement",
+                content="Ministry staff submit monthly reports.",
+                source=IDEA,
+                from_message_id=message.id,
+            )
+        ],
+    )[0]
+    return project.id, item.id
+
+
+def test_a_statement_read_out_of_a_document_names_the_document(
+    factory: sessionmaker[Session],
+) -> None:
+    """`D-315`: the file is the evidence, and the trace could not say which file.
+
+    The coordinate is asserted whole rather than by the path inside it: a
+    document's own text quotes its own name, so a check on `README.md` would
+    pass on the message body already in the trace and assert nothing (`D-32`).
+    """
+
+    _project_id, item_id = _seed_from_a_document(factory)
+
+    trace = BlueprintService(factory).trace(item_id)
+
+    assert trace is not None
+    documents = [step.reference for step in trace.steps if step.relation == "source_document"]
+    assert documents == [DOCUMENT]
+
+
+def test_a_statement_from_something_somebody_said_names_no_document(
+    factory: sessionmaker[Session],
+) -> None:
+    """The other half, and the one that keeps the first honest.
+
+    A run with no document in its context must not be given one — a trace that
+    named a document for every statement would make the distinction this exists
+    to draw unreadable in the opposite direction.
+    """
+
+    _project_id, item_id, _message_id, _run_id = _seed(factory)
+
+    trace = BlueprintService(factory).trace(item_id)
+
+    assert trace is not None
+    assert not [step for step in trace.steps if step.relation == "source_document"]
+
+
 def test_trace_records_which_runs_consumed_the_knowledge(
     factory: sessionmaker[Session],
 ) -> None:
