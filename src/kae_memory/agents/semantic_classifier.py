@@ -1,10 +1,18 @@
 """Classifying an observation by meaning rather than by pattern (N43).
 
 Resolves `OBSERVATION_CLASSIFICATION.md` §15 question 3. The deterministic
-classifier reads wording it has a rule for and reports `unclassified` for
-everything else, which is honest and is also most sentences: "we'll probably
-want some way to search the old ones" is a requirement written the way people
-actually write requirements, and no regular expression is going to find it.
+classifier reads wording it has a rule for, and where it has no rule it reports
+`unclassified`, which is honest. Where it has the *wrong* rule it is not, and
+that is the case this path is for: "we'll probably want some way to search the
+old ones" comes back from the rules as a `task`, filed as **operational** work
+somebody is doing, when nobody is doing anything. Reading it by meaning puts it
+in **evidence** instead — measured, not assumed (`D-312`).
+
+That example is also the honest limit of the claim. It does not come back as a
+`requirement` either, and by this module's own prompt it should not: "probably
+want" is a speaker visibly weighing something. What the semantic path buys here
+is a sentence filed where it belongs rather than promoted; whether the taxonomy
+draws that line in the right place is §15's question and not this module's.
 
 **Deliberately narrow.** This decides a retention *tier*, not what a project
 knows. Extraction produces candidate knowledge and is a separate path over the

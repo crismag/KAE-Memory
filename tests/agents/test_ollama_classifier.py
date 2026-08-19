@@ -19,6 +19,7 @@ from typing import Any
 import httpx
 import pytest
 
+from kae_memory.agents.observation_classifier import DeterministicObservationClassifier
 from kae_memory.agents.ollama_classifier import (
     OLLAMA_CLASSIFIER_NAME,
     OllamaObservationClassifier,
@@ -28,7 +29,7 @@ from kae_memory.agents.semantic_classifier import (
     CLASSIFICATION_SCHEMA,
     SEMANTIC_CLASSIFIER_NAME,
 )
-from kae_memory.domain.observation import ObservationClass
+from kae_memory.domain.observation import TIER_OF, ObservationClass
 
 TWO_SENTENCES = "The system must support search. I merged the branch this morning."
 
@@ -192,13 +193,24 @@ class TestItDegradesVisibly:
     reason="needs a running Ollama; set KAE_OLLAMA_LIVE=1",
 )
 class TestAgainstARealModel:
-    def test_it_reads_a_requirement_no_regular_expression_would_find(self) -> None:
+    def test_it_reads_the_sentence_into_a_different_tier_than_the_rule_does(self) -> None:
         """The sentence `semantic_classifier` opens by naming as the reason this
-        path exists at all."""
+        path exists at all.
+
+        Asserting merely *not unclassified* would pass on the fallback, which
+        answers `task` for this sentence — so it tested nothing the mocked cases
+        do not. What separates meaning from pattern is that the two disagree
+        about where the sentence belongs, and the class itself is deliberately
+        not pinned: it sits on a boundary the prompt draws finely, and binding
+        the suite to one model's side of it would fail the next model over a
+        question that is not about this adapter (`D-312`).
+        """
 
         classifier = OllamaObservationClassifier()
+        sentence = "we'll probably want some way to search the old ones."
 
-        spans = classifier.classify("we'll probably want some way to search the old ones.")
+        spans = classifier.classify(sentence)
+        by_rule = DeterministicObservationClassifier().classify(sentence)
 
         assert classifier.last_degraded is False
-        assert spans[0].classification is not ObservationClass.UNCLASSIFIED
+        assert TIER_OF[spans[0].classification] is not TIER_OF[by_rule[0].classification]
